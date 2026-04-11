@@ -35,6 +35,16 @@ class SMPL(SMPLBase):
         with resources.files('better_human.smpl.config').joinpath("body_densities.json").open('r') as f:
             self.body_densities = json.load(f)
 
+        self.kinematic_order = [
+            0, 
+            1, 4, 7, 10, 
+            2, 5, 8, 11, 
+            3, 6, 9, 
+            12, 15, 
+            13, 16, 18, 20, 22, 
+            14, 17, 19, 21, 23,
+        ]
+
     def from_classic(
         self,
         betas: torch.Tensor,

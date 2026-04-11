@@ -135,6 +135,8 @@ class SMPLSequence:
     def compute_InertiaMatrix(self, density_system: str = "Custom") -> dict:
         mass_data = compute_Mass_Inertia(self.model, self.betas, density_system=density_system)
 
+        self.total_mass = mass_data["mass"].sum(dim=1)  # (B)
+
         self.inertia_matrix = torch.zeros((self.batch_size, self.model.nj, 6, 6), device=self.betas.device)
 
         skew_com = pp.vec2skew(mass_data["com"])  # (B, J, 3, 3)

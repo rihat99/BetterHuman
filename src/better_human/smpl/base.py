@@ -93,15 +93,7 @@ class SMPLBase(Humanoid):
     def _compute_static_variables(self):
 
         self.ee_joints = set(self.parent_tree[1].tolist()) - set(self.parent_tree[0].tolist())
-        self.kinematic_order = [
-            0, 
-            1, 4, 7, 10, 
-            2, 5, 8, 11, 
-            3, 6, 9, 
-            12, 15, 
-            13, 16, 18, 20, 22, 
-            14, 17, 19, 21, 23,
-        ]
+        
 
         self.tree = [[]]
         # self.kinematic_order = [0]  # Root joint first
@@ -256,9 +248,9 @@ class SMPLBase(Humanoid):
         #     vertices_delta
         # ) # (B, V, 3)
 
-        adjusted_transform_matrices = world_transforms.clone()  # (B, 24, 4, 4)
+        adjusted_transform_matrices = world_transforms.clone()  # (B, J, 4, 4)
         neutral_joints_homogen = torch.nn.functional.pad(
-            neutral_joints, (0, 1), value=0.0)  # (B, 24, 4)
+            neutral_joints, (0, 1), value=0.0)  # (B, J, 4)
 
         # transform_matrices[:, :, :4, 3] -= (transform_matrices @ neutral_joints_homogen.unsqueeze(-1)).squeeze(-1)  # Adjust translation to match neutral joints
         adjusted_transform_matrices[:, :, :4, 3] = \
@@ -269,11 +261,11 @@ class SMPLBase(Humanoid):
         T = torch.einsum(
             'ij,bjk->bik', 
             self.lbs_weights, 
-            adjusted_transform_matrices.reshape(-1, 24, 16)
-            ).reshape(-1, 6890, 4, 4)  # (B, 6890, 4, 4)
+            adjusted_transform_matrices.reshape(-1, self.num_joints, 16)
+            ).reshape(-1, self.num_vertices, 4, 4)  # (B, V, 4, 4)
 
-        vertices_homogen = torch.nn.functional.pad(vertices, (0, 1), value=1.0).unsqueeze(-1)  # (B, 6890, 4, 1)
-        vertices_homogen = T @ vertices_homogen # (B, 6890, 4, 1)
+        vertices_homogen = torch.nn.functional.pad(vertices, (0, 1), value=1.0).unsqueeze(-1)  # (B, V, 4, 1)
+        vertices_homogen = T @ vertices_homogen # (B, V, 4, 1)
         vertices_posed = vertices_homogen[:, :, :3, 0]  # Convert back to 3D coordinates
 
         return vertices_posed
