@@ -1,5 +1,9 @@
-# better_human
-Collection of articulated human models
+# BetterHuman
+Parametric human body models on a robotics core ([BetterRobot](https://github.com/rihat99/BetterRobot)).
+
+> Under full rewrite on the `dev` branch — see `docs/` for the vision and
+> architecture, `plan/` for the implementation plan. The instructions below
+> describe the old library and will be replaced.
 
 
 ## Convert SMPL family models
