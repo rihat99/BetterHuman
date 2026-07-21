@@ -2,9 +2,9 @@
 
 > **Implementation log (2026-07-21):** Landed the 48-golden × two-dtype
 > safety net, four-case TorchScript cross-check, and remaining MHR coverage;
-> full suite: 223 passed, 5 visible skips. Important finding: strict CRBA SPD
-> is impossible with the settled rank-119/125 rotation map; see
-> `04_results.md`. CUDA was unavailable in this environment.
+> CUDA follow-up suite: 228 passed with no skips. Important finding: strict
+> CRBA SPD is impossible with the settled rank-119/125 rotation map; see
+> `04_results.md`.
 
 Turns the order-01 goldens into enforced tests and completes MHR's test
 coverage. Depends on orders 01–03.

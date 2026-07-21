@@ -64,10 +64,14 @@ at `2e-6 m` and the skeleton at the primary float32 tolerance class.
 ## Verification
 
 - Before Order 04: **199 passed, 4 skipped**.
-- MHR body coverage: **19 passed, 1 skipped** (CUDA unavailable).
+- Original MHR body coverage: **19 passed, 1 skipped** while CUDA was hidden
+  by the restricted sandbox.
 - Primary parity: **18 passed**.
 - TorchScript secondary oracle: **1 passed**.
 - Full suite: **223 passed, 5 skipped, 20 warnings** in `117.21 s`.
+- CUDA follow-up: all five CUDA-specific tests passed in `7.77 s`; the full
+  suite with an RTX 6000 Ada visible passed **228 tests, 20 warnings, 0 skips**
+  in `125.83 s`.
 - The new MHR files pass `ruff check` and `ruff format --check`; full
   `ruff check .` and `git diff --check` pass.
 
@@ -82,9 +86,9 @@ at `2e-6 m` and the skeleton at the primary float32 tolerance class.
    `λmin=-7.7016e-15` (roundoff) at neutral LOD1 float64. The test records PSD
    and these diagnostics; it does not claim or fake SPD. Redefining independent
    coordinates or adding nonphysical armature requires an owner decision.
-2. **CUDA could not be executed.** PyTorch reports no available CUDA devices
-   in this environment, despite the plan's RTX 6000 Ada note. The CUDA forward
-   and backward test is present and skips visibly.
+2. **CUDA required host-device exposure.** The restricted sandbox initially
+   hid the GPUs. With host GPU 7 exposed, the MHR forward/backward test and all
+   four existing CUDA smoke tests passed; no CUDA-only code change was needed.
 3. **Float32 gradcheck needs deterministic kernels.** Under the default CPU
    kernel selection, repeated analytical backward passes differ while still
    matching finite differences. The two tests save, enable, and restore

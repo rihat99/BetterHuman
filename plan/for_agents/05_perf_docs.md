@@ -2,9 +2,9 @@
 
 > **Implementation log (2026-07-21):** Added the reproducible benchmark,
 > MHR's two 19-part segmentation renders, a headless-tested LOD1 example, and
-> code-true docs; full suite: 223 passed, 5 visible skips. CPU batch-256
-> shape+pose is 1.642709×/1.777598× reference (correctives on/off). CUDA and
-> Warp were unavailable, so the CUDA target remains unjudged.
+> code-true docs; CUDA suite: 228 passed. Warp pose-only meets `≤2×` at batch
+> 16 (1.332028×/1.761994×) but misses at 256; fair shape+pose remains on Torch
+> FK and misses. See `05_results.md` for the complete CPU/CUDA tables.
 
 The owner's explicit ask: "check that we are not super slow compared to them."
 Also: segmentation renders, an example, and docs made true to the code.

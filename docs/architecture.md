@@ -349,9 +349,40 @@ At batch 1, the roughly 42 ms BetterRobot Python/topological FK traversal is
 material. The shared host was busy during the run, so these exact numbers are
 the recorded baseline, not a general hardware claim.
 
-CUDA and Warp were unavailable in the execution environment. Consequently the
-plan's CUDA batch ≥16 target cannot be judged; no CPU result is relabeled as a
-GPU pass. The reproducible harness is `benchmarks/benchmark_mhr.py`.
+CUDA was measured on an otherwise idle NVIDIA RTX 6000 Ada Generation
+(48 GiB, compute capability 8.9, driver 560.35.03) with the same warmup and
+sample counts, explicit synchronization, and PyTorch 2.13.0+cu126. The native
+Torch FK lane measured:
+
+| Batch | Correctives | TorchScript shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 3.577612 | 71.391603 / 19.955099× | 143.908253 / 40.224667× |
+| 1 | off | 2.306796 | 71.322613 / 30.918474× | 143.802566 / 62.338658× |
+| 16 | on | 4.011412 | 74.835912 / 18.655753× | 149.518514 / 37.273288× |
+| 16 | off | 2.426612 | 73.981340 / 30.487503× | 149.872687 / 61.762114× |
+| 256 | on | 12.174137 | 159.218377 / 13.078412× | 288.315912 / 23.682657× |
+| 256 | off | 9.818413 | 170.745595 / 17.390346× | 343.478717 / 34.983120× |
+
+BetterRobot's optional Warp 1.15.0 lane fuses pose-only FK. Its within-run
+comparison and isolated split were:
+
+| Batch | Correctives | TorchScript (ms) | BetterHuman pose-only (ms / ×ref) | Warp FK (ms) | Corrective (ms) | Transforms + LBS (ms) |
+|---:|:---:|---:|---:|---:|---:|---:|
+| 1 | on | 2.261189 | 2.234005 / 0.987978× | 0.875298 | 1.017433 | 0.556030 |
+| 1 | off | 1.175796 | 1.426103 / 1.212883× | 0.880708 | 0.017089 | 0.579417 |
+| 16 | on | 2.590233 | 3.450263 / 1.332028× | 0.920807 | 1.054835 | 1.503042 |
+| 16 | off | 1.300680 | 2.291790 / 1.761994× | 0.917623 | 0.016657 | 1.366592 |
+| 256 | on | 12.741430 | 33.835041 / 2.655514× | 1.552150 | 1.992780 | 30.067871 |
+| 256 | off | 10.096905 | 29.416434 / 2.913411× | 1.555098 | 0.008694 | 27.737855 |
+
+The Warp pose-only path meets the `≤2×` target at batch 16, but misses at
+batch 256 where scaled LBS dominates. Batched shape baking cannot currently
+use Warp because BetterRobot requires matching batched joint and frame tables;
+the apples-to-apples shape+pose path therefore remains on Torch FK and misses
+the target at both CUDA batches. The overall CUDA batch ≥16 target is not met;
+only the two Warp pose-only batch-16 cells pass. This is a reported BetterRobot
+seam, not a reason to duplicate FK inside BetterHuman. The reproducible
+harness is `benchmarks/benchmark_mhr.py`.
 
 ## Visualization
 

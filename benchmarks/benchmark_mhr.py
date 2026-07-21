@@ -9,7 +9,8 @@ Run the pinned protocol on CPU with::
 
 Use ``--device cuda --use-warp`` to exercise BetterRobot's fused FK lane for
 the pose-only rows. Batched shape values currently keep the fair shape+pose
-rows on the Torch FK lane.
+rows on the Torch FK lane. The fused lane requires BetterRobot's optional
+``warp-lang>=1.8`` dependency.
 """
 
 from __future__ import annotations
@@ -145,6 +146,10 @@ def _reference_results(
                 iterations=iterations,
             )
             results.append((batch, use_correctives, "TorchScript shape+pose", median))
+    # Emptying the allocator cannot reclaim the last live model and inputs.
+    forward = None
+    identity = model_parameters = expression = None
+    model = None
     gc.collect()
     if device.type == "cuda":
         torch.cuda.empty_cache()
@@ -252,6 +257,15 @@ def _betterhuman_results(
                     ),
                 )
             )
+            # Bound peak memory by releasing each batch before allocator cleanup.
+            pose_only = shape_and_pose = None
+            pose_body = scalar_q = q = shape_groups = None
+            identity = model_parameters = expression = None
+            data = corrective = None
+            gc.collect()
+            if device.type == "cuda":
+                torch.cuda.empty_cache()
+        neutral = None
         gc.collect()
         if device.type == "cuda":
             torch.cuda.empty_cache()

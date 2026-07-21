@@ -138,13 +138,15 @@ these numbers the wrong way does not merge.
 | MHR float32 parity vs float32 `pymomentum` oracle | V ≤ 5e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | applies independently to every LOD |
 | MHR float64 parity vs float32 `pymomentum` oracle | V ≤ 2e-6 m; P ≤ 5e-7 m; Q ≤ 5e-7; S ≤ 1e-7 | mixed-precision oracle; not float64-oracle parity |
 | MHR LOD1 TorchScript vs float32 golden | V ≤ 2e-6 m (worst 1.220703125e-6 m); skeleton exact | independent secondary oracle |
-| MHR LOD1 CPU batch-256 performance vs TorchScript | pose-only 1.500212×/1.675035×; shape+pose 1.642709×/1.777598× (correctives on/off) | 30-call medians; CUDA target remains unmeasured |
+| MHR LOD1 CPU batch-256 performance vs TorchScript | pose-only 1.500212×/1.675035×; shape+pose 1.642709×/1.777598× (correctives on/off) | 30-call medians |
+| MHR LOD1 CUDA Warp pose-only performance vs TorchScript | batch 16: 1.332028×/1.761994×; batch 256: 2.655514×/2.913411× (correctives on/off) | batch 16 meets `≤2×`; batch 256 misses on scaled LBS |
+| MHR LOD1 CUDA shape+pose performance vs TorchScript | batch 16: 37.273288×/61.762114×; batch 256: 23.682657×/34.983120× (correctives on/off) | fair path remains on BetterRobot Torch FK and misses target |
 | Partial-model property (SMPL-X reduced vs full-with-identity DOFs) | ≤ 5e-7 m | keep |
 | Neutral SMPL mass — argmax segmentation (density 1000) | 73.43 kg parts / 74.76 kg whole, 1.78 % gap | the argmax fallback's inherent gap |
 | Neutral SMPL volume — authored closed-3D segmentation | 24-part sum within +0.0055 % of whole mesh | authored path must hold this |
 | Aggregate vs whole-mesh COM separation | 0.02 mm (authored), 2.47 mm (argmax) | |
 | SMPL/SMPL-X CRBA min eigenvalue (SPD check) | > 0 | keep |
-| Test gate | full suite green; run CUDA cases on available pinned hardware | unavailable hardware skips stay visible and are not reported as passes |
+| Test gate | 228 passed, 20 warnings on pinned RTX 6000 Ada hardware | all five CUDA cases executed; unavailable hardware skips stay visible elsewhere |
 
 For MHR, V denotes vertices, P native joint positions, Q sign-agnostic native
 joint quaternions, and S native joint scale. V and P are measured in meters;

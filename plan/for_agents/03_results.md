@@ -113,8 +113,9 @@ float32 and twice that in float64.
    part meshes are built from very coarse triangulations. LOD1 is the default
    and is the pinned acceptance value.
 7. **Dtype support is explicit.** MHR rejects float16/bfloat16 at construction
-   because BetterRobot FK supports float32/float64 only. CUDA was unavailable,
-   so the CUDA path remains unverified rather than inferred from CPU results.
+   because BetterRobot FK supports float32/float64 only. CUDA was hidden during
+   the original order run; the later RTX 6000 Ada follow-up executed the MHR
+   forward/backward gate and the complete 228-test suite without skips.
 
 ## Primary commands
 

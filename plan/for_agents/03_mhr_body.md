@@ -5,7 +5,8 @@
 > physical-part mass, and lossless classic conversion. Static FBX inverse binds
 > remain authoritative (the plan's recompute-bind instruction was rejected by
 > parity); LOD1 `combined_00` vertex max is `2.26498e-6 m`. Full suite:
-> **199 passed, 4 skipped**. Details and deviations: `03_results.md`.
+> **199 passed, 4 skipped** at landing; the later CUDA follow-up passed the
+> full 228-test suite. Details and deviations: `03_results.md`.
 
 `bodies/config_mhr.py` + `bodies/mhr.py`: spawn, BetterRobot tree, shape bake,
 forward path, classic converters. Depends on orders 01 (converted npz +
