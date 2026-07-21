@@ -1,190 +1,146 @@
-# Order 02 results — BodyConfig + landmark restoration + smpl_like re-home
+# Order 02 results — SMPL-neutral MHR core stages
 
-Completed on `dev` (both working trees) on 2026-07-21. Two coupled halves landed
-together so **both repos end green**: (A) BetterHuman gained a per-model
-`BodyConfig` and stopped importing SMPL topology from BetterRobot; (B)
-BetterRobot's SMPL/human specifics left its shipped API and its suite moved to a
-generic, neutrally-named fixture.
+Completed on branch `dev` on 2026-07-21. This order adds the shared loader and
+tensor machinery needed by MHR and promotes only the two model-policy seams
+forced by the next body implementation. BetterRobot was not modified.
 
-## Test counts (as measured)
+## Delivered
 
-| Repo | Command | Result |
-|---|---|---|
-| BetterHuman | `CUDA_VISIBLE_DEVICES=2 uv run pytest tests/ -q` | **109 passed, 2 skipped** |
-| BetterRobot | `CUDA_VISIBLE_DEVICES=2 uv run pytest tests/ -q` | **1583 passed, 0 skipped, 0 failed** |
+- An explicit 66-field `MHR_SCHEMA` covering every converted archive member,
+  including exact shapes, storage dtypes, the shared vertex dimension, and the
+  derived `V*3` corrective width.
+- `load_model_npz(..., exclude_fields=...)` with required-field checks, full
+  shape/dtype validation, Unicode metadata preservation, and lazy exclusion.
+  Excluded members have their NPY headers validated without reading payloads,
+  which keeps the 2.58 GiB LOD0 corrective layer lazy.
+- A verified canonical resolver call for
+  `$BETTERHUMAN_MODELS_DIR/MHR/converted/mhr_lod{n}.npz`; the existing generic
+  resolver already implemented the required precedence and error behavior.
+- Exact MHR 6D pose features from either XYZ Euler channels or local rotation
+  matrices, with identity subtraction and arbitrary leading batch axes.
+- One-time sparse-to-dense first-layer baking and a functional, non-mutating
+  ReLU MLP corrective stage. The output weight remains `(3000, V*3)`, avoiding
+  a multi-gigabyte transpose at LOD0.
+- Full 7D bind-pose skinning transforms and optional scale-aware LBS about bind
+  joint positions. Scale-one/identity-bind execution is tensor-equal to the
+  legacy SMPL path, including on the real SMPL fixture.
+- Two function policies on `ParametricBody`: model-specific shape baking and
+  pose correctives. The prior SMPL operations were moved verbatim to
+  `smpl_family.py` and bound for both SMPL and SMPL-X.
+- Synthetic schema/loader fixtures, formula tests, arbitrary-leading-axis
+  tests, exact reduction tests, float32 gradchecks, and explicit dtype/device
+  assertions. The Weight files reference contract now states that Unicode
+  metadata remains NumPy because PyTorch has no string tensor dtype.
 
-- BetterHuman baseline before this order: 106 passed / 2 skipped. Net +3 = the
-  three new landmark tests (2 SMPL, 1 SMPL-X). The 2 skips are pre-existing and
-  visible: `tests/parity/test_smplx_parity.py` — "SMPL-X goldens are absent".
-- BetterRobot: CUDA was active (GPU 2); the `tests/warp/*_cuda.py` float32
-  gradchecks executed (not skipped). All parity/round-trip/gradcheck tolerances
-  are unchanged — this order is a pure refactor + re-home, no numerics touched.
+## Real archive checks
 
-## Part A — BetterHuman
+`models/MHR/converted/mhr_lod6.npz` passed the final schema and loader:
 
-### `BodyConfig` (new type + two data modules)
+- full load: 66 fields;
+- corrective-excluded load: 58 fields, with all eight skipped headers still
+  shape/dtype-validated and no corrective payload indexed;
+- template vertices: `(595, 3)` `torch.float32`;
+- joint names: `(127,)` NumPy `<U20`;
+- corrective output: `(3000, 1785)` `torch.float32`;
+- baked first layer: `(3000, 750)`, exactly 53,136 nonzeros, with nonzero mask
+  tensor-equal to the stored mask.
 
-`class BodyConfig` (frozen dataclass) lives in
-`src/better_human/bodies/config_body.py` (49 LOC). Per-model instances:
-`SMPL_CONFIG` in `bodies/config_smpl.py` (89 LOC), `SMPLX_CONFIG` in
-`bodies/config_smplx.py` (124 LOC). Naming is category-first (`config_*`).
+## Parity and verification
 
-Fields (every one has a real consumer, except the three order-03 asset names —
-see Findings #3):
+The exact maxima before and after seam promotion are identical:
 
-| Field | Type | Consumer |
-|---|---|---|
-| `joint_names` | `tuple[str,...]` | loader count check, `BodyStructure`, robot build |
-| `frame_names` | `tuple[str,...]` | landmark metadata (restored) |
-| `frame_vertex_ids` | `tuple[int,...]` | `BodyStructure.landmarks` → `landmark_positions()` |
-| `unit` | `str` | `BodyStructure.unit` (contracts-mandated) |
-| `up_axis` | `str` | `BodyStructure.up_axis` |
-| `forward_axis` | `str` | `BodyStructure.forward_axis` |
-| `native_pose_format` | `str` | `BodyStructure.native_pose_format` |
-| `segmentation_vertex_file` | `str` | order 03 (recorded now) |
-| `density_table` | `str` | order 03 (recorded now) |
-| `segmentation_closed_file` | `str \| None = None` | order 03 (recorded now) |
-| `body_joints` | `tuple[int,...] = ()` | SMPL-X reduction + `from/to_classic` |
-| `face_joints` | `tuple[int,...] = ()` | SMPL-X reduction + `from/to_classic` |
-| `left_hand_joints` | `tuple[int,...] = ()` | SMPL-X `from/to_classic` |
-| `right_hand_joints` | `tuple[int,...] = ()` | SMPL-X `from/to_classic` |
+| Model / dtype | Vertex max before = after | Joint max before = after |
+|---|---:|---:|
+| SMPL float64 | `1.0412031070661243e-07` | `5.7804501407687781e-08` |
+| SMPL float32 | `7.0780515670776367e-07` | `5.2899122238159180e-07` |
+| SMPL-X float64 | `5.5905974738479358e-08` | `8.6539269084084935e-09` |
+| SMPL-X float32 | `6.5565109252929688e-07` | `5.0663948059082031e-07` |
 
-Parents are **not** in config — still derived from the npz `kintree_table` via
-`parents_from_kintree`. SMPL leaves the four reduction-group tuples empty (`()`,
-it has no reducible subtrees). SMPL-X `segmentation_closed_file` is `None` (no
-authored closed-3D asset exists in git history — only `smpl_3d_segmentation.npy`).
-Landmark `frame_names`/`frame_vertex_ids` were restored from
-`git show main:src/better_human/smpl/config/{smpl,smplx}.json`.
+Final checks:
 
-### Body refactor + landmark consumer
+- SMPL/SMPL-X parity files: **84 passed**, 0 failed.
+- Focused new-stage, I/O, and real-SMPL reduction gate: **36 passed**, 0
+  failed, 9 expected float32-gradcheck warnings.
+- Full suite: **184 passed, 4 skipped, 0 failed**, 15 warnings. The skips are
+  existing unavailable-CUDA cases; warnings are expected float32 gradcheck
+  notices plus two existing SciPy sparse deprecations.
+- `ruff check .` and `git diff --check` pass.
 
-- `bodies/smpl.py`: removed `from better_robot...smpl_like import JOINT_NAMES`;
-  reads `SMPL_CONFIG`. LOC 174 → 179 (+5; the multi-line `landmarks=` dict).
-- `bodies/smplx.py`: removed the 57-line inline `SMPLX_JOINT_NAMES` tuple and the
-  `BODY_/FACE_/LEFT_HAND_/RIGHT_HAND_/HAND_JOINTS` constants; reads `SMPLX_CONFIG`.
-  Dropped `SMPLX_JOINT_NAMES` from `__all__` (unused elsewhere). `SHAPE_SPACE_DIM`
-  / `EXPRESSION_SPACE_DIM` / `FULL_HAND_DIM` kept as module constants (validation
-  bounds coupled to converter logic; see Finding #4). **LOC 447 → 391 (−56).**
-- `core/body.py`: `BodyStructure.landmarks` populated as
-  `{"frame_vertex_ids": LongTensor(21)}` (device-placed) by both bodies;
-  convention fields populated from config. Added public
-  `ParametricBody.landmark_positions(vertices) -> (..., L, 3)` (gathers
-  `vertices[..., frame_vertex_ids, :]`) — the live consumer that makes `landmarks`
-  a real feature. No viz overlay added (handoff marked it optional; kept minimal).
-- `tests/test_smoke.py`: dropped the `make_smpl_like_model` import; now builds a
-  weight-free 24-body free-flyer + 23-spherical tree directly with
-  `build_kinematic_tree_model` (nq=99, nv=75). No weights required.
-- New tests: `test_landmark_positions_gather_matches_config` (SMPL + SMPL-X;
-  asserts count/shape, exact gather equality, the `nose` keypoint vertex —
-  SMPL 332 / SMPL-X 9120) and `test_landmark_positions_preserves_leading_batch`
-  (SMPL, `(2, 21, 3)`).
+Primary commands:
 
-`bodies/smpl.py` and `bodies/smplx.py` now import **no topology** from
-`better_robot` (verified by grep). All parity, round-trip, and float32-gradcheck
-tests still pass at unchanged tolerances.
+```bash
+.venv/bin/pytest tests/core/test_pipeline.py tests/io/test_load.py \
+  tests/io/test_schema.py \
+  tests/bodies/test_smpl.py::test_generalized_skinning_reduces_exactly_on_smpl_fixture -q
+.venv/bin/pytest tests/parity/test_smpl_parity.py \
+  tests/parity/test_smplx_parity.py -q
+.venv/bin/pytest tests/ -q
+.venv/bin/ruff check .
+git diff --check
+```
 
-## Part B — BetterRobot
+## Deviations and findings
 
-`better_robot.io.builders.smpl_like` (`JOINT_NAMES`, `PARENTS`,
-`_default_offsets_tensor`, `make_smpl_like_body`, `make_smpl_like_model`) was
-**deleted**. The generic `build_kinematic_tree_body/model` stays. A neutral
-test-support fixture `tests/support/branching_tree.py` (new) provides the same
-24-joint free-flyer + 23-spherical topology and offset values with neutral names
-`j0..j23` and no anatomical comments: `JOINT_NAMES`, `PARENTS`,
-`default_offsets_tensor`, `make_branching_tree_body/model`.
+1. **The reference MHR MLP has no biases.** Both upstream linear layers are
+   constructed with `bias=False`, despite the plan describing a biased first
+   layer. The generic function accepts an optional first-layer bias for formula
+   completeness; MHR will pass `None` in Order 03.
+2. **Unicode archive fields cannot become dense PyTorch tensors.** Sixteen MHR
+   metadata fields remain NumPy Unicode arrays; all numeric and Boolean fields
+   become dense tensors without conversion. `docs/contracts.md` was narrowed
+   accordingly.
+3. **Lazy exclusion still validates the complete schema.** Presence alone was
+   insufficient for the binding contract, while indexing LOD0 correctives
+   would defeat `use_correctives=False`. The loader therefore reads only NPY
+   headers for excluded fields and validates their shapes/dtypes with the full
+   schema. A guarded test proves no skipped payload is indexed.
+4. **No MHR-specific resolver wrapper was added.** The existing
+   `resolve_model_path(family, filename, model_path)` already produces the
+   exact required precedence when called with `("MHR",
+   "converted/mhr_lod{n}.npz", model_path)`. A test pins that behavior; another
+   wrapper would be duplicate code.
+5. **Scaled LBS needs bind positions as well as scales.** The requested
+   similarity transform cannot rotate/scale about the authored bind pivot from
+   `T_skin` alone, so `lbs` accepts `bind_joint_positions` whenever
+   `joint_scales` is supplied. Its scale-one correction is exactly zero and
+   leaves legacy SMPL arithmetic unchanged.
+6. **One derived-width sentinel was necessary.** `V*3` is handled as one
+   explicit special case, parallel to the existing `(J-1)*9` sentinel; no
+   general symbolic-dimension language or parser was introduced.
 
-### Acceptance grep
+## BetterRobot carry-forwards
 
-`grep -riE "smpl|pelvis|betas|human" .../BetterRobot/src` now returns only
-unrelated matches: the `free_flyer.py` "humanoid" comment, the
-`force_vectors.py` "human-scale" comment, and `residuals/human.py`
-(`SwingTwistLimitResidual`) + its `__init__`/CLAUDE.md — a pre-existing, separate
-spherical-joint rotation-limit feature, out of the authorized extraction scope
-(see Finding #5). No SMPL/human topology or naming remains.
+- BetterRobot SE(3) poses do not carry accumulated MHR scale. BetterHuman must
+  retain the scale side channel introduced here and pass it into LBS.
+- MHR skin-joint order is not the current SMPL assumption
+  `joint_pose_world[..., 1:, :]`. Order 03 must bind an explicit native skin
+  joint to BetterRobot joint mapping; `native_joint_indices` must not be
+  repurposed because SMPL-X already uses it for reduced-model provenance.
+- Converting the authoritative float32 4x4 FBX bind matrices to 7D poses may
+  add small quaternion roundoff. Order 03/04 must measure this against the
+  goldens rather than substituting recomputed zero-FK binds.
 
-### Every BetterRobot change (the two authorized edits)
+## LOC deltas
 
-1. **Mesh tools (order 01, pre-existing in the working tree):**
-   `src/better_robot/spatial/mesh.py`, `src/better_robot/spatial/__init__.py`,
-   `tests/spatial/test_mesh.py` — **left untouched** by this order.
-2. **smpl_like extraction (this order).**
+Counts are additions/deletions against `HEAD` for implementation and tests.
+The `docs/contracts.md` row counts only this order's hunk; the pre-existing
+measured-baselines append is excluded. Task-plan tracking files are also
+excluded.
 
-Extraction infrastructure (6 files):
-- `src/better_robot/io/builders/smpl_like.py` — **deleted**
-- `src/better_robot/io/builders/__init__.py` — dropped the smpl_like exports
-- `src/better_robot/io/builders/kinematic_tree.py` — docstring scrub (removed
-  smpl_like mention + the stale `§6` anchor)
-- `tests/support/branching_tree.py` — **new** neutral fixture
-- `docs/reference/api/.../better_robot.io.builders.md` — dropped toctree entry
-- `docs/reference/api/.../better_robot.io.builders.smpl_like.md` — **deleted**
-
-Rewired callers — **17 files** (all now use the neutral fixture, or the generic
-builder directly):
-
-tests/ (14):
-1. `tests/io/test_smpl_like.py` → **renamed** `tests/io/test_branching_tree.py`
-   (converted to a fixture/builder test)
-2. `tests/io/test_kinematic_tree.py` (imports + `test_branching_tree_*` renames)
-3. `tests/io/test_preserve_order.py` (imports + DFS-order assertion → `j1,j4,j7,j10`)
-4. `tests/data_model/test_integrate_vectorized.py` (+ label `"smpl_like"` → `"branching_tree"`)
-5. `tests/data_model/test_model_structure.py`
-6. `tests/optim/test_tangent_autograd.py`
-7. `tests/viewer/test_scene_mode_toggling.py`
-8. `tests/viewer/test_urdf_mode_availability.py`
-9. `tests/warp/test_fk_cuda.py`
-10. `tests/warp/test_fk_prototype.py`
-11. `tests/warp/test_rnea_cuda.py`
-12. `tests/bench/bench_integrate_difference.py`
-13. `tests/bench/bench_trajopt_sparse.py` (import + call + `FRAME_NAMES` remap +
-    repo-root bootstrap; see Finding #1/#2)
-14. `tests/bench/test_trajopt_sparse_smoke.py` (docstring)
-
-benchmarks/ (2 — **not in the handoff's estimate**, see Finding #1):
-15. `benchmarks/baseline.py`
-16. `benchmarks/m1_warp_fk_vs_compiled_torch.py`
-
-examples/ (1):
-17. `examples/04_smpl_like_body.py` → **renamed** `examples/04_branching_tree_body.py`
-    (converted to a generic `build_kinematic_tree_model` example)
-
-## Findings / deviations
-
-1. **More callers than the "~13" estimate.** The smpl_like symbols were also
-   imported by two `benchmarks/` modules (`baseline.py`,
-   `m1_warp_fk_vs_compiled_torch.py`, loaded via importlib by
-   `tests/bench/test_baseline.py` and `test_m1_warp_benchmark_schema.py`), and
-   `bench_trajopt_sparse.py` referenced SMPL joint names by string
-   (`FRAME_NAMES = body_head, body_left_wrist, …`). All rewired. `FRAME_NAMES`
-   was remapped to the **same physical joints** under neutral names
-   (head→`j15`, left_wrist→`j20`, right_wrist→`j21`, left_ankle→`j7`,
-   right_ankle→`j8`), preserving the deterministic §11 benchmark:
-   `active_envelope_coordinates == 127`, `route == banded`, `SUCCESS` — verified
-   unchanged.
-2. **Standalone-subprocess imports.** `bench_trajopt_sparse.py` runs a `--child`
-   subprocess (no pytest conftest) and the two `benchmarks/*` are standalone
-   CLIs; none can import `tests.support` off the bare script path. Added a small
-   repo-root `sys.path` bootstrap (module-level in the bench, local at the call
-   site in the two benchmarks). Model is byte-identical to before, so numerics
-   are unchanged.
-3. **Order-03 asset fields have no order-02 consumer.**
-   `segmentation_closed_file`, `segmentation_vertex_file`, `density_table` are
-   recorded but unused this order. Included per owner-settled decision 2 and the
-   handoff's explicit "include them now". This is a deliberate exception to the
-   "no dead fields" rule — flagged for owner awareness.
-4. **Shape-space dims stayed in `smplx.py`** (handoff marked the move optional).
-   They are SMPL-X-only validation bounds; putting them on the shared
-   `BodyConfig` would create SMPL-dead fields.
-5. **`residuals/human.py` still matches the grep.** `SwingTwistLimitResidual` is
-   a pre-existing, separate spherical-joint rotation-limit feature (roadmap:
-   "human residuals on the BR optimizer"), unrelated to SMPL body topology and
-   **out of the authorized edit scope** (ground rule 4). Reported, not modified.
-6. **Two committed labels retain SMPL text.**
-   `tests/bench/baselines/torch_filtered_smpl_b1_rtx6000_ada.json` (a committed
-   measurement artifact) and one description string in `benchmarks/baseline.py`
-   (`"smpl": "make_smpl_like_model, …"`) keep their text as opaque identifiers
-   matching that artifact. Not shipped API, not in the src acceptance grep; left
-   unchanged to avoid diverging from the committed baseline.
-7. **ruff:** all touched files are clean except pre-existing baseline dirt in
-   **unmodified** regions — `tests/io/test_kinematic_tree.py` (E741 `I`, PLC0415
-   in the com/inertia block) and `io/builders/kinematic_tree.py` (E741 `I` in
-   `_normalize_inertia`); both present at `HEAD`, neither introduced here.
+| File | Added | Deleted |
+|---|---:|---:|
+| `docs/contracts.md` | 3 | 2 |
+| `src/better_human/bodies/smpl.py` | 2 | 3 |
+| `src/better_human/bodies/smpl_family.py` | 85 | 3 |
+| `src/better_human/bodies/smplx.py` | 2 | 3 |
+| `src/better_human/core/body.py` | 17 | 58 |
+| `src/better_human/core/pipeline.py` | 111 | 9 |
+| `src/better_human/io/__init__.py` | 3 | 1 |
+| `src/better_human/io/load.py` | 65 | 7 |
+| `src/better_human/io/schema.py` | 90 | 1 |
+| `tests/bodies/test_smpl.py` | 23 | 0 |
+| `tests/core/test_pipeline.py` | 296 | 2 |
+| `tests/io/conftest.py` | 81 | 0 |
+| `tests/io/test_load.py` | 92 | 1 |
+| `tests/io/test_schema.py` | 36 | 1 |
+| **Total** | **906** | **91** |

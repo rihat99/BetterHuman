@@ -1,6 +1,6 @@
 """Render the segmentation comparison images embedded in ``docs/segmentation.md``.
 
-For every available body (SMPL, SMPL-X) and every segmentation type it supports
+For every available body (SMPL, SMPL-X, MHR) and every segmentation type it supports
 (authored, argmax) this writes a part-colored surface and an exploded body-split
 view into ``docs/segmentation/``. Rendering is headless matplotlib (Agg) with a
 fixed camera, fixed colors, and no randomness beyond a seeded color permutation,
@@ -53,7 +53,7 @@ def _to_plot(coords: np.ndarray) -> np.ndarray:
 
 
 def _render(triangles: np.ndarray, face_rgb: np.ndarray, path: Path, *, wide: bool) -> None:
-    """Rasterize shaded triangles from a fixed frontal camera to ``path``.
+    """Rasterize shaded triangles from a fixed rear camera to ``path``.
 
     :param triangles: plot-space triangle vertices ``(F, 3, 3)``.
     :param face_rgb: base RGB per triangle ``(F, 3)``.
@@ -169,7 +169,9 @@ def _render_body(family: str, body) -> None:
     _render(*_split_triangles(argmax_meshes, argmax_colors, body_centroid),
             _OUT_DIR / f"{family}_argmax_split.png", wide=True)
 
-    vertseg_name = {"smpl": "smpl_vert_segmentation.json", "smplx": "smplx_vert_segmentation.json"}[family]
+    vertseg_name = {"smpl": "smpl_vert_segmentation.json", "smplx": "smplx_vert_segmentation.json"}.get(family)
+    if vertseg_name is None:
+        return
     vertex_labels, authored_parts = _vertseg_labels(vertseg_name, vertices.shape[0])
     authored_colors = _colors(authored_parts)
     authored_surface = _surface_triangles(vertices, faces, _majority_labels(faces, vertex_labels), authored_colors)
@@ -198,9 +200,23 @@ def main() -> None:
     if arguments.models_dir is not None:
         os.environ["BETTERHUMAN_MODELS_DIR"] = str(arguments.models_dir)
     _OUT_DIR.mkdir(exist_ok=True)
-    for family, loader in (("smpl", bh.SMPL), ("smplx", bh.SMPLX)):
+    loaders = (
+        ("smpl", bh.SMPL, {"gender": "neutral"}),
+        ("smplx", bh.SMPLX, {"gender": "neutral"}),
+        (
+            "mhr",
+            bh.MHR,
+            {
+                "lod": 1,
+                "use_expression": False,
+                "use_correctives": False,
+                "compute_mass": False,
+            },
+        ),
+    )
+    for family, loader, kwargs in loaders:
         try:
-            body = loader(gender="neutral")
+            body = loader(**kwargs)
         except FileNotFoundError as error:
             print(f"skipping {family}: {error}")
             continue

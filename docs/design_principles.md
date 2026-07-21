@@ -35,8 +35,11 @@ win. Read this before writing or refactoring any code.
 8. **Classic conventions are quarantined at the boundary.** Inside
    BetterHuman there is exactly one state convention: BetterRobot-style `q`.
    Each model's native format (axis-angle vectors, offset root translations,
-   PCA hand spaces) exists only inside its `from_classic` / `to_classic`
-   pair, which must be exact inverses and covered by round-trip tests.
+   PCA hand spaces) enters or leaves only through its `from_classic` /
+   `to_classic` pair, which must be exact inverses and covered by round-trip
+   tests. A private pose-feature policy may transiently reconstruct the
+   rotation representation required by authored correctives; it never becomes
+   parallel public state.
 9. **Parity with the original implementation is the safety net.** Every
    model's forward pass is verified numerically against the original
    author-released code (run in its own pinned venv) before the model is
@@ -52,8 +55,9 @@ win. Read this before writing or refactoring any code.
 12. **No host synchronization in hot loops**; preserve dtype/device; never
     silently cast, move, or squeeze. Batched by default, trailing event
     axes, arbitrary leading batch axes — identical to BetterRobot contracts.
-13. **GPU is a first-class target.** Device-conditional behavior is
-    validated on both CPU and CUDA on this host.
+13. **GPU is a first-class target.** Device-conditional behavior is validated
+    on CPU and on pinned CUDA hardware when it is available; an unavailable
+    device produces a visible skip and is never reported as a pass.
 
 ## Process
 

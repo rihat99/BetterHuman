@@ -7,10 +7,10 @@ from dataclasses import replace
 from numbers import Real
 
 import torch
-from better_robot import Model
+from better_robot import Data, Model
 from better_robot.io.builders.kinematic_tree import build_kinematic_tree_model
 
-from better_human.core import BodyValues
+from better_human.core import BodyStructure, BodyValues, ParametricBody
 from better_human.core.mass import (
     PartMeshTopology,
     body_inertias_from_shape,
@@ -18,7 +18,86 @@ from better_human.core.mass import (
     build_part_topology,
     segment_vertices,
 )
-from better_human.core.pipeline import blend_shapes, regress_joints
+from better_human.core.pipeline import (
+    blend_shapes,
+    linear_corrective,
+    pose_feature_rotmat_minus_identity,
+    regress_joints,
+)
+
+
+def bake_regressed_pelvis_shape(
+    body: ParametricBody,
+    expanded_parameters: Mapping[str, torch.Tensor],
+) -> tuple[BodyValues, Model]:
+    """Bake SMPL-family shape, regressed joints, placements, and inertias."""
+    coefficients = torch.cat(tuple(expanded_parameters.values()), dim=-1)
+    batch_shape = coefficients.shape[:-1]
+    world_vertices = body.values.v_template + blend_shapes(coefficients, body.values.shape_basis)
+    world_joints = regress_joints(body.values.joint_regressor, world_vertices)
+    pelvis_offset = world_joints[..., 0, :]
+    centered_vertices = world_vertices - pelvis_offset[..., None, :]
+    centered_joints = world_joints - pelvis_offset[..., None, :]
+
+    parents = torch.tensor(body.structure.parents[1:], dtype=torch.long, device=centered_joints.device)
+    child_offsets = centered_joints[..., 1:, :] - centered_joints[..., parents, :]
+    root_offset = torch.zeros_like(centered_joints[..., :1, :])
+    native_offsets = torch.cat((root_offset, child_offsets), dim=-2)
+    native_quaternions = native_offsets.new_zeros((*native_offsets.shape[:-1], 4))
+    native_quaternions[..., 3] = 1.0
+    native_placements = torch.cat((native_offsets, native_quaternions), dim=-1)
+    universe_placement = native_placements.new_zeros((*batch_shape, 1, 7))
+    universe_placement[..., 6] = 1.0
+    joint_placements = torch.cat((universe_placement, native_placements), dim=-2)
+
+    body_inertias = None
+    if body.structure.part_topology is not None:
+        body_inertias = body_inertias_from_shape(
+            centered_vertices,
+            centered_joints,
+            body.structure.part_topology,
+            body.values.density,
+        )
+
+    values = replace(
+        body.values,
+        shape_parameters=expanded_parameters,
+        v_shaped=centered_vertices,
+        rest_joints=centered_joints,
+        pelvis_offset=pelvis_offset,
+        body_inertias=body_inertias,
+    )
+    robot = body.robot.with_values(
+        joint_placements=joint_placements,
+        body_inertias=body_inertias,
+    )
+    return values, robot
+
+
+def smpl_linear_pose_corrective(body: ParametricBody, data: Data) -> torch.Tensor:
+    """Evaluate the SMPL-family quaternion feature and linear corrective."""
+    root_width = body.robot.nqs[1]
+    joint_quaternions = data.q[..., root_width:].reshape(
+        *data.q.shape[:-1],
+        len(body.structure.joint_names) - 1,
+        4,
+    )
+    feature = pose_feature_rotmat_minus_identity(joint_quaternions)
+    return linear_corrective(feature, body.values.posedirs)
+
+
+def bind_smpl_body(
+    body: ParametricBody,
+    structure: BodyStructure,
+    values: BodyValues,
+    robot: Model,
+) -> None:
+    """Bind shared SMPL-family state and policy functions to a frozen body."""
+    object.__setattr__(body, "structure", structure)
+    object.__setattr__(body, "values", values)
+    object.__setattr__(body, "robot", robot)
+    object.__setattr__(body, "_shape_bake_policy", bake_regressed_pelvis_shape)
+    object.__setattr__(body, "_pose_corrective_policy", smpl_linear_pose_corrective)
 
 
 def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
@@ -166,53 +245,14 @@ def build_family_robot(
     ).to(device=device)
 
 
-def classic_tensor(
-    name: str,
-    value: torch.Tensor | None,
-    width: int,
-    exemplar: torch.Tensor,
-) -> torch.Tensor | None:
-    """Validate one optional classic tensor at a converter boundary."""
-    if value is None:
-        return None
-    if not isinstance(value, torch.Tensor) or not value.is_floating_point():
-        raise TypeError(f"{name} must be a floating torch.Tensor or None")
-    if value.shape[-1:] != (width,):
-        raise ValueError(f"{name} must have shape (..., {width}); got {tuple(value.shape)}")
-    if value.dtype != exemplar.dtype or value.device != exemplar.device:
-        raise ValueError(
-            f"{name} must use dtype={exemplar.dtype} and device={exemplar.device}; "
-            f"got dtype={value.dtype}, device={value.device}"
-        )
-    return value
-
-
-def broadcast_configuration(
-    q: torch.Tensor,
-    robot: Model,
-    exemplar: torch.Tensor,
-) -> tuple[torch.Tensor, tuple[int, ...]]:
-    """Validate ``q`` and broadcast it against shape-baked value axes."""
-    if not isinstance(q, torch.Tensor) or not q.is_floating_point():
-        raise TypeError("q must be a floating torch.Tensor")
-    if q.shape[-1:] != (robot.nq,):
-        raise ValueError(f"q must have shape (..., {robot.nq}); got {tuple(q.shape)}")
-    if q.dtype != exemplar.dtype or q.device != exemplar.device:
-        raise ValueError(
-            f"q must use dtype={exemplar.dtype} and device={exemplar.device}; "
-            f"got dtype={q.dtype}, device={q.device}"
-        )
-    batch_shape = torch.broadcast_shapes(q.shape[:-1], exemplar.shape[:-1])
-    return q.expand(*batch_shape, robot.nq), batch_shape
-
-
 __all__ = [
+    "bake_regressed_pelvis_shape",
+    "bind_smpl_body",
     "build_family_robot",
-    "broadcast_configuration",
     "bind_mass_properties",
-    "classic_tensor",
     "density_tensor",
     "make_body_values",
     "padded_skinning",
     "parents_from_kintree",
+    "smpl_linear_pose_corrective",
 ]

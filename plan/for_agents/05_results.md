@@ -1,125 +1,131 @@
-# Order 05 results — docs + rendered segmentation comparison
+# Order 05 results — performance, visuals, example, and docs
 
-Delivered on `dev`, BetterHuman only. BetterRobot untouched. No `src/` code
-changed; this order adds a docs render helper, rendered images, an explanation
-page, doc-truth fixes, and one packaging entry.
+Completed on branch `dev` on 2026-07-21, except for the unavailable CUDA/Warp
+measurements described below. BetterRobot, `models/MHR/assets/`, and
+`references/` were not modified.
 
-## Rendered segmentation images (the owner's ask)
+## Delivered
 
-`docs/render_segmentation.py` (headless matplotlib Agg, fixed camera
-`elev=8, azim=-90`, colors from a seed-0 permutation of `gist_rainbow`) renders,
-for each model × each available segmentation type, a part-colored surface and an
-exploded body-split view. Re-runs are **byte-identical** (verified by md5 across
-two runs). Weights resolve through the normal loader / `$BETTERHUMAN_MODELS_DIR`;
-absent weights are skipped.
+- `benchmarks/benchmark_mhr.py`: a reproducible LOD1 float32 benchmark against
+  the released TorchScript model, with the requested batch/corrective grid,
+  fair pose-only vs shape+pose paths, synchronized CUDA timing support, and
+  isolated FK/corrective/LBS diagnostics.
+- `docs/segmentation/mhr_argmax_surface.png` and
+  `mhr_argmax_split.png`, generated through the existing deterministic
+  renderer. The intact mesh and exploded centroid-capped solids show all 19
+  nonempty MHR reference groups.
+- `examples/04_mhr_shape_pose.py`: load LOD1, bake identity and proportions
+  (including accumulated hand scale), set three named revolutes, and render via
+  `SkinnedMeshMode`. Its documented `uv run` headless path was executed.
+- MHR support, layout/licensing caveats, rig/deformation architecture,
+  segmentation, performance, parity, and singular-dynamics facts were added to
+  the README and documentation. Stale SMPL-only claims and false converter
+  instructions were corrected; the segmentation concept now links to a
+  separate rendering guide.
 
-Eight PNGs under `docs/segmentation/`:
+## Benchmark protocol
 
-| File | Model | Type | View |
-|---|---|---|---|
-| `smpl_authored_surface.png` | SMPL | authored | part-colored surface (named per-vertex parts) |
-| `smpl_authored_split.png` | SMPL | authored | exploded **closed** joint-capped solids |
-| `smpl_argmax_surface.png` | SMPL | argmax | part-colored surface (strongest skinning joint) |
-| `smpl_argmax_split.png` | SMPL | argmax | exploded centroid-capped solids |
-| `smplx_authored_surface.png` | SMPL-X | authored | part-colored surface (named per-vertex parts) |
-| `smplx_authored_split.png` | SMPL-X | authored | exploded **open** surface shells (no closed-3D asset) |
-| `smplx_argmax_surface.png` | SMPL-X | argmax | part-colored surface (55 parts incl. per-finger) |
-| `smplx_argmax_split.png` | SMPL-X | argmax | exploded centroid-capped solids |
+- LOD1, float32, `compute_mass=False`; deterministic identical input rows.
+- Intel Xeon Platinum 8570 (2 sockets, 56 cores/socket, SMT2), PyTorch
+  `2.13.0+cu126`, BetterRobot `0.2.0`, 112 intra-op and 112 inter-op threads.
+- Five warmups, then median of 30 calls using `perf_counter_ns`.
+- **Pose-only:** one scalar shape baked before timing, then repeated batched
+  `q`. **Shape+pose:** batched `with_shape` plus `vertices(q)` per call.
+  TorchScript always recomputes native shape and pose, so shape+pose is the
+  apples-to-apples row.
+- The host was shared and busy during the run. Exact medians are reported as
+  measured; isolated stage medians are diagnostic and are not additive.
 
-Rendering sources per combination:
-- SMPL authored surface / SMPL-X authored surface: `*_vert_segmentation.json`
-  per-vertex named parts (24 for SMPL; 27 for SMPL-X, 6 verts unlabeled → gray).
-- argmax surfaces: `structure.part_ids` (`segment_vertices`).
-- SMPL authored split: `structure.part_topology` (the authored closed-3D topology
-  SMPL loads by default) via `meshes_from_topology` — joint-capped solids.
-- argmax splits: `build_part_topology(faces, part_ids, n)` → `meshes_from_topology`
-  — centroid-capped solids.
-- SMPL-X authored split: the intact mesh split into open per-part shells by the
-  vertex labeling (SMPL-X ships no authored closed-3D asset).
+## End-to-end CPU results
 
-## Explanation page
+| Batch | Correctives | TorchScript shape+pose ms | BetterHuman pose-only ms | Pose/ref | BetterHuman shape+pose ms | Shape/ref |
+|---:|:---:|---:|---:|---:|---:|---:|
+| 1 | on | 20.169990 | 208.214920 | 10.323006× | 318.263894 | 15.779080× |
+| 1 | off | 12.667384 | 226.565365 | 17.885726× | 312.925717 | 24.703263× |
+| 16 | on | 48.545396 | 119.060006 | 2.452550× | 132.579338 | 2.731038× |
+| 16 | off | 43.209223 | 115.589255 | 2.675106× | 117.570330 | 2.720955× |
+| 256 | on | 988.033544 | 1482.259346 | 1.500212× | 1623.051953 | 1.642709× |
+| 256 | off | 876.298065 | 1467.830282 | 1.675035× | 1557.705576 | 1.777598× |
 
-`docs/segmentation.md` (flat markdown, Diátaxis *explanation* style — no code
-steps): the two segmentation sources → one closed `PartMeshTopology`; why the
-authored joint-cap partition is volume-preserving (shared cap vertices telescope
-to the whole-body volume; the 3 open seam parts — spine3, left_collar,
-right_collar — are integrated about the part mean so the aggregate is exact);
-when each is used (authored = SMPL-family default; argmax = generic fallback,
-SMPL-X). Embeds all 8 images in per-model 2×2 tables and cites the measured
-Baselines numbers (authored +0.0055 % / 74.76 kg / 0.02 mm vs argmax
-+1.78 % / 73.43 kg / 2.47 mm). Closes with the regenerate command.
+The CPU batch-256 analogue meets the `≤2×` target for both BetterHuman paths.
+Batch 16 misses it, and batch 1 is substantially slower. The stated acceptance
+target is specifically CUDA batch ≥16, which could not be measured here.
 
-## Design-doc truth fixes
+## BetterHuman pose-only split
 
-`docs/architecture.md`:
-- Pluggability seam list: "sparse per-coordinate joint regressor" → "a dense
-  joint regressor" (order-04 CSR removal).
-- Concrete-model paragraph: added `BodyConfig` + per-model `config_*.py` data
-  modules, `smpl_family.py` shared binding, SMPL topology re-homed out of
-  BetterRobot, and the restored `body.landmark_positions(vertices)` accessor.
-- "Mass and dynamics": rewritten from argmax-only to the **two-source** model
-  (authored closed-3D default via `orient_faces_by_component`, replacing
-  `trimesh.fix_normals`, tolerating the 3 open seam parts; argmax fallback with
-  centroid caps). Replaced the stale numbers/claims — dropped the false "STAR
-  segmentation … argmax fallback is used" sentence (the authored asset is now
-  restored and used for SMPL) and the pre-order-03 10.19→41.50 ms figure; kept
-  the `compute_mass=False` opt-out. Cites authored (74.76 kg, +0.0055 %, 0.02 mm)
-  and argmax (73.43 kg, +1.78 %, 2.47 mm).
-- "Package layout": added `config_body.py`, `config_smpl.py`, `config_smplx.py`,
-  `smpl_family.py`, and `bodies/assets/`.
+| Batch | Correctives | FK ms | Corrective ms | Transforms + LBS ms |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 42.583825 | 43.082168 | 6.511565 |
+| 1 | off | 42.060111 | 6.002389 | 6.326809 |
+| 16 | on | 47.058248 | 5.568119 | 22.028147 |
+| 16 | off | 26.154574 | 0.042477 | 24.580467 |
+| 256 | on | 58.057344 | 16.201941 | 1427.753313 |
+| 256 | off | 33.725507 | 0.042990 | 1346.318814 |
 
-`docs/contracts.md`:
-- Density override wording now includes "or a named density table resolved to
-  that tensor" (order-03 str option).
-- Added a normative bullet: two segmentation sources, one closed
-  `PartMeshTopology` fed to `Inertia.from_mesh`; authored volume-preserving
-  default vs argmax fallback; neither a per-query cost.
-- (The order-04 "converter emits the regressor dense; loaders load every field
-  as a dense tensor" line was already correct — left as-is.)
+The BetterRobot Python/topological FK traversal is material at batch 1. At
+batch 256, inverse-bind transform construction plus scaled sparse LBS dominates;
+the corrective MLP is not the bottleneck. These findings do not justify a
+BetterHuman copy of FK or speculative caching, so no performance workaround was
+added.
 
-## Packaging fix
+## Visual and example verification
 
-`pyproject.toml`: added `artifacts = ["*.npy", "*.json"]` under
-`[tool.hatch.build.targets.wheel]`, and `matplotlib>=3.8` to the `dev`
-dependency group (the render helper).
+| Artifact | Size | SHA-256 |
+|---|---:|---|
+| MHR grouped surface | 675×975 | `480ea5af548b4ea37bbc3bb52522dfdbac3f6e289f133693bcdf2ac03af43049` |
+| MHR grouped split | 975×975 | `807d4d079dd37b81526f6c27fbc226385db031340dd3f9461951e21e85a24a39` |
 
-**Finding:** the assets were *already* shipping in the built wheel before this
-change — hatchling with `packages = ["src/better_human"]` includes every file
-under the package tree, not just `.py`, and the assets are not gitignored. So the
-handoff's premise ("a built wheel currently would NOT include them") did not hold
-on this tree. The `artifacts` entry is kept anyway: it makes the intent explicit
-and pins inclusion even if a future VCS-ignore rule matches `*.npy`/`*.json`
-(plausible in a repo that already gitignores `models/`). Verified via `uv build
---wheel`: all four data files (`smpl_3d_segmentation.npy`,
-`smpl_vert_segmentation.json`, `smplx_vert_segmentation.json`,
-`body_densities.json`) are present in the wheel both before and after.
+The images were visually inspected: all surface triangles are labeled and the
+exploded view contains 19 coherent finite solids. Regenerating all ten images
+left the eight existing SMPL/SMPL-X PNGs byte-identical.
 
-## Tests / lint
+The exact example smoke command succeeded:
 
-- **CPU** (`CUDA_VISIBLE_DEVICES=""`): **105 passed, 6 skipped** — identical to
-  the order-04 CPU baseline (no `src`/`tests` changes).
-- **CUDA** (GPU 2, RTX 6000 Ada): **109 passed, 2 skipped** (2 skips = absent
-  SMPL-X parity goldens) — identical to the order-04 CUDA baseline.
-- `ruff check docs/render_segmentation.py` → clean (the only touched `.py`).
-  `ruff check src tests` still clean.
+```text
+uv run python examples/04_mhr_shape_pose.py \
+  --model-path models/MHR/converted/mhr_lod1.npz --headless --frames 1
+Rendered 1 MHR LOD1 frames in 0.096 s with 18439 vertices
+```
 
-## Deviations / findings (honest)
+## Verification
 
-1. **Roadmap migration not done.** The plan's `### 05` mentions "migrate the old
-   plan's roadmap into docs," but the authoritative order-05 handoff and the
-   stated definition of done enumerate only images + `segmentation.md` +
-   `architecture`/`contracts` truth + packaging. The roadmap already lives in
-   `plan/README.md` "Beyond this plan"; I did not duplicate it into `docs/` to
-   avoid a divergent second copy and to stay within the handoff scope. Trivial
-   follow-up if the owner wants a `docs/roadmap.md`.
-2. **Packaging premise did not hold** (see Packaging fix) — assets already
-   shipped; the added config is a robustness pin, not a repair.
-3. **Render helper lives in `docs/`** (`docs/render_segmentation.py`), not
-   `examples/`, since its output is `docs/segmentation/` and it is a docs
-   generator rather than an interactive example. `matplotlib` is a `dev`-group
-   dependency (not a runtime/library dependency).
-4. **Cross-image colors do not correspond** for SMPL authored (surface colors by
-   named per-vertex part; split colors by native joint index). Each image is
-   independently a valid "distinct color per part" view; no correspondence is
-   claimed in the page. SMPL-X authored surface/split *do* share the vertex
-   labeling and its colors.
+- Full suite after Order 05: **223 passed, 5 skipped, 20 warnings** in
+  `101.38 s`.
+- `.venv/bin/ruff check .` and `git diff --check` pass.
+- The benchmark, example, and changed runtime Python files pass
+  `ruff format --check`.
+- There is no Sphinx `conf.py` or equivalent docs build in this repository,
+  so no documentation build command exists. Markdown image/link targets were
+  checked directly.
+- BetterRobot and the MHR reference checkout are clean.
+
+## Deviations and findings
+
+1. **CUDA target unjudged.** PyTorch reports no CUDA device and `warp` is not
+   installed, so no CUDA batch row or true Warp row can be reported. A CPU
+   result was not relabeled as CUDA success. The harness supports synchronized
+   CUDA timing for a future run.
+2. **Warp scope is pose-only today.** BetterRobot's fused lane accepts MHR's
+   joint kinds, but a batched shaped body has batched joint placements and an
+   unbatched frame-placement table, which the current Warp bridge rejects.
+   `--use-warp` therefore applies only to the scalar-shape/batched-pose rows;
+   the fair batched shape+pose rows remain on Torch FK. No benchmark-only model
+   rewrite was added.
+3. **CPU small/medium batches miss 2×.** The profile identifies BetterRobot FK
+   at small batch and scaled sparse LBS at large batch. Per the plan, the BR
+   traversal was reported rather than duplicated inside BetterHuman.
+4. **Renderer formatting debt remains isolated.** `docs/render_segmentation.py`
+   already required formatting in three unchanged render-call blocks. Its new
+   lines pass lint; those unrelated blocks were not reformatted solely to make
+   the diff larger.
+## Primary commands
+
+```bash
+.venv/bin/python benchmarks/benchmark_mhr.py --device cpu
+.venv/bin/python docs/render_segmentation.py --models-dir models
+uv run python examples/04_mhr_shape_pose.py \
+  --model-path models/MHR/converted/mhr_lod1.npz --headless --frames 1
+.venv/bin/pytest tests/ -q
+.venv/bin/ruff check .
+git diff --check
+```

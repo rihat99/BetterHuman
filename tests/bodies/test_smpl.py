@@ -11,6 +11,8 @@ import better_human as bh
 import better_human.core.body as body_module
 from better_human.bodies import SMPLClassic
 from better_human.bodies.config_smpl import SMPL_CONFIG
+from better_human.bodies.smpl_family import smpl_linear_pose_corrective
+from better_human.core.pipeline import lbs, skinning_transforms
 
 MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
 GRADCHECK_VERTEX_INDICES = torch.tensor([0, 1723, 3445, 5167, 6889], dtype=torch.long)
@@ -79,6 +81,27 @@ def test_scaled_joint_quaternion_does_not_change_vertices(body: bh.SMPL) -> None
     scaled_q = q.clone()
     scaled_q[7:11] *= 2.0
     torch.testing.assert_close(body.vertices(scaled_q), body.vertices(q), rtol=2e-6, atol=2e-6)
+
+
+def test_generalized_skinning_reduces_exactly_on_smpl_fixture(body: bh.SMPL) -> None:
+    q = body.from_classic(SMPLClassic(body_pose=torch.linspace(-0.2, 0.2, 69)))
+    data = body.fk(q)
+    legacy_vertices = body.vertices_from_data(data)
+    rest_vertices = body.values.v_shaped + smpl_linear_pose_corrective(body, data)
+    bind_quaternions = body.values.rest_joints.new_zeros((*body.values.rest_joints.shape[:-1], 4))
+    bind_quaternions[..., 3] = 1
+    bind_poses = torch.cat((body.values.rest_joints, bind_quaternions), dim=-1)
+    transforms = skinning_transforms(data.joint_pose_world[..., 1:, :], bind_poses)
+    generalized_vertices = lbs(
+        rest_vertices,
+        transforms,
+        body.values.skinning_weights,
+        body.structure.skinning_indices,
+        joint_scales=rest_vertices.new_ones(len(body.structure.joint_names)),
+        bind_joint_positions=body.values.rest_joints,
+    )
+
+    assert torch.equal(generalized_vertices, legacy_vertices)
 
 
 def test_vertices_calls_fk_once(body: bh.SMPL, monkeypatch: pytest.MonkeyPatch) -> None:

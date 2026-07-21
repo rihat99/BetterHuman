@@ -23,24 +23,27 @@ solver — just a graphics-style forward function from parameters to vertices.
    blend shapes, correctives, joint regression). Users switch body models by
    changing one string, not their pipeline.
 2. **Robotics-native state.** Pose is a configuration vector `q` on a real
-   BetterRobot kinematic tree (free-flyer root, spherical joints). FK, IK,
-   Jacobians, dynamics, trajectory optimization — all inherited from
-   BetterRobot, batched and differentiable. Every model provides
+   BetterRobot kinematic tree: spherical joints for the SMPL family, and
+   named revolute and mimic joints for MHR. FK, IK, Jacobians, dynamics, and
+   trajectory optimization come from BetterRobot, batched and differentiable.
+   Every model provides
    `from_classic` / `to_classic` to translate its native convention
    losslessly, so existing datasets and codebases remain reachable.
 3. **Model/Data split, human edition.** Following Pinocchio and BetterRobot:
    static topology in the model structure, differentiable model tensors in
-   model values, per-query state in `Data`. Shape parameters (betas) live on
-   the model side — changing shape updates the model once; pose inference
-   afterwards is pure fast robotics FK. Joint angles live in `Data`.
+   model values, per-query state in `Data`. Named shape groups live on the
+   model side — changing shape updates the model once; vertex queries then run
+   FK, pose correctives, and skinning without recomputing shape. Joint angles
+   live in `Data`.
 4. **LEGO composability.** Partial models are constructor parameters, not
    separate classes (SMPL-X without expressions, without articulated
    fingers). Human-specific residuals plug into the BetterRobot optimizer.
    Conversion between body models and retargeting to humanoid robots are
    modules over the same core.
-5. **Closer to robotics than to graphics.** Mass and inertia are first-class
-   (dynamics on human bodies must work out of the box). Meshes and skinning
-   are outputs, not the organizing principle.
+5. **Closer to robotics than to graphics.** Mass and inertia are first-class.
+   Models with independent coordinates support solve-based dynamics directly;
+   MHR's current overcomplete coordinates expose a documented singular CRBA.
+   Meshes and skinning are outputs, not the organizing principle.
 
 ## Non-goals
 

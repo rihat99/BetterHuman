@@ -1,8 +1,9 @@
-"""Pure converters between classic SMPL-family and BetterRobot poses."""
+"""Pure validation and conversion helpers for classic body-model poses."""
 
 from __future__ import annotations
 
 import torch
+from better_robot import Model
 from better_robot.lie import so3
 
 
@@ -74,8 +75,49 @@ def free_flyer_to_classic_root(
     return global_orient, transl
 
 
+def classic_tensor(
+    name: str,
+    value: torch.Tensor | None,
+    width: int,
+    exemplar: torch.Tensor,
+) -> torch.Tensor | None:
+    """Validate one optional classic tensor at a converter boundary."""
+    if value is None:
+        return None
+    if not isinstance(value, torch.Tensor) or not value.is_floating_point():
+        raise TypeError(f"{name} must be a floating torch.Tensor or None")
+    if value.shape[-1:] != (width,):
+        raise ValueError(f"{name} must have shape (..., {width}); got {tuple(value.shape)}")
+    if value.dtype != exemplar.dtype or value.device != exemplar.device:
+        raise ValueError(
+            f"{name} must use dtype={exemplar.dtype} and device={exemplar.device}; "
+            f"got dtype={value.dtype}, device={value.device}"
+        )
+    return value
+
+
+def broadcast_configuration(
+    q: torch.Tensor,
+    robot: Model,
+    exemplar: torch.Tensor,
+) -> tuple[torch.Tensor, tuple[int, ...]]:
+    """Validate ``q`` and broadcast it against shape-baked value axes."""
+    if not isinstance(q, torch.Tensor) or not q.is_floating_point():
+        raise TypeError("q must be a floating torch.Tensor")
+    if q.shape[-1:] != (robot.nq,):
+        raise ValueError(f"q must have shape (..., {robot.nq}); got {tuple(q.shape)}")
+    if q.dtype != exemplar.dtype or q.device != exemplar.device:
+        raise ValueError(
+            f"q must use dtype={exemplar.dtype} and device={exemplar.device}; got dtype={q.dtype}, device={q.device}"
+        )
+    batch_shape = torch.broadcast_shapes(q.shape[:-1], exemplar.shape[:-1])
+    return q.expand(*batch_shape, robot.nq), batch_shape
+
+
 __all__ = [
     "axis_angle_to_quaternion",
+    "broadcast_configuration",
+    "classic_tensor",
     "classic_root_to_free_flyer",
     "free_flyer_to_classic_root",
     "quaternion_to_axis_angle",

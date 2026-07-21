@@ -1,0 +1,13 @@
+name: betterhuman-mhr-parity
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - numpy=2.3.5
+  - pip=25.3
+  - pymomentum=0.1.90
+  - python=3.12.12
+  - pytorch=2.8.0
+  - pytorch-cpu=2.8.0
+  - pip:
+      - trimesh==4.9.0

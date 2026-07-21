@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 import torch
+from better_robot.lie import se3
 from better_robot.spatial import Inertia
 from better_robot.spatial.mesh import orient_faces_by_component
 
@@ -84,9 +85,7 @@ def _boundary_loops(part_faces: list[tuple[int, int, int]]) -> tuple[tuple[int, 
             edge_occurrences.setdefault(key, []).append((face_index, edge_index, start, end))
 
     boundary_edges = {
-        (occurrences[0][0], occurrences[0][1])
-        for occurrences in edge_occurrences.values()
-        if len(occurrences) == 1
+        (occurrences[0][0], occurrences[0][1]) for occurrences in edge_occurrences.values() if len(occurrences) == 1
     }
     if not boundary_edges:
         return ()
@@ -217,7 +216,9 @@ def meshes_from_topology(
         if cap_indices.numel():
             if rest_joints is None:
                 raise ValueError("authored joint caps require rest_joints")
-            vertices = torch.cat((vertices, rest_joints.index_select(-2, cap_indices.to(device=v_shaped.device))), dim=-2)
+            vertices = torch.cat(
+                (vertices, rest_joints.index_select(-2, cap_indices.to(device=v_shaped.device))), dim=-2
+            )
         if loops:
             centroids = torch.stack(
                 tuple(v_shaped.index_select(-2, loop.to(device=v_shaped.device)).mean(dim=-2) for loop in loops),
@@ -245,9 +246,16 @@ def body_inertias_from_shape(
     """
     per_part = density.broadcast_to((topology.num_parts,))
 
+    if rest_joints.shape[-1] not in (3, 7):
+        raise ValueError(f"rest_joints must have shape (..., J, 3) or (..., J, 7); got {tuple(rest_joints.shape)}")
+    cap_positions = rest_joints[..., :3] if rest_joints.shape[-1] == 7 else rest_joints
     packed_parts: list[torch.Tensor] = []
-    for part, (vertices, faces) in enumerate(meshes_from_topology(v_shaped, topology, rest_joints)):
-        local_vertices = vertices - rest_joints[..., part, None, :]
+    for part, (vertices, faces) in enumerate(meshes_from_topology(v_shaped, topology, cap_positions)):
+        rest_joint = rest_joints[..., part, :]
+        if rest_joint.shape[-1] == 3:
+            local_vertices = vertices - rest_joint[..., None, :]
+        else:
+            local_vertices = se3.act(se3.inverse(rest_joint)[..., None, :], vertices)
         packed_parts.append(Inertia.from_mesh(local_vertices, faces, density=per_part[part]).data)
     native = torch.stack(packed_parts, dim=-2)
     universe = native.new_zeros((*native.shape[:-2], 1, 10))

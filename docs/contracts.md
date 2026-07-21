@@ -18,14 +18,16 @@ ones. Breaking a contract is a bug even if tests pass.
 
 ## Units and frames
 
-- SI everywhere: meters, kilograms, seconds, radians. Models with other
-  native units (MHR is centimeters) convert inside their loader/converters;
-  no unit flags on the public API.
+- SI everywhere: meters, kilograms, seconds, radians. Raw MHR assets and
+  oracle outputs use centimeters; its offline converter stores meters and the
+  runtime loader validates that normalized unit. There are no unit flags on
+  the public API.
 - Shape-derived mass uses 1000 kg/m³ by default. A density override is either
-  scalar, a tensor in native joint order with one positive kg/m³ value per
-  physical body part, or a named density table resolved to that tensor; the
-  BetterRobot universe remains massless. Packed COM and inertia values are
-  expressed in each part's rest-joint frame.
+  scalar, a tensor in the model-declared physical-part order with one positive
+  kg/m³ value per part, or a named density table resolved to that tensor. MHR
+  declares 19 reference segmentation groups. The BetterRobot universe remains
+  massless. Packed COM and inertia values are expressed in each part's
+  rest-joint frame.
 - Segmentation has two sources but one closed topology. A model with an authored
   closed-3D asset uses it (volume-preserving joint-cap parts, the SMPL-family
   default); a model without one falls back to argmax skinning assignment with
@@ -40,8 +42,9 @@ ones. Breaking a contract is a bug even if tests pass.
 
 - The only pose representation in BetterHuman is BetterRobot `q` on the
   body's kinematic tree. Axis-angle, Euler angles, rotation matrices, and
-  4×4 stacks may exist **only** inside `from_classic` / `to_classic` and
-  weight-file loaders.
+  4×4 stacks may exist only as model-private intermediates inside classic
+  converters, weight-file loaders, and pose-feature policies; they are never
+  parallel public pose state.
 - Shape lives on the model side. `with_shape(**named_groups)` is the only
   way shape enters; pose-query methods (`fk`, `vertices`, Jacobians,
   dynamics) must not accept shape parameters. Parameter groups are named
@@ -74,10 +77,12 @@ ones. Breaking a contract is a bug even if tests pass.
 
 ## Classic conversion
 
-- `from_classic` and `to_classic` are exact inverses:
-  `to_classic(from_classic(c)) == c` and
-  `from_classic(to_classic(q)) == q` to documented tolerance, for every
-  model, covered by round-trip tests.
+- `from_classic` and `to_classic` are exact inverses over canonical numerical
+  state, to documented tolerance and with round-trip tests. A model whose
+  classic container includes shape state may return `(shaped_body, q)` from
+  `from_classic`; its inverse is `shaped_body.to_classic(q)`. Reference aliases
+  such as MHR's absent expression and an explicit zero expression may
+  canonicalize to one representation.
 - Conversions may depend on baked shape (the SMPL pelvis offset `J₀(β)`
   does); they read it from the body, never take it as an extra argument.
 - Classic parameter containers are per-model typed dataclasses. No
@@ -86,26 +91,33 @@ ones. Breaking a contract is a bug even if tests pass.
 
 ## Weight files
 
-- One self-describing `.npz` per model; the loader validates field names,
+- One self-describing `.npz` per model variant or LOD; the loader validates field names,
   shapes, and dtypes against the schema before constructing anything, and
   errors name the offending field, the file, and the fix. Validation is
   **required-subset semantics**: every schema field must be present and
-  correct; unknown extra fields are ignored (logged at debug) — vendor
+  correct; unknown extra fields are ignored — vendor
   files carry UV/landmark/dict cruft (the MPI SMPL-X `.npz` does) that must
   not block loading. No `print`; use `logging`.
 - Resolution order: explicit `model_path` argument, else
   `$BETTERHUMAN_MODELS_DIR/<family>/<canonical-name>`, else raise with both
   options spelled out. The library never downloads weights and the
   repository never contains gated weights.
-- The converter emits the joint regressor dense and loaders load every field
-  as a dense tensor; loaders never mutate the source file.
+- The legacy SMPL-family converter emits the joint regressor dense; MHR has an
+  authored skeleton and no joint regressor. Loaders expose every selected
+  numeric field as a dense tensor. Unicode metadata remains a NumPy array
+  because PyTorch has no string tensor dtype; loaders never mutate the source
+  file.
 
 ## Parity (the safety net)
 
 - Every supported model reproduces its original implementation's vertices
-  and joints on the golden grid: float64 oracle vs our float64 pass agrees
-  to ≤ 1e-6 (m); the float32 tolerance is measured and pinned when the
-  goldens land, not guessed.
+  and joints on the golden grid. A true float64 oracle compared with our
+  float64 path agrees to ≤ 1e-6 m. When an upstream oracle serializes only
+  float32 output (MHR through `pymomentum`), both BetterHuman dtypes are
+  compared with that same float32 grid. Position, quaternion, and scale
+  tolerances are measured and pinned by dtype; mixed f64-vs-f32 results are
+  not presented as float64-oracle parity. Quaternion comparisons are
+  sign-agnostic.
 - Golden grids must include each model's known traps (SMPL-X hand mean
   pose, jaw+eyes-before-hands pose ordering, expression-as-shape-columns,
   hand-PCA expansion).
@@ -113,3 +125,52 @@ ones. Breaking a contract is a bug even if tests pass.
   or tolerance-bumped to land a change. Tests that need local weights skip
   with an explicit reason when weights are absent — skipping is visible,
   not silent.
+
+## Measured baselines (never regress)
+
+Recorded when the corresponding safety net landed; a change that moves one of
+these numbers the wrong way does not merge.
+
+| Quantity | Baseline | Note |
+|---|---|---|
+| SMPL/SMPL-X float64 parity vs `smplx` oracle | ≤ 1e-6 m (worst measured ~1.04e-7) | sacred; never weakened |
+| SMPL/SMPL-X float32 parity | pinned at 1e-6 (worst ~7e-7) | keep pinned |
+| MHR float32 parity vs float32 `pymomentum` oracle | V ≤ 5e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | applies independently to every LOD |
+| MHR float64 parity vs float32 `pymomentum` oracle | V ≤ 2e-6 m; P ≤ 5e-7 m; Q ≤ 5e-7; S ≤ 1e-7 | mixed-precision oracle; not float64-oracle parity |
+| MHR LOD1 TorchScript vs float32 golden | V ≤ 2e-6 m (worst 1.220703125e-6 m); skeleton exact | independent secondary oracle |
+| MHR LOD1 CPU batch-256 performance vs TorchScript | pose-only 1.500212×/1.675035×; shape+pose 1.642709×/1.777598× (correctives on/off) | 30-call medians; CUDA target remains unmeasured |
+| Partial-model property (SMPL-X reduced vs full-with-identity DOFs) | ≤ 5e-7 m | keep |
+| Neutral SMPL mass — argmax segmentation (density 1000) | 73.43 kg parts / 74.76 kg whole, 1.78 % gap | the argmax fallback's inherent gap |
+| Neutral SMPL volume — authored closed-3D segmentation | 24-part sum within +0.0055 % of whole mesh | authored path must hold this |
+| Aggregate vs whole-mesh COM separation | 0.02 mm (authored), 2.47 mm (argmax) | |
+| SMPL/SMPL-X CRBA min eigenvalue (SPD check) | > 0 | keep |
+| Test gate | full suite green; run CUDA cases on available pinned hardware | unavailable hardware skips stay visible and are not reported as passes |
+
+For MHR, V denotes vertices, P native joint positions, Q sign-agnostic native
+joint quaternions, and S native joint scale. V and P are measured in meters;
+Q and S are dimensionless. Full-grid maxima are:
+
+| Dtype | LOD | V | P | Q | S |
+|---|---:|---:|---:|---:|---:|
+| float32 | 0 | 2.02656e-6 | 3.57628e-7 | 2.98023e-7 | 0 |
+| float32 | 1 | 2.92063e-6 | 7.59959e-7 | 6.55651e-7 | 0 |
+| float32 | 2 | 1.96695e-6 | 3.57628e-7 | 2.98023e-7 | 0 |
+| float32 | 3 | 2.26498e-6 | 7.15256e-7 | 4.76837e-7 | 0 |
+| float32 | 4 | 2.02656e-6 | 3.57628e-7 | 3.57628e-7 | 0 |
+| float32 | 5 | 1.78814e-6 | 4.76837e-7 | 2.98023e-7 | 0 |
+| float32 | 6 | 1.78814e-6 | 2.68221e-7 | 3.57628e-7 | 0 |
+| float64 | 0 | 6.79632e-7 | 1.83320e-7 | 1.31398e-7 | 2.48013e-8 |
+| float64 | 1 | 8.48870e-7 | 2.21570e-7 | 1.92913e-7 | 4.66294e-8 |
+| float64 | 2 | 5.58113e-7 | 1.31547e-7 | 1.02206e-7 | 5.79166e-8 |
+| float64 | 3 | 5.61791e-7 | 9.95071e-8 | 1.08197e-7 | 2.90327e-8 |
+| float64 | 4 | 5.53013e-7 | 2.06190e-7 | 1.33385e-7 | 2.55663e-8 |
+| float64 | 5 | 4.46301e-7 | 1.22673e-7 | 1.22210e-7 | 2.29539e-8 |
+| float64 | 6 | 5.93538e-7 | 1.20236e-7 | 1.82994e-7 | 2.92798e-8 |
+
+MHR currently does not meet the CRBA baseline. Its physical rotation transform
+has rank 119/125 because the overcomplete spine controls contain six
+structural null directions; consequently, any physically derived MHR CRBA has
+rank at most 125/131. The current 19-group inertia placement measures rank
+50/131 at neutral LOD1, with 72 zero diagonal entries and
+`λmin = -7.7016e-15` from numerical roundoff. This is an Order 04 deviation,
+not an accepted baseline.

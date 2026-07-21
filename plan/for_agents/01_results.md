@@ -1,150 +1,187 @@
-# Order 01 results — BetterRobot mesh face-orientation + closedness tools
+# Order 01 results — MHR converter and parity goldens
 
-Completed on `dev` (BetterRobot working tree) on 2026-07-21. This order is
-authorized to edit BetterRobot mesh tools only; no BetterHuman source changed.
-Includes the adversarial-review follow-up (non-orientable bug fix + a non-strict
-best-effort orienter for the real authored segmentation).
+Completed on branch `dev` on 2026-07-21. This order adds tools and oracle data
+only: no BetterHuman library code and no BetterRobot code were modified.
 
 ## Delivered
 
-A torch-only, GPU-safe companion to `Inertia.from_mesh` in a new module
-`src/better_robot/spatial/mesh.py` (282 LOC). Public API:
+- `tools/parity/mhr/environment.yml`: pinned Python 3.12.12, NumPy 2.3.5,
+  PyTorch 2.8.0 CPU, PyMomentum 0.1.90 CPU, and trimesh 4.9.0.
+- `tools/parity/mhr/README.md`: exact environment, conversion, and golden
+  regeneration commands.
+- `tools/convert/mhr/convert_mhr.py`: an all-LOD converter with source/schema,
+  dimensions, units, topology, transform, skinning, bind, corrective, limit,
+  tpose, segmentation, and cross-LOD assertions. It writes one lazy-loadable,
+  self-contained, uncompressed NPZ per LOD under the gitignored
+  `models/MHR/converted/` directory.
+- `tools/parity/mhr/dump_mhr.py`: deterministic CPU/float32 reference runner.
+  It writes every input, flag, vertex output, and `(127, 8)` skeleton state,
+  and performs a bitwise reload/re-run check.
+- 48 generated goldens under `tests/parity/goldens/mhr_lod{0..6}/`: exactly 30
+  LOD1 cases and 3 smoke cases for each other LOD. LOD1 covers zero with
+  correctives on/off, tpose, five random-pose cases, identity, expression and
+  expression-`None`, proportions, both hand-scale limits, root motion, and
+  seven combined cases. One nonzero combined case also disables correctives.
 
-- `validate_closed_manifold(faces) -> None` — raises unless every undirected
-  edge has incidence exactly 2. Boundary edges (incidence 1 → open surface) and
-  non-manifold edges (incidence > 2) raise `ValueError` naming up to five
-  offending edges (non-manifold edges also report their incidence). Multiple
-  disjoint closed components are accepted. Edge-incidence uses `torch.unique` on
-  the input device (CPU or CUDA).
-- `orient_faces_consistently(faces) -> torch.Tensor` — **strict** path.
-  Validates closed-manifoldness, then walks the face-adjacency graph (edges
-  shared by exactly two faces) reversing any neighbour that would traverse the
-  shared edge in the same direction, so every face in a connected component
-  agrees on winding. Integer face table only (never vertex values); returns a
-  table on the input device/dtype. The single global winding sign is folded by
-  `Inertia.from_mesh`. **Now raises `ValueError("surface is non-orientable…")`**
-  when the walk meets a contradiction (see bug fix below).
-- `orient_faces_by_component(vertices, faces) -> torch.Tensor` — **non-strict,
-  best-effort** path (new, from the follow-up). Builds adjacency over
-  incidence-2 edges only (boundary and non-manifold edges are ignored, never
-  raised on), orients each connected component consistently, then flips each
-  component whose **mean-centered signed tetrahedron volume** is negative so every
-  component faces outward. Centering matches `Inertia.from_mesh` exactly (same
-  `vertices.mean`), so the subsequent integration needs no global sign fold and
-  component volumes add constructively. Integer table out → the orientation is a
-  static rest-geometry precompute and downstream integration stays
-  differentiable. On a clean closed manifold it produces the same integrated
-  result as the strict orienter.
+## Measured outputs
 
-Export edit `src/better_robot/spatial/__init__.py` (+13 / −1): re-exports the
-three functions and adds them to `__all__`.
+All archive sizes below are raw bytes from `stat`; MiB is the converter's
+base-2 display.
 
-## BetterRobot changes (explicit list)
+| LOD | Vertices | Faces | Converted bytes | MiB | Golden cases | Golden bytes |
+|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 73,639 | 147,274 | 2,769,297,616 | 2,641.01 | 3 | 2,376,431 |
+| 1 | 18,439 | 36,874 | 695,985,472 | 663.74 | 30 | 6,159,548 |
+| 2 | 10,661 | 21,318 | 403,843,792 | 385.14 | 3 | 353,563 |
+| 3 | 4,899 | 9,794 | 187,423,072 | 178.74 | 3 | 173,741 |
+| 4 | 2,461 | 4,918 | 95,851,792 | 91.41 | 3 | 98,669 |
+| 5 | 971 | 1,938 | 39,887,392 | 38.04 | 3 | 49,572 |
+| 6 | 595 | 1,186 | 25,764,832 | 24.57 | 3 | 38,522 |
 
-1. Added `src/better_robot/spatial/mesh.py` (282 LOC) — three public functions +
-   private helpers `_check_face_table`, `_undirected_edges`,
-   `_build_face_adjacency`, `_orient_components`, `_apply_reversal`.
-2. Edited `src/better_robot/spatial/__init__.py` (three new public exports).
-3. Added `tests/spatial/test_mesh.py` (323 LOC).
+Golden total: **48 files, 9,250,046 bytes**.
 
-Nothing else in BetterRobot was touched. No `models/` or `references/` change.
+Transform measurements, all asserted by the converter:
 
-## Bug fix (adversarial review item 1)
+- Dense augmented shape: `(889, 321)`; columns `204:321` are exactly zero.
+- `.model` assignment statements `(translation, rotation, scale)`:
+  **(191, 157, 2) = 350**.
+- Sparse matrix entries: **(191, 175, 2) = 368**.
+- Unique driven rows: **(136, 157, 2) = 295**, across **113 joints**.
+- Multi-source rows: **(55, 12, 0)**. The 12 rotation rows are the documented
+  spine rows; translation also has 55 multi-source rows.
+- Model-parameter column types: **(74, 128, 2)**. Excluding the three root
+  translation and three root rotation parameters gives 71 proportions and 125
+  pose parameters; the two scale parameters are `scale_l_hands` and
+  `scale_r_hands`.
+- Parsed model metadata: 8 parameter sets, 198 unique finite non-root limits,
+  and 19 authored tpose entries. Both elbow-bend tpose values are `-0.5`.
 
-The strict orienter previously assumed a validated closed 2-manifold is
-orientable and its DFS "never conflicts" — **false**. The minimal RP²
-triangulation (antipodal quotient of the icosahedron: 10 faces / 6 verts, every
-edge incidence-2) passes `validate_closed_manifold` yet is non-orientable, and
-the old DFS silently returned a still-inconsistent table. Fixed: the walk now
-checks already-signed neighbours and raises
-`ValueError: surface is non-orientable: faces 8 and 5 impose contradictory
-winding across their shared edge`. The false inline comment was corrected. Added
-a test (`test_non_orientable_surface_is_rejected_by_the_strict_orienter`)
-asserting RP² validates as closed but is rejected by the strict orienter.
+Other raw validation metrics were identical for every LOD:
 
-## Measured numbers
+- Maximum pre-rotation norm error before normalization: `5.96046448e-08`.
+- Maximum skin-weight row-sum error: `1.19209290e-07`; no row was
+  renormalized.
+- FBX mesh versus blendshape base maximum: `0 cm`.
+- FBX bind versus zero-parameter FK maximum: `4.57763672e-05 cm`.
+- FBX bind/inverse product maximum error: `1.52587891e-05` in the native-cm
+  calculation.
+- Corrective activation first-layer nnz: 53,136; output shape is
+  `(3000, V*3)` for each LOD.
+- FBX globals: up `+y`, front `+z`, coordinate/right `+x`, unit scale 1 cm.
 
-**Strict mixed-winding parity (box, faces {0,3,5,8,11} reversed, density 2.5),
-CPU and CUDA:** reference vol/mass = 24.0 / 60.0; un-repaired mixed = 4.0 / 10.0
-(wrong); reoriented = 24.0 / 60.0; `max|reoriented − reference|` over the packed
-10-vector = **0.000e+00** (bit-exact), COM and inertia diffs = 0.0.
+## FK source verification
 
-**Non-strict on an irregular (symmetry-broken) perturbed icosahedron** (8/20
-faces reversed → `orient_faces_by_component` → `from_mesh`): a non-symmetric mesh
-so summation order can't hide a partial inconsistency behind cancellation.
-`max|by_component − reference|` = **0.000e+00** on both CPU and CUDA.
+The executable C++ path in
+`references/parametric_body/momentum/momentum/character/joint_state.cpp` and
+the tensor path in
+`references/parametric_body/momentum/pymomentum/tensor_momentum/tensor_skeleton_state.cpp`
+agree. For joint `i`:
 
-**Real authored SMPL segmentation** (`git show
-main:src/better_human/smpl/config/smpl_3d_segmentation.npy`, `body_faces` = 24
-parts over `[v_template(6890); rest_joints J(24)]`, whole-mesh via
-`models/smpl/SMPL_NEUTRAL.npz`), run as a standalone probe (see deviation 1):
+```text
+world_i = world_parent
+        · T(translationOffset_i + [tx, ty, tz])
+        · Rpre_i · Rz(rz) · Ry(ry) · Rx(rx)
+        · S(exp2(sc))
+```
 
-- Non-strict parts (validate raises: boundary + incidence-3 T-junctions at the
-  shoulder-girdle seam): **exactly {9 spine3, 13 left_collar, 14 right_collar}** —
-  matches the review's finding. All 24 parts pass through
-  `orient_faces_by_component` without raising.
-- Whole-mesh volume = **0.074760534**.
-- Sum of 24 part volumes, **per-part local integration** (each part sliced to its
-  own vertices, the order-03-faithful pipeline) = **0.074764610** →
-  **+54.5 ppm (+0.0055 %)**, reproducing the review's +55 ppm and far under the
-  1.78 % argmax baseline.
-- Sum with **full `[v_template; J]` vertices** passed to every part (whole-body
-  centroid centering) = 0.074780470 → +266.7 ppm (+0.0267 %). The 5× difference
-  is entirely the open-seam parts {9,13,14}: an open surface's signed tetra
-  volume is origin-dependent, and the tool centers by whatever `vertices` it is
-  given (matching `from_mesh`). The tool is correct; order 03 should integrate
-  each part with its own vertices to get the 54.5 ppm figure. Both are correct
-  data points; reporting both.
+The fixed translation offset and parameter translation are summed before local
+rotation, in the parent frame. The scale parameter is base-2 logarithmic. A
+comment in `joint_state.cpp` says the resulting product is `Rx·Ry·Rz`, but the
+actual descending `2,1,0` loop and the independent tensor implementation both
+execute `Rz·Ry·Rx`; the converter records the executable order.
 
 ## Verification
 
-- `tests/spatial/test_mesh.py`: **22 test cases (15 functions, device- and
-  input-parametrized), 22 passed, 0 skipped** (`cpu` and `cuda` both ran).
-- Full suite `CUDA_VISIBLE_DEVICES=2 uv run pytest tests/ -q`:
-  **1584 passed, 0 skipped, 0 failed**, 93 warnings, 130.14 s (was 1575 before
-  this order; +9 new cases).
-- CUDA: **passed**. Pinned via `CUDA_VISIBLE_DEVICES=2` → NVIDIA RTX 6000 Ada
-  Generation; the warp CUDA suite ran (not skipped), confirming the device was
-  live. Torch 2.x / Python 3.11.15.
-- `uv run ruff check` and `ruff format --check` on the three changed files:
-  **clean**.
+- Final tools environment: NumPy 2.3.5; PyTorch 2.8.0
+  `cpu_mkl_py312_hb1fc07b_102` (`torch.version.cuda is None`); PyMomentum
+  0.1.90 `cpu_py312_h3e3b27a_0`; trimesh 4.9.0; Python 3.12.12.
+- All seven conversions completed in one invocation, including exact
+  cross-LOD skeleton, bind, and transform equality checks.
+- Every golden was reloaded with `allow_pickle=False` and checked for its LOD,
+  shapes, native-unit tag, and float32 input/output dtype.
+- LOD6 `fully_random.npz` was re-evaluated after reload and matched vertices
+  and skeleton state bit-for-bit.
+- `ruff check`, `ruff format --check`, and `py_compile` pass for both Python
+  tools.
+- Full BetterHuman suite: **163 passed, 4 skipped, 0 failed**, 6 warnings.
+- All 16 MHR asset SHA-256 values match the pre-conversion manifest. Nested
+  `git status` is clean for both MHR and Momentum references, and no generated
+  bytecode remains under the MHR reference tree.
 
-## Deviations / findings
+Exact primary commands:
 
-1. **The real-asset regression test was run as a standalone probe, not committed
-   to BR's suite.** The review suggested a skip-if-absent BR test that loads
-   `models/smpl/SMPL_NEUTRAL.npz` and the segmentation via `git show main:…` from
-   the BetterHuman repo. Committing that into BetterRobot's suite would couple BR
-   to BetterHuman's SMPL asset layout + git — directly against the plan's
-   BR-purity principle (ground rule 4; order 02 is actively removing all
-   SMPL/human specifics from BR). I therefore ran the asset validation as a probe
-   (numbers above, reproducing the review's +55 ppm) and instead committed
-   equivalent **synthetic** coverage in BR:
-   - `test_by_component_orients_disjoint_shells_outward_and_conserves_volume`:
-     two disjoint boxes (one with reversed winding) → outward-oriented → mass ==
-     density·(vol_A+vol_B) == 48, plus the per-component opposite-half-edge
-     invariant. Exercises multi-component + volume conservation.
-   - `test_by_component_degrades_gracefully_on_boundary_and_non_manifold_input`:
-     open (dropped cap) and incidence-3 (duplicated face) meshes → returns
-     without raising, where the strict path raises. Exercises boundary +
-     T-junction tolerance.
-   - `test_by_component_repairs_mixed_winding_on_an_irregular_mesh` (CPU+CUDA):
-     the non-symmetric-mesh case the review asked for.
-   **Recommendation:** put the committed 24-part asset regression test in
-   **order 03** (BetterHuman), where the asset and the per-part pipeline live.
-2. **Repo-wide `ruff check src tests` is not clean at baseline** — 113
-   pre-existing errors across 39 unrelated files (mostly `PLC0415` in
-   `tests/test_pinocchio/*`), **none in files this order touched**. Not fixed
-   (scope discipline). My three files are ruff- and format-clean.
-3. **Test dtype is float32** per the workspace `write-tests` skill + handoff (the
-   neighbouring `test_inertia_from_mesh.py` uses float64). No gradcheck applies:
-   reorientation is a pure integer-table permutation with no gradient path;
-   `from_mesh` differentiability is unaffected because only integer indices are
-   reordered.
-4. **`orient_faces_by_component` takes single-mesh `(V, 3)` vertices, not a
-   batch.** The orientation is a static rest-geometry precompute (one integer
-   table). It uses vertices only to sign each component's volume; per-batch signs
-   would be ambiguous, so a batch axis is intentionally rejected.
-5. **Strict and non-strict paths are both kept**, as instructed — the argmax
-   fallback (order 03) produces clean manifolds and uses the strict path; the
-   authored-segmentation path uses the non-strict path.
+```bash
+conda env update --name betterhuman-mhr-parity \
+  --file tools/parity/mhr/environment.yml --prune
+conda run --name betterhuman-mhr-parity python \
+  tools/convert/mhr/convert_mhr.py \
+  --assets-dir models/MHR/assets --output-dir models/MHR/converted
+conda run --name betterhuman-mhr-parity python \
+  tools/parity/mhr/dump_mhr.py \
+  --assets-dir models/MHR/assets \
+  --reference-dir references/parametric_body/MHR \
+  --converted-dir models/MHR/converted \
+  --output-dir tests/parity/goldens
+.venv/bin/ruff check tools/convert/mhr/convert_mhr.py \
+  tools/parity/mhr/dump_mhr.py
+.venv/bin/ruff format --check tools/convert/mhr/convert_mhr.py \
+  tools/parity/mhr/dump_mhr.py
+.venv/bin/pytest tests/ -q
+```
+
+## Deviations and findings
+
+1. **The plan's “350 transform rows” assertion is not the stored transform.**
+   The number 350 is the count of textual assignment statements. Duplicate
+   translation left-hand sides collapse, while multi-driver rotation
+   expressions expand, producing 295 unique matrix rows and 368 nonzero
+   entries. The converter records and asserts all three measurements instead
+   of relabeling one as another.
+2. **Native joint indexing differs from later plan wording.** Joint 0 is the
+   fixed `body_world`; joint 1 is `root` and owns the six root channels.
+   Correctives deliberately use joints `[2:127]`. BetterRobot universe 0 plus
+   explicit free-flyer 1 already matches this layout; Order 03 must not make
+   native joint 0 the free-flyer.
+3. **The static FBX inverse bind is authoritative.** Recomputing it from
+   zero-parameter FK changes the bind by `4.57763672e-05 cm`; recomputing it
+   after a proportion bake would also cancel the intended proportional
+   deformation. The archive preserves the FBX bind and inverse bind.
+4. **PyMomentum does not expose original FBX axis globals or `.model` pose
+   constraints.** The converter therefore parses those two read-only source
+   formats directly, while comparing parsed limits against PyMomentum.
+5. **Pixi was unavailable, so the documented conda fallback was used.** The
+   first solve also showed trimesh 4.9.0 was unavailable from conda-forge; it is
+   the sole pure-Python pip entry. PyMomentum remains conda-only. The final spec
+   explicitly forces CPU PyTorch to avoid solver selection of a CUDA build.
+6. **Reference imports initially emitted four ignored `.pyc` files.** They were
+   removed, the empty cache directory was removed, and the dumper now sets
+   `sys.dont_write_bytecode` before importing the reference package. A repeat
+   oracle run left the reference tree unchanged.
+7. **Large corrective storage must stay lazy in Order 02.** LOD0 is a 2.58 GiB
+   monolithic NPZ primarily because its `(3000, V*3)` output layer is embedded
+   for self-containment. The loader can satisfy `use_correctives=False` only by
+   retaining `np.load` laziness and never indexing corrective arrays in that
+   branch.
+
+## BetterRobot gaps for later orders
+
+No BetterRobot change was made. The verified constraints to carry forward are:
+
+- BetterRobot poses are SE(3) `[translation, xyzw]` and do not carry MHR's
+  accumulated `exp2(sc)` scale. BetterHuman must keep scale separately for
+  scaled offsets and LBS.
+- Build-time joint/frame origins are not automatically quaternion-normalized,
+  and `preserve_joint_order=True` repairs ordering rather than asserting native
+  order. The converter/BetterHuman checks are therefore required.
+- Frames cannot own inertia; any undriven segmented part with nonzero mass must
+  be represented by a fixed-joint body.
+- Multi-source mimic declarations are not directly supported, but this is not
+  an MHR blocker: same-axis stacked nodes can represent the 12 multi-driver
+  rotation rows, and the remaining fan-outs are single-source.
+- Full-joint Torch/Warp FK has serial per-joint work. This is a benchmark risk,
+  not yet a measured failure; Order 05 must measure it before proposing a
+  BetterRobot change.
+
+Capabilities already present and not to be duplicated include the explicit
+universe-to-free-flyer builder, fixed joints and frames, affine mimic expansion,
+batched differentiable placements/inertias, and zero-mass intermediate bodies.

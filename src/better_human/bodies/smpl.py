@@ -10,6 +10,8 @@ import torch
 from better_human.core import BodyStructure, ParametricBody
 from better_human.core.classic import (
     axis_angle_to_quaternion,
+    broadcast_configuration,
+    classic_tensor,
     classic_root_to_free_flyer,
     free_flyer_to_classic_root,
     quaternion_to_axis_angle,
@@ -22,9 +24,8 @@ from .config_smpl import SMPL_CONFIG
 from .registry import register
 from .smpl_family import (
     bind_mass_properties,
-    broadcast_configuration,
+    bind_smpl_body,
     build_family_robot,
-    classic_tensor,
     density_tensor,
     make_body_values,
     parents_from_kintree,
@@ -139,9 +140,7 @@ class SMPL(ParametricBody):
         )
         if values.body_inertias is not None:
             robot = robot.with_values(body_inertias=values.body_inertias)
-        object.__setattr__(self, "structure", structure)
-        object.__setattr__(self, "values", values)
-        object.__setattr__(self, "robot", robot)
+        bind_smpl_body(self, structure, values, robot)
 
     def from_classic(self, classic: SMPLClassic) -> torch.Tensor:
         """Convert classic SMPL parameters to BetterRobot ``q (..., nq)``."""

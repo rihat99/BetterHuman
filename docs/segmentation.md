@@ -23,8 +23,10 @@ images make the difference visible.
   asset, each vertex is assigned to its strongest-weighted skinning joint
   (`segment_vertices`), a face joins the part held by at least two of its
   vertices, and every resulting open boundary loop is closed by a reverse-wound
-  triangle fan about that loop's **centroid**. This is the generic path; SMPL-X
-  uses it, since it ships no authored closed-3D asset.
+  triangle fan about that loop's **centroid**. MHR maps the winning native joint
+  through the converted reference segmentation to 19 grouped parts before this
+  step. This is the generic path; SMPL-X and MHR use it because neither ships an
+  authored closed-3D asset.
 
 Both produce one `PartMeshTopology`, stay batched, and remain differentiable
 with respect to shape through the cap vertices.
@@ -56,11 +58,12 @@ carries, which is why it is preferred wherever the asset exists.
 
 The authored closed-3D segmentation is the SMPL-family default: it is the
 volume-preserving choice and needs no runtime boundary tracing. The argmax
-fallback is the generic path for any model that ships no authored asset — SMPL-X
-today, and every future model until an authored asset is added for it. A model
-also has an authored **per-vertex** labeling (`*_vert_segmentation.json`) used
-only to color the intact surface; for SMPL-X that per-vertex labeling exists but
-there is no authored closed-3D asset, so its closed topology comes from argmax.
+fallback is the generic path for any model that ships no authored asset —
+SMPL-X and MHR today, and every future model until an authored asset is added
+for it. SMPL and SMPL-X also have authored **per-vertex** labelings
+(`*_vert_segmentation.json`) used only to color the intact surface; MHR does
+not. SMPL-X's closed topology still comes from argmax because its per-vertex
+labeling is not a closed-3D asset.
 
 ## SMPL
 
@@ -94,12 +97,20 @@ per-finger joints appear as their own parts).
 The authored split shells are open (they have no joint caps); the argmax split
 parts are the closed, centroid-capped solids that feed SMPL-X inertias.
 
-## Regenerating the images
+## MHR
 
-`docs/render_segmentation.py` regenerates every image above with headless
-matplotlib and a fixed camera, so re-runs are byte-stable. Weights resolve
-through the normal loader; any model whose weights are absent is skipped:
+MHR ships neither an authored per-vertex labeling nor an authored closed-3D
+asset. Its converted reference segmentation groups strongest-skinning-joint
+ownership into 19 physical parts. The intact surface and the exploded view
+below show those grouped argmax parts; the exploded meshes are the
+centroid-capped solids that feed MHR inertias.
 
-```bash
-uv run python docs/render_segmentation.py --models-dir "$BETTERHUMAN_MODELS_DIR"
-```
+| Grouped argmax surface | Grouped argmax split |
+|---|---|
+| ![MHR grouped argmax surface](segmentation/mhr_argmax_surface.png) | ![MHR grouped argmax split](segmentation/mhr_argmax_split.png) |
+
+An authored volume-preserving partition remains roadmap work.
+
+The images are reproducible artifacts; follow the
+[segmentation rendering guide](guide_render_segmentation.md) when their source
+data or rendering semantics intentionally change.

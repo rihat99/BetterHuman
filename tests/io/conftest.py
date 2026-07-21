@@ -1,0 +1,81 @@
+"""Shared synthetic fixtures for I/O schema tests."""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+
+@pytest.fixture
+def mhr_data() -> dict[str, np.ndarray]:
+    """Return a small format-v1 MHR archive mapping with every required field."""
+    vertex_count = 4
+    face_count = 2
+    return {
+        "format_version": np.asarray(1, dtype=np.int64),
+        "lod": np.asarray(6, dtype=np.int64),
+        "world_joint_index": np.asarray(0, dtype=np.int64),
+        "root_joint_index": np.asarray(1, dtype=np.int64),
+        "joint_names": np.full(127, "joint", dtype="<U20"),
+        "joint_parents": np.zeros(127, dtype=np.int64),
+        "joint_pre_rotations": np.zeros((127, 4), dtype=np.float32),
+        "joint_translation_offsets": np.zeros((127, 3), dtype=np.float32),
+        "pre_rotation_max_norm_error": np.asarray(0, dtype=np.float32),
+        "segmentation_group_names": np.full(20, "part", dtype="<U11"),
+        "segmentation_joint_group_indices": np.zeros(127, dtype=np.int64),
+        "model_parameter_names": np.full(204, "parameter", dtype="<U24"),
+        "model_parameter_channel_types": np.zeros(204, dtype=np.int8),
+        "parameter_transform_shape": np.asarray((889, 321), dtype=np.int64),
+        "parameter_transform_rows": np.zeros(368, dtype=np.int64),
+        "parameter_transform_columns": np.zeros(368, dtype=np.int64),
+        "parameter_transform_values": np.zeros(368, dtype=np.float32),
+        "parameter_transform_statement_type_counts": np.zeros(3, dtype=np.int64),
+        "parameter_transform_entry_type_counts": np.zeros(3, dtype=np.int64),
+        "driven_row_type_counts": np.zeros(3, dtype=np.int64),
+        "multi_source_row_type_counts": np.zeros(3, dtype=np.int64),
+        "driven_joint_count": np.asarray(113, dtype=np.int64),
+        "driven_row_indices": np.zeros(295, dtype=np.int64),
+        "driven_joint_indices": np.zeros(295, dtype=np.int64),
+        "driven_channel_indices": np.zeros(295, dtype=np.int8),
+        "driven_channel_names": np.full(295, "tx", dtype="<U2"),
+        "parameter_set_names": np.full(8, "set", dtype="<U12"),
+        "parameter_set_membership": np.zeros((8, 204), dtype=np.bool_),
+        "model_parameter_lower_limits": np.zeros(204, dtype=np.float32),
+        "model_parameter_upper_limits": np.zeros(204, dtype=np.float32),
+        "limit_parameter_indices": np.zeros(198, dtype=np.int64),
+        "limit_weights": np.zeros(198, dtype=np.float32),
+        "tpose_values": np.zeros(204, dtype=np.float32),
+        "tpose_mask": np.zeros(204, dtype=np.bool_),
+        "template_vertices": np.zeros((vertex_count, 3), dtype=np.float32),
+        "faces": np.zeros((face_count, 3), dtype=np.int64),
+        "skin_indices": np.zeros((vertex_count, 8), dtype=np.int64),
+        "skin_weights": np.zeros((vertex_count, 8), dtype=np.float32),
+        "skin_weight_max_sum_error": np.asarray(0, dtype=np.float32),
+        "skin_weights_renormalized": np.asarray(False, dtype=np.bool_),
+        "identity_basis": np.zeros((vertex_count, 3, 45), dtype=np.float32),
+        "expression_basis": np.zeros((vertex_count, 3, 72), dtype=np.float32),
+        "template_mesh_max_error_cm": np.asarray(0, dtype=np.float32),
+        "native_unit": np.asarray("centimeter", dtype="<U10"),
+        "storage_unit": np.asarray("meter", dtype="<U5"),
+        "length_scale_to_meters": np.asarray(0.01, dtype=np.float32),
+        "native_pose_format": np.asarray("euler_xyz", dtype="<U9"),
+        "quaternion_order": np.asarray("xyzw", dtype="<U4"),
+        "euler_composition_order": np.asarray("Rz_Ry_Rx", dtype="<U8"),
+        "scale_encoding": np.asarray("exp2", dtype="<U4"),
+        "axis_metadata_source": np.asarray("fbx_global_settings", dtype="<U19"),
+        "up_axis": np.asarray("+y", dtype="<U2"),
+        "forward_axis": np.asarray("+z", dtype="<U2"),
+        "coordinate_axis": np.asarray("+x", dtype="<U2"),
+        "bind_matrices": np.zeros((127, 4, 4), dtype=np.float32),
+        "inverse_bind_matrices": np.zeros((127, 4, 4), dtype=np.float32),
+        "zero_fk_bind_max_error_cm": np.asarray(0, dtype=np.float32),
+        "bind_inverse_max_error": np.asarray(0, dtype=np.float32),
+        "corrective_first_layer_indices": np.zeros((2, 53136), dtype=np.int64),
+        "corrective_first_layer_weights": np.zeros(53136, dtype=np.float32),
+        "corrective_first_layer_mask": np.zeros((3000, 750), dtype=np.bool_),
+        "corrective_output_weights": np.zeros((3000, vertex_count * 3), dtype=np.float32),
+        "corrective_joint_indices": np.zeros(125, dtype=np.int64),
+        "corrective_joint_names": np.full(125, "joint", dtype="<U20"),
+        "corrective_feature_matrix_indices": np.zeros(6, dtype=np.int64),
+        "corrective_identity_feature": np.zeros(6, dtype=np.float32),
+    }

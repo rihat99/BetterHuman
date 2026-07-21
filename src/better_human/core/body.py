@@ -2,22 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 
 import better_robot as br
 import torch
 from better_robot import Data, Model
 
-from .pipeline import (
-    blend_shapes,
-    lbs,
-    linear_corrective,
-    pose_feature_rotmat_minus_identity,
-    regress_joints,
-    skinning_transforms,
-)
-from .mass import PartMeshTopology, body_inertias_from_shape
+from .mass import PartMeshTopology
+from .pipeline import lbs, skinning_transforms, skinning_transforms_from_inverse
 
 
 @dataclass(frozen=True)
@@ -52,6 +45,8 @@ class BodyStructure:
     forward_axis: str
     #: Pose representation accepted by the classic converter.
     native_pose_format: str
+    #: Optional native-joint to BetterRobot-joint pose gather.
+    native_pose_joint_indices: torch.Tensor | None = None
 
 
 @dataclass(frozen=True)
@@ -61,25 +56,38 @@ class BodyValues:
     #: Unshaped native template with shape ``(V, 3)``.
     v_template: torch.Tensor
     #: Concatenated named-group basis with shape ``(V, 3, S)``.
-    shape_basis: torch.Tensor
+    shape_basis: torch.Tensor | None
     #: Linear pose-corrective matrix with shape ``(P, V * 3)``.
-    posedirs: torch.Tensor
+    posedirs: torch.Tensor | None
     #: Dense joint regressor with shape ``(J, V)``.
-    joint_regressor: torch.Tensor
+    joint_regressor: torch.Tensor | None
     #: Padded nonzero LBS weights with shape ``(V, K)``.
     skinning_weights: torch.Tensor
     #: Current named parameter tensors, including leading batch axes.
     shape_parameters: Mapping[str, torch.Tensor]
-    #: Pelvis-centered shaped vertices with shape ``(..., V, 3)``.
+    #: Model-canonical shaped vertices with shape ``(..., V, 3)``.
     v_shaped: torch.Tensor
-    #: Pelvis-centered rest joints with shape ``(..., J, 3)``.
+    #: Model-canonical rest joints with shape ``(..., J, 3)``.
     rest_joints: torch.Tensor
     #: Native regressed pelvis ``J_0`` with shape ``(..., 3)``.
-    pelvis_offset: torch.Tensor
+    pelvis_offset: torch.Tensor | None
     #: Scalar or per-part density in kg/m^3.
     density: torch.Tensor
     #: BetterRobot packed inertias ``(..., nbodies, 10)``, if enabled.
     body_inertias: torch.Tensor | None
+    #: Authoritative inverse bind poses ``(J, 7)``, when supplied by a model.
+    inverse_bind_poses: torch.Tensor | None = None
+    #: Authored bind-pose pivots ``(J, 3)`` used by scaled skinning.
+    bind_joint_positions: torch.Tensor | None = None
+    #: Shape-baked accumulated uniform scales ``(..., J)``.
+    joint_scales: torch.Tensor | None = None
+
+
+ShapeBakePolicy = Callable[
+    ["ParametricBody", Mapping[str, torch.Tensor]],
+    tuple[BodyValues, Model],
+]
+PoseCorrectivePolicy = Callable[["ParametricBody", Data], torch.Tensor]
 
 
 @dataclass(frozen=True)
@@ -92,6 +100,10 @@ class ParametricBody:
     values: BodyValues
     #: BetterRobot topology paired with shape-dependent values.
     robot: Model
+    #: Model-specific shape bake selected by the concrete loader.
+    _shape_bake_policy: ShapeBakePolicy
+    #: Model-specific pose-feature and corrective function.
+    _pose_corrective_policy: PoseCorrectivePolicy
 
     def with_shape(self, **named_groups: torch.Tensor) -> ParametricBody:
         """Return a body with named shape groups baked into model values.
@@ -123,45 +135,7 @@ class ParametricBody:
             name: parameters[name].expand(*batch_shape, width)
             for name, width in self.structure.parameter_groups.items()
         }
-        coefficients = torch.cat(tuple(expanded_parameters.values()), dim=-1)
-        world_vertices = self.values.v_template + blend_shapes(coefficients, self.values.shape_basis)
-        world_joints = regress_joints(self.values.joint_regressor, world_vertices)
-        pelvis_offset = world_joints[..., 0, :]
-        centered_vertices = world_vertices - pelvis_offset[..., None, :]
-        centered_joints = world_joints - pelvis_offset[..., None, :]
-
-        parents = torch.tensor(self.structure.parents[1:], dtype=torch.long, device=centered_joints.device)
-        child_offsets = centered_joints[..., 1:, :] - centered_joints[..., parents, :]
-        root_offset = torch.zeros_like(centered_joints[..., :1, :])
-        native_offsets = torch.cat((root_offset, child_offsets), dim=-2)
-        native_quaternions = native_offsets.new_zeros((*native_offsets.shape[:-1], 4))
-        native_quaternions[..., 3] = 1.0
-        native_placements = torch.cat((native_offsets, native_quaternions), dim=-1)
-        universe_placement = native_placements.new_zeros((*batch_shape, 1, 7))
-        universe_placement[..., 6] = 1.0
-        joint_placements = torch.cat((universe_placement, native_placements), dim=-2)
-
-        body_inertias = None
-        if self.structure.part_topology is not None:
-            body_inertias = body_inertias_from_shape(
-                centered_vertices,
-                centered_joints,
-                self.structure.part_topology,
-                self.values.density,
-            )
-
-        values = replace(
-            self.values,
-            shape_parameters=expanded_parameters,
-            v_shaped=centered_vertices,
-            rest_joints=centered_joints,
-            pelvis_offset=pelvis_offset,
-            body_inertias=body_inertias,
-        )
-        robot = self.robot.with_values(
-            joint_placements=joint_placements,
-            body_inertias=body_inertias,
-        )
+        values, robot = self._shape_bake_policy(self, expanded_parameters)
         return self._replace(values=values, robot=robot)
 
     def fk(self, q: torch.Tensor) -> Data:
@@ -176,21 +150,32 @@ class ParametricBody:
         """Compute vertices from an already-populated BetterRobot data object."""
         if data.joint_pose_world is None:
             raise ValueError("data has no world joint poses; call body.fk(q) first")
-        root_width = self.robot.nqs[1]
-        joint_quaternions = data.q[..., root_width:].reshape(
-            *data.q.shape[:-1],
-            len(self.structure.joint_names) - 1,
-            4,
-        )
-        feature = pose_feature_rotmat_minus_identity(joint_quaternions)
-        rest_vertices = self.values.v_shaped + linear_corrective(feature, self.values.posedirs)
-        transforms = skinning_transforms(data.joint_pose_world[..., 1:, :], self.values.rest_joints)
+        rest_vertices = self.values.v_shaped + self._pose_corrective_policy(self, data)
+        native_joint_poses = self.native_joint_poses(data)
+        if self.values.inverse_bind_poses is None:
+            transforms = skinning_transforms(native_joint_poses, self.values.rest_joints)
+        else:
+            transforms = skinning_transforms_from_inverse(
+                native_joint_poses,
+                self.values.inverse_bind_poses,
+            )
         return lbs(
             rest_vertices,
             transforms,
             self.values.skinning_weights,
             self.structure.skinning_indices,
+            joint_scales=self.values.joint_scales,
+            bind_joint_positions=self.values.bind_joint_positions,
         )
+
+    def native_joint_poses(self, data: Data) -> torch.Tensor:
+        """Return world poses in the body's native skin-joint order."""
+        if data.joint_pose_world is None:
+            raise ValueError("data has no world joint poses; call body.fk(q) first")
+        indices = self.structure.native_pose_joint_indices
+        if indices is None:
+            return data.joint_pose_world[..., 1:, :]
+        return data.joint_pose_world.index_select(-2, indices)
 
     def landmark_positions(self, vertices: torch.Tensor) -> torch.Tensor:
         """Gather landmark keypoint positions from posed or shaped vertices.

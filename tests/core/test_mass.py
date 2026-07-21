@@ -8,11 +8,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from better_robot.lie import se3, so3
 from better_robot.spatial import Inertia
 
 import better_human as bh
 from better_human.bodies.assets import load_density_table
 from better_human.core.mass import (
+    PartMeshTopology,
     body_inertias_from_shape,
     build_part_topology,
     meshes_from_topology,
@@ -71,10 +73,14 @@ def _box_mesh() -> tuple[torch.Tensor, torch.Tensor]:
 
 
 def _assert_closed_edges(faces: torch.Tensor) -> None:
-    edges = torch.cat(
-        (faces[:, (0, 1)], faces[:, (1, 2)], faces[:, (2, 0)]),
-        dim=0,
-    ).sort(dim=-1).values
+    edges = (
+        torch.cat(
+            (faces[:, (0, 1)], faces[:, (1, 2)], faces[:, (2, 0)]),
+            dim=0,
+        )
+        .sort(dim=-1)
+        .values
+    )
     _, counts = torch.unique(edges, dim=0, return_counts=True)
     torch.testing.assert_close(counts, torch.full_like(counts, 2))
 
@@ -95,6 +101,32 @@ def test_part_meshes_caps_mixed_face_partition_as_closed_surfaces() -> None:
         _assert_closed_edges(part_faces)
         masses.append(Inertia.from_mesh(part_vertices, part_faces).mass)
     torch.testing.assert_close(torch.stack(masses).sum(), Inertia.from_mesh(vertices, faces).mass)
+
+
+def test_authored_caps_accept_rotated_se3_part_frames() -> None:
+    vertices = torch.tensor(
+        ((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        dtype=torch.float32,
+    )
+    faces = torch.tensor(((0, 2, 1), (0, 1, 3), (1, 2, 3), (2, 0, 3)), dtype=torch.long)
+    topology = PartMeshTopology(
+        vertex_indices=(torch.arange(3),),
+        cap_joint_indices=(torch.tensor([0]),),
+        boundary_loops=((),),
+        faces=(faces,),
+    )
+    pose = torch.cat(
+        (
+            torch.tensor((0.0, 0.0, 1.0)),
+            so3.from_euler(torch.tensor((0.2, -0.3, 0.4))),
+        )
+    ).unsqueeze(0)
+
+    actual = body_inertias_from_shape(vertices, pose, topology, torch.tensor(1000.0))[1]
+    capped = torch.cat((vertices, pose[:, :3]), dim=0)
+    local = se3.act(se3.inverse(pose)[..., None, :], capped).squeeze(0)
+    expected = Inertia.from_mesh(local, faces, density=1000.0).data
+    torch.testing.assert_close(actual, expected)
 
 
 def test_default_mass_opt_out_and_per_part_density(mass_body: bh.SMPL) -> None:
@@ -176,8 +208,7 @@ def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body:
         for part, vertices in segmentation["body_vertices"].items()
     }
     mismatches = sum(
-        vertex not in memberships[part]
-        for vertex, part in enumerate(mass_body.structure.part_ids.cpu().tolist())
+        vertex not in memberships[part] for vertex, part in enumerate(mass_body.structure.part_ids.cpu().tolist())
     )
     overlap_counts = Counter(vertex for vertices in memberships.values() for vertex in vertices)
     assert mismatches == 113
