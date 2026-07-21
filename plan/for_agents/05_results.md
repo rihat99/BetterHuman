@@ -1,153 +1,125 @@
-# Order 05 results
+# Order 05 results — docs + rendered segmentation comparison
 
-Completed on `dev` on 2026-07-20 after Order 04.
+Delivered on `dev`, BetterHuman only. BetterRobot untouched. No `src/` code
+changed; this order adds a docs render helper, rendered images, an explanation
+page, doc-truth fixes, and one packaging entry.
 
-## Delivered
+## Rendered segmentation images (the owner's ask)
 
-- Static argmax-skinning vertex segmentation, deterministic majority face
-  ownership, half-edge boundary-cycle tracing, reverse-wound centroid caps,
-  and compact per-part topology in `core/mass.py`.
-- Batched, differentiable part integration through BetterRobot
-  `Inertia.from_mesh`. Physical rows are translated into native rest-joint
-  frames, and a massless universe row is prepended for exact BetterRobot body
-  indexing.
-- Scalar density `1000.0` kg/m^3 by default, or a positive scalar/per-part
-  tensor override in native joint order. The inspected data file also offers
-  `Naive`, `Chandler`, `Dempster`, `Clauser`, and `Custom` tables; these feed
-  the same tensor path rather than separate policy code.
-- Shape baking now updates both `BodyValues.body_inertias` and
-  `ModelValues.body_inertias`. Full and reduced SMPL-X spawns use the same
-  model-agnostic path as SMPL.
-- `compute_mass=True` is the spawn default. The evidence-backed
-  `compute_mass=False` option skips topology/inertia work for deformation-only
-  workloads; deformation parity and converter tests use it deliberately.
-- Closedness, conservation, COM, density, float32 gradcheck, batched RNEA/CRBA,
-  shape-to-RNEA backward, SMPL-X full/partial, and CUDA coverage. Architecture
-  and units/contracts documentation were updated in the same order.
+`docs/render_segmentation.py` (headless matplotlib Agg, fixed camera
+`elev=8, azim=-90`, colors from a seed-0 permutation of `gist_rainbow`) renders,
+for each model × each available segmentation type, a part-colored surface and an
+exploded body-split view. Re-runs are **byte-identical** (verified by md5 across
+two runs). Weights resolve through the normal loader / `$BETTERHUMAN_MODELS_DIR`;
+absent weights are skipped.
 
-## Neutral SMPL measurements
+Eight PNGs under `docs/segmentation/`:
 
-All masses use uniform density `1000.0` kg/m^3.
+| File | Model | Type | View |
+|---|---|---|---|
+| `smpl_authored_surface.png` | SMPL | authored | part-colored surface (named per-vertex parts) |
+| `smpl_authored_split.png` | SMPL | authored | exploded **closed** joint-capped solids |
+| `smpl_argmax_surface.png` | SMPL | argmax | part-colored surface (strongest skinning joint) |
+| `smpl_argmax_split.png` | SMPL | argmax | exploded centroid-capped solids |
+| `smplx_authored_surface.png` | SMPL-X | authored | part-colored surface (named per-vertex parts) |
+| `smplx_authored_split.png` | SMPL-X | authored | exploded **open** surface shells (no closed-3D asset) |
+| `smplx_argmax_surface.png` | SMPL-X | argmax | part-colored surface (55 parts incl. per-finger) |
+| `smplx_argmax_split.png` | SMPL-X | argmax | exploded centroid-capped solids |
 
-| Quantity | Measured value |
-|---|---:|
-| Sum of 24 closed parts | `73.43093872070312` kg |
-| Whole closed mesh | `74.76054382324219` kg |
-| Absolute partition gap | `1.3296051025390625` kg |
-| Relative partition gap | `0.01778485059823366` |
-| Part-aggregate COM | `[0.0006243017851375043, 0.055163439363241196, -0.020244255661964417]` m |
-| Whole-mesh COM | `[0.0006061043823137879, 0.05762733519077301, -0.020352846011519432]` m |
-| COM separation | `0.0024663547308557813` m |
-| Centered mesh bounds | `[-0.8701626062393188, -0.9385096430778503, -0.15066076815128326]` to `[0.8749125003814697, 0.7788512110710144, 0.13980798423290253]` m |
+Rendering sources per combination:
+- SMPL authored surface / SMPL-X authored surface: `*_vert_segmentation.json`
+  per-vertex named parts (24 for SMPL; 27 for SMPL-X, 6 verts unlabeled → gray).
+- argmax surfaces: `structure.part_ids` (`segment_vertices`).
+- SMPL authored split: `structure.part_topology` (the authored closed-3D topology
+  SMPL loads by default) via `meshes_from_topology` — joint-capped solids.
+- argmax splits: `build_part_topology(faces, part_ids, n)` → `meshes_from_topology`
+  — centroid-capped solids.
+- SMPL-X authored split: the intact mesh split into open per-part shells by the
+  vertex labeling (SMPL-X ships no authored closed-3D asset).
 
-The pinned conservation tolerance is relative `2e-2`; the measured worst
-case leaves approximately 1.12x headroom. The aggregate COM is inside the
-mesh, 5.52 cm above the centered pelvis, and within 2.47 mm of direct
-whole-mesh integration.
+## Explanation page
 
-## Neutral per-part mass
+`docs/segmentation.md` (flat markdown, Diátaxis *explanation* style — no code
+steps): the two segmentation sources → one closed `PartMeshTopology`; why the
+authored joint-cap partition is volume-preserving (shared cap vertices telescope
+to the whole-body volume; the 3 open seam parts — spine3, left_collar,
+right_collar — are integrated about the part mean so the aggregate is exact);
+when each is used (authored = SMPL-family default; argmax = generic fallback,
+SMPL-X). Embeds all 8 images in per-model 2×2 tables and cites the measured
+Baselines numbers (authored +0.0055 % / 74.76 kg / 0.02 mm vs argmax
++1.78 % / 73.43 kg / 2.47 mm). Closes with the regenerate command.
 
-| Native part | Mass (kg) |
-|---|---:|
-| `pelvis` | `15.470751762390137` |
-| `left_hip` | `7.614247798919678` |
-| `right_hip` | `7.620762348175049` |
-| `spine1` | `6.0588555335998535` |
-| `left_knee` | `3.113943576812744` |
-| `right_knee` | `3.098294258117676` |
-| `spine2` | `5.08026123046875` |
-| `left_ankle` | `0.6279234290122986` |
-| `right_ankle` | `0.6338295340538025` |
-| `spine3` | `11.82639217376709` |
-| `left_foot` | `0.1507422775030136` |
-| `right_foot` | `0.15893858671188354` |
-| `neck` | `0.5915396213531494` |
-| `left_collar` | `0.6353169679641724` |
-| `right_collar` | `0.6147966980934143` |
-| `head` | `4.105005264282227` |
-| `left_shoulder` | `1.6499942541122437` |
-| `right_shoulder` | `1.7146587371826172` |
-| `left_elbow` | `0.9918727278709412` |
-| `right_elbow` | `1.0295754671096802` |
-| `left_wrist` | `0.23914365470409393` |
-| `right_wrist` | `0.2520706057548523` |
-| `left_hand` | `0.07340041548013687` |
-| `right_hand` | `0.07862172275781631` |
+## Design-doc truth fixes
 
-## SMPL-X and dynamics measurements
+`docs/architecture.md`:
+- Pluggability seam list: "sparse per-coordinate joint regressor" → "a dense
+  joint regressor" (order-04 CSR removal).
+- Concrete-model paragraph: added `BodyConfig` + per-model `config_*.py` data
+  modules, `smpl_family.py` shared binding, SMPL topology re-homed out of
+  BetterRobot, and the restored `body.landmark_positions(vertices)` accessor.
+- "Mass and dynamics": rewritten from argmax-only to the **two-source** model
+  (authored closed-3D default via `orient_faces_by_component`, replacing
+  `trimesh.fix_normals`, tolerating the 3 open seam parts; argmax fallback with
+  centroid caps). Replaced the stale numbers/claims — dropped the false "STAR
+  segmentation … argmax fallback is used" sentence (the authored asset is now
+  restored and used for SMPL) and the pre-order-03 10.19→41.50 ms figure; kept
+  the `compute_mass=False` opt-out. Cites authored (74.76 kg, +0.0055 %, 0.02 mm)
+  and argmax (73.43 kg, +1.78 %, 2.47 mm).
+- "Package layout": added `config_body.py`, `config_smpl.py`, `config_smplx.py`,
+  `smpl_family.py`, and `bodies/assets/`.
 
-Neutral SMPL-X mass smoke values use the same density and vary slightly with
-part reduction because centroid-cap partition error changes with ownership.
+`docs/contracts.md`:
+- Density override wording now includes "or a named density table resolved to
+  that tensor" (order-03 str option).
+- Added a normative bullet: two segmentation sources, one closed
+  `PartMeshTopology` fed to `Inertia.from_mesh`; authored volume-preserving
+  default vs argmax fallback; neither a per-query cost.
+- (The order-04 "converter emits the regressor dense; loaders load every field
+  as a dense tensor" line was already correct — left as-is.)
 
-| `use_hands` | `use_face` | BetterRobot bodies | Total physical mass (kg) |
-|---|---|---:|---:|
-| `True` | `True` | 56 | `72.39342498779297` |
-| `False` | `True` | 26 | `72.41643524169922` |
-| `True` | `False` | 53 | `72.59387969970703` |
-| `False` | `False` | 23 | `72.61688995361328` |
+## Packaging fix
 
-- Neutral SMPL gravity RNEA returned finite `(75,)` generalized force. CRBA
-  was symmetric positive definite with minimum eigenvalue
-  `3.2079296943265945e-05`.
-- Two shape samples produced masses `[73.43093872070312,
-  70.85686492919922]` kg, RNEA shape `(2, 75)`, CRBA shape `(2, 75, 75)`,
-  and minimum CRBA eigenvalue `2.7201283955946565e-05`.
-- Float32 `betas -> total mass` gradcheck passed in `0.2644321033731103` s.
-- Float32 `betas -> RNEA tau` backward passed with finite nonzero gradients;
-  the measured forward/backward run took `0.08441013097763062` s.
-- The mass-enabled CUDA RNEA/CRBA smoke passed on pinned RTX 6000 Ada GPU 3
-  in 4.20 s.
+`pyproject.toml`: added `artifacts = ["*.npy", "*.json"]` under
+`[tool.hatch.build.targets.wheel]`, and `matplotlib>=3.8` to the `dev`
+dependency group (the render helper).
 
-## Segmentation and closure findings
+**Finding:** the assets were *already* shipping in the built wheel before this
+change — hatchling with `packages = ["src/better_human"]` includes every file
+under the package tree, not just `.py`, and the assets are not gitignored. So the
+handoff's premise ("a built wheel currently would NOT include them") did not hold
+on this tree. The `artifacts` entry is kept anyway: it makes the intent explicit
+and pins inclusion even if a future VCS-ignore rule matches `*.npy`/`*.json`
+(plausible in a repo that already gitignores `models/`). Verified via `uv build
+--wheel`: all four data files (`smpl_3d_segmentation.npy`,
+`smpl_vert_segmentation.json`, `smplx_vert_segmentation.json`,
+`body_densities.json`) are present in the wheel both before and after.
 
-- Argmax differs from the shipped canonical membership for 113 of 6890
-  vertices. This comparison treats any of the asset's overlapping boundary
-  memberships as a match; 582 vertices belong to more than one canonical
-  part and no vertex is uncovered.
-- Majority assignment has an explicit all-distinct rule: the face's first
-  vertex wins. Boundary traversal uses oriented half-edges, so pinched
-  boundaries are separated into cycles rather than incorrectly rejected as
-  branching. Every generated SMPL part and the synthetic split-box fixture
-  had undirected edge incidence exactly two after capping.
-- A warmed neutral-SMPL `with_shape` averaged
-  `0.010191699117422104` s without mass and `0.041501314379274845` s with
-  mass: 4.072070211367486x slower and 31.30961526185274 ms additional work.
-  This is the measured evidence for the opt-out flag.
+## Tests / lint
 
-## Verification
+- **CPU** (`CUDA_VISIBLE_DEVICES=""`): **105 passed, 6 skipped** — identical to
+  the order-04 CPU baseline (no `src`/`tests` changes).
+- **CUDA** (GPU 2, RTX 6000 Ada): **109 passed, 2 skipped** (2 skips = absent
+  SMPL-X parity goldens) — identical to the order-04 CUDA baseline.
+- `ruff check docs/render_segmentation.py` → clean (the only touched `.py`).
+  `ruff check src tests` still clean.
 
-- `uv lock --check`: 76 root-project packages, current.
-- `uv lock --check --project tools/parity/smplx`: 38 oracle packages,
-  current.
-- `uv run pytest tests -q -rs`: **98 passed, 5 skipped, 7 warnings in
-  91.50 s**. Skips are three sandbox CUDA tests and both explicit absent
-  SMPL-X on-demand golden cases. Warnings are four required float32-gradcheck
-  notices, PyTorch's CSR-beta notice, and two previously recorded SciPy
-  pickle deprecations.
-- Targeted CUDA mass/dynamics test: **1 passed in 4.20 s**.
-- `uv run ruff check src tests`: passed.
-- Independent review found no remaining cap orientation, link-frame,
-  universe-index, batch, gradient, or SMPL-X partial-model blocker after the
-  licensed-fixture CUDA skip was added.
-- The combined `models/` and `references/` path/size/mtime manifest remained
-  `1e12ec801fada88a15763f372770d3e065e4d1015a680a3f0e50917cb52e2258`.
-- BetterRobot remained clean on `dev`; no dependency-side files were changed.
+## Deviations / findings (honest)
 
-## Deviations and BetterRobot findings
-
-- **Canonical segmentation deviation:** the planned preference for
-  `models/star/smpl_3d_segmentation.npy` was rejected after inspection. Its
-  part tables contain duplicate exterior triangles `(1819, 1818, 2881)` in
-  parts 9/13 and `(5281, 6340, 5279)` in parts 9/14. Those duplicates create
-  edge incidences one and three, so the tables are not closed two-manifold
-  inputs. The generic argmax path is used instead; the asset was not modified.
-- **BetterRobot validation deviation:** contrary to the plan's premise,
-  `Inertia.from_mesh` does not validate closed edge incidence or mixed
-  winding. A box missing two faces and a box with one reversed face were both
-  accepted with mass `6.666666030883789`. BetterHuman therefore verifies
-  boundary topology while constructing caps and asserts final edge incidence
-  in tests. A general GPU-safe mesh validator belongs in BetterRobot and was
-  not duplicated here; this order made no BetterRobot change.
-- The optional mass flag is not a speculative deviation: the plan explicitly
-  allowed it when cost was material, and the measured 4.07x shape-bake cost
-  met that condition.
+1. **Roadmap migration not done.** The plan's `### 05` mentions "migrate the old
+   plan's roadmap into docs," but the authoritative order-05 handoff and the
+   stated definition of done enumerate only images + `segmentation.md` +
+   `architecture`/`contracts` truth + packaging. The roadmap already lives in
+   `plan/README.md` "Beyond this plan"; I did not duplicate it into `docs/` to
+   avoid a divergent second copy and to stay within the handoff scope. Trivial
+   follow-up if the owner wants a `docs/roadmap.md`.
+2. **Packaging premise did not hold** (see Packaging fix) — assets already
+   shipped; the added config is a robustness pin, not a repair.
+3. **Render helper lives in `docs/`** (`docs/render_segmentation.py`), not
+   `examples/`, since its output is `docs/segmentation/` and it is a docs
+   generator rather than an interactive example. `matplotlib` is a `dev`-group
+   dependency (not a runtime/library dependency).
+4. **Cross-image colors do not correspond** for SMPL authored (surface colors by
+   named per-vertex part; split colors by native joint index). Each image is
+   independently a valid "distinct color per part" view; no correspondence is
+   claimed in the page. SMPL-X authored surface/split *do* share the vertex
+   labeling and its colors.

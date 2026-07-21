@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from better_robot.io.builders.smpl_like import JOINT_NAMES
 
 from better_human.core import BodyStructure, ParametricBody
 from better_human.core.classic import (
@@ -18,6 +17,8 @@ from better_human.core.classic import (
 from better_human.core.reduction import slice_parameter_basis
 from better_human.io import SMPL_SCHEMA, load_model_npz, resolve_model_path
 
+from .assets import load_closed_segmentation, load_density_table
+from .config_smpl import SMPL_CONFIG
 from .registry import register
 from .smpl_family import (
     bind_mass_properties,
@@ -51,7 +52,7 @@ class SMPL(ParametricBody):
         model_path: str | Path | None = None,
         gender: str = "neutral",
         num_betas: int = 10,
-        density: float | torch.Tensor = 1000.0,
+        density: float | torch.Tensor | str = 1000.0,
         compute_mass: bool = True,
         dtype: torch.dtype = torch.float32,
         device: torch.device | str | None = None,
@@ -72,9 +73,10 @@ class SMPL(ParametricBody):
         if num_betas < 1 or num_betas > available_betas:
             raise ValueError(f"num_betas must be in [1, {available_betas}], got {num_betas}")
 
+        joint_names = SMPL_CONFIG.joint_names
         joint_count = arrays["weights"].shape[-1]
-        if joint_count != len(JOINT_NAMES):
-            raise ValueError(f"SMPL weights contain {joint_count} joints; expected {len(JOINT_NAMES)}")
+        if joint_count != len(joint_names):
+            raise ValueError(f"SMPL weights contain {joint_count} joints; expected {len(joint_names)}")
         parents = parents_from_kintree(arrays["kintree_table"])
         shape_basis, parameter_groups = slice_parameter_basis(
             arrays["shapedirs"],
@@ -82,6 +84,8 @@ class SMPL(ParametricBody):
             {"betas": num_betas},
         )
         v_template = arrays["v_template"].to(device=target_device, dtype=dtype)
+        if isinstance(density, str):
+            density = load_density_table(SMPL_CONFIG.density_table, density, joint_count, v_template)
         density_value = density_tensor(density, joint_count, v_template)
         values, skinning_indices = make_body_values(
             v_template,
@@ -93,34 +97,41 @@ class SMPL(ParametricBody):
             density_value,
         )
         faces = arrays["f"].to(device=target_device, dtype=torch.long)
+        closed_faces = None
+        if compute_mass and SMPL_CONFIG.segmentation_closed_file is not None:
+            closed_faces = load_closed_segmentation(SMPL_CONFIG.segmentation_closed_file, target_device)
         values, part_ids, part_topology = bind_mass_properties(
             values,
             faces,
             skinning_indices,
             joint_count,
             compute_mass,
+            closed_faces,
         )
         structure = BodyStructure(
             num_vertices=arrays["v_template"].shape[0],
-            num_faces=arrays["f"].shape[0],
             faces=faces,
-            joint_names=JOINT_NAMES,
+            joint_names=joint_names,
             parents=parents,
             native_joint_indices=tuple(range(joint_count)),
             skinning_indices=skinning_indices,
             part_ids=part_ids,
             part_topology=part_topology,
             parameter_groups=parameter_groups,
-            landmarks={},
-            unit="m",
-            up_axis="+y",
-            forward_axis="+z",
-            native_pose_format="axis-angle",
+            landmarks={
+                "frame_vertex_ids": torch.tensor(
+                    SMPL_CONFIG.frame_vertex_ids, dtype=torch.long, device=target_device
+                )
+            },
+            unit=SMPL_CONFIG.unit,
+            up_axis=SMPL_CONFIG.up_axis,
+            forward_axis=SMPL_CONFIG.forward_axis,
+            native_pose_format=SMPL_CONFIG.native_pose_format,
         )
 
         robot = build_family_robot(
             f"smpl_{normalized_gender}",
-            JOINT_NAMES,
+            joint_names,
             parents,
             values.rest_joints,
             dtype,

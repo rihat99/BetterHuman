@@ -9,14 +9,7 @@ from scipy import sparse
 
 from better_human.io.convert_chumpy import convert_model, load_chumpy_pickle
 from better_human.io.load import load_model_npz
-from better_human.io.schema import (
-    CSR_DATA,
-    CSR_INDICES,
-    CSR_INDPTR,
-    CSR_SHAPE,
-    SMPL_SCHEMA,
-    SMPLX_SCHEMA,
-)
+from better_human.io.schema import SMPL_SCHEMA, SMPLX_SCHEMA
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 MODELS_ROOT = REPOSITORY_ROOT / "models"
@@ -64,17 +57,15 @@ def test_real_smpl_pickle_converts_losslessly_with_stub(tmp_path: Path) -> None:
             assert actual.shape == expected.shape
             assert actual.tobytes(order="C") == expected.tobytes(order="C")
 
-        expected_regressor = raw["J_regressor"].tocsr(copy=True)
-        expected_regressor.sum_duplicates()
-        expected_regressor.sort_indices()
         assert sparse.issparse(raw["J_regressor"])
-        assert converted[CSR_DATA].tobytes() == expected_regressor.data.tobytes()
-        assert converted[CSR_INDICES].tobytes() == expected_regressor.indices.tobytes()
-        assert converted[CSR_INDPTR].tobytes() == expected_regressor.indptr.tobytes()
-        assert tuple(converted[CSR_SHAPE]) == expected_regressor.shape
+        expected_regressor = np.asarray(raw["J_regressor"].todense())
+        actual_regressor = converted["J_regressor"]
+        assert actual_regressor.dtype == expected_regressor.dtype
+        assert actual_regressor.shape == expected_regressor.shape
+        assert actual_regressor.tobytes(order="C") == expected_regressor.tobytes(order="C")
 
     loaded = load_model_npz(destination, SMPL_SCHEMA)
-    assert loaded["J_regressor"].layout == torch.sparse_csr
+    assert loaded["J_regressor"].layout == torch.strided
 
 
 def test_converter_refuses_overwrite_before_reading_input(tmp_path: Path) -> None:

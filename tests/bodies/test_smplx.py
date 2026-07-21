@@ -9,6 +9,7 @@ import torch
 
 import better_human as bh
 from better_human.bodies import SMPLXClassic
+from better_human.bodies.config_smplx import SMPLX_CONFIG
 
 MODEL_PATH = Path(__file__).parents[2] / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
 GRADCHECK_VERTEX_INDICES = torch.tensor([0, 2618, 5237, 7856, 10474], dtype=torch.long)
@@ -199,6 +200,19 @@ def test_float32_gradcheck_expression_to_selected_vertices(body: bh.SMPLX) -> No
         rtol=8e-2,
         fast_mode=True,
     )
+
+
+def test_landmark_positions_gather_matches_config(body: bh.SMPLX) -> None:
+    q = body.from_classic(SMPLXClassic(body_pose=torch.linspace(-0.2, 0.2, 63)))
+    vertices = body.vertices(q)
+    frame_vertex_ids = body.structure.landmarks["frame_vertex_ids"]
+    assert frame_vertex_ids.tolist() == list(SMPLX_CONFIG.frame_vertex_ids)
+
+    landmarks = body.landmark_positions(vertices)
+    assert landmarks.shape == (len(SMPLX_CONFIG.frame_names), 3)
+    torch.testing.assert_close(landmarks, vertices[frame_vertex_ids])
+    nose = SMPLX_CONFIG.frame_names.index("nose")
+    torch.testing.assert_close(landmarks[nose], vertices[9120])
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is unavailable")

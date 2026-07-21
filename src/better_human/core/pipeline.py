@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import torch
-from better_robot.lie import se3
+from better_robot.lie import se3, so3
 
 
 def blend_shapes(coefficients: torch.Tensor, basis: torch.Tensor) -> torch.Tensor:
@@ -25,21 +25,12 @@ def blend_shapes(coefficients: torch.Tensor, basis: torch.Tensor) -> torch.Tenso
 
 
 def regress_joints(regressor: torch.Tensor, vertices: torch.Tensor) -> torch.Tensor:
-    """Regress joint centers without densifying a sparse regressor.
+    """Regress joint centers with a dense linear map.
 
     ``regressor`` has shape ``(J, V)`` and ``vertices`` has shape
     ``(..., V, 3)``. The result has shape ``(..., J, 3)``.
     """
-    if regressor.layout == torch.strided:
-        return torch.einsum("jv,...vc->...jc", regressor, vertices)
-
-    vertex_count = vertices.shape[-2]
-    batch_shape = vertices.shape[:-2]
-    flat_vertices = vertices.reshape(-1, vertex_count, 3)
-    columns = flat_vertices.permute(1, 0, 2).reshape(vertex_count, -1)
-    flat_joints = torch.sparse.mm(regressor, columns)
-    joints = flat_joints.reshape(regressor.shape[0], -1, 3).permute(1, 0, 2)
-    return joints.reshape(*batch_shape, regressor.shape[0], 3)
+    return torch.einsum("jv,...vc->...jc", regressor, vertices)
 
 
 def pose_feature_rotmat_minus_identity(joint_quaternions: torch.Tensor) -> torch.Tensor:
@@ -49,8 +40,6 @@ def pose_feature_rotmat_minus_identity(joint_quaternions: torch.Tensor) -> torch
     ``(..., J - 1, 4)`` in scalar-last order. The result has shape
     ``(..., (J - 1) * 9)``.
     """
-    from better_robot.lie import so3  # noqa: PLC0415 - keep the stage dependency local
-
     rotation_matrices = so3.to_matrix(so3.normalize(joint_quaternions))
     identity = torch.eye(3, dtype=joint_quaternions.dtype, device=joint_quaternions.device)
     return (rotation_matrices - identity).flatten(start_dim=-3)

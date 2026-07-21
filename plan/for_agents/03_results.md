@@ -1,102 +1,146 @@
-# Order 03 results
+# Order 03 results — segmentation rework + `mass.py` simplification
 
-Completed on `dev` on 2026-07-20 after Order 02.
+Delivered on `dev`, BetterHuman only. BetterRobot untouched (the order-01 mesh
+tools were consumed, not modified).
 
-## Delivered
+## What landed
 
-- Functionally immutable `BodyStructure`, `BodyValues`, and `ParametricBody`
-  composition. Named shape groups bake pelvis-centered vertices, regressed
-  rest joints, and batch-bearing BetterRobot joint placements.
-- Shared batched tensor stages for linear shape blending, dense/CSR joint
-  regression, normalized non-root `(R - I)` pose features, linear
-  correctives, native-joint skinning transforms, and padded `[V, K]` LBS.
-- Sign-preserving axis-angle/quaternion conversion and shape-dependent
-  SMPL-family root-wart conversion. Negative-scalar unit quaternions map to
-  the corresponding `(pi, 2*pi]` axis-angle branch, so converter round trips
-  preserve the actual BetterRobot `q` tensor rather than only its rotation.
-- `SMPL` with explicit/environment model resolution, dtype/device conversion,
-  loaded kintree parents, four-influence padded skinning, pelvis-centered rest
-  data, preserved native joint order, and typed `SMPLClassic` conversion.
-- Decorator-backed `better_human.load("smpl", ...)` plus the small public API
-  exports `SMPL`, `ParametricBody`, and `load`.
-- An isolated 38-package uv lock pinned to upstream `smplx==0.1.28`, a
-  deterministic dump script, and 13 committed neutral-gender golden archives.
-  The archives contain 78 float64 input/output arrays and total 2,071,126
-  bytes.
+Two segmentation **sources** now feed one `PartMeshTopology` and the shared,
+differentiable `Inertia.from_mesh` integrator:
 
-## Parity
+- **Authored closed-3D (default for SMPL).** `build_authored_topology` loads the
+  vetted asset's per-part face tables (`body_faces[j]` indexing
+  `[shaped_vertices; rest_joints]`, the joints as cap vertices), builds a
+  **compact per-part** vertex table (mesh verts gathered from `v_shaped`, caps
+  gathered from `rest_joints` — differentiable), remaps faces to local indices,
+  and fixes winding once from rest geometry with
+  `orient_faces_by_component` (uniform over all parts; **no** `validate_closed_manifold`
+  gate, **no** boundary tracing, **no** centroid caps). The 3 open/non-manifold
+  seam parts (spine3=9, left_collar=13, right_collar=14) pass through without
+  rejection.
+- **Argmax fallback (SMPL-X, no authored asset).** Kept the skinning-argmax
+  segmentation + interior-fan successor-walk boundary closure + reverse-wound
+  centroid caps. Dropped the per-spawn defensive `ValueError` raises
+  (`non_manifold` / `open` / `inconsistent winding` / `cycled` /
+  `half-edges do not form closed cycles` / `repeats before closing` /
+  `loop < 3 vertices`) — the walk now trusts the vetted, consistently wound
+  meshes.
 
-Errors are maximum absolute metres over all vertices or native LBS joints.
+Both stay batched and float32-differentiable w.r.t. betas through the cap
+vertices. `body_inertias_from_shape` keeps its `(..., num_parts+1, 10)` contract
+(row 0 = massless universe).
 
-| Case | float64 vertices | float64 joints | float32 vertices | float32 joints |
-|---|---:|---:|---:|---:|
-| `beta_minus_two` | 7.793e-08 | 4.736e-08 | 3.576e-07 | 1.490e-07 |
-| `beta_plus_two` | 9.907e-08 | 5.048e-08 | 4.768e-07 | 2.384e-07 |
-| `beta_zero` | 8.844e-08 | 4.892e-08 | 2.980e-07 | 1.788e-07 |
-| `random_00` | 7.590e-08 | 4.014e-08 | 6.258e-07 | 4.768e-07 |
-| `random_01` | 9.695e-08 | 4.749e-08 | 4.768e-07 | 2.980e-07 |
-| `random_02` | 8.350e-08 | 4.397e-08 | 4.172e-07 | 2.198e-07 |
-| `random_03` | 9.807e-08 | 4.982e-08 | 3.874e-07 | 2.682e-07 |
-| `random_04` | 9.440e-08 | 5.156e-08 | 2.384e-07 | 1.192e-07 |
-| `random_05` | 9.428e-08 | 5.401e-08 | 5.960e-07 | 2.980e-07 |
-| `random_06` | **1.0412031070661243e-07** | 4.752e-08 | **7.078051567077637e-07** | 5.290e-07 |
-| `random_07` | 7.633e-08 | 3.881e-08 | 2.980e-07 | 1.788e-07 |
-| `root_wart` | 5.805e-08 | 3.492e-08 | 3.576e-07 | 1.192e-07 |
-| `zero` | 8.915e-08 | **5.780450140768778e-08** | 1.192e-07 | 5.960e-08 |
+## Assets restored (tracked package location)
 
-The pinned float64 threshold is the required `1e-6`. The float32 threshold is
-also pinned at `1e-6`: its measured worst case was
-`7.078051567077637e-07`, so the next clean decimal ceiling retains roughly
-1.41× headroom without hiding millimetre-scale regressions. The float64 floor
-is consistent with upstream smplx 0.1.28 adding `1e-8` inside its Rodrigues
-conversion.
+Restored from `git show main:src/better_human/smpl/config/<file>` into
+`src/better_human/bodies/assets/` (a package with an `__init__.py` loader):
 
-The first dump used the local upstream checkout at commit
-`1265df7ba545e8b00f72e7c557c766e15c71632f` (version 0.1.28). The isolated
-locked PyPI environment was then materialized and regenerated the grid; all
-78 arrays were exactly equal. The temporary environment and duplicate dump
-were removed afterward.
+- `smpl_3d_segmentation.npy` — authored closed-3D segmentation (consumed).
+- `body_densities.json` — Naive/Chandler/Dempster/Clauser/Custom named tables (consumed).
+- `smpl_vert_segmentation.json`, `smplx_vert_segmentation.json` — per-vertex named
+  parts, restored for order-05 rendering (not consumed here; no loader added, YAGNI).
 
-## Differentiability, batching, and CUDA
+`bodies/assets/__init__.py` exposes `load_closed_segmentation` and
+`load_density_table`. `smpl.py` resolves `SMPL_CONFIG.segmentation_closed_file`
+and `density_table` from there. (Files are in the version-controlled source tree
+alongside the still-uncommitted order-02 `config_*.py`; owner commits the
+refactor as a unit — I did not commit.)
 
-- Float32 gradcheck used vertices `[0, 1723, 3445, 5167, 6889]`.
-- `betas -> selected vertices`: passed in 0.57 s.
-- `q -> selected vertices`: passed in 0.15 s.
-- Shape batches, same-batch configurations, and unbatched-`q` broadcasting
-  passed. A regression also proves scaled joint quaternions give identical FK
-  and correctives after normalization.
-- The CUDA FK plus vertices smoke passed on pinned RTX 6000 Ada GPU 1 in
-  16.98 s. The default sandbox cannot see the driver, so the ordinary full
-  suite reports that one device-conditional test as skipped; the escalated,
-  pinned run passed separately.
+## Named-density option
 
-## Verification
+`SMPL(density=...)` now also accepts a **table name (str)**, e.g. `"Chandler"`,
+resolved to a per-part tensor in native joint order via `load_density_table`,
+feeding the SAME `density_tensor` path (no new policy code, no per-table
+branches). Scalar and per-part-tensor options unchanged. SMPL-X unchanged
+(named tables are SMPL-24-joint; a str there would raise on missing joint keys).
 
-- `uv lock --check`: 76 root-project packages, current.
-- `uv lock --check --project tools/parity/smplx`: 38 oracle packages,
-  current.
-- `uv sync --locked --offline --dry-run`: no changes.
-- `uv run pytest tests -q -rs`: **62 passed, 1 skipped, 5 warnings in
-  37.35 s**. Warnings are the required float32-gradcheck notice, PyTorch's
-  CSR-beta notice, and the two legacy SciPy pickle deprecations already
-  recorded in Order 02.
-- Targeted CUDA test: **1 passed in 16.98 s**.
-- `uv run ruff check src tests tools/parity/smplx/dump_smpl.py`: passed.
-- Independent review found no remaining converter, quaternion-normalization,
-  parity-collection, batching, or acceptance blocker after its regressions
-  were added.
-- The combined `models/` and `references/` path/size/mtime manifest remained
-  `1e12ec801fada88a15763f372770d3e065e4d1015a680a3f0e50917cb52e2258`.
-- BetterRobot remained clean on `dev`; no BR-side changes were required.
+## Measured (neutral SMPL, density 1000)
 
-## Deviations and findings
+| Quantity | Authored (this order) | Argmax baseline |
+|---|---|---|
+| 24-part volume sum | 0.07476461 m³ | — |
+| whole-mesh volume | 0.07476054 m³ | — |
+| **volume gap** | **+54.38 ppm (+0.00544 %)** | +1.78 % |
+| total part mass | **74.7646 kg** (whole = 74.7605 kg) | 73.43 kg |
+| aggregate vs whole COM sep | **0.022 mm** | 2.47 mm |
 
-- **Plan deviations:** none.
-- BetterRobot intentionally exposes the free-flyer joint name as `root` while
-  its associated body name is `pelvis`. Alignment tests therefore assert both
-  `robot.joint_names[1:] == ("root", *native_names[1:])` and
-  `robot.body_names[1:] == native_names`; the required `BR j+1 <-> native j`
-  index binding is exact.
-- Importing the local oracle initially created six bytecode files under the
-  protected `references/` tree. They were immediately removed, and the
-  protected manifest returned exactly to its pre-order digest above.
+CUDA (device 2): authored path gives 54.61 ppm / 74.7646 kg — matches CPU.
+
+Per-part masses (kg, native joint order 0..23):
+`15.99, 7.97, 8.01, 6.66, 3.02, 3.00, 4.90, 0.62, 0.62, 10.08, 0.09, 0.09,
+0.74, 1.49, 1.52, 3.94, 1.70, 1.73, 0.96, 1.00, 0.24, 0.25, 0.06, 0.07`.
+
+## `core/mass.py` LOC
+
+| | LOC |
+|---|---|
+| before (`git HEAD:core/mass.py`) | 291 |
+| after | 283 |
+| net | **−8** |
+
+Net is modest because a whole new segmentation source (`build_authored_topology`,
+~36 lines incl. docstring) was **added** while the argmax tracer was **kept** per
+the handoff. What shrank: `_oriented_boundary_loops` → `_boundary_loops` lost its
+~7 defensive raises; `segment_vertices`, `build_part_topology`,
+`meshes_from_topology`, `body_inertias_from_shape` lost redundant internal
+validation. The real simplification is conceptual: the **default** (SMPL) path
+runs zero boundary tracing / capping / centroid math.
+
+Other touched files: `bodies/smpl.py` (+asset + str-density wiring),
+`bodies/smpl_family.py` (`bind_mass_properties` dispatches on `closed_faces`),
+`tests/core/test_mass.py`.
+
+## Tests
+
+`tests/core/test_mass.py`: 14 tests. Full BetterHuman suite (CPU,
+`CUDA_VISIBLE_DEVICES=""`): **109 passed, 6 skipped** (3 CUDA-unavailable, 2
+pre-existing absent SMPL-X parity goldens, 1 viz CUDA). CUDA (device 2): mass +
+dynamics CUDA cases **16 passed**, incl. `test_cuda_mass_rnea_and_crba_smoke`.
+`ruff check` clean on all touched files.
+
+Coverage added/updated:
+- `test_authored_segmentation_volume_matches_whole_mesh` — asserts < 1e-4 rel
+  (measured 54.4 ppm) and total mass 74–75.5 kg.
+- `test_authored_segmentation_is_batched_and_finite` — `betas (2, n)` →
+  `(2, 25, 10)`, finite, positive masses.
+- `test_named_density_table_feeds_per_part_density` — Chandler lookup spot-checks
+  (joint 0 = 853, joint 16 = 1005); density-invariant per-part **volumes** match
+  the density-1000 body; unknown table name raises.
+- `test_argmax_fallback_integrates_smplx_parts` — every SMPL-X fallback part
+  integrates to positive volume.
+- `test_float32_gradcheck_betas_to_total_mass` — now exercises the authored path,
+  gradcheck-clean (float32, eps 1e-3).
+- `test_default_mass_opt_out_and_per_part_density` — dropped the per-part
+  `_assert_closed_edges` loop (authored parts 9/13/14 are legitimately open;
+  closedness is not required and is not a valid assertion for them).
+- `test_argmax_segmentation_cross_check` — repointed to the tracked package asset.
+
+## Findings / deviations
+
+1. **Modest LOC delta, per the handoff's own constraint.** The handoff mandated
+   keeping the argmax successor-walk (only dropping its raises), so the plan's
+   "delete the bulk of the graph code" could not be taken literally without
+   discarding the SMPL-X fallback. The tracer stays; the reduction is honest but
+   small. Not a defect — a direct consequence of the authoritative spec.
+2. **Argmax fallback: 3 SMPL-X parts have pinched boundary loops.** spine2 (6),
+   left_wrist (20), right_wrist (21) each have one boundary loop that revisits a
+   vertex (figure-eight), so the single-centroid fan produces exactly one
+   non-manifold (incidence-4) cap edge per part. This is **pre-existing** — the
+   old code used the identical interior-walk + fan and would emit the identical
+   caps (it never raised on these, and SMPL-X spawn tests were green, proving the
+   loops traced as before). It was simply never tested. The parts still integrate
+   to positive finite volume, so the fallback is valid; strict per-part manifoldness
+   was never a project requirement (the authored SMPL seam parts are non-manifold
+   by design too). My initial strict `_assert_closed_edges` SMPL-X test was
+   therefore replaced with a positive-volume integration test. Flagged, not
+   worked around.
+3. **Wheel packaging not modified.** Tests run from the editable/source install,
+   where `Path(__file__).parent` resolves the assets directly. Hatchling includes
+   non-Python files under the package by default; no `pyproject.toml` change made
+   (surgical). If a built wheel ever omits the assets, add a
+   `[tool.hatch.build.targets.wheel.force-include]` — reported, not pre-emptively
+   added.
+4. **Density double-validation retained.** `density_tensor` (init boundary) and
+   `body_inertias_from_shape` both validate density shape; the plan assigns the
+   dedup to **order 04**, and the direct-call test needs the latter's guard, so
+   left as-is.

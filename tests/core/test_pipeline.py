@@ -26,7 +26,7 @@ def test_blend_shapes_and_linear_corrective_preserve_batch_axes() -> None:
     torch.testing.assert_close(linear_corrective(feature, posedirs), (feature @ posedirs).reshape(2, 2, 3))
 
 
-def test_regress_joints_dense_and_csr_match_with_two_batch_axes() -> None:
+def test_regress_joints_matches_einsum_with_two_batch_axes() -> None:
     dense = torch.tensor(
         [[0.5, 0.5, 0.0, 0.0], [0.0, 0.25, 0.25, 0.5]],
         dtype=torch.float32,
@@ -34,7 +34,6 @@ def test_regress_joints_dense_and_csr_match_with_two_batch_axes() -> None:
     vertices = torch.arange(2 * 3 * 4 * 3, dtype=torch.float32).reshape(2, 3, 4, 3)
     expected = torch.einsum("jv,...vc->...jc", dense, vertices)
     torch.testing.assert_close(regress_joints(dense, vertices), expected)
-    torch.testing.assert_close(regress_joints(dense.to_sparse_csr(), vertices), expected)
 
 
 def test_pose_feature_is_zero_at_rest_and_excludes_root_by_contract() -> None:

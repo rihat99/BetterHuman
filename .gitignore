@@ -19,6 +19,3 @@ htmlcov/
 models/
 references/
 temp/
-
-# Regenerate-on-demand licensed-model parity data
-tests/parity/goldens/smplx_*/

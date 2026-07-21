@@ -13,22 +13,13 @@ downloaded or cached by BetterHuman.
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 
-from .schema import (
-    CSR_DATA,
-    CSR_INDICES,
-    CSR_INDPTR,
-    CSR_KEYS,
-    CSR_SHAPE,
-    ModelSchema,
-    validate,
-)
+from .schema import ModelSchema, validate
 
 MODELS_ENV = "BETTERHUMAN_MODELS_DIR"
 
@@ -59,11 +50,10 @@ def resolve_model_path(
 
 
 def load_model_npz(path: str | Path, schema: ModelSchema) -> dict[str, torch.Tensor]:
-    """Load required fields without changing their stored dtype.
+    """Load required fields as dense tensors without changing their stored dtype.
 
-    Dense arrays become dense tensors. A regressor stored as CSR components
-    becomes a :func:`torch.sparse_csr_tensor`; it is never densified. Unknown
-    vendor fields are validated as ignorable metadata and are not returned.
+    Unknown vendor fields are validated as ignorable metadata and are not
+    returned.
     """
     model_path = Path(path)
     if model_path.suffix.lower() != ".npz":
@@ -71,16 +61,10 @@ def load_model_npz(path: str | Path, schema: ModelSchema) -> dict[str, torch.Ten
     if not model_path.is_file():
         raise FileNotFoundError(f"Model file not found: {model_path}.")
 
-    loaded: dict[str, torch.Tensor] = {}
     with np.load(model_path, allow_pickle=False) as archive:
         arrays = _read_archive_arrays(archive, schema, model_path)
         validate(arrays, schema, source=str(model_path))
-        for name in schema.fields:
-            if name == "J_regressor" and name not in arrays:
-                loaded[name] = _load_sparse_regressor(arrays)
-            else:
-                loaded[name] = torch.from_numpy(arrays[name])
-    return loaded
+        return {name: torch.from_numpy(arrays[name]) for name in schema.fields}
 
 
 def _read_archive_arrays(
@@ -89,8 +73,8 @@ def _read_archive_arrays(
     model_path: Path,
 ) -> dict[str, Any]:
     names = set(archive.files)
-    arrays: dict[str, Any] = {name: None for name in names - set(schema.fields) - CSR_KEYS}
-    for name in names & (set(schema.fields) | CSR_KEYS):
+    arrays: dict[str, Any] = {name: None for name in names - set(schema.fields)}
+    for name in names & set(schema.fields):
         try:
             arrays[name] = np.asarray(archive[name])
         except Exception as error:
@@ -100,16 +84,3 @@ def _read_archive_arrays(
                 f"{schema.name} .npz file."
             ) from error
     return arrays
-
-
-def _load_sparse_regressor(arrays: Mapping[str, Any]) -> torch.Tensor:
-    if not CSR_KEYS.issubset(arrays):
-        raise RuntimeError("Validated CSR components disappeared while loading.")
-    shape = tuple(int(value) for value in arrays[CSR_SHAPE])
-    return torch.sparse_csr_tensor(
-        torch.from_numpy(arrays[CSR_INDPTR]),
-        torch.from_numpy(arrays[CSR_INDICES]),
-        torch.from_numpy(arrays[CSR_DATA]),
-        size=shape,
-        check_invariants=True,
-    )

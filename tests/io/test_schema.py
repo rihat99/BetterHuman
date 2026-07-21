@@ -5,14 +5,7 @@ import logging
 import numpy as np
 import pytest
 
-from better_human.io.schema import (
-    CSR_DATA,
-    CSR_INDICES,
-    CSR_INDPTR,
-    CSR_SHAPE,
-    SMPL_SCHEMA,
-    validate,
-)
+from better_human.io.schema import SMPL_SCHEMA, validate
 
 
 def _valid_smpl_data() -> dict[str, np.ndarray]:
@@ -65,17 +58,8 @@ def test_wrong_dtype_error_is_actionable() -> None:
 
 def test_multiple_wrong_ranks_never_leak_an_unbound_dimension_error() -> None:
     data = _valid_smpl_data()
-    del data["J_regressor"]
-    data.update(
-        {
-            CSR_DATA: np.array([1.0], dtype=np.float64),
-            CSR_INDICES: np.array([0], dtype=np.int32),
-            CSR_INDPTR: np.array([0, 1, 1, 1], dtype=np.int32),
-            CSR_SHAPE: np.array([3, 4], dtype=np.int64),
-            "weights": np.zeros(4, dtype=np.float64),
-            "kintree_table": np.zeros(3, dtype=np.int32),
-        }
-    )
+    data["weights"] = np.zeros(4, dtype=np.float64)
+    data["kintree_table"] = np.zeros(3, dtype=np.int32)
 
     with pytest.raises(ValueError, match=r"broken_ranks\.npz.*'weights'.*rank 2.*Reconvert"):
         validate(data, SMPL_SCHEMA, source="broken_ranks.npz")

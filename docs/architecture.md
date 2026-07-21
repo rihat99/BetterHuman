@@ -100,7 +100,15 @@ class ParametricBody:
 
 Concrete models (`SMPL`, `SMPLX`) are thin subclasses that implement
 loading (schema + spawn-parameter reduction), the pose-feature policy, and
-`from_classic` / `to_classic`. They contain no pipeline math.
+`from_classic` / `to_classic`. They contain no pipeline math. Each reads its
+static metadata — native joint names, the reduction index groups, landmark
+keypoint tables, native axis conventions, and the segmentation/density asset
+filenames — from a frozen `BodyConfig` in a per-model data module
+(`bodies/config_smpl.py`, `bodies/config_smplx.py`), and shares data-binding
+helpers through `bodies/smpl_family.py`; the SMPL topology no longer lives in
+BetterRobot (which keeps only the generic kinematic-tree builder). Landmark
+keypoints restored from that config are read back through
+`body.landmark_positions(vertices)`.
 
 ## The user-facing flow
 
@@ -193,8 +201,8 @@ The stages are the extension seams for future models (MHR's authored
 skeleton + MLP correctives + parameter-reduction transform; Anny's phenotype
 shape space; SUPR's typed constrained tree). Per the design principles, an
 abstraction ships only with ≥ 2 in-tree callers, so **v1 implements exactly
-what SMPL + SMPL-X exercise**: linear PCA shape/expression, sparse
-per-coordinate joint regressor, linear `(R−I)` correctives, padded-`[V,K]`
+what SMPL + SMPL-X exercise**: linear PCA shape/expression, a dense joint
+regressor, linear `(R−I)` correctives, padded-`[V,K]`
 LBS. The documented seams — recorded here so later models slot in without
 redesign — are:
 
@@ -235,28 +243,38 @@ shape above.
 
 BetterRobot owns the algorithms and the mesh integrator
 (`Inertia.from_mesh`: differentiable, batched, torch-only — BRR §4).
-BetterHuman contributes the human glue. Vertex ownership is the largest
-skinning influence. A triangle belongs to the majority part among its three
-vertices; an all-distinct tie goes to its first vertex. Each oriented boundary
-cycle is closed by reverse-wound triangles meeting at the cycle's vertex
-centroid. Static ownership and cap topology are computed at spawn, while cap
-positions and inertias are recomputed from `v_shaped` during shape baking.
+BetterHuman contributes the human glue: it partitions the mesh into closed
+per-part solids and integrates each. **Two segmentation sources feed one closed
+`PartMeshTopology`** (`core/mass.py`), and `docs/segmentation.md` shows both:
 
-Each integrated inertia is translated into its native joint frame before the
-packed rows are written through `Model.with_values`; the massless BetterRobot
-universe row is prepended. RNEA, CRBA, ABA, and centroidal algorithms then work
-unchanged and remain differentiable with respect to shape.
+- **Authored closed-3D** (default for SMPL-family models that ship the asset).
+  Vetted per-part face tables index `[shaped_vertices; rest_joints]`; each part's
+  open boundary is closed by fanning to a **rest joint used as a cap vertex**.
+  Winding is fixed once from rest geometry with BetterRobot's non-strict
+  `orient_faces_by_component` (which replaced the historical
+  `trimesh.fix_normals` and tolerates the three open, non-manifold shoulder-seam
+  parts). No runtime boundary tracing.
+- **Argmax fallback** (generic; SMPL-X). Each vertex takes its largest skinning
+  influence; a triangle belongs to the majority part among its three vertices;
+  each open boundary cycle is closed by reverse-wound triangles meeting at the
+  cycle's centroid.
 
-At density 1000 kg/m³, the neutral SMPL fixture measures 73.43093872070312 kg
-as 24 closed parts versus 74.76054382324219 kg as one mesh. The 1.7785% gap is
-the measured centroid-cap partition error; aggregate COM differs from the
-whole-mesh result by 2.47 mm. The shipped STAR segmentation was inspected but
-its closed-part tables contain two duplicated surface triangles and
-non-manifold edges, so the validated argmax fallback is used for that fixture.
+Static ownership and cap topology are computed at spawn, while cap positions and
+inertias are recomputed from `v_shaped` during shape baking. Each integrated
+inertia is translated into its native joint frame before the packed rows are
+written through `Model.with_values`; the massless BetterRobot universe row is
+prepended. RNEA, CRBA, ABA, and centroidal algorithms then work unchanged and
+remain differentiable with respect to shape.
 
-Mass baking increased a warmed neutral-SMPL `with_shape` call from 10.19 ms to
-41.50 ms on the reference CPU. It is therefore enabled by default but may be
-disabled at spawn with `compute_mass=False` for deformation-only workloads.
+At density 1000 kg/m³ the neutral SMPL fixture integrates to 74.76 kg via the
+authored closed-3D parts — within +0.0055 % of the 74.76 kg whole-mesh volume,
+with aggregate COM 0.02 mm from the whole-mesh result. The argmax fallback on
+the same fixture gives 73.43 kg (a +1.78 % volume gap, COM 2.47 mm), so the
+authored partition is preferred wherever its asset exists.
+
+Mass baking adds nontrivial cost to `with_shape`, so it is enabled by default
+but may be disabled at spawn with `compute_mass=False` for deformation-only
+workloads.
 
 ## Joint limits
 
@@ -286,8 +304,13 @@ src/better_human/
 │   └── classic.py     # shared converter algebra (pelvis-offset, axis-angle<->quat)
 ├── bodies/
 │   ├── registry.py    # load("smplx", ...) — decorator-registered factories
-│   ├── smpl.py        # schema binding, tree tables, converters, spawn flags
-│   └── smplx.py
+│   ├── config_body.py   # BodyConfig dataclass (per-model static metadata)
+│   ├── config_smpl.py   # SMPL joint names, landmarks, asset filenames
+│   ├── config_smplx.py  # SMPL-X names, reduction groups, landmarks, assets
+│   ├── smpl_family.py    # shared data binding (values, robot, mass, density)
+│   ├── smpl.py          # schema binding, converters, spawn flags
+│   ├── smplx.py
+│   └── assets/          # authored segmentation + density tables + loaders
 ├── io/
 │   ├── schema.py      # per-model npz field schemas, validation
 │   ├── load.py        # path resolution (arg > env root), validated loading

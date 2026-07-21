@@ -24,6 +24,7 @@ viewer = ["better-robot[viewer]"]
 dev = [
     "pytest>=8.0",
     "ruff",
+    "matplotlib>=3.8",
 ]
 
 [[tool.uv.index]]
@@ -37,6 +38,9 @@ torch = { index = "pytorch-cu126" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/better_human"]
+# Ship the authored segmentation and density tables (data, not source) in the
+# wheel and keep them included even if a future VCS ignore rule matches them.
+artifacts = ["*.npy", "*.json"]
 
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib"

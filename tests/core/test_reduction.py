@@ -30,12 +30,12 @@ def test_reduction_rejects_root_and_nonterminal_drops() -> None:
         reduce_joint_data(NAMES, PARENTS, regressor, weights, posedirs, [1, 2])
 
 
-def test_reduction_transfers_weights_renormalizes_and_preserves_sparse_regressor() -> None:
+def test_reduction_transfers_weights_renormalizes_and_slices_regressor() -> None:
     regressor, weights, posedirs = _joint_data()
     reduced = reduce_joint_data(
         NAMES,
         PARENTS,
-        regressor.to_sparse_csr(),
+        regressor,
         weights,
         posedirs,
         [2, 3],
@@ -44,8 +44,7 @@ def test_reduction_transfers_weights_renormalizes_and_preserves_sparse_regressor
     assert names == ("root", "branch")
     assert parents == (-1, 0)
     assert survivors == (0, 1)
-    assert reduced_regressor.layout == torch.sparse_csr
-    torch.testing.assert_close(reduced_regressor.to_dense(), regressor[:2])
+    torch.testing.assert_close(reduced_regressor, regressor[:2])
     torch.testing.assert_close(reduced_weights.sum(dim=-1), torch.ones(2))
     expected = torch.stack((weights[:, 0], weights[:, 1:].sum(dim=-1)), dim=-1)
     expected = expected / expected.sum(dim=-1, keepdim=True)

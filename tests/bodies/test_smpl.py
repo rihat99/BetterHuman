@@ -10,6 +10,7 @@ import torch
 import better_human as bh
 import better_human.core.body as body_module
 from better_human.bodies import SMPLClassic
+from better_human.bodies.config_smpl import SMPL_CONFIG
 
 MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
 GRADCHECK_VERTEX_INDICES = torch.tensor([0, 1723, 3445, 5167, 6889], dtype=torch.long)
@@ -117,6 +118,26 @@ def test_float32_gradcheck_q_to_selected_vertices(body: bh.SMPL) -> None:
         return body.vertices(configuration)[GRADCHECK_VERTEX_INDICES]
 
     assert torch.autograd.gradcheck(selected_vertices, (q,), eps=1e-3, atol=3e-2, rtol=8e-2, fast_mode=True)
+
+
+def test_landmark_positions_gather_matches_config(body: bh.SMPL) -> None:
+    q = body.from_classic(SMPLClassic(body_pose=torch.linspace(-0.2, 0.2, 69)))
+    vertices = body.vertices(q)
+    frame_vertex_ids = body.structure.landmarks["frame_vertex_ids"]
+    assert frame_vertex_ids.tolist() == list(SMPL_CONFIG.frame_vertex_ids)
+
+    landmarks = body.landmark_positions(vertices)
+    assert landmarks.shape == (len(SMPL_CONFIG.frame_names), 3)
+    torch.testing.assert_close(landmarks, vertices[frame_vertex_ids])
+    nose = SMPL_CONFIG.frame_names.index("nose")
+    torch.testing.assert_close(landmarks[nose], vertices[332])
+
+
+def test_landmark_positions_preserves_leading_batch(body: bh.SMPL) -> None:
+    shaped = body.with_shape(betas=torch.stack((torch.zeros(10), torch.linspace(-0.5, 0.5, 10))))
+    vertices = shaped.vertices(shaped.from_classic(SMPLClassic()))
+    landmarks = shaped.landmark_positions(vertices)
+    assert landmarks.shape == (2, len(SMPL_CONFIG.frame_names), 3)
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is unavailable")

@@ -66,37 +66,6 @@ def _validate_terminal_drop(parents: Sequence[int], dropped: set[int]) -> None:
             )
 
 
-def _slice_regressor_rows(regressor: torch.Tensor, survivor_indices: torch.Tensor) -> torch.Tensor:
-    if regressor.layout == torch.strided:
-        return regressor.index_select(0, survivor_indices)
-    if regressor.layout != torch.sparse_csr:
-        raise ValueError(f"joint_regressor must be dense or sparse CSR, got layout {regressor.layout}")
-
-    coo = regressor.to_sparse_coo().coalesce()
-    old_to_new = torch.full(
-        (regressor.shape[0],),
-        -1,
-        dtype=torch.long,
-        device=survivor_indices.device,
-    )
-    old_to_new[survivor_indices] = torch.arange(
-        survivor_indices.numel(),
-        device=survivor_indices.device,
-    )
-    new_rows = old_to_new[coo.indices()[0]]
-    keep = new_rows >= 0
-    indices = torch.stack((new_rows[keep], coo.indices()[1, keep]))
-    reduced = torch.sparse_coo_tensor(
-        indices,
-        coo.values()[keep],
-        size=(survivor_indices.numel(), regressor.shape[1]),
-        dtype=regressor.dtype,
-        device=regressor.device,
-        check_invariants=True,
-    )
-    return reduced.coalesce().to_sparse_csr()
-
-
 def reduce_joint_data(
     joint_names: Sequence[str],
     parents: Sequence[int],
@@ -157,7 +126,7 @@ def reduce_joint_data(
     reduced_names = tuple(joint_names[index] for index in survivors)
     reduced_parents = tuple(-1 if old == 0 else old_to_new[parents[old]] for old in survivors)
     survivor_tensor = torch.tensor(survivors, dtype=torch.long, device=skinning_weights.device)
-    reduced_regressor = _slice_regressor_rows(joint_regressor, survivor_tensor)
+    reduced_regressor = joint_regressor.index_select(0, survivor_tensor)
 
     target_indices: list[int] = []
     for joint in range(joint_count):

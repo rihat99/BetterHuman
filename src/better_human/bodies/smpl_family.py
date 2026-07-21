@@ -14,6 +14,7 @@ from better_human.core import BodyValues
 from better_human.core.mass import (
     PartMeshTopology,
     body_inertias_from_shape,
+    build_authored_topology,
     build_part_topology,
     segment_vertices,
 )
@@ -110,14 +111,28 @@ def bind_mass_properties(
     skinning_indices: torch.Tensor,
     num_parts: int,
     compute_mass: bool,
+    closed_faces: Mapping[int, torch.Tensor] | None = None,
 ) -> tuple[BodyValues, torch.Tensor, PartMeshTopology | None]:
-    """Bind static segmentation and optional neutral shape inertias."""
+    """Bind static segmentation and optional neutral shape inertias.
+
+    An authored ``closed_faces`` asset drives the volume-preserving joint-cap
+    topology; otherwise argmax segmentation with centroid caps is used. The
+    argmax ``part_ids`` are always returned for downstream part coloring.
+    """
     if not isinstance(compute_mass, bool):
         raise TypeError("compute_mass must be bool")
     part_ids = segment_vertices(values.skinning_weights, skinning_indices)
     if not compute_mass:
         return values, part_ids, None
-    topology = build_part_topology(faces, part_ids, num_parts)
+    if closed_faces is not None:
+        topology = build_authored_topology(
+            closed_faces,
+            values.v_shaped.shape[-2],
+            values.v_shaped,
+            values.rest_joints,
+        )
+    else:
+        topology = build_part_topology(faces, part_ids, num_parts)
     inertias = body_inertias_from_shape(
         values.v_shaped,
         values.rest_joints,

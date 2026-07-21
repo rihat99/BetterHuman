@@ -22,9 +22,15 @@ ones. Breaking a contract is a bug even if tests pass.
   native units (MHR is centimeters) convert inside their loader/converters;
   no unit flags on the public API.
 - Shape-derived mass uses 1000 kg/m³ by default. A density override is either
-  scalar or a tensor in native joint order with one positive kg/m³ value per
-  physical body part; the BetterRobot universe remains massless. Packed COM
-  and inertia values are expressed in each part's rest-joint frame.
+  scalar, a tensor in native joint order with one positive kg/m³ value per
+  physical body part, or a named density table resolved to that tensor; the
+  BetterRobot universe remains massless. Packed COM and inertia values are
+  expressed in each part's rest-joint frame.
+- Segmentation has two sources but one closed topology. A model with an authored
+  closed-3D asset uses it (volume-preserving joint-cap parts, the SMPL-family
+  default); a model without one falls back to argmax skinning assignment with
+  centroid-capped parts. Both yield a single `PartMeshTopology` fed to the
+  differentiable `Inertia.from_mesh`; neither is a per-query cost.
 - World up-axis, handedness, and rest orientation follow the model's
   canonical rest pose expressed in BetterRobot's world frame; each model's
   `BodyStructure` records its native conventions (unit, up, forward) and the
@@ -91,7 +97,8 @@ ones. Breaking a contract is a bug even if tests pass.
   `$BETTERHUMAN_MODELS_DIR/<family>/<canonical-name>`, else raise with both
   options spelled out. The library never downloads weights and the
   repository never contains gated weights.
-- Loaders never densify sparse regressors and never mutate the source file.
+- The converter emits the joint regressor dense and loaders load every field
+  as a dense tensor; loaders never mutate the source file.
 
 ## Parity (the safety net)
 

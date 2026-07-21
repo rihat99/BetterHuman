@@ -26,8 +26,6 @@ class BodyStructure:
 
     #: Number of vertices in the fixed native topology.
     num_vertices: int
-    #: Number of triangular faces in the fixed native topology.
-    num_faces: int
     #: Triangle indices with shape ``(F, 3)``.
     faces: torch.Tensor
     #: Native LBS joint names in weight-file order.
@@ -66,7 +64,7 @@ class BodyValues:
     shape_basis: torch.Tensor
     #: Linear pose-corrective matrix with shape ``(P, V * 3)``.
     posedirs: torch.Tensor
-    #: Dense or sparse joint regressor with shape ``(J, V)``.
+    #: Dense joint regressor with shape ``(J, V)``.
     joint_regressor: torch.Tensor
     #: Padded nonzero LBS weights with shape ``(V, K)``.
     skinning_weights: torch.Tensor
@@ -193,6 +191,15 @@ class ParametricBody:
             self.values.skinning_weights,
             self.structure.skinning_indices,
         )
+
+    def landmark_positions(self, vertices: torch.Tensor) -> torch.Tensor:
+        """Gather landmark keypoint positions from posed or shaped vertices.
+
+        :param vertices: ``(..., V, 3)`` vertices, e.g. from :meth:`vertices`.
+        :returns: ``(..., L, 3)`` landmark keypoints in native frame order.
+        """
+        frame_vertex_ids = self.structure.landmarks["frame_vertex_ids"]
+        return vertices[..., frame_vertex_ids, :]
 
     def _replace(self, *, values: BodyValues, robot: Model) -> ParametricBody:
         """Copy the concrete body while replacing its differentiable values."""

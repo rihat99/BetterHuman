@@ -21,4 +21,6 @@ Generate the licensed, local-only SMPL-X oracle grid with the pinned upstream
    ```
 
 4. Run `uv run pytest tests/parity/test_smplx_parity.py -q` from the repository
-   root. The generated directory is ignored and must not be committed.
+   root. The 29-case grid is committed under `tests/parity/goldens/smplx_neutral/`
+   (like the SMPL grid), so the parity test runs by default; regenerate with the
+   steps above only when the oracle or the model changes.

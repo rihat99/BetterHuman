@@ -17,6 +17,7 @@ from better_human.core.classic import (
 from better_human.core.reduction import reduce_joint_data, slice_parameter_basis
 from better_human.io import SMPLX_SCHEMA, load_model_npz, resolve_model_path
 
+from .config_smplx import SMPLX_CONFIG
 from .registry import register
 from .smpl_family import (
     bind_mass_properties,
@@ -28,69 +29,6 @@ from .smpl_family import (
     parents_from_kintree,
 )
 
-SMPLX_JOINT_NAMES: tuple[str, ...] = (
-    "pelvis",
-    "left_hip",
-    "right_hip",
-    "spine1",
-    "left_knee",
-    "right_knee",
-    "spine2",
-    "left_ankle",
-    "right_ankle",
-    "spine3",
-    "left_foot",
-    "right_foot",
-    "neck",
-    "left_collar",
-    "right_collar",
-    "head",
-    "left_shoulder",
-    "right_shoulder",
-    "left_elbow",
-    "right_elbow",
-    "left_wrist",
-    "right_wrist",
-    "jaw",
-    "left_eye_smplhf",
-    "right_eye_smplhf",
-    "left_index1",
-    "left_index2",
-    "left_index3",
-    "left_middle1",
-    "left_middle2",
-    "left_middle3",
-    "left_pinky1",
-    "left_pinky2",
-    "left_pinky3",
-    "left_ring1",
-    "left_ring2",
-    "left_ring3",
-    "left_thumb1",
-    "left_thumb2",
-    "left_thumb3",
-    "right_index1",
-    "right_index2",
-    "right_index3",
-    "right_middle1",
-    "right_middle2",
-    "right_middle3",
-    "right_pinky1",
-    "right_pinky2",
-    "right_pinky3",
-    "right_ring1",
-    "right_ring2",
-    "right_ring3",
-    "right_thumb1",
-    "right_thumb2",
-    "right_thumb3",
-)
-
-BODY_JOINTS = tuple(range(1, 22))
-FACE_JOINTS = (22, 23, 24)
-LEFT_HAND_JOINTS = tuple(range(25, 40))
-RIGHT_HAND_JOINTS = tuple(range(40, 55))
-HAND_JOINTS = LEFT_HAND_JOINTS + RIGHT_HAND_JOINTS
 SHAPE_SPACE_DIM = 300
 EXPRESSION_SPACE_DIM = 100
 FULL_HAND_DIM = 45
@@ -184,8 +122,8 @@ class SMPLX(ParametricBody):
         )
         arrays = load_model_npz(path, SMPLX_SCHEMA)
         joint_count = arrays["weights"].shape[-1]
-        if joint_count != len(SMPLX_JOINT_NAMES):
-            raise ValueError(f"SMPL-X weights contain {joint_count} joints; expected {len(SMPLX_JOINT_NAMES)}")
+        if joint_count != len(SMPLX_CONFIG.joint_names):
+            raise ValueError(f"SMPL-X weights contain {joint_count} joints; expected {len(SMPLX_CONFIG.joint_names)}")
 
         parents = parents_from_kintree(arrays["kintree_table"])
         requested_groups = {"betas": num_betas}
@@ -202,11 +140,11 @@ class SMPLX(ParametricBody):
 
         dropped: list[int] = []
         if not use_face:
-            dropped.extend(FACE_JOINTS)
+            dropped.extend(SMPLX_CONFIG.face_joints)
         if not use_hands:
-            dropped.extend(HAND_JOINTS)
+            dropped.extend(SMPLX_CONFIG.left_hand_joints + SMPLX_CONFIG.right_hand_joints)
         reduced = reduce_joint_data(
-            SMPLX_JOINT_NAMES,
+            SMPLX_CONFIG.joint_names,
             parents,
             arrays["J_regressor"],
             arrays["weights"],
@@ -235,7 +173,6 @@ class SMPLX(ParametricBody):
         )
         structure = BodyStructure(
             num_vertices=arrays["v_template"].shape[0],
-            num_faces=arrays["f"].shape[0],
             faces=faces,
             joint_names=joint_names,
             parents=reduced_parents,
@@ -244,11 +181,15 @@ class SMPLX(ParametricBody):
             part_ids=part_ids,
             part_topology=part_topology,
             parameter_groups=parameter_groups,
-            landmarks={},
-            unit="m",
-            up_axis="+y",
-            forward_axis="+z",
-            native_pose_format="axis-angle",
+            landmarks={
+                "frame_vertex_ids": torch.tensor(
+                    SMPLX_CONFIG.frame_vertex_ids, dtype=torch.long, device=target_device
+                )
+            },
+            unit=SMPLX_CONFIG.unit,
+            up_axis=SMPLX_CONFIG.up_axis,
+            forward_axis=SMPLX_CONFIG.forward_axis,
+            native_pose_format=SMPLX_CONFIG.native_pose_format,
         )
         robot = build_family_robot(
             f"smplx_{normalized_gender}",
@@ -286,9 +227,10 @@ class SMPLX(ParametricBody):
 
     def from_classic(self, classic: SMPLXClassic) -> torch.Tensor:
         """Convert classic SMPL-X parameters to BetterRobot ``q (..., nq)``."""
+        config = SMPLX_CONFIG
         pelvis = self.values.pelvis_offset
         global_orient = classic_tensor("global_orient", classic.global_orient, 3, pelvis)
-        body_pose = classic_tensor("body_pose", classic.body_pose, len(BODY_JOINTS) * 3, pelvis)
+        body_pose = classic_tensor("body_pose", classic.body_pose, len(config.body_joints) * 3, pelvis)
         transl = classic_tensor("transl", classic.transl, 3, pelvis)
 
         if not self._use_face and any(
@@ -328,7 +270,7 @@ class SMPLX(ParametricBody):
         batch_shapes.extend(value.shape[:-1] for value in values if value is not None)
         batch_shape = torch.broadcast_shapes(*batch_shapes)
         global_orient = _expand_or_zeros(global_orient, batch_shape, 3, pelvis)
-        body_pose = _expand_or_zeros(body_pose, batch_shape, len(BODY_JOINTS) * 3, pelvis)
+        body_pose = _expand_or_zeros(body_pose, batch_shape, len(config.body_joints) * 3, pelvis)
         transl = _expand_or_zeros(transl, batch_shape, 3, pelvis)
         pelvis = pelvis.expand(*batch_shape, 3)
 
@@ -348,7 +290,7 @@ class SMPLX(ParametricBody):
                 _expand_or_zeros(reye_pose, batch_shape, 3, pelvis),
             ),
             dim=-1,
-        ).reshape(*batch_shape, len(FACE_JOINTS), 3)
+        ).reshape(*batch_shape, len(config.face_joints), 3)
 
         if self._use_hands:
             left_delta = _expand_or_zeros(left_hand_pose, batch_shape, hand_width, pelvis)
@@ -356,15 +298,15 @@ class SMPLX(ParametricBody):
             if classic.num_pca_comps is not None:
                 left_delta = left_delta @ self._left_hand_components[:hand_width]
                 right_delta = right_delta @ self._right_hand_components[:hand_width]
-            left_axes = (left_delta + self._left_hand_mean).reshape(*batch_shape, len(LEFT_HAND_JOINTS), 3)
-            right_axes = (right_delta + self._right_hand_mean).reshape(*batch_shape, len(RIGHT_HAND_JOINTS), 3)
+            left_axes = (left_delta + self._left_hand_mean).reshape(*batch_shape, len(config.left_hand_joints), 3)
+            right_axes = (right_delta + self._right_hand_mean).reshape(*batch_shape, len(config.right_hand_joints), 3)
         else:
-            left_axes = pelvis.new_zeros((*batch_shape, len(LEFT_HAND_JOINTS), 3))
-            right_axes = pelvis.new_zeros((*batch_shape, len(RIGHT_HAND_JOINTS), 3))
+            left_axes = pelvis.new_zeros((*batch_shape, len(config.left_hand_joints), 3))
+            right_axes = pelvis.new_zeros((*batch_shape, len(config.right_hand_joints), 3))
 
         native_nonroot_axes = torch.cat(
             (
-                body_pose.reshape(*batch_shape, len(BODY_JOINTS), 3),
+                body_pose.reshape(*batch_shape, len(config.body_joints), 3),
                 face_axes,
                 left_axes,
                 right_axes,
@@ -382,6 +324,7 @@ class SMPLX(ParametricBody):
 
     def to_classic(self, q: torch.Tensor, num_pca_comps: int | None = None) -> SMPLXClassic:
         """Convert BetterRobot ``q`` to full or PCA-hand classic parameters."""
+        config = SMPLX_CONFIG
         if not self._use_hands and num_pca_comps is not None:
             raise ValueError("num_pca_comps requires an SMPLX body constructed with use_hands=True")
         hand_width = _pca_width(num_pca_comps) if self._use_hands else FULL_HAND_DIM
@@ -403,9 +346,9 @@ class SMPLX(ParametricBody):
             )
             return reduced_axes.index_select(-2, positions)
 
-        body_pose = gather(BODY_JOINTS).flatten(start_dim=-2)
+        body_pose = gather(config.body_joints).flatten(start_dim=-2)
         if self._use_face:
-            face_axes = gather(FACE_JOINTS)
+            face_axes = gather(config.face_joints)
             jaw_pose, leye_pose, reye_pose = face_axes.unbind(dim=-2)
             expression_width = self.structure.parameter_groups["expression"]
             expression = self.values.shape_parameters["expression"].expand(*batch_shape, expression_width)
@@ -413,8 +356,8 @@ class SMPLX(ParametricBody):
             jaw_pose = leye_pose = reye_pose = expression = None
 
         if self._use_hands:
-            left_delta = gather(LEFT_HAND_JOINTS).flatten(start_dim=-2) - self._left_hand_mean
-            right_delta = gather(RIGHT_HAND_JOINTS).flatten(start_dim=-2) - self._right_hand_mean
+            left_delta = gather(config.left_hand_joints).flatten(start_dim=-2) - self._left_hand_mean
+            right_delta = gather(config.right_hand_joints).flatten(start_dim=-2) - self._right_hand_mean
             if num_pca_comps is None:
                 left_hand_pose = left_delta
                 right_hand_pose = right_delta
@@ -444,4 +387,4 @@ class SMPLX(ParametricBody):
         )
 
 
-__all__ = ["SMPLX", "SMPLXClassic", "SMPLX_JOINT_NAMES"]
+__all__ = ["SMPLX", "SMPLXClassic"]

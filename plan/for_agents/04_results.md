@@ -1,149 +1,131 @@
-# Order 04 results
+# Order 04 results — over-engineering cleanup (deletion order)
 
-Completed on `dev` on 2026-07-20 after Order 03.
+Delivered on `dev`, BetterHuman only. BetterRobot untouched. No numerics
+changed: the shipped joint regressors are already dense, so removing the CSR
+path cannot alter FK/parity — proven byte-for-byte below.
 
-## Delivered
+## Numerics unchanged (the prime directive)
 
-- A model-agnostic load-time reducer for terminal joint subtrees. It rejects
-  root and non-terminal drops, transfers each dropped joint's weights to its
-  nearest surviving ancestor, renormalizes rows, preserves dense/CSR joint
-  regressors, and slices the exact non-root pose-corrective blocks.
-- Named shape-basis slicing with strict `(V, 3, S)` shape, integer-width, and
-  source-range validation. Reduction likewise validates all tensor ranks,
-  joint/vertex dimensions, pose width, and positive finite weight-row sums.
-- `SMPLX` and `SMPLXClassic` with native jaw/eyes-before-hands ordering,
-  separate shape and expression groups, full and PCA hand conversion, hand
-  means, `flat_hand_mean`, batching, dtype/device placement, and registry
-  loading.
-- `use_face` and `use_hands` constructor flags backed by the same generic
-  reducer. Shared SMPL-family loading/building helpers live in
-  `bodies/smpl_family.py`; no model fork or duplicate pipeline was added.
-- A deterministic upstream-smplx dump tool and documented regeneration
-  command. The 29 SMPL-X archives are ignored, generated on demand, and were
-  removed after verification rather than committed.
+Deterministic SMPL float64 parity probe over all 11 goldens, run before and
+after every cut (identical to all printed digits):
 
-## Dropped joint sets
+| Quantity | Before | After |
+|---|---|---|
+| `J_regressor.layout` | `torch.strided` (dense) | `torch.strided` (dense) |
+| worst vertex error vs `smplx` oracle | `1.041203e-07` | `1.041203e-07` |
+| worst joint error vs `smplx` oracle | `5.780450e-08` | `5.780450e-08` |
+| `rest_joints.sum()` (f64 checksum) | `7.103380377229e-01` | `7.103380377229e-01` |
 
-`use_face=False` drops exactly:
+The shipped SMPL asset already loads dense (`torch.strided`), confirming the CSR
+apparatus was dead weight for every shipped weight file.
 
-- `jaw`, `left_eye_smplhf`, `right_eye_smplhf`
+## Test gate (unchanged tolerances)
 
-`use_hands=False` drops exactly:
+- **CPU** (`CUDA_VISIBLE_DEVICES=""`): baseline `109 passed, 6 skipped` →
+  after `105 passed, 6 skipped`. The 4 fewer are exactly the 4 removed
+  CSR-only load tests (see below); a dense-load coverage test was added in
+  their place, so the real safety net did not shrink.
+- **CUDA** (GPU 1, RTX 6000 Ada): `109 passed, 2 skipped` (the 2 skips are the
+  absent SMPL-X parity goldens; all CUDA-conditional cases pass).
+- Converter round-trip (`test_real_smpl_pickle_converts_losslessly_with_stub`)
+  passes with the now-**dense** regressor: the converted `J_regressor` is
+  byte-identical to `raw["J_regressor"].todense()`, and loads back
+  `torch.strided`.
+- `ruff check src tests` → **All checks passed!**
+- No parity / round-trip / float32-gradcheck / mass / dynamics test was
+  weakened; tolerances are untouched.
 
-- Left: `left_index1`, `left_index2`, `left_index3`, `left_middle1`,
-  `left_middle2`, `left_middle3`, `left_pinky1`, `left_pinky2`,
-  `left_pinky3`, `left_ring1`, `left_ring2`, `left_ring3`, `left_thumb1`,
-  `left_thumb2`, `left_thumb3`.
-- Right: `right_index1`, `right_index2`, `right_index3`, `right_middle1`,
-  `right_middle2`, `right_middle3`, `right_pinky1`, `right_pinky2`,
-  `right_pinky3`, `right_ring1`, `right_ring2`, `right_ring3`,
-  `right_thumb1`, `right_thumb2`, `right_thumb3`.
+## LOC deltas (measured `wc -l`, working tree at session start vs now)
 
-The resulting native joint counts are 25 without hands, 52 without face,
-and 22 without either.
+Net **`src` −363 LOC** (2932 → 2569). Baseline was the post-order-03 working
+tree, so these deltas isolate order-04's cuts. (`git diff --stat` vs `HEAD` is
+misleading here — `HEAD` predates the uncommitted orders 01–03.)
 
-## Full-model parity
+| File | Before | After | Δ | Cut |
+|---|---|---|---|---|
+| `io/schema.py` | 448 | 201 | **−247** | CSR + symbolic-DSL collapse + SMPL-H/MANO |
+| `core/reduction.py` | 194 | 163 | −31 | CSR sparse-COO slice branch |
+| `io/load.py` | 115 | 86 | −29 | `_load_sparse_regressor` + CSR archive keys |
+| `core/mass.py` | 283 | 264 | −19 | density dedup + `part_meshes` wrapper |
+| `io/convert_chumpy.py` | 189 | 174 | −15 | dense emit + `schema_for_model` |
+| `core/pipeline.py` | 107 | 96 | −11 | CSR `sparse.mm` branch + `so3` hoist |
+| `core/__init__.py` | 14 | 9 | −5 | drop mass re-exports |
+| `core/body.py` | 216 | 214 | −2 | drop dead `num_faces` field |
+| `io/__init__.py` | 14 | 12 | −2 | drop SMPL-H/MANO exports |
+| `bodies/smpl.py` | 186 | 185 | −1 | drop `num_faces=` kwarg |
+| `bodies/smplx.py` | 391 | 390 | −1 | drop `num_faces=` kwarg |
+| **total src** | **2932** | **2569** | **−363** | |
 
-Errors are maximum absolute metres over all vertices or native LBS joints.
+## The six cuts (all executed)
 
-| Case | float64 vertices | float64 joints | float32 vertices | float32 joints |
-|---|---:|---:|---:|---:|
-| `beta_minus_two` | 8.863e-09 | 2.303e-09 | 2.980e-07 | 2.924e-07 |
-| `beta_plus_two` | 8.863e-09 | 2.303e-09 | 2.496e-07 | 2.454e-07 |
-| `expression_minus_two` | 5.817e-10 | 1.238e-10 | 2.794e-07 | 2.384e-07 |
-| `expression_plus_two` | 5.817e-10 | 1.238e-10 | 2.794e-07 | 2.384e-07 |
-| `face_all` | 2.114e-10 | 1.238e-10 | 2.645e-07 | 2.384e-07 |
-| `full_both` | 6.528e-10 | 4.076e-10 | 3.576e-07 | 2.384e-07 |
-| `full_left` | 3.751e-10 | 1.878e-10 | 2.868e-07 | 2.384e-07 |
-| `full_right` | 5.860e-10 | 3.743e-10 | 2.384e-07 | 2.980e-07 |
-| `jaw` | 2.115e-10 | 1.238e-10 | 2.608e-07 | 2.384e-07 |
-| `left_eye` | 2.115e-10 | 1.238e-10 | 2.794e-07 | 2.384e-07 |
-| `pca_both` | 7.595e-10 | 4.111e-10 | 4.172e-07 | 2.384e-07 |
-| `pca_left` | 4.289e-10 | 2.667e-10 | 2.980e-07 | 2.384e-07 |
-| `pca_right` | 2.115e-10 | 1.238e-10 | 2.813e-07 | 2.384e-07 |
-| `pca_twelve` | 3.773e-10 | 2.391e-10 | 3.204e-07 | 2.384e-07 |
-| `random_00` | 2.507e-08 | 2.881e-09 | 4.768e-07 | 4.768e-07 |
-| `random_01` | 3.006e-08 | 4.025e-09 | 5.364e-07 | 4.768e-07 |
-| `random_02` | 1.031e-08 | **8.653926908408494e-09** | 5.960e-07 | 4.172e-07 |
-| `random_03` | 1.302e-08 | 4.663e-09 | **6.556510925292969e-07** | **5.066394805908203e-07** |
-| `random_04` | 1.979e-08 | 4.796e-09 | 4.470e-07 | 2.980e-07 |
-| `random_05` | 1.438e-08 | 4.392e-09 | 4.470e-07 | 2.980e-07 |
-| `random_06` | 1.119e-08 | 4.423e-09 | 3.576e-07 | 2.384e-07 |
-| `random_07` | 2.119e-08 | 8.087e-09 | 4.768e-07 | 3.576e-07 |
-| `reduced_shape_expression` | 3.970e-09 | 1.162e-09 | 2.775e-07 | 2.384e-07 |
-| `right_eye` | 2.115e-10 | 1.238e-10 | 2.794e-07 | 2.384e-07 |
-| `root_wart` | **5.590597473847936e-08** | 2.075e-09 | 3.576e-07 | 1.937e-07 |
-| `zero_full_flat` | 4.441e-16 | 1.110e-16 | 1.788e-07 | 2.980e-07 |
-| `zero_full_mean` | 2.115e-10 | 1.238e-10 | 2.794e-07 | 2.384e-07 |
-| `zero_pca_flat` | 4.441e-16 | 1.110e-16 | 1.788e-07 | 2.980e-07 |
-| `zero_pca_mean` | 2.115e-10 | 1.238e-10 | 2.794e-07 | 2.384e-07 |
+1. **CSR joint-regressor apparatus deleted (5 files).** Converter emits the
+   regressor dense (`value.todense()`); `schema.py` lost `CSR_DATA/INDICES/
+   INDPTR/SHAPE/KEYS`, `dense_or_csr`, `_validate_csr`, `_expect_component`, and
+   every CSR branch in `validate()`; `load.py` lost `_load_sparse_regressor` and
+   the CSR archive-key handling (all fields load dense); `reduction.py`'s
+   `_slice_regressor_rows` collapsed to an inline
+   `joint_regressor.index_select(0, survivor_tensor)`; `pipeline.py`'s
+   `regress_joints` keeps only the dense `einsum`. `contracts.md` "loaders never
+   densify" line updated to "converter emits the regressor dense; loaders load
+   every field as a dense tensor".
+2. **Symbolic-dimension DSL collapsed.** Deleted the `Dimension`
+   class (`scale`/`offset`/`describe`), `minimum_dimensions`, the resolved-shape
+   error machinery, and the pretty-printer. Fields are now `(shape, dtype)` with
+   `int | str` axes bound on first sighting and **one** inline special case,
+   `POSE_FEATURES → (J-1)*9`. Shape+dtype checking and actionable
+   field/file/fix errors preserved (schema tests still green).
+3. **Validation de-duplicated (density).** `body_inertias_from_shape` now trusts
+   the density already validated by `bodies/smpl_family.py:density_tensor`
+   (single `density.broadcast_to((num_parts,))`; dropped the second
+   isinstance/shape/Real re-validation and the unused `from numbers import
+   Real`). The wrong-shape density error still fires — from `density_tensor` at
+   the `SMPL.__init__` boundary (test green).
+4. **SMPL-H / MANO converter schemas dropped.** Removed `SMPLH_SCHEMA`,
+   `MANO_SCHEMA`, the `SCHEMAS` dict and `schema_for_model`; the converter uses
+   `SMPL_SCHEMA` directly and `--model` choices narrow to `("smpl",)`.
+   `io/__init__` exports narrowed accordingly.
+5. **`core` surface narrowed + test-only wrapper dropped.** `core/__init__` no
+   longer re-exports the mass symbols (real importers use `core.mass` directly);
+   deleted `part_meshes` and inlined its two calls
+   (`meshes_from_topology(v, build_part_topology(f, ids, n))`) in its only
+   caller, `test_mass.py`.
+6. **Minor.** Dead rank guard gone (the new `_bind_axes` rank-checks in pass 1,
+   so no guard is needed); `so3` import hoisted to module scope in `pipeline.py`;
+   dead `BodyStructure.num_faces` dropped (written in `smpl.py`/`smplx.py`,
+   never read). `load()` registry left as-is (owner-blessed).
 
-The required float64 threshold is `1e-6`. Float32 is also pinned at `1e-6`:
-the measured worst case leaves approximately 1.53x headroom. The reduced
-five-beta/three-expression case directly verifies parameter-basis slicing
-against the oracle.
+## Test edits (safety net only grows)
 
-## Partial-model property
+- `test_load.py`: removed the 4 CSR-only tests (`test_sparse_regressor_loads…`,
+  `test_noncanonical_csr…` ×2 params, `test_mixed_csr_index_dtypes…`,
+  `test_nonnumeric_csr_shape…`) and the `_write_sparse_fixture` helper; added
+  `test_dense_regressor_loads_without_dtype_conversion` and kept the
+  object-field load-error test on a dense fixture.
+- `test_real_weights.py`: converter round-trip now asserts a **dense**
+  byte-identical regressor and `torch.strided` on load (was CSR).
+- `test_reduction.py`, `test_pipeline.py`: dropped the CSR-layout assertions;
+  the dense weight-transfer / renormalization / einsum-parity assertions stay.
+- `test_schema.py`: the multi-wrong-rank test de-CSR'd (breaks `weights` and
+  `kintree_table` ranks with a valid dense `J_regressor`); still asserts a clean
+  field-named rank error with no unbound-dimension leak.
+- `test_mass.py`: `part_meshes` call inlined.
 
-These are maximum float32 vertex errors against a full body whose dropped
-joint rotations are set to identity. For natural hand means, the full-model
-classic deltas are `-hands_mean`; this is the actual rest pose, not a zero
-classic delta.
+## Deviations / findings (honest)
 
-| `flat_hand_mean` | `use_hands` | `use_face` | Maximum error |
-|---|---|---|---:|
-| `False` | `False` | `True` | 2.384185791015625e-07 |
-| `False` | `True` | `False` | 3.5762786865234375e-07 |
-| `False` | `False` | `False` | 3.5762786865234375e-07 |
-| `True` | `False` | `True` | 2.384185791015625e-07 |
-| `True` | `True` | `False` | 3.5762786865234375e-07 |
-| `True` | `False` | `False` | 3.5762786865234375e-07 |
-
-The pinned `5e-7` tolerance is the next single-significant-digit ceiling
-above the measured worst case, retaining approximately 1.40x headroom for
-the expected float32 summation-order difference.
-
-## Differentiability, batching, and CUDA
-
-- Float32 expression gradcheck used vertices `[0, 2618, 5237, 7856,
-  10474]` and passed in 0.45 s.
-- Shape/expression and configuration batching passed, including unbatched
-  configuration broadcasting across a shape batch.
-- Full and PCA hand round trips passed with natural and flat means. Because
-  the shipped PCA component rows are scaled rather than orthonormal,
-  `to_classic` correctly uses a pseudoinverse instead of a transpose.
-- The CUDA FK plus vertices smoke passed on pinned RTX 6000 Ada GPU 2 in
-  20.51 s. The ordinary sandbox gate reports the two SMPL/SMPL-X
-  device-conditional tests as skipped.
-
-## Verification
-
-- `uv lock --check`: 76 root-project packages, current.
-- `uv lock --check --project tools/parity/smplx`: 38 oracle packages,
-  current.
-- Full local oracle grid: 29 archives, 7,046,185 bytes; all 58
-  dtype/case parity checks passed.
-- `uv run pytest tests -q -rs`: **143 passed, 2 skipped, 6 warnings in
-  43.19 s** with the full on-demand grid present. Warnings are the three
-  required float32-gradcheck notices, PyTorch's CSR-beta notice, and the two
-  previously recorded legacy SciPy-pickle deprecations.
-- Targeted SMPL-X CUDA test: **1 passed in 20.51 s**.
-- `uv run ruff check src tests tools/parity/smplx/dump_smpl.py
-  tools/parity/smplx/dump_smplx.py`: passed.
-- Independent review found no remaining basis-validation, reduction,
-  hand-mean, converter, parity, or acceptance blocker.
-- The combined `models/` and `references/` path/size/mtime manifest remained
-  `1e12ec801fada88a15763f372770d3e065e4d1015a680a3f0e50917cb52e2258`.
-- BetterRobot remained clean on `dev`; no BR-side changes were required.
-
-## Deviations and findings
-
-- **Plan deviations:** none.
-- Upstream SMPL-X hand PCA rows are not orthonormal in the shipped fixture:
-  the observed maximum error in `C C^T` versus identity is approximately
-  `0.9987`. Expansion still uses the native component matrix, while inversion
-  uses its pseudoinverse so classic coefficients round-trip correctly.
-- The first reduction tests contained an internally inconsistent synthetic
-  fixture (`J_regressor`, weights, and posedirs disagreed on `V`). Strict
-  validation exposed it; the fixture was corrected rather than relaxing the
-  production invariant.
+- **`reduce_joint_data` validation kept (finding, not a miss).** Cut #3's second
+  bullet listed `segment_vertices`, `build_part_topology`, `reduce_joint_data`
+  as helpers to trim. In the current tree: `segment_vertices` has no validation
+  to remove; `build_part_topology` has only a single minimal `if not surface`
+  guard; `reduce_joint_data`'s extensive input validation is a **tested public
+  contract** (`test_reduction_rejects_malformed_joint_data` asserts its
+  `joint_regressor` / `skinning_weights` / `posedirs` / vertex-count /
+  positive-finite-sums messages) and it is a reusable generic helper exercised
+  standalone. Removing it would delete a passing test — forbidden by "the safety
+  net only grows". So only the clearly-redundant density double-validation was
+  removed. Net −363 already meets the ~300 target without weakening a test.
+- **Cross-order files touched, per handoff.** The density dedup edits `mass.py`
+  (order 03's file) and `num_faces` removal edits `body.py` + `bodies/smpl.py` +
+  `bodies/smplx.py` (order 02's files). Both are explicitly authorized by the
+  order-04 handoff (cut #3 "order 03 left this dedup to you"; cut #6 num_faces
+  "drop it if it has no consumer" — it has none). Orders 01–03 have already
+  landed in the working tree, so this is not a live coordination conflict.

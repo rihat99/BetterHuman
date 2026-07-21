@@ -15,15 +15,7 @@ from typing import Any
 import numpy as np
 from scipy import sparse
 
-from .schema import (
-    CSR_DATA,
-    CSR_INDICES,
-    CSR_INDPTR,
-    CSR_SHAPE,
-    ModelSchema,
-    schema_for_model,
-    validate,
-)
+from .schema import SMPL_SCHEMA, ModelSchema, validate
 
 FIELD_ALIASES: Mapping[str, tuple[str, ...]] = {
     "f": ("f", "faces"),
@@ -132,7 +124,7 @@ def convert_model(
     if destination.exists() and not force:
         raise FileExistsError(f"Refusing to overwrite existing file: {destination}. Pass --force to replace it.")
 
-    schema = schema_for_model(model)
+    schema = SMPL_SCHEMA
     raw = load_chumpy_pickle(source)
     payload = _conversion_payload(raw, schema, source)
     validate(payload, schema, source=str(destination))
@@ -150,15 +142,8 @@ def _conversion_payload(
     for field_name in schema.fields:
         value = _required_value(raw, field_name, source)
         if field_name == "J_regressor" and sparse.issparse(value):
-            regressor = value.tocsr(copy=True)
-            regressor.sum_duplicates()
-            regressor.sort_indices()
-            payload[CSR_DATA] = np.asarray(regressor.data)
-            payload[CSR_INDICES] = np.asarray(regressor.indices)
-            payload[CSR_INDPTR] = np.asarray(regressor.indptr)
-            payload[CSR_SHAPE] = np.asarray(regressor.shape, dtype=np.int64)
-        else:
-            payload[field_name] = np.asarray(value)
+            value = value.todense()
+        payload[field_name] = np.asarray(value)
     return payload
 
 
@@ -173,7 +158,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="Original Chumpy-backed .pkl model")
     parser.add_argument("output", type=Path, help="Destination .npz file")
-    parser.add_argument("--model", required=True, choices=("smpl", "smplh", "mano"))
+    parser.add_argument("--model", required=True, choices=("smpl",))
     parser.add_argument("--force", action="store_true", help="Replace an existing output file")
     return parser
 

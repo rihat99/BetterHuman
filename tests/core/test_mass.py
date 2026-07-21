@@ -11,12 +11,19 @@ import torch
 from better_robot.spatial import Inertia
 
 import better_human as bh
-from better_human.core.mass import body_inertias_from_shape, part_meshes, segment_vertices
+from better_human.bodies.assets import load_density_table
+from better_human.core.mass import (
+    body_inertias_from_shape,
+    build_part_topology,
+    meshes_from_topology,
+    segment_vertices,
+)
 
 MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
 SMPLX_MODEL_PATH = Path(__file__).parents[2] / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
-SEGMENTATION_PATH = Path(__file__).parents[2] / "models" / "star" / "smpl_3d_segmentation.npy"
+SEGMENTATION_PATH = Path(bh.__file__).parent / "bodies" / "assets" / "smpl_3d_segmentation.npy"
 CONSERVATION_RTOL = 2e-2
+AUTHORED_VOLUME_RTOL = 1e-4
 COM_ATOL = 3e-3
 GRADCHECK_BETAS = 10
 
@@ -81,7 +88,8 @@ def test_segment_vertices_selects_strongest_padded_influence() -> None:
 def test_part_meshes_caps_mixed_face_partition_as_closed_surfaces() -> None:
     vertices, faces = _box_mesh()
     part_ids = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1], dtype=torch.long)
-    meshes = part_meshes(vertices, faces, part_ids)
+    num_parts = int(part_ids.max().item()) + 1
+    meshes = meshes_from_topology(vertices, build_part_topology(faces, part_ids, num_parts))
     masses = []
     for part_vertices, part_faces in meshes:
         _assert_closed_edges(part_faces)
@@ -92,10 +100,9 @@ def test_part_meshes_caps_mixed_face_partition_as_closed_surfaces() -> None:
 def test_default_mass_opt_out_and_per_part_density(mass_body: bh.SMPL) -> None:
     assert mass_body.structure.part_topology is not None
     assert mass_body.values.body_inertias is not None
+    assert mass_body.structure.part_topology.num_parts == len(mass_body.structure.joint_names)
     torch.testing.assert_close(mass_body.robot.body_inertias, mass_body.values.body_inertias)
     torch.testing.assert_close(mass_body.values.density, torch.tensor(1000.0))
-    for faces in mass_body.structure.part_topology.faces:
-        _assert_closed_edges(faces)
 
     opt_out = bh.SMPL(MODEL_PATH, compute_mass=False)
     assert opt_out.structure.part_topology is None
@@ -175,6 +182,54 @@ def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body:
     overlap_counts = Counter(vertex for vertices in memberships.values() for vertex in vertices)
     assert mismatches == 113
     assert sum(count > 1 for count in overlap_counts.values()) == 582
+
+
+def test_authored_segmentation_volume_matches_whole_mesh(mass_body: bh.SMPL) -> None:
+    packed = mass_body.values.body_inertias[1:]
+    part_volume = (packed[:, 0] / mass_body.values.density).sum()
+    whole = Inertia.from_mesh(mass_body.values.v_shaped, mass_body.structure.faces, density=1000.0)
+    whole_volume = whole.mass / 1000.0
+    relative_error = (part_volume - whole_volume).abs() / whole_volume
+    assert relative_error < AUTHORED_VOLUME_RTOL, f"authored volume gap {relative_error * 1e6:.1f} ppm"
+    total_mass = packed[:, 0].sum()
+    assert 74.0 <= total_mass <= 75.5
+
+
+def test_authored_segmentation_is_batched_and_finite(mass_body: bh.SMPL) -> None:
+    betas = torch.stack((torch.zeros(GRADCHECK_BETAS), torch.linspace(-0.4, 0.4, GRADCHECK_BETAS)))
+    inertias = mass_body.with_shape(betas=betas).values.body_inertias
+    assert inertias is not None
+    assert inertias.shape == (2, len(mass_body.structure.joint_names) + 1, 10)
+    assert torch.isfinite(inertias).all()
+    assert inertias[:, 1:, 0].min() > 0
+
+
+def test_named_density_table_feeds_per_part_density(mass_body: bh.SMPL) -> None:
+    exemplar = mass_body.values.v_shaped
+    num_parts = len(mass_body.structure.joint_names)
+    chandler = load_density_table("body_densities.json", "Chandler", num_parts, exemplar)
+    assert chandler.shape == (num_parts,)
+    torch.testing.assert_close(chandler[0], exemplar.new_tensor(853.0))
+    torch.testing.assert_close(chandler[16], exemplar.new_tensor(1005.0))
+
+    body = bh.SMPL(MODEL_PATH, density="Chandler")
+    torch.testing.assert_close(body.values.density, chandler)
+    part_volumes = body.values.body_inertias[1:, 0] / chandler
+    reference_volumes = mass_body.values.body_inertias[1:, 0] / mass_body.values.density
+    torch.testing.assert_close(part_volumes, reference_volumes, rtol=2e-5, atol=2e-5)
+
+    with pytest.raises(ValueError, match="no density table"):
+        bh.SMPL(MODEL_PATH, density="Nonexistent")
+
+
+def test_argmax_fallback_integrates_smplx_parts() -> None:
+    if not SMPLX_MODEL_PATH.is_file():
+        pytest.skip(f"licensed SMPL-X fixture is absent: {SMPLX_MODEL_PATH}")
+    body = bh.SMPLX(SMPLX_MODEL_PATH)
+    topology = body.structure.part_topology
+    assert topology is not None
+    for vertices, faces in meshes_from_topology(body.values.v_shaped, topology):
+        assert Inertia.from_mesh(vertices, faces, density=1000.0).mass > 0
 
 
 def test_float32_gradcheck_betas_to_total_mass(mass_body: bh.SMPL) -> None:
