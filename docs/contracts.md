@@ -21,6 +21,10 @@ ones. Breaking a contract is a bug even if tests pass.
 - SI everywhere: meters, kilograms, seconds, radians. Models with other
   native units (MHR is centimeters) convert inside their loader/converters;
   no unit flags on the public API.
+- Shape-derived mass uses 1000 kg/m³ by default. A density override is either
+  scalar or a tensor in native joint order with one positive kg/m³ value per
+  physical body part; the BetterRobot universe remains massless. Packed COM
+  and inertia values are expressed in each part's rest-joint frame.
 - World up-axis, handedness, and rest orientation follow the model's
   canonical rest pose expressed in BetterRobot's world frame; each model's
   `BodyStructure` records its native conventions (unit, up, forward) and the

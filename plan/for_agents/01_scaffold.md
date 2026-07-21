@@ -1,5 +1,10 @@
 # Order 01 — Clean slate, uv project, BetterRobot dependency, test skeleton
 
+> **Agent log — 2026-07-20:** Completed on `dev`; `uv sync`, 2 smoke tests,
+> and Ruff pass. The plan-named local `smplx_mid` leftovers were removed;
+> `models/` and `references/` stayed unchanged. No plan deviations; see
+> [`01_results.md`](01_results.md).
+
 Read first: `docs/design_principles.md`, `docs/architecture.md`,
 `docs/contracts.md`, `plan/README.md` (ground rules apply, especially:
 never touch `models/` or `references/`).

@@ -63,14 +63,15 @@ composes with it rather than forking it:
 
 - **`BodyStructure`** (static, BetterHuman side): vertex/face counts, faces,
   joint names and tree metadata, skinning sparsity pattern `[V,K]` (indices),
-  parameter-group declarations (names, widths), landmark/keypoint index
-  tables, classic-convention metadata (units, up-axis, native pose format).
+  body-part assignment and closed-part topology, parameter-group declarations
+  (names, widths), landmark/keypoint index tables, classic-convention metadata
+  (units, up-axis, native pose format).
 - **`BodyValues`** (differentiable tensors, BetterHuman side): the loaded
   weight tensors (`v_template`, shape/expression basis, corrective basis,
   joint regressor, skinning weight values) **plus the shape-baked products**
-  — `v_shaped`, rest joints `J(β)` — which are batch-bearing (`(B, V, 3)` =
-  B different bodies), exactly like BetterRobot's batch-bearing
-  `ModelValues` tables.
+  — `v_shaped`, rest joints `J(β)`, and packed body inertias — which are
+  batch-bearing (`(B, V, 3)` = B different bodies), exactly like
+  BetterRobot's batch-bearing `ModelValues` tables.
 - **`better_robot.Model`** (the robot): free-flyer root + typed joints
   (spherical for SMPL-family bodies), built programmatically at spawn via
   `build_kinematic_tree_model` with **`preserve_joint_order=True`** — BR's
@@ -78,8 +79,8 @@ composes with it rather than forking it:
   native-order human tensor (`weights [V,K]`, `posedirs`, `J_regressor`).
   The standing index convention: BR joint `j+1` ↔ native joint `j`
   (BR's universe joint occupies index 0). Shape baking writes the
-  β-dependent `joint_placements` (and, once dynamics land,
-  `body_inertias`) into the BR `ModelValues` through `Model.with_values` —
+  β-dependent `joint_placements` and `body_inertias` into the BR
+  `ModelValues` through `Model.with_values` —
   the path BR already tests end-to-end with gradients (BRR §3).
 - **`better_robot.Data`** (per query): joint/frame poses, Jacobians,
   dynamics quantities. BetterHuman adds no parallel Data class in v1;
@@ -234,12 +235,28 @@ shape above.
 
 BetterRobot owns the algorithms and the mesh integrator
 (`Inertia.from_mesh`: differentiable, batched, torch-only — BRR §4).
-BetterHuman contributes the human glue: partition the shaped template into
-per-body-part closed meshes (from the skinning weights), choose a density
-model (single ~1000 kg/m³ default; per-segment tables as a later option),
-integrate per-part inertias, and write `body_inertias` through
-`with_values` during shape baking. Dynamics (RNEA/CRBA/ABA, centroidal) then
-work unchanged on the human tree, differentiable w.r.t. betas.
+BetterHuman contributes the human glue. Vertex ownership is the largest
+skinning influence. A triangle belongs to the majority part among its three
+vertices; an all-distinct tie goes to its first vertex. Each oriented boundary
+cycle is closed by reverse-wound triangles meeting at the cycle's vertex
+centroid. Static ownership and cap topology are computed at spawn, while cap
+positions and inertias are recomputed from `v_shaped` during shape baking.
+
+Each integrated inertia is translated into its native joint frame before the
+packed rows are written through `Model.with_values`; the massless BetterRobot
+universe row is prepended. RNEA, CRBA, ABA, and centroidal algorithms then work
+unchanged and remain differentiable with respect to shape.
+
+At density 1000 kg/m³, the neutral SMPL fixture measures 73.43093872070312 kg
+as 24 closed parts versus 74.76054382324219 kg as one mesh. The 1.7785% gap is
+the measured centroid-cap partition error; aggregate COM differs from the
+whole-mesh result by 2.47 mm. The shipped STAR segmentation was inspected but
+its closed-part tables contain two duplicated surface triangles and
+non-manifold edges, so the validated argmax fallback is used for that fixture.
+
+Mass baking increased a warmed neutral-SMPL `with_shape` call from 10.19 ms to
+41.50 ms on the reference CPU. It is therefore enabled by default but may be
+disabled at spawn with `compute_mass=False` for deformation-only workloads.
 
 ## Joint limits
 
@@ -265,6 +282,7 @@ src/better_human/
 │   ├── body.py        # ParametricBody, BodyStructure, BodyValues
 │   ├── pipeline.py    # blend shapes, joint regression, correctives, LBS
 │   ├── reduction.py   # generic partial-model reduction (joints/columns)
+│   ├── mass.py        # closed part meshes and shape-dependent inertias
 │   └── classic.py     # shared converter algebra (pelvis-offset, axis-angle<->quat)
 ├── bodies/
 │   ├── registry.py    # load("smplx", ...) — decorator-registered factories

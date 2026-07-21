@@ -1,0 +1,18 @@
+[project]
+name = "better-human-smplx-parity"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.11",
+    "smplx==0.1.28",
+    "torch==2.13.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }

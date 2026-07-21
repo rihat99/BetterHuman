@@ -1,5 +1,10 @@
 # Order 06 — Skinned-mesh viewer mode, demos, README
 
+> **Agent log — 2026-07-20:** Completed on `dev`; Viser 1.0.30 sustained
+> 59.7 server-side updates/s and the full gate passed with 102 tests. The mode
+> stayed in BetterHuman and uses BR's public same-name `add_mesh` fallback;
+> the unexposed Viser vertex setter is documented in [`06_results.md`](06_results.md).
+
 Read first: `docs/architecture.md` (§Visualization),
 `references/design/betterrobot_readiness.md` §6 (exact BR viewer gap and
 the `add_mesh` backend hook), BR's `src/better_robot/viewer/` render-mode

@@ -1,5 +1,11 @@
 # Order 05 — Mass properties from the shaped mesh; dynamics on the human tree
 
+> **Agent log — 2026-07-20:** Completed on `dev`; neutral SMPL measured
+> `73.43093872070312` kg with `1.778485059823366%` partition error, and the
+> full gate passed with 98 tests. The shipped canonical segmentation and the
+> assumed BetterRobot topology validation both deviated from the plan; see
+> [`05_results.md`](05_results.md).
+
 Read first: `docs/architecture.md` (§Mass and dynamics),
 `references/design/betterrobot_readiness.md` §4 (what `Inertia.from_mesh`
 gives and what is ours), `docs/contracts.md`. Ground rules in

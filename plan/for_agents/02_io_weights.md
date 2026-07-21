@@ -1,5 +1,10 @@
 # Order 02 — Weight-file io: schemas, validated loader, chumpy converter
 
+> **Agent log — 2026-07-20:** Completed on `dev`; all 6 local SMPL/SMPL-X
+> NPZs and the neutral SMPL v1.1.0 pickle passed, with 20 tests and no skips.
+> Findings are limited to upstream CSR-beta and legacy SciPy-pickle warnings;
+> no plan deviations. See [`02_results.md`](02_results.md).
+
 Read first: `docs/design_principles.md`, `docs/architecture.md` (§Weights),
 `docs/contracts.md` (§Weight files), `references/design/smplx.md` §4 (field
 tables — the schema source of truth), `references/design/SOMA-X.md` §5.4

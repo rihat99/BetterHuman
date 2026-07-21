@@ -1,34 +1,50 @@
 [build-system]
-requires = ["setuptools >= 77.0.3"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "better-human"
-version = "0.0.1"
-authors = [
-  { name="Rikhat Akizhanov", email="rikhat.akizhanov@mbzuai.ac.ae" },
-]
-description = "Collection of human models"
+version = "0.1.0.dev0"
+description = "Parametric human body models on a robotics core."
 readme = "README.md"
-requires-python = ">=3.10"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
-]
-dependencies = [
-  "numpy",
-  "torch",
-  "pypose",
-  "viser",
-  "trimesh",
-  
-]
 license = "MIT"
-license-files = ["LICEN[CS]E*"]
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = [
+    "better-robot",
+    "numpy>=2.0",
+    "scipy>=1.11",
+    "torch>=2.4",
+]
 
-[project.urls]
-Homepage = "https://github.com/rihat99/better_human"
-Issues = "https://github.com/rihat99/better_human/issues"
+[project.optional-dependencies]
+viewer = ["better-robot[viewer]"]
 
-[tool.setuptools.package-data]
-"better_human.smpl.config" = ["*.yaml"]
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+better-robot = { path = "../BetterRobot", editable = true }
+torch = { index = "pytorch-cu126" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/better_human"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "PLC", "PLE", "PLR", "PLW"]
+ignore = ["E501", "PLR0913", "PLR2004"]

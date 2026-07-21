@@ -1,5 +1,10 @@
 # Order 03 — Core pipeline, `ParametricBody`, SMPL, converters, parity harness
 
+> **Agent log — 2026-07-20:** Completed on `dev`; 13-case parity peaked at
+> `1.0412031070661243e-07` (float64) and `7.078051567077637e-07` (float32).
+> Both float32 gradchecks and the GPU-1 CUDA smoke passed; BetterRobot stayed
+> unchanged and there were no plan deviations. See [`03_results.md`](03_results.md).
+
 Read first: `docs/architecture.md` (whole page — it specifies this order),
 `docs/contracts.md`, `docs/design_principles.md`,
 `references/design/smplx.md` (§3 math pipeline, §3.4 root wart),

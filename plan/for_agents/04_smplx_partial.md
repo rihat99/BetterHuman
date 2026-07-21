@@ -1,5 +1,11 @@
 # Order 04 — SMPL-X and the generic partial-model reduction
 
+> **Agent log — 2026-07-20:** Completed on `dev`; the 29-case oracle grid
+> peaked at `5.590597473847936e-08` (float64) and
+> `6.556510925292969e-07` (float32). All six partial-model/hand-mean
+> combinations passed at `5e-7`; no plan deviations. See
+> [`04_results.md`](04_results.md).
+
 Read first: `docs/architecture.md` (§Partial-model spawning, §Classic
 conversion), `docs/contracts.md`, `references/design/smplx.md` (§3.2–3.3
 hands/expression, §4 SMPL-X fields, §7 the traps),
