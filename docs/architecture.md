@@ -371,147 +371,316 @@ scalar revolute coordinates do receive their sign-aware archive limits.
 
 ## SMPL and SMPL-X performance
 
-`benchmarks/benchmark_smpl.py` compares the neutral float32 SMPL and SMPL-X
-models with the vendored upstream `smplx` 0.1.28 package using the same NPZ
-parity fixtures. SMPL uses 10 betas. SMPL-X uses 16 betas, 10 expressions,
-full hands and face, natural hand means, no hand PCA, and no face contour.
-The upstream SMPL-X call disables its optional duplicate shaped-vertex output;
-its static landmark and extra-joint work remains part of the full forward,
-with a reference instance constructed at each matching batch size.
+`benchmarks/benchmark_smpl.py` separates two uses that were previously mixed in one
+ratio. **Workload A** recomputes shape and pose from supplied parameters on every call.
+Both implementations therefore perform a full forward, so its ratio compares equivalent
+computations. **Workload B** bakes shape once and streams poses. Upstream `smplx` 0.1.28
+has no shape-amortized API, so its per-frame cost remains a full forward; this ratio
+compares what each library costs for the same user workload, not matched FLOPs.
 
-The upstream row recomputes shape and pose. BetterHuman's **pose-only** row
-uses one scalar shape baked before timing; its **shape+pose** row performs
-`with_shape` plus `vertices(q)` every call and is the fair end-to-end
-comparison. Shape rows are identical within each batch while pose rows vary.
-Before timing, both BetterHuman paths were compared directly with upstream at
-every model, batch, device, and FK lane; the worst maximum absolute vertex
-difference was `5.9604644775390625e-7 m`, below the `1e-6 m` parity pin.
+SMPL uses 10 betas. SMPL-X uses 16 betas, 10 expressions, full hands and face, natural
+hand means, no hand PCA, and no face contour. The upstream SMPL-X call disables its
+optional duplicate shaped-vertex output; static landmark and extra-joint work remains in
+the full forward, with a reference instance constructed at each matching batch size.
 
-CPU measurements used five warmups and 30 calls, 112 intra/inter-op threads,
-PyTorch 2.13.0+cu126, and BetterRobot 0.2.0 on the shared dual-socket Intel
-Xeon Platinum 8570 host:
+The benchmark uses neutral float32 SMPL and SMPL-X fixtures, five warmups, 30 timed calls,
+and synchronized CUDA timings. CPU used 112 intra/inter-op threads on the shared dual-socket
+Intel Xeon Platinum 8570 host. CUDA used an NVIDIA RTX 6000 Ada Generation, PyTorch
+2.13.0+cu126, PyTorch CUDA runtime 12.6, driver 560.35.03, BetterRobot 0.2.0, and
+optionally Warp 1.15.0 (whose startup reported CUDA Toolkit 12.9). Shared-host scheduling
+and concurrent load can affect every observational median, particularly small-batch and
+launch-bound rows; the tables retain the recorded runs without selective reruns.
 
-| Model | Batch | Original shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
+Every SMPL-family model, batch, device, and workload passes a pre-timing maximum-absolute
+vertex-error gate of `1e-6 m`. The worst recorded error is
+`5.9604644775390625e-7 m`.
+
+### Forward: CPU
+
+Workload A compares two full shape-plus-pose forwards:
+
+| Model | Batch | Upstream (ms) | BetterHuman (ms) | × upstream |
 |---|---:|---:|---:|---:|
-| SMPL | 1 | 5.982045 | 6.294569 / 1.052244× | 21.256035 / 3.553306× |
-| SMPL | 16 | 2.421118 | 11.292286 / 4.664079× | 11.746825 / 4.851819× |
-| SMPL | 256 | 23.291602 | 28.108368 / 1.206803× | 31.323141 / 1.344826× |
-| SMPL-X | 1 | 2.072404 | 13.443112 / 6.486724× | 9.304661 / 4.489791× |
-| SMPL-X | 16 | 2.315695 | 10.618555 / 4.585471× | 10.957764 / 4.731954× |
-| SMPL-X | 256 | 40.569139 | 44.174468 / 1.088869× | 54.745655 / 1.349441× |
+| SMPL | 1 | 5.747977 | 12.415018 | 2.159893 |
+| SMPL | 16 | 1.770128 | 8.117990 | 4.586105 |
+| SMPL | 256 | 24.879647 | 32.571483 | 1.309162 |
+| SMPL-X | 1 | 1.753289 | 13.675982 | 7.800185 |
+| SMPL-X | 16 | 3.085485 | 10.912850 | 3.536834 |
+| SMPL-X | 256 | 41.908221 | 59.441630 | 1.418376 |
 
-The small-batch CPU medians are visibly affected by shared-host scheduling;
-the raw values are retained rather than selectively rerun. At batch 256,
-both paths are within 1.35× of upstream for both models.
+Workload B compares upstream's full per-frame forward with BetterHuman's shape-baked
+`vertices(q)`:
 
-CUDA used explicit synchronization and an otherwise idle NVIDIA RTX 6000 Ada
-Generation (48 GiB, compute capability 8.9, driver 560.35.03). Native Torch
-FK measured:
-
-| Model | Batch | Original shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
+| Model | Batch | Upstream (ms) | BetterHuman (ms) | × upstream |
 |---|---:|---:|---:|---:|
-| SMPL | 1 | 1.664994 | 17.377573 / 10.437015× | 17.905309 / 10.753975× |
-| SMPL | 16 | 1.707768 | 18.073975 / 10.583390× | 18.894050 / 11.063593× |
-| SMPL | 256 | 3.010079 | 22.172007 / 7.365921× | 23.031094 / 7.651324× |
-| SMPL-X | 1 | 3.183152 | 41.392021 / 13.003472× | 44.985560 / 14.132397× |
-| SMPL-X | 16 | 3.414323 | 45.384021 / 13.292246× | 46.294748 / 13.558983× |
-| SMPL-X | 256 | 5.671885 | 30.813797 / 5.432726× | 26.117499 / 4.604730× |
+| SMPL | 1 | 5.747977 | 6.349140 | 1.104587 |
+| SMPL | 16 | 1.770128 | 7.358080 | 4.156808 |
+| SMPL | 256 | 24.879647 | 25.725491 | 1.033997 |
+| SMPL-X | 1 | 1.753289 | 13.128313 | 7.487818 |
+| SMPL-X | 16 | 3.085485 | 11.918368 | 3.862721 |
+| SMPL-X | 256 | 41.908221 | 55.133575 | 1.315579 |
 
-Every native CUDA batch-16/256 result is more than 2× upstream. The pose-only
-stage split identifies Torch FK as the bottleneck: FK measures
-16.791555/19.648005 ms for SMPL and 43.724548/22.255063 ms for SMPL-X at
-batch 16/256, while correctives are at most 0.494661 ms and transforms plus
-LBS at most 3.056215 ms. Isolated stage medians are diagnostic and not
-additive.
+### Forward: native CUDA
 
-BetterRobot's optional Warp 1.15.0 lane changes only the pre-baked pose-only
-FK. Its matching-invocation upstream medians and stage split were:
+Workload A keeps the differentiable native Torch FK lane:
 
-| Model | Batch | Original (ms) | BetterHuman pose-only (ms / ×ref) | Warp FK (ms) | Corrective (ms) | Transforms + LBS (ms) |
-|---|---:|---:|---:|---:|---:|---:|
-| SMPL | 1 | 1.855876 | 2.668455 / 1.437841× | 0.438639 | 0.316354 | 0.779355 |
-| SMPL | 16 | 1.237468 | 1.810249 / 1.462866× | 0.391695 | 0.298544 | 0.784786 |
-| SMPL | 256 | 3.149287 | 4.346257 / 1.380076× | 0.767779 | 0.486483 | 2.597154 |
-| SMPL-X | 1 | 3.152521 | 2.488716 / 0.789437× | 0.678249 | 0.431269 | 1.052793 |
-| SMPL-X | 16 | 3.401570 | 2.721118 / 0.799960× | 0.697566 | 0.451804 | 1.161303 |
-| SMPL-X | 256 | 5.668683 | 5.212826 / 0.919583× | 0.631048 | 0.457872 | 3.086571 |
+| Model | Batch | Upstream (ms) | BetterHuman (ms) | × upstream |
+|---|---:|---:|---:|---:|
+| SMPL | 1 | 1.999315 | 21.644656 | 10.826039 |
+| SMPL | 16 | 2.123617 | 23.946178 | 11.276126 |
+| SMPL | 256 | 3.261280 | 25.821618 | 7.917632 |
+| SMPL-X | 1 | 1.991998 | 23.727799 | 11.911555 |
+| SMPL-X | 16 | 1.909512 | 24.667794 | 12.918376 |
+| SMPL-X | 256 | 4.279208 | 28.300942 | 6.613593 |
 
-Warp pose-only is within 1.47× of upstream throughout and faster for all
-SMPL-X batches in this run. The fair shape+pose path retains Torch FK because
-its joint placements carry the shape batch; it remains 7.41–13.17× upstream
-at CUDA batch 16/256. This is a reported BetterRobot seam, not a reason to
-duplicate FK in BetterHuman. Full tables and agreement values are in
-`plan/for_agents/03_results.md`; the reproducible harness is
-`benchmarks/benchmark_smpl.py`.
+Workload B also uses native Torch FK here:
+
+| Model | Batch | Upstream (ms) | BetterHuman (ms) | × upstream |
+|---|---:|---:|---:|---:|
+| SMPL | 1 | 1.999315 | 21.990452 | 10.998996 |
+| SMPL | 16 | 2.123617 | 23.083747 | 10.870011 |
+| SMPL | 256 | 3.261280 | 24.895283 | 7.633592 |
+| SMPL-X | 1 | 1.991998 | 23.325769 | 11.709732 |
+| SMPL-X | 16 | 1.909512 | 24.214457 | 12.680966 |
+| SMPL-X | 256 | 4.279208 | 27.656212 | 6.462927 |
+
+### Forward: CUDA with Warp requested
+
+Shape-batched joint placements keep Workload A on Torch FK even when Warp is requested:
+
+| Model | Batch | Upstream (ms) | BetterHuman (ms) | × upstream |
+|---|---:|---:|---:|---:|
+| SMPL | 1 | 2.004711 | 18.611841 | 9.284052 |
+| SMPL | 16 | 1.736296 | 19.081667 | 10.989867 |
+| SMPL | 256 | 2.976521 | 20.883783 | 7.016172 |
+| SMPL-X | 1 | 3.031563 | 40.573462 | 13.383678 |
+| SMPL-X | 16 | 3.127746 | 26.067906 | 8.334406 |
+| SMPL-X | 256 | 5.826313 | 55.559674 | 9.535991 |
+
+Workload B can use Warp because shape is already baked:
+
+| Model | Batch | Upstream (ms) | BetterHuman Warp (ms) | × upstream |
+|---|---:|---:|---:|---:|
+| SMPL | 1 | 2.004711 | 2.371145 | 1.182787 |
+| SMPL | 16 | 1.736296 | 2.447046 | 1.409348 |
+| SMPL | 256 | 2.976521 | 3.984193 | 1.338540 |
+| SMPL-X | 1 | 3.031563 | 2.544034 | 0.839182 |
+| SMPL-X | 16 | 3.127746 | 2.460619 | 0.786707 |
+| SMPL-X | 256 | 5.826313 | 5.537430 | 0.950417 |
+
+The batch-256 streaming stage medians show why the lanes differ. These isolated stage
+medians are diagnostic and are not additive:
+
+| Model | Lane | FK (ms) | Corrective (ms) | Transforms + LBS (ms) |
+|---|---|---:|---:|---:|
+| SMPL | CPU | 7.015952 | 0.978832 | 16.607948 |
+| SMPL | native CUDA | 21.399667 | 0.529627 | 2.773611 |
+| SMPL | Warp | 0.749190 | 0.442141 | 2.546454 |
+| SMPL-X | CPU | 11.567204 | 1.961538 | 36.035786 |
+| SMPL-X | native CUDA | 26.454930 | 0.449537 | 3.097895 |
+| SMPL-X | Warp | 0.962954 | 0.705014 | 3.697341 |
+
+### Gradients
+
+The loss is `vertices.sum()`. In Workload A, BetterHuman differentiates `q` and every
+shape group while upstream differentiates every supplied pose and shape tensor. In
+Workload B, BetterHuman differentiates `q` after shape baking; upstream differentiates pose
+inputs through its full forward. `F+B / F` means total forward-plus-backward time divided by
+the separately measured forward time. It is not a backward-only median. Gradient forward
+medians belong to the autograd timing protocol and need not equal the inference tables.
+
+CPU Workload A:
+
+| Model | Batch | Up F | Up F+B | Up F+B/F | BH F | BH F+B | BH F+B/F | BH F+B × up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| SMPL | 1 | 28.071696 | 64.525559 | 2.298598 | 18.242398 | 34.155343 | 1.872306 | 0.529330 |
+| SMPL | 16 | 2.731242 | 8.996616 | 3.293965 | 16.611343 | 45.854965 | 2.760461 | 5.096913 |
+| SMPL | 256 | 20.872322 | 51.779978 | 2.480796 | 33.466383 | 106.526944 | 3.183103 | 2.057300 |
+| SMPL-X | 1 | 2.117856 | 5.734379 | 2.707633 | 15.242779 | 45.947761 | 3.014395 | 8.012684 |
+| SMPL-X | 16 | 3.220175 | 10.879412 | 3.378515 | 19.508656 | 54.005480 | 2.768283 | 4.964007 |
+| SMPL-X | 256 | 41.348561 | 112.348765 | 2.717114 | 73.301568 | 221.165732 | 3.017203 | 1.968564 |
+
+CPU Workload B:
+
+| Model | Batch | Up F | Up F+B | Up F+B/F | BH F | BH F+B | BH F+B/F | BH F+B × up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| SMPL | 1 | 4.242632 | 6.534811 | 1.540273 | 11.472444 | 36.634596 | 3.193269 | 5.606068 |
+| SMPL | 16 | 2.788969 | 8.672000 | 3.109393 | 8.107002 | 25.599815 | 3.157741 | 2.952008 |
+| SMPL | 256 | 20.357383 | 49.028289 | 2.408379 | 14.992769 | 66.829707 | 4.457463 | 1.363085 |
+| SMPL-X | 1 | 2.623462 | 6.742190 | 2.569959 | 12.706206 | 40.014697 | 3.149225 | 5.934970 |
+| SMPL-X | 16 | 3.843130 | 12.407327 | 3.228443 | 15.421431 | 46.431064 | 3.010814 | 3.742229 |
+| SMPL-X | 256 | 51.169806 | 132.857832 | 2.596411 | 59.711080 | 213.446547 | 3.574656 | 1.606579 |
+
+Native-CUDA Workload A:
+
+| Model | Batch | Up F | Up F+B | Up F+B/F | BH F | BH F+B | BH F+B/F | BH F+B × up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| SMPL | 1 | 2.016026 | 7.362839 | 3.652154 | 21.694166 | 80.218205 | 3.697686 | 10.895010 |
+| SMPL | 16 | 1.701471 | 6.466421 | 3.800489 | 22.375858 | 85.357652 | 3.814721 | 13.200138 |
+| SMPL | 256 | 3.025510 | 6.961112 | 2.300807 | 22.398428 | 86.299966 | 3.852947 | 12.397440 |
+| SMPL-X | 1 | 7.191468 | 17.394033 | 2.418704 | 65.165043 | 199.382611 | 3.059656 | 11.462702 |
+| SMPL-X | 16 | 7.867332 | 19.639098 | 2.496284 | 68.585478 | 210.025333 | 3.062242 | 10.694245 |
+| SMPL-X | 256 | 9.423600 | 20.218570 | 2.145525 | 70.283626 | 213.747098 | 3.041208 | 10.571821 |
+
+Native-CUDA Workload B:
+
+| Model | Batch | Up F | Up F+B | Up F+B/F | BH F | BH F+B | BH F+B/F | BH F+B × up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| SMPL | 1 | 2.278359 | 7.392388 | 3.244610 | 21.974447 | 70.566171 | 3.211283 | 9.545788 |
+| SMPL | 16 | 2.131151 | 6.941037 | 3.256942 | 20.352127 | 69.597196 | 3.419652 | 10.026916 |
+| SMPL | 256 | 3.747643 | 8.268234 | 2.206249 | 20.909514 | 70.088864 | 3.352008 | 8.476885 |
+| SMPL-X | 1 | 7.271823 | 18.171266 | 2.498860 | 64.120355 | 177.104108 | 2.762057 | 9.746382 |
+| SMPL-X | 16 | 7.834374 | 18.430926 | 2.352571 | 66.612173 | 180.349366 | 2.707454 | 9.785150 |
+| SMPL-X | 256 | 9.238328 | 18.957483 | 2.052047 | 68.362986 | 185.992442 | 2.720660 | 9.811030 |
+
+Native-CUDA forward and backward both inherit BetterRobot's launch-bound Torch FK graph;
+the backward gap is therefore not a separate pathology. The component attribution and
+launch analysis live in [BR_wishlist.md §2](../BR_wishlist.md). Complete commands,
+agreement rows, and raw tables are recorded in
+[Order 02 results](../plan/for_agents/02_results.md).
 
 ## MHR performance
 
-The LOD1 reference TorchScript recomputes shape on every call. BetterHuman is
-therefore reported both as **pose-only** (one scalar shape baked before timing,
-then batched `q`) and **shape+pose** (`with_shape` plus `vertices(q)` each
-call). The latter is the fair end-to-end comparison.
+The released LOD1 TorchScript model is MHR's performance reference. It recomputes shape on
+every call, so the same two workloads apply: Workload A is a full shape-plus-pose forward in
+both implementations; Workload B compares its unavoidable full per-frame forward with
+BetterHuman's shape-baked pose stream. Corrective-on and corrective-off rows remain separate.
 
-These are CPU float32 medians over 30 calls after five warmups on a dual-socket
-Intel Xeon Platinum 8570 with PyTorch 2.13.0, BetterRobot 0.2.0, and 112
-intra/inter-op threads:
+MHR keeps its established, visible pre-timing gate at `5e-6 m` rather than tightening it to
+one favorable run. The worst recorded CPU error is `2.7418136596679688e-6 m`; the worst
+native or Warp CUDA error is `1.5497207641601562e-6 m`. The protocol and shared-host caveat
+are the same as for the SMPL family.
 
-| Batch | Correctives | TorchScript shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
+### Forward: CPU
+
+Workload A:
+
+| Batch | Correctives | TorchScript (ms) | BetterHuman (ms) | × reference |
 |---:|:---:|---:|---:|---:|
-| 1 | on | 19.505918 | 104.505661 / 5.357639× | 175.038120 / 8.973590× |
-| 1 | off | 10.832997 | 83.003433 / 7.662093× | 156.004285 / 14.400843× |
-| 16 | on | 43.595248 | 32.781757 / 0.751957× | 61.089930 / 1.401298× |
-| 16 | off | 38.767081 | 51.125402 / 1.318784× | 101.672627 / 2.622654× |
-| 256 | on | 767.727395 | 178.638341 / 0.232685× | 270.257807 / 0.352023× |
-| 256 | off | 860.573079 | 141.988578 / 0.164993× | 247.239801 / 0.287297× |
+| 1 | on | 23.336780 | 165.512548 | 7.092347 |
+| 1 | off | 10.762407 | 154.999911 | 14.401974 |
+| 16 | on | 30.333932 | 69.517568 | 2.291743 |
+| 16 | off | 26.158406 | 62.134325 | 2.375310 |
+| 256 | on | 911.843281 | 206.352065 | 0.226302 |
+| 256 | off | 787.022646 | 249.103795 | 0.316514 |
 
-At batch 256, inverse-bind construction plus matrix-blend LBS measures
-85.244686/84.558726 ms with correctives on/off, down from the prior
-1427.753313/1346.318814 ms formulation. FK is 56.038709/55.463856 ms and the
-corrective stage is 24.450985/0.048177 ms. Isolated stage medians are diagnostic
-and not additive. At batch 1, the roughly 42 ms BetterRobot Python/topological
-FK traversal remains material. Shared-host load made the small-batch stage
-medians visibly noisy, so these exact values are the recorded run rather than a
-general hardware claim.
+Workload B:
 
-CUDA was measured on an otherwise idle NVIDIA RTX 6000 Ada Generation
-(48 GiB, compute capability 8.9, driver 560.35.03) with the same warmup and
-sample counts, explicit synchronization, and PyTorch 2.13.0+cu126. The native
-Torch FK lane measured:
-
-| Batch | Correctives | TorchScript shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
+| Batch | Correctives | TorchScript (ms) | BetterHuman (ms) | × reference |
 |---:|:---:|---:|---:|---:|
-| 1 | on | 3.549979 | 95.193920 / 26.815347× | 190.865683 / 53.765299× |
-| 1 | off | 2.275135 | 70.019388 / 30.775927× | 140.907083 / 61.933504× |
-| 16 | on | 3.951922 | 73.523560 / 18.604507× | 146.560227 / 37.085810× |
-| 16 | off | 2.384344 | 72.506513 / 30.409418× | 145.687805 / 61.101840× |
-| 256 | on | 12.171629 | 79.546592 / 6.535411× | 155.047731 / 12.738454× |
-| 256 | off | 9.428837 | 78.125182 / 8.285771× | 153.348507 / 16.263777× |
+| 1 | on | 23.336780 | 60.168659 | 2.578276 |
+| 1 | off | 10.762407 | 82.997890 | 7.711833 |
+| 16 | on | 30.333932 | 37.420636 | 1.233623 |
+| 16 | off | 26.158406 | 51.659231 | 1.974862 |
+| 256 | on | 911.843281 | 136.900657 | 0.150136 |
+| 256 | off | 787.022646 | 148.225082 | 0.188336 |
 
-At batch 256, native Torch FK still accounts for 73.015869/72.660426 ms,
-while inverse-bind construction plus matrix-blend LBS is only
-5.103035/5.102114 ms. The native lane therefore remains FK-bound.
+### Forward: native CUDA
 
-BetterRobot's optional Warp 1.15.0 lane fuses pose-only FK. Its within-run
-comparison and isolated split were:
+Workload A:
 
-| Batch | Correctives | TorchScript (ms) | BetterHuman pose-only (ms / ×ref) | Warp FK (ms) | Corrective (ms) | Transforms + LBS (ms) |
-|---:|:---:|---:|---:|---:|---:|---:|
-| 1 | on | 2.191199 | 2.565200 / 1.170683× | 0.632403 | 0.945547 | 0.578162 |
-| 1 | off | 1.120560 | 1.062819 / 0.948471× | 0.615940 | 0.010177 | 0.565254 |
-| 16 | on | 2.516612 | 2.263239 / 0.899320× | 0.658878 | 0.977999 | 0.771719 |
-| 16 | off | 1.236523 | 1.306156 / 1.056314× | 0.642872 | 0.009840 | 0.749222 |
-| 256 | on | 11.200383 | 8.333692 / 0.744054× | 1.688651 | 1.925943 | 5.245006 |
-| 256 | off | 9.071364 | 6.679759 / 0.736357× | 1.596782 | 0.009864 | 5.182707 |
+| Batch | Correctives | TorchScript (ms) | BetterHuman (ms) | × reference |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 2.252701 | 150.867692 | 66.971912 |
+| 1 | off | 1.160139 | 150.326115 | 129.575952 |
+| 16 | on | 2.574029 | 155.786447 | 60.522402 |
+| 16 | off | 1.305433 | 313.584503 | 240.214843 |
+| 256 | on | 11.318191 | 169.116997 | 14.942053 |
+| 256 | off | 9.160384 | 161.538835 | 17.634505 |
 
-The Warp pose-only path now meets the `≤2×` target in both corrective modes at
-batch 16 and batch 256. At batch 256 it is faster than the reference in this
-run, with matrix-blend LBS measuring 5.245006/5.182707 ms instead of the prior
-30.067871/27.737855 ms. Batched shape baking cannot currently use Warp because
-BetterRobot requires matching batched joint and frame tables; the
-apples-to-apples shape+pose path therefore remains on Torch FK and misses the
-target at both CUDA batches. This is a reported BetterRobot seam, not a reason
-to duplicate FK inside BetterHuman. The reproducible harness is
-`benchmarks/benchmark_mhr.py`.
+Workload B:
+
+| Batch | Correctives | TorchScript (ms) | BetterHuman (ms) | × reference |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 2.252701 | 76.708944 | 34.051986 |
+| 1 | off | 1.160139 | 74.335215 | 64.074404 |
+| 16 | on | 2.574029 | 77.473613 | 30.098184 |
+| 16 | off | 1.305433 | 135.909907 | 104.110939 |
+| 256 | on | 11.318191 | 84.796631 | 7.492066 |
+| 256 | off | 9.160384 | 164.078545 | 17.911754 |
+
+### Forward: CUDA with Warp requested
+
+Workload A remains on Torch FK:
+
+| Batch | Correctives | TorchScript (ms) | BetterHuman (ms) | × reference |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 3.647041 | 193.928811 | 53.174296 |
+| 1 | off | 2.357448 | 151.432239 | 64.235651 |
+| 16 | on | 4.051382 | 156.430489 | 38.611632 |
+| 16 | off | 2.483768 | 155.622264 | 62.655717 |
+| 256 | on | 12.988791 | 164.781857 | 12.686466 |
+| 256 | off | 10.341867 | 163.516999 | 15.811168 |
+
+Workload B uses Warp FK:
+
+| Batch | Correctives | TorchScript (ms) | BetterHuman Warp (ms) | × reference |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 3.647041 | 2.369919 | 0.649820 |
+| 1 | off | 2.357448 | 1.010115 | 0.428478 |
+| 16 | on | 4.051382 | 2.230097 | 0.550453 |
+| 16 | off | 2.483768 | 1.210952 | 0.487546 |
+| 256 | on | 12.988791 | 8.292859 | 0.638463 |
+| 256 | off | 10.341867 | 6.657831 | 0.643775 |
+
+The batch-256 Workload B stage split shows Warp removing the FK launch cost:
+
+| Correctives | Lane | FK (ms) | Corrective (ms) | Transforms + LBS (ms) |
+|:---:|---|---:|---:|---:|
+| on | CPU | 59.337605 | 24.533667 | 81.591606 |
+| off | CPU | 57.114863 | 0.039530 | 84.504691 |
+| on | native CUDA | 80.182771 | 1.629461 | 5.207095 |
+| off | native CUDA | 77.646215 | 0.009222 | 5.125349 |
+| on | Warp | 1.551654 | 1.638420 | 5.136963 |
+| off | Warp | 1.545492 | 0.009011 | 5.137304 |
+
+### Gradients
+
+MHR has no upstream gradient row. Workload A differentiates `q` and all shape groups;
+Workload B differentiates `q` with shape baked outside timing. Both use Torch FK and Torch
+autograd. As above, `F+B / F` is total forward-plus-backward divided by forward-only, not a
+backward-only measurement.
+
+CPU:
+
+| Batch | Correctives | Workload | Forward (ms) | F+B (ms) | F+B / F |
+|---:|:---:|:---:|---:|---:|---:|
+| 1 | on | A | 212.369610 | 446.482271 | 2.102383 |
+| 1 | on | B | 130.829949 | 336.132665 | 2.569233 |
+| 16 | on | A | 124.484499 | 298.137320 | 2.394975 |
+| 16 | on | B | 62.761629 | 169.143155 | 2.695009 |
+| 256 | on | A | 255.153583 | 656.606512 | 2.573378 |
+| 256 | on | B | 158.601529 | 490.848457 | 3.094853 |
+| 1 | off | A | 189.611799 | 435.343932 | 2.295975 |
+| 1 | off | B | 101.297063 | 261.008742 | 2.576666 |
+| 16 | off | A | 174.503453 | 393.588206 | 2.255475 |
+| 16 | off | B | 51.644019 | 147.767241 | 2.861265 |
+| 256 | off | A | 329.645655 | 722.676883 | 2.192284 |
+| 256 | off | B | 184.607942 | 510.086399 | 2.763079 |
+
+Native CUDA:
+
+| Batch | Correctives | Workload | Forward (ms) | F+B (ms) | F+B / F |
+|---:|:---:|:---:|---:|---:|---:|
+| 1 | on | A | 207.695002 | 581.920783 | 2.801804 |
+| 1 | on | B | 102.178812 | 384.318314 | 3.761233 |
+| 16 | on | A | 310.976191 | 671.553823 | 2.159502 |
+| 16 | on | B | 208.497832 | 545.357878 | 2.615653 |
+| 256 | on | A | 376.295924 | 617.513200 | 1.641031 |
+| 256 | on | B | 181.165978 | 363.791832 | 2.008058 |
+| 1 | off | A | 349.414554 | 584.243813 | 1.672065 |
+| 1 | off | B | 172.510312 | 363.918961 | 2.109549 |
+| 16 | off | A | 354.854490 | 738.743698 | 2.081821 |
+| 16 | off | B | 105.754499 | 393.191090 | 3.717961 |
+| 256 | off | A | 218.495971 | 603.712264 | 2.763036 |
+| 256 | off | B | 107.715235 | 398.367353 | 3.698338 |
+
+The MHR backward multipliers do not reveal a separate backward-only anomaly; they inherit
+the same launch-bound FK graph described in [BR_wishlist.md §2](../BR_wishlist.md). The
+official Warp run is forward-only. Combining `--use-warp --grad` remains supported as an
+explicitly labeled hybrid: Warp forward with a Torch-recompute VJP. Complete commands,
+agreement rows, and raw tables are in
+[Order 02 results](../plan/for_agents/02_results.md).
 
 ## Visualization
 

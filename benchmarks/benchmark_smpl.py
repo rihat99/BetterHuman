@@ -1,15 +1,17 @@
 """Benchmark BetterHuman SMPL and SMPL-X against vendored upstream ``smplx``.
 
-The upstream rows recompute shape and pose on every call. BetterHuman reports
-both a shape-baked pose-only path and an apples-to-apples shape-plus-pose path.
+Workload A compares full shape-plus-pose forwards. Workload B fixes shape once
+and streams poses; upstream still performs its full forward on every frame
+because it has no shape-amortized API.
 
 Run the pinned CPU protocol with::
 
     uv run python benchmarks/benchmark_smpl.py --device cpu
 
 Use ``--device cuda --use-warp`` to request BetterRobot's Warp FK lane for
-pose-only rows. Shape-plus-pose rows intentionally retain Torch FK because
-their joint placements carry the shape batch.
+Workload B. Workload A intentionally retains Torch FK because its joint
+placements carry the shape batch. Add ``--grad`` to measure forward and
+forward-plus-backward medians for both workloads.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import gc
 import importlib
 from pathlib import Path
 import statistics
+import subprocess
 import sys
 import time
 from typing import Any
@@ -61,9 +64,14 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--iterations", type=int, default=30)
     parser.add_argument(
+        "--grad",
+        action="store_true",
+        help="Also benchmark forward and forward-plus-backward passes",
+    )
+    parser.add_argument(
         "--use-warp",
         action="store_true",
-        help="Request Warp FK for pose-only rows; shape+pose stays on Torch FK",
+        help="Request Warp FK for Workload B; Workload A stays on Torch FK",
     )
     arguments = parser.parse_args()
     if any(batch < 1 for batch in arguments.batches):
@@ -73,6 +81,17 @@ def _arguments() -> argparse.Namespace:
     if arguments.use_warp and arguments.device != "cuda":
         parser.error("--use-warp requires --device cuda")
     return arguments
+
+
+def _cuda_driver_version() -> str:
+    """Return the NVIDIA driver reported by the benchmark host."""
+    result = subprocess.run(
+        ("nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.splitlines()[0].strip()
 
 
 def _vendored_smplx() -> tuple[Any, type[Any]]:
@@ -310,9 +329,11 @@ def _benchmark_model(
 ) -> tuple[
     list[tuple[str, int, str, float]],
     list[tuple[str, int, str, float]],
+    list[tuple[str, int, str, float]],
     list[tuple[str, int, float, float]],
 ]:
-    results: list[tuple[str, int, str, float]] = []
+    workload_a: list[tuple[str, int, str, float]] = []
+    workload_b: list[tuple[str, int, str, float]] = []
     breakdown: list[tuple[str, int, str, float]] = []
     agreement: list[tuple[str, int, float, float]] = []
     neutral = _betterhuman_model(name, path, device)
@@ -327,49 +348,74 @@ def _benchmark_model(
         def reference_forward() -> torch.Tensor:
             return reference_model(**inputs.reference).vertices
 
-        def pose_only() -> torch.Tensor:
+        def streaming_forward() -> torch.Tensor:
             return _vertices(pose_body, q, use_warp=use_warp)
 
-        def shape_and_pose() -> torch.Tensor:
-            return neutral.with_shape(**inputs.shape_groups).vertices(q)
+        def full_forward() -> torch.Tensor:
+            return neutral(q, **inputs.shape_groups)
 
         expected = reference_forward()
-        pose_vertices = pose_only()
-        fair_vertices = shape_and_pose()
-        pose_error = _validate_vertices(name, batch, expected, pose_vertices, device, "pose-only")
-        fair_error = _validate_vertices(name, batch, expected, fair_vertices, device, "shape+pose")
-        agreement.append((name, batch, pose_error, fair_error))
+        streaming_vertices = streaming_forward()
+        full_vertices = full_forward()
+        streaming_error = _validate_vertices(
+            name,
+            batch,
+            expected,
+            streaming_vertices,
+            device,
+            "Workload B streaming poses",
+        )
+        full_error = _validate_vertices(
+            name,
+            batch,
+            expected,
+            full_vertices,
+            device,
+            "Workload A full forward",
+        )
+        agreement.append((name, batch, full_error, streaming_error))
 
-        results.extend(
+        reference_median = _median_milliseconds(
+            reference_forward,
+            device=device,
+            warmup=warmup,
+            iterations=iterations,
+        )
+        workload_a.extend(
             (
                 (
                     name,
                     batch,
-                    "upstream smplx shape+pose",
+                    "upstream smplx full forward",
+                    reference_median,
+                ),
+                (
+                    name,
+                    batch,
+                    "BetterHuman one-call full forward" + (" (Torch FK)" if use_warp else ""),
                     _median_milliseconds(
-                        reference_forward,
+                        full_forward,
                         device=device,
                         warmup=warmup,
                         iterations=iterations,
                     ),
                 ),
+            )
+        )
+        workload_b.extend(
+            (
                 (
                     name,
                     batch,
-                    "BetterHuman pose-only" + (" (Warp requested)" if use_warp else ""),
-                    _median_milliseconds(
-                        pose_only,
-                        device=device,
-                        warmup=warmup,
-                        iterations=iterations,
-                    ),
+                    "upstream smplx full forward",
+                    reference_median,
                 ),
                 (
                     name,
                     batch,
-                    "BetterHuman shape+pose" + (" (Torch FK)" if use_warp else ""),
+                    "BetterHuman shape-baked vertices" + (" (Warp requested)" if use_warp else ""),
                     _median_milliseconds(
-                        shape_and_pose,
+                        streaming_forward,
                         device=device,
                         warmup=warmup,
                         iterations=iterations,
@@ -418,8 +464,8 @@ def _benchmark_model(
             )
         )
 
-        reference_forward = pose_only = shape_and_pose = None
-        expected = pose_vertices = fair_vertices = reference_model = None
+        reference_forward = streaming_forward = full_forward = None
+        expected = streaming_vertices = full_vertices = reference_model = None
         inputs = scalar_shape = pose_body = q = data = corrective = None
         gc.collect()
         if device.type == "cuda":
@@ -429,21 +475,231 @@ def _benchmark_model(
     gc.collect()
     if device.type == "cuda":
         torch.cuda.empty_cache()
-    return results, breakdown, agreement
+    return workload_a, workload_b, breakdown, agreement
 
 
-def _print_end_to_end(rows: list[tuple[str, int, str, float]]) -> None:
-    references = {(name, batch): median for name, batch, path, median in rows if path == "upstream smplx shape+pose"}
-    print("\n## End-to-end\n")
-    print("| Model | Batch | Path | Median ms | x original |")
+def _gradient_reference_inputs(
+    inputs: ModelInputs,
+    *,
+    shape_requires_grad: bool,
+) -> dict[str, Any]:
+    shape_names = set(inputs.shape_groups)
+    return {
+        name: (
+            value.detach()
+            .clone()
+            .requires_grad_(shape_requires_grad or name not in shape_names)
+            if isinstance(value, torch.Tensor)
+            else value
+        )
+        for name, value in inputs.reference.items()
+    }
+
+
+def _clear_gradients(tensors: list[torch.Tensor]) -> None:
+    for tensor in tensors:
+        tensor.grad = None
+
+
+def _gradient_medians(
+    forward: Callable[[], torch.Tensor],
+    leaves: list[torch.Tensor],
+    *,
+    device: torch.device,
+    warmup: int,
+    iterations: int,
+) -> tuple[float, float]:
+    def forward_backward() -> None:
+        forward().sum().backward()
+
+    for _ in range(warmup):
+        forward()
+        _synchronize(device)
+        _clear_gradients(leaves)
+        forward_backward()
+        _synchronize(device)
+
+    forward_durations: list[float] = []
+    forward_backward_durations: list[float] = []
+    for _ in range(iterations):
+        started = time.perf_counter_ns()
+        forward()
+        _synchronize(device)
+        forward_durations.append((time.perf_counter_ns() - started) * 1e-6)
+
+        _clear_gradients(leaves)
+        started = time.perf_counter_ns()
+        forward_backward()
+        _synchronize(device)
+        forward_backward_durations.append((time.perf_counter_ns() - started) * 1e-6)
+
+    return statistics.median(forward_durations), statistics.median(forward_backward_durations)
+
+
+def _benchmark_gradients(
+    name: str,
+    path: Path,
+    package: Any,
+    struct_type: type[Any],
+    batches: tuple[int, ...],
+    device: torch.device,
+    warmup: int,
+    iterations: int,
+    use_warp: bool,
+) -> tuple[
+    list[tuple[str, int, str, float, float]],
+    list[tuple[str, int, str, float, float]],
+]:
+    workload_a: list[tuple[str, int, str, float, float]] = []
+    workload_b: list[tuple[str, int, str, float, float]] = []
+    neutral = _betterhuman_model(name, path, device)
+
+    for batch in batches:
+        reference_model = _reference_model(name, path, package, struct_type, device, batch)
+        reference_model.requires_grad_(False)
+        inputs = _inputs(name, batch, device)
+        scalar_shape = {group: value[0] for group, value in inputs.shape_groups.items()}
+        pose_body = neutral.with_shape(**scalar_shape)
+        q_value = pose_body.from_classic(inputs.classic).detach()
+
+        q_full = q_value.clone().requires_grad_()
+        full_shape = {
+            group: value.detach().clone().requires_grad_()
+            for group, value in inputs.shape_groups.items()
+        }
+        full_leaves = [q_full, *full_shape.values()]
+        upstream_full_inputs = _gradient_reference_inputs(inputs, shape_requires_grad=True)
+        upstream_full_leaves = [
+            value for value in upstream_full_inputs.values() if isinstance(value, torch.Tensor)
+        ]
+
+        def betterhuman_full_forward() -> torch.Tensor:
+            return neutral(q_full, **full_shape)
+
+        def upstream_full_forward() -> torch.Tensor:
+            return reference_model(**upstream_full_inputs).vertices
+
+        q_streaming = q_value.clone().requires_grad_()
+        upstream_streaming_inputs = _gradient_reference_inputs(inputs, shape_requires_grad=False)
+        upstream_streaming_leaves = [
+            value
+            for group, value in upstream_streaming_inputs.items()
+            if group not in inputs.shape_groups and isinstance(value, torch.Tensor)
+        ]
+
+        def betterhuman_streaming_forward() -> torch.Tensor:
+            return _vertices(pose_body, q_streaming, use_warp=use_warp)
+
+        def upstream_streaming_forward() -> torch.Tensor:
+            return reference_model(**upstream_streaming_inputs).vertices
+
+        warp_gradient_suffix = (
+            " (Warp forward; Torch-recompute VJP)" if use_warp else ""
+        )
+
+        gradient_cases = (
+            (workload_a, "upstream smplx full forward", upstream_full_forward, upstream_full_leaves),
+            (
+                workload_a,
+                "BetterHuman one-call full forward" + (" (Torch FK)" if use_warp else ""),
+                betterhuman_full_forward,
+                full_leaves,
+            ),
+            (
+                workload_b,
+                "upstream smplx full forward",
+                upstream_streaming_forward,
+                upstream_streaming_leaves,
+            ),
+            (
+                workload_b,
+                "BetterHuman shape-baked vertices" + warp_gradient_suffix,
+                betterhuman_streaming_forward,
+                [q_streaming],
+            ),
+        )
+        for rows, label, forward, leaves in gradient_cases:
+            rows.append(
+                (
+                    name,
+                    batch,
+                    label,
+                    *_gradient_medians(
+                        forward,
+                        leaves,
+                        device=device,
+                        warmup=warmup,
+                        iterations=iterations,
+                    ),
+                )
+            )
+
+        betterhuman_full_forward = upstream_full_forward = None
+        betterhuman_streaming_forward = upstream_streaming_forward = None
+        gradient_cases = None
+        reference_model = inputs = scalar_shape = pose_body = q_value = None
+        q_full = full_shape = full_leaves = upstream_full_inputs = upstream_full_leaves = None
+        q_streaming = upstream_streaming_inputs = upstream_streaming_leaves = None
+        gc.collect()
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
+
+    neutral = None
+    gc.collect()
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+    return workload_a, workload_b
+
+
+def _print_workload(
+    title: str,
+    rows: list[tuple[str, int, str, float]],
+    *,
+    note: str,
+) -> None:
+    references = {
+        (name, batch): median
+        for name, batch, path, median in rows
+        if path == "upstream smplx full forward"
+    }
+    print(f"\n## {title}\n")
+    print(note)
+    print("\n| Model | Batch | Implementation | Median ms | × upstream |")
     print("|---|---:|---|---:|---:|")
     for name, batch, path, median in rows:
         ratio = median / references[(name, batch)]
         print(f"| {name} | {batch} | {path} | {median:.6f} | {ratio:.6f} |")
 
 
+def _print_gradients(
+    title: str,
+    rows: list[tuple[str, int, str, float, float]],
+    *,
+    note: str,
+) -> None:
+    references = {
+        (name, batch): forward_backward
+        for name, batch, path, _, forward_backward in rows
+        if path == "upstream smplx full forward"
+    }
+    print(f"\n## Gradients: {title}\n")
+    print(note)
+    print("F+B / F is the training-step multiplier, not a backward-only median.")
+    print(
+        "\n| Model | Batch | Implementation | Forward ms | Forward + backward ms | "
+        "F+B / F | F+B × upstream |"
+    )
+    print("|---|---:|---|---:|---:|---:|---:|")
+    for name, batch, path, forward, forward_backward in rows:
+        print(
+            f"| {name} | {batch} | {path} | {forward:.6f} | "
+            f"{forward_backward:.6f} | {forward_backward / forward:.6f} | "
+            f"{forward_backward / references[(name, batch)]:.6f} |"
+        )
+
+
 def _print_breakdown(rows: list[tuple[str, int, str, float]]) -> None:
-    print("\n## BetterHuman pose-only breakdown\n")
+    print("\n## BetterHuman Workload B stage breakdown\n")
     print("| Model | Batch | Stage | Median ms |")
     print("|---|---:|---|---:|")
     for name, batch, stage, median in rows:
@@ -452,10 +708,10 @@ def _print_breakdown(rows: list[tuple[str, int, str, float]]) -> None:
 
 def _print_agreement(rows: list[tuple[str, int, float, float]]) -> None:
     print("\n## Pre-timing output agreement\n")
-    print("| Model | Batch | Pose-only max abs m | Shape+pose max abs m |")
+    print("| Model | Batch | Workload A max abs m | Workload B max abs m |")
     print("|---|---:|---:|---:|")
-    for name, batch, pose_error, fair_error in rows:
-        print(f"| {name} | {batch} | {pose_error:.17g} | {fair_error:.17g} |")
+    for name, batch, full_error, streaming_error in rows:
+        print(f"| {name} | {batch} | {full_error:.17g} | {streaming_error:.17g} |")
 
 
 def main() -> None:
@@ -475,19 +731,25 @@ def main() -> None:
     print(f"reference_version={REFERENCE_VERSION}")
     print(f"reference_package={Path(package.__file__).resolve().parent}")
     print(f"device={device}" + (f" ({torch.cuda.get_device_name(device)})" if device.type == "cuda" else ""))
+    if device.type == "cuda":
+        print(f"cuda_runtime={torch.version.cuda}")
+        print(f"cuda_driver={_cuda_driver_version()}")
     print(f"cpu_threads={torch.get_num_threads()}")
     print(f"cpu_interop_threads={torch.get_num_interop_threads()}")
     print(f"warmup={arguments.warmup}; iterations={arguments.iterations}; batches={batches}")
     print(f"use_warp={arguments.use_warp}")
+    print(f"grad={arguments.grad}")
+    print("timing_caveat=shared-host scheduling and concurrent load can affect medians")
     print(f"smpl_path={arguments.smpl_path}")
     print(f"smplx_path={arguments.smplx_path}")
 
-    results: list[tuple[str, int, str, float]] = []
+    workload_a: list[tuple[str, int, str, float]] = []
+    workload_b: list[tuple[str, int, str, float]] = []
     breakdown: list[tuple[str, int, str, float]] = []
     agreement: list[tuple[str, int, float, float]] = []
     with torch.inference_mode():
         for name, path in (("SMPL", arguments.smpl_path), ("SMPL-X", arguments.smplx_path)):
-            model_results, model_breakdown, model_agreement = _benchmark_model(
+            model_workload_a, model_workload_b, model_breakdown, model_agreement = _benchmark_model(
                 name,
                 path,
                 package,
@@ -498,13 +760,64 @@ def main() -> None:
                 arguments.iterations,
                 arguments.use_warp,
             )
-            results.extend(model_results)
+            workload_a.extend(model_workload_a)
+            workload_b.extend(model_workload_b)
             breakdown.extend(model_breakdown)
             agreement.extend(model_agreement)
 
     _print_agreement(agreement)
-    _print_end_to_end(results)
+    _print_workload(
+        "Workload A — full forward (new shape + new pose every call)",
+        workload_a,
+        note=(
+            "The × upstream ratio compares equivalent full shape-plus-pose computations; "
+            "BetterHuman uses its one-call API."
+        ),
+    )
+    _print_workload(
+        "Workload B — streaming poses (shape fixed, poses vary per call)",
+        workload_b,
+        note=(
+            "BetterHuman bakes shape once outside timing. Upstream has no shape-amortized API, "
+            "so its per-frame workload remains a full forward. This is a workload-level ratio, "
+            "not a FLOP-matched ratio."
+        ),
+    )
     _print_breakdown(breakdown)
+
+    if arguments.grad:
+        gradient_a: list[tuple[str, int, str, float, float]] = []
+        gradient_b: list[tuple[str, int, str, float, float]] = []
+        for name, path in (("SMPL", arguments.smpl_path), ("SMPL-X", arguments.smplx_path)):
+            model_gradient_a, model_gradient_b = _benchmark_gradients(
+                name,
+                path,
+                package,
+                struct_type,
+                batches,
+                device,
+                arguments.warmup,
+                arguments.iterations,
+                arguments.use_warp,
+            )
+            gradient_a.extend(model_gradient_a)
+            gradient_b.extend(model_gradient_b)
+        _print_gradients(
+            "Workload A — full forward",
+            gradient_a,
+            note=(
+                "Loss is vertices.sum(). BetterHuman differentiates q and every shape group; "
+                "upstream differentiates every supplied pose and shape tensor."
+            ),
+        )
+        _print_gradients(
+            "Workload B — streaming poses",
+            gradient_b,
+            note=(
+                "Loss is vertices.sum(). BetterHuman differentiates q after baking shape outside "
+                "timing. Upstream differentiates pose inputs but must still run its full forward."
+            ),
+        )
 
 
 if __name__ == "__main__":

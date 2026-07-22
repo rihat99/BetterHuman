@@ -1,3 +1,9 @@
+> **Implementation log (2026-07-22):** Complete. Six official CPU/CUDA/Warp
+> protocols used 5 warmups and 30 synchronized medians; the CUDA suite passed
+> 230 tests with 0 skipped. MHR retained its established 5e-6 parity gate, gradient
+> samples were paired per iteration and report `F+B/F`, and official Warp runs were
+> forward-only. Full measurements and deviations: [02_results.md](02_results.md).
+
 # Order 02 — workload-framed benchmarks + gradient benchmarks
 
 The owner's critique of the current tables: a `× original` ratio printed

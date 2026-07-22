@@ -133,6 +133,18 @@ Recorded when the corresponding safety net landed. Correctness pins must not
 regress. Performance rows explicitly marked observational are reproducible
 reference points to remeasure and report, not pass/fail targets.
 
+For performance rows, Workload A recomputes shape and pose from supplied
+parameters on every call; its reference ratios compare equivalent computations.
+Workload B bakes shape once and streams poses; its ratio compares per-frame user
+cost because neither upstream reference exposes a shape-amortized API.
+SMPL-family slash-separated values are SMPL / SMPL-X; MHR values are
+correctives on / off. `F+B / F` is total forward-plus-backward divided by
+separately measured forward time, not a backward-only median. Official Warp
+rows are forward-only; combining `--use-warp --grad` uses an explicitly labeled
+Warp-forward/Torch-recompute-VJP hybrid. All performance values are float32
+batch-256 medians of 30 calls after five warmups and are subject to shared-host
+scheduling and concurrent-load noise.
+
 | Quantity | Baseline | Note |
 |---|---|---|
 | SMPL/SMPL-X float64 parity vs `smplx` oracle | ≤ 1e-6 m (worst measured ~1.04e-7) | sacred; never weakened |
@@ -140,21 +152,29 @@ reference points to remeasure and report, not pass/fail targets.
 | MHR float32 parity vs float32 `pymomentum` oracle | V ≤ 5e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | applies independently to every LOD |
 | MHR float64 parity vs float32 `pymomentum` oracle | V ≤ 2e-6 m; P ≤ 5e-7 m; Q ≤ 5e-7; S ≤ 1e-7 | mixed-precision oracle; not float64-oracle parity |
 | MHR LOD1 TorchScript vs float32 golden | V ≤ 2e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | independent secondary oracle; worst measured V 1.3113021850585938e-6 m; measured P/Q/S bit-exact |
-| SMPL CPU batch-256 performance vs upstream `smplx` | pose-only 1.206803×; shape+pose 1.344826× | 30-call shared-host medians; observational, no target |
-| SMPL-X CPU batch-256 performance vs upstream `smplx` | pose-only 1.088869×; shape+pose 1.349441× | 30-call shared-host medians; observational, no target |
-| SMPL CUDA Warp pose-only performance vs upstream `smplx` | batch 16: 1.462866×; batch 256: 1.380076× | 30-call medians; observational, no target |
-| SMPL-X CUDA Warp pose-only performance vs upstream `smplx` | batch 16: 0.799960×; batch 256: 0.919583× | 30-call medians; observational, no target |
-| SMPL CUDA shape+pose performance vs upstream `smplx` | batch 16: 11.063593×; batch 256: 7.651324× | fair native-CUDA path; Torch-FK-bound; observational, no target |
-| SMPL-X CUDA shape+pose performance vs upstream `smplx` | batch 16: 13.558983×; batch 256: 4.604730× | fair native-CUDA path; Torch-FK-bound; observational, no target |
-| MHR LOD1 CPU batch-256 performance vs TorchScript | pose-only 0.232685×/0.164993×; shape+pose 0.352023×/0.287297× (correctives on/off) | 30-call medians; shared-host timing |
-| MHR LOD1 CUDA Warp pose-only performance vs TorchScript | batch 16: 0.899320×/1.056314×; batch 256: 0.744054×/0.736357× (correctives on/off) | both batches meet `≤2×` after matrix-blend LBS |
-| MHR LOD1 CUDA shape+pose performance vs TorchScript | batch 16: 37.085810×/61.101840×; batch 256: 12.738454×/16.263777× (correctives on/off) | fair path remains on BetterRobot Torch FK and misses target |
+| SMPL family CPU forward | A: 1.309162× / 1.418376×; B: 1.033997× / 1.315579× | observational, no target |
+| SMPL family native-CUDA forward | A: 7.917632× / 6.613593×; B: 7.633592× / 6.462927× | synchronized; observational, no target |
+| SMPL family Warp-requested forward | A on Torch FK: 7.016172× / 9.535991×; B on Warp: 1.338540× / 0.950417× | synchronized; observational, no target |
+| SMPL family CPU gradient, A | 106.526944 ms (3.183103 F+B/F, 2.057300× upstream) / 221.165732 ms (3.017203, 1.968564×) | observational, no target |
+| SMPL family CPU gradient, B | 66.829707 ms (4.457463 F+B/F, 1.363085× upstream) / 213.446547 ms (3.574656, 1.606579×) | observational, no target |
+| SMPL family native-CUDA gradient, A | 86.299966 ms (3.852947 F+B/F, 12.397440× upstream) / 213.747098 ms (3.041208, 10.571821×) | synchronized; observational, no target |
+| SMPL family native-CUDA gradient, B | 70.088864 ms (3.352008 F+B/F, 8.476885× upstream) / 185.992442 ms (2.720660, 9.811030×) | synchronized; observational, no target |
+| MHR LOD1 CPU forward | A: 206.352065 / 249.103795 ms (0.226302× / 0.316514×); B: 136.900657 / 148.225082 ms (0.150136× / 0.188336×) | observational, no target |
+| MHR LOD1 native-CUDA forward | A: 169.116997 / 161.538835 ms (14.942053× / 17.634505×); B: 84.796631 / 164.078545 ms (7.492066× / 17.911754×) | synchronized; observational, no target |
+| MHR LOD1 Warp-requested forward | A on Torch FK: 164.781857 / 163.516999 ms (12.686466× / 15.811168×); B on Warp: 8.292859 / 6.657831 ms (0.638463× / 0.643775×) | synchronized; observational, no target |
+| MHR LOD1 CPU gradient, A | 656.606512 / 722.676883 ms; 2.573378 / 2.192284 F+B/F | absolute; observational, no target |
+| MHR LOD1 CPU gradient, B | 490.848457 / 510.086399 ms; 3.094853 / 2.763079 F+B/F | absolute; observational, no target |
+| MHR LOD1 native-CUDA gradient, A | 617.513200 / 603.712264 ms; 1.641031 / 2.763036 F+B/F | synchronized absolute; observational, no target |
+| MHR LOD1 native-CUDA gradient, B | 363.791832 / 398.367353 ms; 2.008058 / 3.698338 F+B/F | synchronized absolute; observational, no target |
 | Partial-model property (SMPL-X reduced vs full-with-identity DOFs) | ≤ 5e-7 m | keep |
 | Neutral SMPL mass — argmax segmentation (density 1000) | 73.43 kg parts / 74.76 kg whole, 1.78 % gap | the argmax fallback's inherent gap |
 | Neutral SMPL volume — authored closed-3D segmentation | 24-part sum within +0.0055 % of whole mesh | authored path must hold this |
 | Aggregate vs whole-mesh COM separation | 0.02 mm (authored), 2.47 mm (argmax) | |
 | SMPL/SMPL-X CRBA min eigenvalue (SPD check) | > 0 | keep |
-| Test gate | 226 passed, 19 warnings on pinned RTX 6000 Ada hardware | all five CUDA cases executed; unavailable hardware skips stay visible elsewhere |
+| Test gate | 230 passed, 19 warnings in 158.23s on pinned RTX 6000 Ada hardware | all six CUDA-guarded cases executed; zero skipped |
+
+The complete observational tables, agreement rows, environment, and commands
+are recorded in [Order 02 results](../plan/for_agents/02_results.md).
 
 For MHR, V denotes vertices, P native joint positions, Q sign-agnostic native
 joint quaternions, and S native joint scale. V and P are measured in meters;
