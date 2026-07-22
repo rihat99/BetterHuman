@@ -133,18 +133,6 @@ Recorded when the corresponding safety net landed. Correctness pins must not
 regress. Performance rows explicitly marked observational are reproducible
 reference points to remeasure and report, not pass/fail targets.
 
-For performance rows, Workload A recomputes shape and pose from supplied
-parameters on every call; its reference ratios compare equivalent computations.
-Workload B bakes shape once and streams poses; its ratio compares per-frame user
-cost because neither upstream reference exposes a shape-amortized API.
-SMPL-family slash-separated values are SMPL / SMPL-X; MHR values are
-correctives on / off. `F+B / F` is total forward-plus-backward divided by
-separately measured forward time, not a backward-only median. Official Warp
-rows are forward-only; combining `--use-warp --grad` uses an explicitly labeled
-Warp-forward/Torch-recompute-VJP hybrid. All performance values are float32
-batch-256 medians of 30 calls after five warmups and are subject to shared-host
-scheduling and concurrent-load noise.
-
 | Quantity | Baseline | Note |
 |---|---|---|
 | SMPL/SMPL-X float64 parity vs `smplx` oracle | ≤ 1e-6 m (worst measured ~1.04e-7) | sacred; never weakened |
@@ -152,29 +140,67 @@ scheduling and concurrent-load noise.
 | MHR float32 parity vs float32 `pymomentum` oracle | V ≤ 5e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | applies independently to every LOD |
 | MHR float64 parity vs float32 `pymomentum` oracle | V ≤ 2e-6 m; P ≤ 5e-7 m; Q ≤ 5e-7; S ≤ 1e-7 | mixed-precision oracle; not float64-oracle parity |
 | MHR LOD1 TorchScript vs float32 golden | V ≤ 2e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | independent secondary oracle; worst measured V 1.3113021850585938e-6 m; measured P/Q/S bit-exact |
-| SMPL family CPU forward | A: 1.309162× / 1.418376×; B: 1.033997× / 1.315579× | observational, no target |
-| SMPL family native-CUDA forward | A: 7.917632× / 6.613593×; B: 7.633592× / 6.462927× | synchronized; observational, no target |
-| SMPL family Warp-requested forward | A on Torch FK: 7.016172× / 9.535991×; B on Warp: 1.338540× / 0.950417× | synchronized; observational, no target |
-| SMPL family CPU gradient, A | 106.526944 ms (3.183103 F+B/F, 2.057300× upstream) / 221.165732 ms (3.017203, 1.968564×) | observational, no target |
-| SMPL family CPU gradient, B | 66.829707 ms (4.457463 F+B/F, 1.363085× upstream) / 213.446547 ms (3.574656, 1.606579×) | observational, no target |
-| SMPL family native-CUDA gradient, A | 86.299966 ms (3.852947 F+B/F, 12.397440× upstream) / 213.747098 ms (3.041208, 10.571821×) | synchronized; observational, no target |
-| SMPL family native-CUDA gradient, B | 70.088864 ms (3.352008 F+B/F, 8.476885× upstream) / 185.992442 ms (2.720660, 9.811030×) | synchronized; observational, no target |
-| MHR LOD1 CPU forward | A: 206.352065 / 249.103795 ms (0.226302× / 0.316514×); B: 136.900657 / 148.225082 ms (0.150136× / 0.188336×) | observational, no target |
-| MHR LOD1 native-CUDA forward | A: 169.116997 / 161.538835 ms (14.942053× / 17.634505×); B: 84.796631 / 164.078545 ms (7.492066× / 17.911754×) | synchronized; observational, no target |
-| MHR LOD1 Warp-requested forward | A on Torch FK: 164.781857 / 163.516999 ms (12.686466× / 15.811168×); B on Warp: 8.292859 / 6.657831 ms (0.638463× / 0.643775×) | synchronized; observational, no target |
-| MHR LOD1 CPU gradient, A | 656.606512 / 722.676883 ms; 2.573378 / 2.192284 F+B/F | absolute; observational, no target |
-| MHR LOD1 CPU gradient, B | 490.848457 / 510.086399 ms; 3.094853 / 2.763079 F+B/F | absolute; observational, no target |
-| MHR LOD1 native-CUDA gradient, A | 617.513200 / 603.712264 ms; 1.641031 / 2.763036 F+B/F | synchronized absolute; observational, no target |
-| MHR LOD1 native-CUDA gradient, B | 363.791832 / 398.367353 ms; 2.008058 / 3.698338 F+B/F | synchronized absolute; observational, no target |
 | Partial-model property (SMPL-X reduced vs full-with-identity DOFs) | ≤ 5e-7 m | keep |
 | Neutral SMPL mass — argmax segmentation (density 1000) | 73.43 kg parts / 74.76 kg whole, 1.78 % gap | the argmax fallback's inherent gap |
 | Neutral SMPL volume — authored closed-3D segmentation | 24-part sum within +0.0055 % of whole mesh | authored path must hold this |
 | Aggregate vs whole-mesh COM separation | 0.02 mm (authored), 2.47 mm (argmax) | |
 | SMPL/SMPL-X CRBA min eigenvalue (SPD check) | > 0 | keep |
-| Test gate | 230 passed, 19 warnings in 158.23s on pinned RTX 6000 Ada hardware | all six CUDA-guarded cases executed; zero skipped |
+| Test gate | 230 passed, 19 warnings in 116.88s on pinned RTX 6000 Ada hardware | all six CUDA-guarded cases executed; zero skipped |
 
-The complete observational tables, agreement rows, environment, and commands
-are recorded in [Order 02 results](../plan/for_agents/02_results.md).
+### Compact CUDA performance
+
+The current observational baseline comes from one official invocation of
+[`benchmark_bodies.py`](../benchmarks/benchmark_bodies.py): float32, batch sizes
+1 and 256, five warmups, and 30 explicitly synchronized timed calls per case.
+The tables report medians. The host carried an NVIDIA RTX 6000 Ada Generation,
+Torch 2.13.0+cu126, CUDA runtime 12.6, driver 560.35.03, and Warp 1.15.0.
+Shared-host scheduling and concurrent load may affect these values.
+
+BetterRobot was revision
+`8c4e619ab1262863b13678698e53f3f0ac9d7eed`; its eager matrix FK landed in
+`8fc19a2`. The BetterHuman base was `c8da7ec`, with a dirty worktree containing
+the compact benchmark implementation. Only eager Torch and fused Warp were
+measured; the compiled FK lane requires a separate cold-start and cache
+protocol and has no RNEA counterpart.
+
+The reference column is a full forward from upstream `smplx` or the MHR LOD1
+TorchScript release. BetterHuman bakes shape outside timing and streams poses.
+Neither reference has a shape-amortized API, so each ratio is a user-workload
+comparison rather than a matched-FLOP comparison. These rows are observational,
+not pass/fail targets.
+
+#### Fixed-shape vertex streaming
+
+| Body | Batch | Reference full (ms) | BH Torch (ms) | × ref | BH Warp (ms) | × ref |
+|---|---:|---:|---:|---:|---:|---:|
+| SMPL | 1 | 1.552809 | 3.928650 | 2.530028 | 2.199730 | 1.416613 |
+| SMPL | 256 | 2.318609 | 4.107289 | 1.771445 | 2.938329 | 1.267281 |
+| SMPL-X | 1 | 1.707323 | 2.722384 | 1.594534 | 1.316091 | 0.770850 |
+| SMPL-X | 256 | 4.319260 | 5.333991 | 1.234932 | 3.847292 | 0.890729 |
+| MHR | 1 | 3.039193 | 7.717042 | 2.539175 | 2.327013 | 0.765668 |
+| MHR | 256 | 12.105253 | 13.400580 | 1.107005 | 8.654711 | 0.714955 |
+
+The pre-timing vertex gate passed for both BetterHuman lanes. Worst maximum
+absolute error was `5.96046448e-7 m` for the SMPL family and
+`1.43051147e-6 m` for MHR.
+
+#### Absolute FK and RNEA
+
+| Body | Joints | nv | Batch | FK Torch (ms) | FK Warp (ms) | RNEA Torch (ms) | RNEA Warp (ms) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| SMPL | 25 | 75 | 1 | 2.514741 | 0.625391 | 11.645354 | 1.053602 |
+| SMPL | 25 | 75 | 256 | 1.589354 | 0.453229 | 6.956790 | 0.806229 |
+| SMPL-X | 56 | 168 | 1 | 1.871313 | 0.362131 | 12.951559 | 0.630839 |
+| SMPL-X | 56 | 168 | 256 | 1.956333 | 0.617371 | 13.316848 | 1.181127 |
+| MHR | 203 | 131 | 1 | 6.387257 | 0.898219 | 88.525171 | 1.613611 |
+| MHR | 203 | 131 | 256 | 6.693205 | 1.820299 | 53.731947 | 4.096781 |
+
+RNEA uses deterministic nonzero configurations, velocities, and accelerations,
+shape-specific masses, and reused `Data` workspaces. It has no original or
+upstream comparison. Sign-aligned Torch/Warp FK passed `rtol=2e-5` and
+`atol=2e-6`; RNEA passed `rtol=3e-4` and `atol=2e-4`. Any Warp fallback warning
+was a hard failure. MHR's absolute RNEA timing does not establish support for
+solve-based dynamics with its rank-deficient coordinates.
 
 For MHR, V denotes vertices, P native joint positions, Q sign-agnostic native
 joint quaternions, and S native joint scale. V and P are measured in meters;
