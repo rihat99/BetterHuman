@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .config_body import BodyConfig
+from ..config_body import BodyConfig
 
 SMPLX_CONFIG = BodyConfig(
     joint_names=(

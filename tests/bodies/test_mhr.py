@@ -228,6 +228,27 @@ def test_classic_broadcasts_and_expression_none_is_canonical_zero(body: bh.MHR) 
     assert torch.count_nonzero(recovered.expression) == 0
 
 
+def test_call_matches_two_step_exactly(body: bh.MHR) -> None:
+    identity = torch.linspace(-0.2, 0.2, 45)
+    proportions = torch.linspace(-0.1, 0.1, 73)
+    expression = torch.linspace(0.1, -0.1, 72)
+    shaped = body.with_shape(
+        identity=identity,
+        proportions=proportions,
+        expression=expression,
+    )
+    q = shaped.robot.q_neutral.clone()
+    q[7:] = torch.linspace(-0.01, 0.01, q.shape[-1] - 7)
+
+    actual = body(
+        q,
+        identity=identity,
+        proportions=proportions,
+        expression=expression,
+    )
+    assert torch.equal(actual, shaped.vertices(q))
+
+
 def test_expression_can_be_disabled() -> None:
     body = bh.MHR(
         _model_path(6),

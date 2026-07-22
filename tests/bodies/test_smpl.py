@@ -10,8 +10,8 @@ import torch
 import better_human as bh
 import better_human.core.body as body_module
 from better_human.bodies import SMPLClassic
-from better_human.bodies.config_smpl import SMPL_CONFIG
-from better_human.bodies.smpl_family import smpl_linear_pose_corrective
+from better_human.bodies.smpl_family.config_smpl import SMPL_CONFIG
+from better_human.bodies.smpl_family.shared import smpl_linear_pose_corrective
 from better_human.core.pipeline import lbs, skinning_transforms
 
 MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
@@ -46,6 +46,24 @@ def test_with_shape_is_functional_batched_and_broadcasts_q(body: bh.SMPL) -> Non
     vertices = shaped.vertices(q[0])
     assert vertices.shape == (2, 6890, 3)
     torch.testing.assert_close(shaped.values.rest_joints[..., 0, :], torch.zeros(2, 3))
+
+
+def test_call_matches_vertices_and_two_step_exactly(body: bh.SMPL) -> None:
+    betas = torch.linspace(-0.5, 0.5, 10)
+    shaped = body.with_shape(betas=betas)
+    q = shaped.from_classic(SMPLClassic(body_pose=torch.linspace(-0.2, 0.2, 69)))
+
+    assert torch.equal(body(q), body.vertices(q))
+    assert torch.equal(body(q, betas=betas), shaped.vertices(q))
+
+
+def test_call_propagates_shape_validation_errors(body: bh.SMPL) -> None:
+    q = body.from_classic(SMPLClassic())
+
+    with pytest.raises(ValueError, match="Unknown shape groups"):
+        body(q, unknown=torch.zeros(1))
+    with pytest.raises(ValueError, match=r"betas must have shape \(\.\.\., 10\)"):
+        body(q, betas=torch.zeros(9))
 
 
 def test_classic_round_trips_both_directions_with_root_wart(body: bh.SMPL) -> None:
@@ -167,3 +185,16 @@ def test_cuda_fk_and_vertices_smoke() -> None:
     body = bh.SMPL(MODEL_PATH, compute_mass=False, device=torch.device("cuda"))
     q = body.from_classic(SMPLClassic())
     assert body.vertices(q).is_cuda
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is unavailable")
+def test_cuda_call_matches_two_step_exactly() -> None:
+    body = bh.SMPL(MODEL_PATH, compute_mass=False, device=torch.device("cuda"))
+    betas = torch.linspace(-0.5, 0.5, 10, device="cuda")
+    shaped = body.with_shape(betas=betas)
+    body_pose = torch.linspace(-0.2, 0.2, 69, device="cuda")
+    q = shaped.from_classic(SMPLClassic(body_pose=body_pose))
+
+    actual = body(q, betas=betas)
+    assert actual.is_cuda
+    assert torch.equal(actual, shaped.vertices(q))

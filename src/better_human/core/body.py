@@ -107,6 +107,11 @@ class ParametricBody:
     #: Model-specific pose-feature and corrective function.
     _pose_corrective_policy: PoseCorrectivePolicy
 
+    def __call__(self, q: torch.Tensor, **shape_groups: torch.Tensor) -> torch.Tensor:
+        """Vertices from pose and optional shape in one call."""
+        body = self.with_shape(**shape_groups) if shape_groups else self
+        return body.vertices(q)
+
     def with_shape(self, **named_groups: torch.Tensor) -> ParametricBody:
         """Return a body with named shape groups baked into model values.
 

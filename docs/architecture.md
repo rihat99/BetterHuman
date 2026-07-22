@@ -115,12 +115,34 @@ loading (schema + spawn controls), the pose-feature policy, and
 static metadata — native joint names, the reduction index groups, landmark
 keypoint tables, native axis conventions, and the segmentation/density asset
 filenames — from a frozen `BodyConfig` in a per-model data module
-(`bodies/config_smpl.py`, `bodies/config_smplx.py`, `bodies/config_mhr.py`).
-The SMPL classes share data-binding helpers through `bodies/smpl_family.py`;
-the SMPL topology no longer lives in
-BetterRobot (which keeps only the generic kinematic-tree builder). Landmark
-keypoints restored from that config are read back through
-`body.landmark_positions(vertices)`.
+(`bodies/smpl_family/config_smpl.py`, `bodies/smpl_family/config_smplx.py`,
+`bodies/mhr/config.py`). The SMPL classes share data-binding helpers through
+`bodies/smpl_family/shared.py`; the SMPL topology no longer lives in BetterRobot (which keeps only
+the generic kinematic-tree builder). Landmark keypoints restored from that config are read back
+through `body.landmark_positions(vertices)`.
+
+### Design decision: composition, not inheritance
+
+`ParametricBody` contains a `better_robot.Model`; it does not inherit from one. This boundary
+is deliberate:
+
+- BetterRobot already separates and composes `ModelStructure`, `ModelValues`, and `Model`.
+  BetterHuman follows that idiom by pairing its mesh-specific structure and values with the
+  composed robot.
+- BetterRobot registers the exact `ModelValues` type as a PyTorch pytree and reconstructs that
+  base type. A subclass can instead become a leaf or lose its subclass on reconstruction, so
+  inheritance would make transforms such as `vmap` and `compile` depend on registration details.
+- The schemas have different ownership and update lifecycles. `ModelValues` does support leading
+  batch dimensions for its batch-bearing tables, but body bases, vertices, inverse binds, and
+  shape-baked products are not robot values. Folding them together would also couple BetterHuman
+  to BetterRobot's evolving alpha schemas—currently 78 `ModelStructure` fields and 15
+  `ModelValues` fields—rather than to a stable composition seam.
+- Native human-model vocabulary is not the robot execution vocabulary. MHR, for example, uses
+  `joint_names` and `parents` for 127 authored skin joints, while the same names on its BetterRobot
+  model describe a 203-joint expanded tree. One inherited field could not carry both meanings.
+- Mesh representation will evolve independently of robot topology: future bodies may expose
+  multiple meshes, materials, collision surfaces, and several LODs for one robot. Composition lets
+  those assets change without multiplying or redefining BetterRobot model types.
 
 ## The user-facing flow
 
@@ -136,6 +158,12 @@ q     = body.from_classic(classic)                     # native params -> q
 classic = body.to_classic(q)                           # exact inverse
 body2 = bh.load("smpl", model_path=...)                # registry factory
 ```
+
+For a one-off shape-and-pose query, the callable form is exact shorthand for the two-step flow:
+`verts = body(q, betas=betas)` is equivalent to
+`body.with_shape(betas=betas).vertices(q)`. When many poses share one identity, keep the
+fixed-shape fast path: bake once with `shaped = body.with_shape(betas=betas)`, then call
+`shaped.vertices(q)` for each pose. The callable adds no cache and returns only vertices.
 
 For SMPL and SMPL-X, classic inputs contain pose state, so `from_classic`
 returns `q`. MHR's native input also contains identity, expression, and bone
@@ -504,16 +532,24 @@ src/better_human/
 │   ├── mass.py        # closed part meshes and shape-dependent inertias
 │   └── classic.py     # shared converter algebra (pelvis-offset, axis-angle<->quat)
 ├── bodies/
-│   ├── registry.py    # load("smplx", ...) — decorator-registered factories
+│   ├── __init__.py      # stable public body and classic-value exports
+│   ├── registry.py      # load("smplx", ...) — decorator-registered factories
 │   ├── config_body.py   # BodyConfig dataclass (per-model static metadata)
-│   ├── config_smpl.py   # SMPL joint names, landmarks, asset filenames
-│   ├── config_smplx.py  # SMPL-X names, reduction groups, landmarks, assets
-│   ├── config_mhr.py    # MHR LODs, units, axes, archive pattern
-│   ├── smpl_family.py    # shared data binding (values, robot, mass, density)
-│   ├── smpl.py          # schema binding, converters, spawn flags
-│   ├── smplx.py
-│   ├── mhr.py           # authored rig, MLP corrective, classic boundary
-│   └── assets/          # authored segmentation + density tables + loaders
+│   ├── assets/          # authored segmentation + density tables + loaders
+│   ├── smpl_family/
+│   │   ├── __init__.py      # family exports
+│   │   ├── config_smpl.py   # SMPL names, landmarks, asset filenames
+│   │   ├── config_smplx.py  # SMPL-X names, reduction groups, assets
+│   │   ├── shared.py        # shared values, robot, mass, and density binding
+│   │   ├── smpl.py          # SMPL schema, converters, and spawn flags
+│   │   └── smplx.py         # SMPL-X schema, converters, and spawn flags
+│   └── mhr/
+│       ├── __init__.py      # family exports
+│       ├── config.py        # LODs, units, axes, and archive pattern
+│       ├── archive.py       # archive tensors, metadata, bases, and segmentation
+│       ├── tree.py          # authored-to-BetterRobot kinematic-tree binding
+│       ├── deformation.py   # shape bake and MLP pose correctives
+│       └── body.py          # MHR loader and classic boundary
 ├── io/
 │   ├── schema.py      # per-model npz field schemas, validation
 │   ├── load.py        # path resolution (arg > env root), validated loading

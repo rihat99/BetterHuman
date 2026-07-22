@@ -19,9 +19,9 @@ from better_human.core.classic import (
 from better_human.core.reduction import reduce_joint_data, slice_parameter_basis
 from better_human.io import SMPLX_SCHEMA, load_model_npz, resolve_model_path
 
+from ..registry import register
 from .config_smplx import SMPLX_CONFIG
-from .registry import register
-from .smpl_family import (
+from .shared import (
     bind_mass_properties,
     bind_smpl_body,
     build_family_robot,

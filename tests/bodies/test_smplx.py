@@ -9,7 +9,7 @@ import torch
 
 import better_human as bh
 from better_human.bodies import SMPLXClassic
-from better_human.bodies.config_smplx import SMPLX_CONFIG
+from better_human.bodies.smpl_family.config_smplx import SMPLX_CONFIG
 
 MODEL_PATH = Path(__file__).parents[2] / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
 GRADCHECK_VERTEX_INDICES = torch.tensor([0, 2618, 5237, 7856, 10474], dtype=torch.long)
