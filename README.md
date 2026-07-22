@@ -142,5 +142,6 @@ uv run python examples/01_smpl_shape_pose.py --headless --frames 1
 
 Start with [the vision](docs/vision.md), then see
 [architecture](docs/architecture.md), [tensor and convention contracts](docs/contracts.md),
-and [design principles](docs/design_principles.md). The implementation orders
-and their measured results live in [`plan/for_agents/`](plan/for_agents/).
+and [design principles](docs/design_principles.md). Measured parity and
+performance baselines live in the contracts and architecture docs; the
+current implementation orders live in [`plan/`](plan/).

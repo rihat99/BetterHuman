@@ -83,25 +83,24 @@ def test_scaled_joint_quaternion_does_not_change_vertices(body: bh.SMPL) -> None
     torch.testing.assert_close(body.vertices(scaled_q), body.vertices(q), rtol=2e-6, atol=2e-6)
 
 
-def test_generalized_skinning_reduces_exactly_on_smpl_fixture(body: bh.SMPL) -> None:
+def test_unit_scales_reduce_exactly_to_unscaled_smpl_skinning(body: bh.SMPL) -> None:
     q = body.from_classic(SMPLClassic(body_pose=torch.linspace(-0.2, 0.2, 69)))
     data = body.fk(q)
-    legacy_vertices = body.vertices_from_data(data)
+    unscaled_vertices = body.vertices_from_data(data)
     rest_vertices = body.values.v_shaped + smpl_linear_pose_corrective(body, data)
-    bind_quaternions = body.values.rest_joints.new_zeros((*body.values.rest_joints.shape[:-1], 4))
-    bind_quaternions[..., 3] = 1
-    bind_poses = torch.cat((body.values.rest_joints, bind_quaternions), dim=-1)
-    transforms = skinning_transforms(data.joint_pose_world[..., 1:, :], bind_poses)
-    generalized_vertices = lbs(
+    transforms = skinning_transforms(
+        data.joint_pose_world[..., 1:, :],
+        body.values.rest_joints,
+    )
+    scaled_vertices = lbs(
         rest_vertices,
         transforms,
-        body.values.skinning_weights,
-        body.structure.skinning_indices,
+        body.values.skinning_weight_matrix,
         joint_scales=rest_vertices.new_ones(len(body.structure.joint_names)),
         bind_joint_positions=body.values.rest_joints,
     )
 
-    assert torch.equal(generalized_vertices, legacy_vertices)
+    assert torch.equal(scaled_vertices, unscaled_vertices)
 
 
 def test_vertices_calls_fk_once(body: bh.SMPL, monkeypatch: pytest.MonkeyPatch) -> None:

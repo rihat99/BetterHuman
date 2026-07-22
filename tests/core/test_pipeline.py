@@ -9,15 +9,16 @@ from torch.nn import functional
 
 from better_human.core.pipeline import (
     blend_shapes,
+    dense_skinning_weights,
     dense_weight_from_sparse,
     lbs,
     linear_corrective,
     mlp_corrective,
     pose_feature_6d_from_euler,
-    pose_feature_6d_from_matrix,
     pose_feature_rotmat_minus_identity,
     regress_joints,
     skinning_transforms,
+    skinning_transforms_from_inverse,
 )
 
 
@@ -96,26 +97,6 @@ def test_euler_6d_pose_feature_matches_reference_formula_with_leading_axes() -> 
     torch.testing.assert_close(actual, _reference_6d_feature(angles), rtol=0, atol=torch.finfo(angles.dtype).eps)
 
 
-def test_matrix_6d_pose_feature_matches_euler_entry_and_is_zero_at_rest() -> None:
-    angles = torch.tensor(
-        [[[0.2, -0.4, 0.7], [-0.1, 0.3, -0.6]]],
-        dtype=torch.float32,
-    )
-    matrices = _reference_euler_matrix(angles)
-    matrix_feature = pose_feature_6d_from_matrix(matrices)
-
-    torch.testing.assert_close(
-        matrix_feature,
-        pose_feature_6d_from_euler(angles),
-        rtol=0,
-        atol=torch.finfo(angles.dtype).eps,
-    )
-    assert matrix_feature.dtype == matrices.dtype
-    assert matrix_feature.device == matrices.device
-    identity = torch.eye(3, dtype=torch.float32).expand(4, 3, 3)
-    assert torch.equal(pose_feature_6d_from_matrix(identity), torch.zeros(24, dtype=torch.float32))
-
-
 def test_dense_sparse_weight_and_mlp_match_reference_without_mutating_input() -> None:
     mask = torch.tensor(
         [[True, False, True, False, False], [False, True, False, True, True], [True, False, False, False, True]],
@@ -130,11 +111,10 @@ def test_dense_sparse_weight_and_mlp_match_reference_without_mutating_input() ->
 
     feature = torch.linspace(-0.5, 0.7, 2 * 3 * 5, dtype=torch.float32).reshape(2, 3, 5)
     original = feature.clone()
-    bias = torch.tensor((0.1, -0.2, 0.3), dtype=torch.float32)
     output_weight = torch.linspace(-0.3, 0.4, 3 * 12, dtype=torch.float32).reshape(3, 12)
-    expected = (functional.linear(feature, first_weight, bias).relu() @ output_weight).reshape(2, 3, 4, 3)
+    expected = (functional.linear(feature, first_weight).relu() @ output_weight).reshape(2, 3, 4, 3)
 
-    actual = mlp_corrective(feature, first_weight, output_weight, bias)
+    actual = mlp_corrective(feature, first_weight, output_weight)
 
     assert torch.equal(feature, original)
     assert actual.shape == (2, 3, 4, 3)
@@ -143,7 +123,7 @@ def test_dense_sparse_weight_and_mlp_match_reference_without_mutating_input() ->
     torch.testing.assert_close(actual, expected)
 
 
-def test_skinning_transforms_and_padded_lbs_use_only_stored_influences() -> None:
+def test_dense_skinning_weights_and_matrix_lbs_accumulate_duplicate_influences() -> None:
     rest_joints = torch.tensor([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]], dtype=torch.float32)
     world_poses = se3.identity(batch_shape=(2,), dtype=torch.float32)
     world_poses = torch.cat(
@@ -151,43 +131,14 @@ def test_skinning_transforms_and_padded_lbs_use_only_stored_influences() -> None
     )
     transforms = skinning_transforms(world_poses, rest_joints)
     vertices = torch.tensor([[0.0, 1.0, 0.0], [2.0, 1.0, 0.0]], dtype=torch.float32)
-    weights = torch.tensor([[1.0, 0.0], [0.25, 0.75]], dtype=torch.float32)
+    weights = torch.tensor([[0.4, 0.6], [0.25, 0.75]], dtype=torch.float32)
     indices = torch.tensor([[0, 0], [0, 1]], dtype=torch.long)
+    weight_matrix = dense_skinning_weights(weights, indices, 2)
+    assert torch.equal(weight_matrix, torch.tensor([[1.0, 0.0], [0.25, 0.75]]))
+    assert weight_matrix.dtype == weights.dtype
+    assert weight_matrix.device == weights.device
     expected = torch.tensor([[1.0, 1.0, 0.0], [3.75, 1.0, 0.0]], dtype=torch.float32)
-    torch.testing.assert_close(lbs(vertices, transforms, weights, indices), expected)
-
-
-def test_full_bind_poses_and_unit_scales_reduce_exactly_to_legacy_skinning() -> None:
-    rest_joints = torch.tensor([[0.0, 0.0, 0.0], [2.0, -0.5, 0.25]], dtype=torch.float32)
-    bind_quaternions = torch.zeros((2, 4), dtype=torch.float32)
-    bind_quaternions[:, 3] = 1
-    bind_poses = torch.cat((rest_joints, bind_quaternions), dim=-1)
-    world_poses = se3.identity(batch_shape=(2,), dtype=torch.float32)
-    world_poses = torch.cat(
-        (
-            world_poses[..., :3] + torch.tensor([[0.5, 1.0, -0.25], [2.5, 0.25, 0.75]]),
-            world_poses[..., 3:],
-        ),
-        dim=-1,
-    )
-
-    legacy_transforms = skinning_transforms(world_poses, rest_joints)
-    full_bind_transforms = skinning_transforms(world_poses, bind_poses)
-    assert torch.equal(full_bind_transforms, legacy_transforms)
-
-    vertices = torch.tensor([[0.25, 0.5, -0.5], [1.5, 0.75, 0.25]], dtype=torch.float32)
-    weights = torch.tensor([[1.0, 0.0], [0.25, 0.75]], dtype=torch.float32)
-    indices = torch.tensor([[0, 0], [0, 1]], dtype=torch.long)
-    legacy = lbs(vertices, legacy_transforms, weights, indices)
-    generalized = lbs(
-        vertices,
-        full_bind_transforms,
-        weights,
-        indices,
-        joint_scales=torch.ones(2, dtype=torch.float32),
-        bind_joint_positions=rest_joints,
-    )
-    assert torch.equal(generalized, legacy)
+    torch.testing.assert_close(lbs(vertices, transforms, weight_matrix), expected)
 
 
 def test_scaled_lbs_matches_similarity_transform_about_nonidentity_bind_pose() -> None:
@@ -198,7 +149,7 @@ def test_scaled_lbs_matches_similarity_transform_about_nonidentity_bind_pose() -
     world_pose = torch.cat((torch.tensor((-0.25, 0.75, 1.5)), world_quaternion)).reshape(1, 7)
     vertex = torch.tensor([[1.5, 0.25, -0.75]], dtype=torch.float32)
     scale = torch.tensor((1.6,), dtype=torch.float32)
-    transforms = skinning_transforms(world_pose, bind_pose)
+    transforms = skinning_transforms_from_inverse(world_pose, se3.inverse(bind_pose))
     assert transforms.dtype == world_pose.dtype
     assert transforms.device == world_pose.device
 
@@ -206,7 +157,6 @@ def test_scaled_lbs_matches_similarity_transform_about_nonidentity_bind_pose() -
         vertex,
         transforms,
         torch.ones((1, 1), dtype=torch.float32),
-        torch.zeros((1, 1), dtype=torch.long),
         joint_scales=scale,
         bind_joint_positions=bind_pose[..., :3],
     )
@@ -228,13 +178,11 @@ def test_scaled_lbs_broadcasts_arbitrary_leading_axes() -> None:
     )
     scales = torch.tensor([[[1.0], [1.5], [2.0]]], dtype=torch.float32)
     weights = torch.ones((2, 1), dtype=torch.float32)
-    indices = torch.zeros((2, 1), dtype=torch.long)
 
     actual = lbs(
         vertices,
         transforms,
         weights,
-        indices,
         joint_scales=scales,
         bind_joint_positions=torch.zeros((1, 3), dtype=torch.float32),
     )
@@ -248,31 +196,20 @@ def test_scaled_lbs_requires_bind_joint_positions() -> None:
     vertices = torch.zeros((1, 3), dtype=torch.float32)
     transforms = se3.identity(batch_shape=(1,), dtype=torch.float32)
     weights = torch.ones((1, 1), dtype=torch.float32)
-    indices = torch.zeros((1, 1), dtype=torch.long)
 
     with pytest.raises(ValueError, match="bind_joint_positions are required"):
-        lbs(vertices, transforms, weights, indices, joint_scales=torch.ones(1))
+        lbs(vertices, transforms, weights, joint_scales=torch.ones(1))
 
 
-def test_float32_gradcheck_6d_pose_features() -> None:
+def test_float32_gradcheck_6d_pose_feature() -> None:
     angles = torch.tensor(
         [[[0.2, -0.3, 0.4], [-0.4, 0.1, 0.3]]],
         dtype=torch.float32,
         requires_grad=True,
     )
-    matrices = _reference_euler_matrix(angles.detach()).requires_grad_(True)
-
     assert torch.autograd.gradcheck(
         pose_feature_6d_from_euler,
         (angles,),
-        eps=1e-3,
-        atol=2e-3,
-        rtol=2e-2,
-        fast_mode=True,
-    )
-    assert torch.autograd.gradcheck(
-        pose_feature_6d_from_matrix,
-        (matrices,),
         eps=1e-3,
         atol=2e-3,
         rtol=2e-2,
@@ -292,11 +229,9 @@ def test_float32_gradcheck_mlp_corrective() -> None:
         dtype=torch.float32,
         requires_grad=True,
     )
-    bias = torch.ones(2, dtype=torch.float32, requires_grad=True)
-
     assert torch.autograd.gradcheck(
         mlp_corrective,
-        (feature, first_weight, output_weight, bias),
+        (feature, first_weight, output_weight),
         eps=1e-3,
         atol=1e-2,
         rtol=3e-2,
@@ -304,7 +239,7 @@ def test_float32_gradcheck_mlp_corrective() -> None:
     )
 
 
-def test_float32_gradcheck_full_bind_transforms_and_scaled_lbs() -> None:
+def test_float32_gradcheck_inverse_bind_transforms_and_scaled_lbs() -> None:
     world_poses = torch.tensor(
         [[0.2, -0.1, 0.3, 0.05, -0.02, 0.04, 0.9975]],
         dtype=torch.float32,
@@ -313,23 +248,25 @@ def test_float32_gradcheck_full_bind_transforms_and_scaled_lbs() -> None:
     bind_poses = torch.tensor(
         [[-0.1, 0.2, -0.3, -0.03, 0.04, 0.02, 0.9985]],
         dtype=torch.float32,
-        requires_grad=True,
     )
+    inverse_bind_poses = se3.inverse(bind_poses).detach().requires_grad_(True)
     assert torch.autograd.gradcheck(
-        skinning_transforms,
-        (world_poses, bind_poses),
+        skinning_transforms_from_inverse,
+        (world_poses, inverse_bind_poses),
         eps=1e-3,
         atol=1e-2,
         rtol=3e-2,
         fast_mode=True,
     )
 
-    transforms = skinning_transforms(world_poses.detach(), bind_poses.detach()).requires_grad_(True)
+    transforms = skinning_transforms_from_inverse(
+        world_poses.detach(),
+        inverse_bind_poses.detach(),
+    ).requires_grad_(True)
     vertices = torch.tensor([[0.4, -0.2, 0.1]], dtype=torch.float32, requires_grad=True)
     scales = torch.tensor([1.2], dtype=torch.float32, requires_grad=True)
     bind_positions = bind_poses.detach()[..., :3].requires_grad_(True)
     weights = torch.ones((1, 1), dtype=torch.float32)
-    indices = torch.zeros((1, 1), dtype=torch.long)
 
     def scaled_skinning(
         points: torch.Tensor,
@@ -341,7 +278,6 @@ def test_float32_gradcheck_full_bind_transforms_and_scaled_lbs() -> None:
             points,
             skinning,
             weights,
-            indices,
             joint_scales=joint_scales,
             bind_joint_positions=joint_positions,
         )

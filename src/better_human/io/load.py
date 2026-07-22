@@ -17,7 +17,6 @@ import os
 from collections.abc import Collection
 from pathlib import Path
 from typing import Any
-from zipfile import BadZipFile, ZipFile
 
 import numpy as np
 import torch
@@ -83,15 +82,14 @@ def load_model_npz(
     )
 
     with np.load(model_path, allow_pickle=False) as archive:
-        missing = [name for name in schema.fields if name not in archive.files]
+        missing = [name for name in selected_schema.fields if name not in archive.files]
         if missing:
             raise ValueError(
                 f"{model_path}: field {missing[0]!r} expected a required field, got missing. "
                 f"Reconvert the asset or provide a valid {schema.name} .npz file."
             )
         arrays = _read_archive_arrays(archive, selected_schema, model_path)
-        arrays.update(_read_array_header_views(model_path, excluded, schema))
-        validate(arrays, schema, source=str(model_path))
+        validate(arrays, selected_schema, source=str(model_path))
         return {name: _to_loaded_value(arrays[name]) for name in selected_schema.fields}
 
 
@@ -116,30 +114,3 @@ def _read_archive_arrays(
                 f"{schema.name} .npz file."
             ) from error
     return arrays
-
-
-def _read_array_header_views(
-    model_path: Path,
-    field_names: Collection[str],
-    schema: ModelSchema,
-) -> dict[str, np.ndarray]:
-    """Read shape/dtype metadata for excluded fields without their payloads."""
-    views: dict[str, np.ndarray] = {}
-    try:
-        with ZipFile(model_path) as archive:
-            for name in field_names:
-                with archive.open(f"{name}.npy") as member:
-                    version = np.lib.format.read_magic(member)
-                    if version == (1, 0):
-                        shape, _, dtype = np.lib.format.read_array_header_1_0(member)
-                    elif version == (2, 0):
-                        shape, _, dtype = np.lib.format.read_array_header_2_0(member)
-                    else:
-                        raise ValueError(f"unsupported NPY header version {version}")
-                views[name] = np.broadcast_to(np.empty((), dtype=dtype), shape)
-    except (BadZipFile, EOFError, KeyError, ValueError) as error:
-        raise ValueError(
-            f"{model_path}: excluded field metadata could not be read ({error}). "
-            f"Reconvert the asset or provide a valid {schema.name} .npz file."
-        ) from error
-    return views

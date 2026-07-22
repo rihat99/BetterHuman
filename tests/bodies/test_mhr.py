@@ -72,27 +72,52 @@ def test_registry_exports_and_data_driven_tree(body: bh.MHR) -> None:
 def test_parameter_partitions_and_public_q_follow_archive_names(body: bh.MHR) -> None:
     with np.load(_model_path(6), allow_pickle=False) as arrays:
         parameter_names = arrays["model_parameter_names"].tolist()
+        channel_types = torch.from_numpy(arrays["model_parameter_channel_types"])
         lower_limits = torch.from_numpy(arrays["model_parameter_lower_limits"])
         upper_limits = torch.from_numpy(arrays["model_parameter_upper_limits"])
-    pose_indices = body._pose_parameter_indices.tolist()
-    proportion_indices = body._proportion_parameter_indices.tolist()
+        rows = torch.from_numpy(arrays["parameter_transform_rows"])
+        columns = torch.from_numpy(arrays["parameter_transform_columns"])
+        weights = torch.from_numpy(arrays["parameter_transform_values"])
+    pose_indices = [index for index, kind in enumerate(channel_types.tolist()) if index >= 6 and kind == 1]
+    proportion_indices = [index for index, kind in enumerate(channel_types.tolist()) if index >= 6 and kind in (0, 2)]
     assert pose_indices == [*range(6, 130), 151]
     assert proportion_indices == [*range(130, 151), *range(152, 204)]
     assert proportion_indices[14:16] == [144, 145]
 
     model_parameters = torch.linspace(-0.4, 0.4, 204)
-    _, q = body.from_classic(MHRClassic(torch.zeros(45), model_parameters))
-    for position, parameter_index in enumerate(pose_indices):
-        joint_id = body.robot.joint_id(parameter_names[parameter_index])
-        q_index = body.robot.idx_qs[joint_id]
-        expected = model_parameters[parameter_index] * body._pose_host_weights[position]
-        torch.testing.assert_close(q[q_index], expected)
-        expected_limits = torch.sort(
-            torch.stack((lower_limits[parameter_index], upper_limits[parameter_index]))
-            * body._pose_host_weights[position]
-        ).values
-        torch.testing.assert_close(body.robot.lower_pos_limit[q_index], expected_limits[0])
-        torch.testing.assert_close(body.robot.upper_pos_limit[q_index], expected_limits[1])
+    shaped, q = body.from_classic(MHRClassic(torch.zeros(45), model_parameters))
+    proportion_tensor = torch.tensor(proportion_indices, dtype=torch.long)
+    torch.testing.assert_close(
+        shaped.values.shape_parameters["proportions"],
+        model_parameters.index_select(-1, proportion_tensor),
+    )
+
+    rotation_entries = (rows // 7 >= 2) & (rows % 7 >= 3) & (rows % 7 <= 5)
+    host_weights = []
+    for parameter_index in pose_indices:
+        candidates = weights[rotation_entries & (columns == parameter_index)]
+        unit_candidates = candidates[candidates == 1.0]
+        host_weights.append(unit_candidates[0] if len(unit_candidates) else candidates[0])
+    host_weight_tensor = torch.stack(host_weights)
+    pose_names = tuple(parameter_names[index] for index in pose_indices)
+    q_from_external, _ = body.robot.q_permutation(("root", *pose_names))
+    q_to_external = torch.argsort(q_from_external)
+    external_q = q.index_select(-1, q_to_external)
+    expected_pose = model_parameters.index_select(-1, torch.tensor(pose_indices)) * host_weight_tensor
+    torch.testing.assert_close(external_q[7:], expected_pose)
+
+    expected_limits = torch.sort(
+        torch.stack(
+            (
+                lower_limits.index_select(0, torch.tensor(pose_indices)) * host_weight_tensor,
+                upper_limits.index_select(0, torch.tensor(pose_indices)) * host_weight_tensor,
+            )
+        ),
+        dim=0,
+    ).values
+    torch.testing.assert_close(body.robot.lower_pos_limit.index_select(0, q_to_external)[7:], expected_limits[0])
+    torch.testing.assert_close(body.robot.upper_pos_limit.index_select(0, q_to_external)[7:], expected_limits[1])
+    torch.testing.assert_close(shaped.to_classic(q).model_parameters, model_parameters, rtol=0, atol=2e-6)
 
 
 def test_all_lods_spawn_and_forward_without_corrective_payloads() -> None:
@@ -103,6 +128,7 @@ def test_all_lods_spawn_and_forward_without_corrective_payloads() -> None:
             use_correctives=False,
             compute_mass=False,
         )
+        # No public state exposes whether the omitted corrective payload was bound.
         assert body._corrective_first_layer_weight is None
         assert body._corrective_output_weight is None
         assert body.vertices(body.robot.q_neutral).shape == (vertex_count, 3)
@@ -128,6 +154,10 @@ def test_classic_round_trip_includes_shape_pose_and_scaled_hosts(
     model_parameters[:6] = torch.tensor((0.2, -0.1, 0.3, 0.4, -0.35, 0.25), dtype=dtype)
     with np.load(_model_path(6), allow_pickle=False) as arrays:
         parameter_names = arrays["model_parameter_names"].tolist()
+        channel_types = arrays["model_parameter_channel_types"].tolist()
+        transform_rows = torch.from_numpy(arrays["parameter_transform_rows"])
+        transform_columns = torch.from_numpy(arrays["parameter_transform_columns"])
+        transform_weights = torch.from_numpy(arrays["parameter_transform_values"])
     spine_indices = [index for index, name in enumerate(parameter_names) if name.startswith("spine_")]
     model_parameters[spine_indices] = torch.linspace(-0.8, 0.8, len(spine_indices), dtype=dtype)
     expression = torch.linspace(0.3, -0.3, 72, dtype=dtype)
@@ -152,9 +182,15 @@ def test_classic_round_trip_includes_shape_pose_and_scaled_hosts(
     )
 
     spine_twist = parameter_names.index("spine_twist0")
-    external_q = q.index_select(-1, body._q_to_classic_permutation)
-    pose_position = body._pose_parameter_indices.tolist().index(spine_twist)
-    host_weight = body._pose_host_weights[pose_position]
+    pose_indices = [index for index, kind in enumerate(channel_types) if index >= 6 and kind == 1]
+    pose_names = tuple(parameter_names[index] for index in pose_indices)
+    q_from_external, _ = body.robot.q_permutation(("root", *pose_names))
+    external_q = q.index_select(-1, torch.argsort(q_from_external))
+    pose_position = pose_indices.index(spine_twist)
+    rotation_entries = (transform_rows // 7 >= 2) & (transform_rows % 7 >= 3) & (transform_rows % 7 <= 5)
+    host_candidates = transform_weights[rotation_entries & (transform_columns == spine_twist)]
+    unit_candidates = host_candidates[host_candidates == 1.0]
+    host_weight = (unit_candidates[0] if len(unit_candidates) else host_candidates[0]).to(dtype=dtype)
     torch.testing.assert_close(host_weight, host_weight.new_tensor(0.01), rtol=0, atol=3e-10)
     torch.testing.assert_close(
         external_q[7 + pose_position],
@@ -253,8 +289,11 @@ def test_mimic_expansion_matches_all_spine_twist_weights(body: bh.MHR) -> None:
     model_parameters[parameter_index] = 1.0
     _, q = body.from_classic(MHRClassic(torch.zeros(45), model_parameters))
     q_full = expand_configuration(body.robot.structure, q)
-    contributions = q_full.index_select(-1, body._corrective_full_q_indices)[selected]
-    torch.testing.assert_close(contributions, expected)
+    source_id = body.robot.joint_id("spine_twist0")
+    driven_joint_ids = [joint for joint, source in enumerate(body.robot.mimic_source) if source == source_id]
+    full_q_indices = torch.tensor([body.robot.idx_qs_full[joint] for joint in driven_joint_ids])
+    contributions = q_full.index_select(-1, full_q_indices)
+    torch.testing.assert_close(contributions.sort().values, expected.sort().values)
 
 
 def test_all_rotation_transform_entries_match_expanded_configuration(body: bh.MHR) -> None:
@@ -262,6 +301,7 @@ def test_all_rotation_transform_entries_match_expanded_configuration(body: bh.MH
         rows = torch.from_numpy(arrays["parameter_transform_rows"]).long()
         columns = torch.from_numpy(arrays["parameter_transform_columns"]).long()
         weights = torch.from_numpy(arrays["parameter_transform_values"])
+        channel_types = arrays["model_parameter_channel_types"].tolist()
     native_joints = rows // 7
     channels = rows % 7
     rotation_entries = (native_joints >= 2) & (channels >= 3) & (channels <= 5)
@@ -277,12 +317,16 @@ def test_all_rotation_transform_entries_match_expanded_configuration(body: bh.MH
     _, q = body.from_classic(MHRClassic(torch.zeros(100, 45), model_parameters))
     expanded = expand_configuration(body.robot.structure, q).index_select(
         -1,
-        body._corrective_full_q_indices,
+        # No public mapping aligns expanded joints with authored corrective rows.
+        body._tree.corrective_full_q_indices,
     )
     expected = model_parameters.index_select(-1, rotation_columns) * rotation_weights
     torch.testing.assert_close(expanded, expected, rtol=0, atol=2e-7)
 
-    pose_columns = body._pose_parameter_indices.cpu()
+    pose_columns = torch.tensor(
+        [index for index, kind in enumerate(channel_types) if index >= 6 and kind == 1],
+        dtype=torch.long,
+    )
     local_columns = torch.full((204,), -1, dtype=torch.long)
     local_columns[pose_columns] = torch.arange(len(pose_columns))
     transform = torch.zeros(375, 125, dtype=torch.float64)

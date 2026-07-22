@@ -63,6 +63,8 @@ class BodyValues:
     joint_regressor: torch.Tensor | None
     #: Padded nonzero LBS weights with shape ``(V, K)``.
     skinning_weights: torch.Tensor
+    #: Dense matrix-blend LBS weights with shape ``(V, J)``.
+    skinning_weight_matrix: torch.Tensor
     #: Current named parameter tensors, including leading batch axes.
     shape_parameters: Mapping[str, torch.Tensor]
     #: Model-canonical shaped vertices with shape ``(..., V, 3)``.
@@ -143,7 +145,7 @@ class ParametricBody:
         return br.forward_kinematics(self.robot, q)
 
     def vertices(self, q: torch.Tensor) -> torch.Tensor:
-        """Run one FK traversal, pose correctives, and sparse LBS."""
+        """Run one FK traversal, pose correctives, and matrix-blend LBS."""
         return self.vertices_from_data(self.fk(q))
 
     def vertices_from_data(self, data: Data) -> torch.Tensor:
@@ -162,8 +164,7 @@ class ParametricBody:
         return lbs(
             rest_vertices,
             transforms,
-            self.values.skinning_weights,
-            self.structure.skinning_indices,
+            self.values.skinning_weight_matrix,
             joint_scales=self.values.joint_scales,
             bind_joint_positions=self.values.bind_joint_positions,
         )

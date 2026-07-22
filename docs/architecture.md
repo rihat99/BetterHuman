@@ -47,7 +47,15 @@ M(β, θ, ψ) = W( T(θ, J(β)) · ( v_template + B_S(β) + B_E(ψ) + B_P(φ(θ,
 | Joint regression `J(β)` | linear map of shaped verts (or absent) | `core`, at `with_shape` time |
 | FK `T(θ, J)` | configuration `q` on the kinematic tree | **BetterRobot** |
 | Pose corrective `B_P(φ(θ,β))` | callable of pose feature (and β for STAR) | `core`, per query |
-| Skinning `W(·)` | LBS, padded `[V,K]` influences | `core`, per query |
+| Skinning `W(·)` | LBS, spawn-built dense `[V,J]` matrix; padded `[V,K]` archive storage retained | `core`, per query |
+
+At spawn, the padded sparse `(V, K)` weights are scattered into one dense
+`(V, J)` matrix. At query time each joint transform becomes a 3×4 affine,
+the affines are blended once, and one blended affine is applied per vertex.
+Scaled joints fold their scale and bind pivot into the joint affine first.
+This matrix-blend formulation replaces the former per-vertex, per-influence
+transform gather while preserving the archive representation for validation
+and segmentation.
 
 The pipeline is written **once** in `core`; a model contributes *data* (weight
 tensors, topology, schema) and *small policy choices* (pose-feature function,
@@ -68,10 +76,11 @@ composes with it rather than forking it:
   (units, up-axis, native pose format).
 - **`BodyValues`** (differentiable tensors, BetterHuman side): the loaded
   weight tensors (`v_template`, shape/expression basis, corrective basis,
-  joint regressor, skinning weight values) **plus the shape-baked products**
-  — `v_shaped`, rest joints `J(β)`, and packed body inertias — which are
-  batch-bearing (`(B, V, 3)` = B different bodies), exactly like
-  BetterRobot's batch-bearing `ModelValues` tables.
+  joint regressor, padded skinning values, and the spawn-built dense skinning
+  matrix) **plus the shape-baked products** — `v_shaped`, rest joints `J(β)`,
+  and packed body inertias — which are batch-bearing (`(B, V, 3)` = B
+  different bodies), exactly like BetterRobot's batch-bearing `ModelValues`
+  tables.
 - **`better_robot.Model`** (the robot): free-flyer root + typed joints
   (spherical for SMPL-family bodies; revolute/mimic stacks for MHR), built
   programmatically at spawn via `build_kinematic_tree_model` with
@@ -214,6 +223,11 @@ produce vertices. Seven LOD archives share this rig (LOD0–6, default LOD1);
 load time, while `compute_mass=False` avoids topology construction and inertia
 integration.
 
+The LOD0 archive is 2,769,297,616 bytes (2,641.01 MiB, 2.579 GiB); its stored
+float32 `corrective_output_weights` tensor alone is 2,651,004,000 bytes
+(2.469 GiB). Consequently, a correctives-off load must neither require nor
+inspect that optional payload.
+
 ## Partial-model spawning — parameters, never subclasses
 
 Spawn parameters (`num_betas`, `use_hands`, `use_face`, …) drive **one
@@ -310,6 +324,10 @@ Mass baking adds nontrivial cost to `with_shape`, so it is enabled by default
 but may be disabled at spawn with `compute_mass=False` for deformation-only
 workloads.
 
+At density 1000 kg/m³, neutral MHR LOD1 has 19 positive physical bodies with
+a total mass of 81.481849670 kg. LOD1 is the default measured baseline;
+centroid-capped totals on coarser LOD surfaces are approximate.
+
 MHR's current grouped placement does not provide invertible dynamics: neutral
 LOD1 CRBA has rank 50/131, while the overcomplete pose map alone imposes a
 theoretical rank ceiling of 125/131. The exact PSD diagnostics are recorded in
@@ -323,31 +341,109 @@ BetterRobot provides `SwingTwistLimitResidual` for callers that supply cone
 limits, but BetterHuman does not yet ship per-model anatomical tables. MHR's
 scalar revolute coordinates do receive their sign-aware archive limits.
 
+## SMPL and SMPL-X performance
+
+`benchmarks/benchmark_smpl.py` compares the neutral float32 SMPL and SMPL-X
+models with the vendored upstream `smplx` 0.1.28 package using the same NPZ
+parity fixtures. SMPL uses 10 betas. SMPL-X uses 16 betas, 10 expressions,
+full hands and face, natural hand means, no hand PCA, and no face contour.
+The upstream SMPL-X call disables its optional duplicate shaped-vertex output;
+its static landmark and extra-joint work remains part of the full forward,
+with a reference instance constructed at each matching batch size.
+
+The upstream row recomputes shape and pose. BetterHuman's **pose-only** row
+uses one scalar shape baked before timing; its **shape+pose** row performs
+`with_shape` plus `vertices(q)` every call and is the fair end-to-end
+comparison. Shape rows are identical within each batch while pose rows vary.
+Before timing, both BetterHuman paths were compared directly with upstream at
+every model, batch, device, and FK lane; the worst maximum absolute vertex
+difference was `5.9604644775390625e-7 m`, below the `1e-6 m` parity pin.
+
+CPU measurements used five warmups and 30 calls, 112 intra/inter-op threads,
+PyTorch 2.13.0+cu126, and BetterRobot 0.2.0 on the shared dual-socket Intel
+Xeon Platinum 8570 host:
+
+| Model | Batch | Original shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
+|---|---:|---:|---:|---:|
+| SMPL | 1 | 5.982045 | 6.294569 / 1.052244× | 21.256035 / 3.553306× |
+| SMPL | 16 | 2.421118 | 11.292286 / 4.664079× | 11.746825 / 4.851819× |
+| SMPL | 256 | 23.291602 | 28.108368 / 1.206803× | 31.323141 / 1.344826× |
+| SMPL-X | 1 | 2.072404 | 13.443112 / 6.486724× | 9.304661 / 4.489791× |
+| SMPL-X | 16 | 2.315695 | 10.618555 / 4.585471× | 10.957764 / 4.731954× |
+| SMPL-X | 256 | 40.569139 | 44.174468 / 1.088869× | 54.745655 / 1.349441× |
+
+The small-batch CPU medians are visibly affected by shared-host scheduling;
+the raw values are retained rather than selectively rerun. At batch 256,
+both paths are within 1.35× of upstream for both models.
+
+CUDA used explicit synchronization and an otherwise idle NVIDIA RTX 6000 Ada
+Generation (48 GiB, compute capability 8.9, driver 560.35.03). Native Torch
+FK measured:
+
+| Model | Batch | Original shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
+|---|---:|---:|---:|---:|
+| SMPL | 1 | 1.664994 | 17.377573 / 10.437015× | 17.905309 / 10.753975× |
+| SMPL | 16 | 1.707768 | 18.073975 / 10.583390× | 18.894050 / 11.063593× |
+| SMPL | 256 | 3.010079 | 22.172007 / 7.365921× | 23.031094 / 7.651324× |
+| SMPL-X | 1 | 3.183152 | 41.392021 / 13.003472× | 44.985560 / 14.132397× |
+| SMPL-X | 16 | 3.414323 | 45.384021 / 13.292246× | 46.294748 / 13.558983× |
+| SMPL-X | 256 | 5.671885 | 30.813797 / 5.432726× | 26.117499 / 4.604730× |
+
+Every native CUDA batch-16/256 result is more than 2× upstream. The pose-only
+stage split identifies Torch FK as the bottleneck: FK measures
+16.791555/19.648005 ms for SMPL and 43.724548/22.255063 ms for SMPL-X at
+batch 16/256, while correctives are at most 0.494661 ms and transforms plus
+LBS at most 3.056215 ms. Isolated stage medians are diagnostic and not
+additive.
+
+BetterRobot's optional Warp 1.15.0 lane changes only the pre-baked pose-only
+FK. Its matching-invocation upstream medians and stage split were:
+
+| Model | Batch | Original (ms) | BetterHuman pose-only (ms / ×ref) | Warp FK (ms) | Corrective (ms) | Transforms + LBS (ms) |
+|---|---:|---:|---:|---:|---:|---:|
+| SMPL | 1 | 1.855876 | 2.668455 / 1.437841× | 0.438639 | 0.316354 | 0.779355 |
+| SMPL | 16 | 1.237468 | 1.810249 / 1.462866× | 0.391695 | 0.298544 | 0.784786 |
+| SMPL | 256 | 3.149287 | 4.346257 / 1.380076× | 0.767779 | 0.486483 | 2.597154 |
+| SMPL-X | 1 | 3.152521 | 2.488716 / 0.789437× | 0.678249 | 0.431269 | 1.052793 |
+| SMPL-X | 16 | 3.401570 | 2.721118 / 0.799960× | 0.697566 | 0.451804 | 1.161303 |
+| SMPL-X | 256 | 5.668683 | 5.212826 / 0.919583× | 0.631048 | 0.457872 | 3.086571 |
+
+Warp pose-only is within 1.47× of upstream throughout and faster for all
+SMPL-X batches in this run. The fair shape+pose path retains Torch FK because
+its joint placements carry the shape batch; it remains 7.41–13.17× upstream
+at CUDA batch 16/256. This is a reported BetterRobot seam, not a reason to
+duplicate FK in BetterHuman. Full tables and agreement values are in
+`plan/for_agents/03_results.md`; the reproducible harness is
+`benchmarks/benchmark_smpl.py`.
+
 ## MHR performance
 
 The LOD1 reference TorchScript recomputes shape on every call. BetterHuman is
 therefore reported both as **pose-only** (one scalar shape baked before timing,
 then batched `q`) and **shape+pose** (`with_shape` plus `vertices(q)` each
-call). The latter is the fair end-to-end comparison. These are CPU float32
-medians over 30 calls after five warmups on a dual-socket Intel Xeon Platinum
-8570 with PyTorch 2.13.0, BetterRobot 0.2.0, and 112 intra/inter-op threads:
+call). The latter is the fair end-to-end comparison.
+
+These are CPU float32 medians over 30 calls after five warmups on a dual-socket
+Intel Xeon Platinum 8570 with PyTorch 2.13.0, BetterRobot 0.2.0, and 112
+intra/inter-op threads:
 
 | Batch | Correctives | TorchScript shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
 |---:|:---:|---:|---:|---:|
-| 1 | on | 20.169990 | 208.214920 / 10.323006× | 318.263894 / 15.779080× |
-| 1 | off | 12.667384 | 226.565365 / 17.885726× | 312.925717 / 24.703263× |
-| 16 | on | 48.545396 | 119.060006 / 2.452550× | 132.579338 / 2.731038× |
-| 16 | off | 43.209223 | 115.589255 / 2.675106× | 117.570330 / 2.720955× |
-| 256 | on | 988.033544 | 1482.259346 / 1.500212× | 1623.051953 / 1.642709× |
-| 256 | off | 876.298065 | 1467.830282 / 1.675035× | 1557.705576 / 1.777598× |
+| 1 | on | 19.505918 | 104.505661 / 5.357639× | 175.038120 / 8.973590× |
+| 1 | off | 10.832997 | 83.003433 / 7.662093× | 156.004285 / 14.400843× |
+| 16 | on | 43.595248 | 32.781757 / 0.751957× | 61.089930 / 1.401298× |
+| 16 | off | 38.767081 | 51.125402 / 1.318784× | 101.672627 / 2.622654× |
+| 256 | on | 767.727395 | 178.638341 / 0.232685× | 270.257807 / 0.352023× |
+| 256 | off | 860.573079 | 141.988578 / 0.164993× | 247.239801 / 0.287297× |
 
-At batch 256, inverse-bind transform construction plus sparse scaled LBS is
-the dominant CPU stage (1427.753313 ms with correctives, 1346.318814 ms
-without); FK is 58.057344/33.725507 ms and the corrective stage is
-16.201941/0.042990 ms. Isolated stage medians are diagnostic and not additive.
-At batch 1, the roughly 42 ms BetterRobot Python/topological FK traversal is
-material. The shared host was busy during the run, so these exact numbers are
-the recorded baseline, not a general hardware claim.
+At batch 256, inverse-bind construction plus matrix-blend LBS measures
+85.244686/84.558726 ms with correctives on/off, down from the prior
+1427.753313/1346.318814 ms formulation. FK is 56.038709/55.463856 ms and the
+corrective stage is 24.450985/0.048177 ms. Isolated stage medians are diagnostic
+and not additive. At batch 1, the roughly 42 ms BetterRobot Python/topological
+FK traversal remains material. Shared-host load made the small-batch stage
+medians visibly noisy, so these exact values are the recorded run rather than a
+general hardware claim.
 
 CUDA was measured on an otherwise idle NVIDIA RTX 6000 Ada Generation
 (48 GiB, compute capability 8.9, driver 560.35.03) with the same warmup and
@@ -356,33 +452,38 @@ Torch FK lane measured:
 
 | Batch | Correctives | TorchScript shape+pose (ms) | BetterHuman pose-only (ms / ×ref) | BetterHuman shape+pose (ms / ×ref) |
 |---:|:---:|---:|---:|---:|
-| 1 | on | 3.577612 | 71.391603 / 19.955099× | 143.908253 / 40.224667× |
-| 1 | off | 2.306796 | 71.322613 / 30.918474× | 143.802566 / 62.338658× |
-| 16 | on | 4.011412 | 74.835912 / 18.655753× | 149.518514 / 37.273288× |
-| 16 | off | 2.426612 | 73.981340 / 30.487503× | 149.872687 / 61.762114× |
-| 256 | on | 12.174137 | 159.218377 / 13.078412× | 288.315912 / 23.682657× |
-| 256 | off | 9.818413 | 170.745595 / 17.390346× | 343.478717 / 34.983120× |
+| 1 | on | 3.549979 | 95.193920 / 26.815347× | 190.865683 / 53.765299× |
+| 1 | off | 2.275135 | 70.019388 / 30.775927× | 140.907083 / 61.933504× |
+| 16 | on | 3.951922 | 73.523560 / 18.604507× | 146.560227 / 37.085810× |
+| 16 | off | 2.384344 | 72.506513 / 30.409418× | 145.687805 / 61.101840× |
+| 256 | on | 12.171629 | 79.546592 / 6.535411× | 155.047731 / 12.738454× |
+| 256 | off | 9.428837 | 78.125182 / 8.285771× | 153.348507 / 16.263777× |
+
+At batch 256, native Torch FK still accounts for 73.015869/72.660426 ms,
+while inverse-bind construction plus matrix-blend LBS is only
+5.103035/5.102114 ms. The native lane therefore remains FK-bound.
 
 BetterRobot's optional Warp 1.15.0 lane fuses pose-only FK. Its within-run
 comparison and isolated split were:
 
 | Batch | Correctives | TorchScript (ms) | BetterHuman pose-only (ms / ×ref) | Warp FK (ms) | Corrective (ms) | Transforms + LBS (ms) |
 |---:|:---:|---:|---:|---:|---:|---:|
-| 1 | on | 2.261189 | 2.234005 / 0.987978× | 0.875298 | 1.017433 | 0.556030 |
-| 1 | off | 1.175796 | 1.426103 / 1.212883× | 0.880708 | 0.017089 | 0.579417 |
-| 16 | on | 2.590233 | 3.450263 / 1.332028× | 0.920807 | 1.054835 | 1.503042 |
-| 16 | off | 1.300680 | 2.291790 / 1.761994× | 0.917623 | 0.016657 | 1.366592 |
-| 256 | on | 12.741430 | 33.835041 / 2.655514× | 1.552150 | 1.992780 | 30.067871 |
-| 256 | off | 10.096905 | 29.416434 / 2.913411× | 1.555098 | 0.008694 | 27.737855 |
+| 1 | on | 2.191199 | 2.565200 / 1.170683× | 0.632403 | 0.945547 | 0.578162 |
+| 1 | off | 1.120560 | 1.062819 / 0.948471× | 0.615940 | 0.010177 | 0.565254 |
+| 16 | on | 2.516612 | 2.263239 / 0.899320× | 0.658878 | 0.977999 | 0.771719 |
+| 16 | off | 1.236523 | 1.306156 / 1.056314× | 0.642872 | 0.009840 | 0.749222 |
+| 256 | on | 11.200383 | 8.333692 / 0.744054× | 1.688651 | 1.925943 | 5.245006 |
+| 256 | off | 9.071364 | 6.679759 / 0.736357× | 1.596782 | 0.009864 | 5.182707 |
 
-The Warp pose-only path meets the `≤2×` target at batch 16, but misses at
-batch 256 where scaled LBS dominates. Batched shape baking cannot currently
-use Warp because BetterRobot requires matching batched joint and frame tables;
-the apples-to-apples shape+pose path therefore remains on Torch FK and misses
-the target at both CUDA batches. The overall CUDA batch ≥16 target is not met;
-only the two Warp pose-only batch-16 cells pass. This is a reported BetterRobot
-seam, not a reason to duplicate FK inside BetterHuman. The reproducible
-harness is `benchmarks/benchmark_mhr.py`.
+The Warp pose-only path now meets the `≤2×` target in both corrective modes at
+batch 16 and batch 256. At batch 256 it is faster than the reference in this
+run, with matrix-blend LBS measuring 5.245006/5.182707 ms instead of the prior
+30.067871/27.737855 ms. Batched shape baking cannot currently use Warp because
+BetterRobot requires matching batched joint and frame tables; the
+apples-to-apples shape+pose path therefore remains on Torch FK and misses the
+target at both CUDA batches. This is a reported BetterRobot seam, not a reason
+to duplicate FK inside BetterHuman. The reproducible harness is
+`benchmarks/benchmark_mhr.py`.
 
 ## Visualization
 

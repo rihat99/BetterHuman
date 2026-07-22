@@ -94,10 +94,11 @@ ones. Breaking a contract is a bug even if tests pass.
 - One self-describing `.npz` per model variant or LOD; the loader validates field names,
   shapes, and dtypes against the schema before constructing anything, and
   errors name the offending field, the file, and the fix. Validation is
-  **required-subset semantics**: every schema field must be present and
-  correct; unknown extra fields are ignored — vendor
-  files carry UV/landmark/dict cruft (the MPI SMPL-X `.npz` does) that must
-  not block loading. No `print`; use `logging`.
+  **selected-subset semantics**: every selected schema field must be present
+  and correct; explicitly excluded optional payloads are neither required nor
+  inspected; unknown extra fields are ignored. Vendor files carry
+  UV/landmark/dict cruft (the MPI SMPL-X `.npz` does) that must not block
+  loading. No `print`; use `logging`.
 - Resolution order: explicit `model_path` argument, else
   `$BETTERHUMAN_MODELS_DIR/<family>/<canonical-name>`, else raise with both
   options spelled out. The library never downloads weights and the
@@ -126,10 +127,11 @@ ones. Breaking a contract is a bug even if tests pass.
   with an explicit reason when weights are absent — skipping is visible,
   not silent.
 
-## Measured baselines (never regress)
+## Measured baselines
 
-Recorded when the corresponding safety net landed; a change that moves one of
-these numbers the wrong way does not merge.
+Recorded when the corresponding safety net landed. Correctness pins must not
+regress. Performance rows explicitly marked observational are reproducible
+reference points to remeasure and report, not pass/fail targets.
 
 | Quantity | Baseline | Note |
 |---|---|---|
@@ -137,16 +139,22 @@ these numbers the wrong way does not merge.
 | SMPL/SMPL-X float32 parity | pinned at 1e-6 (worst ~7e-7) | keep pinned |
 | MHR float32 parity vs float32 `pymomentum` oracle | V ≤ 5e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | applies independently to every LOD |
 | MHR float64 parity vs float32 `pymomentum` oracle | V ≤ 2e-6 m; P ≤ 5e-7 m; Q ≤ 5e-7; S ≤ 1e-7 | mixed-precision oracle; not float64-oracle parity |
-| MHR LOD1 TorchScript vs float32 golden | V ≤ 2e-6 m (worst 1.220703125e-6 m); skeleton exact | independent secondary oracle |
-| MHR LOD1 CPU batch-256 performance vs TorchScript | pose-only 1.500212×/1.675035×; shape+pose 1.642709×/1.777598× (correctives on/off) | 30-call medians |
-| MHR LOD1 CUDA Warp pose-only performance vs TorchScript | batch 16: 1.332028×/1.761994×; batch 256: 2.655514×/2.913411× (correctives on/off) | batch 16 meets `≤2×`; batch 256 misses on scaled LBS |
-| MHR LOD1 CUDA shape+pose performance vs TorchScript | batch 16: 37.273288×/61.762114×; batch 256: 23.682657×/34.983120× (correctives on/off) | fair path remains on BetterRobot Torch FK and misses target |
+| MHR LOD1 TorchScript vs float32 golden | V ≤ 2e-6 m; P ≤ 1e-6 m; Q ≤ 1e-6; S ≤ 1e-7 | independent secondary oracle; worst measured V 1.3113021850585938e-6 m; measured P/Q/S bit-exact |
+| SMPL CPU batch-256 performance vs upstream `smplx` | pose-only 1.206803×; shape+pose 1.344826× | 30-call shared-host medians; observational, no target |
+| SMPL-X CPU batch-256 performance vs upstream `smplx` | pose-only 1.088869×; shape+pose 1.349441× | 30-call shared-host medians; observational, no target |
+| SMPL CUDA Warp pose-only performance vs upstream `smplx` | batch 16: 1.462866×; batch 256: 1.380076× | 30-call medians; observational, no target |
+| SMPL-X CUDA Warp pose-only performance vs upstream `smplx` | batch 16: 0.799960×; batch 256: 0.919583× | 30-call medians; observational, no target |
+| SMPL CUDA shape+pose performance vs upstream `smplx` | batch 16: 11.063593×; batch 256: 7.651324× | fair native-CUDA path; Torch-FK-bound; observational, no target |
+| SMPL-X CUDA shape+pose performance vs upstream `smplx` | batch 16: 13.558983×; batch 256: 4.604730× | fair native-CUDA path; Torch-FK-bound; observational, no target |
+| MHR LOD1 CPU batch-256 performance vs TorchScript | pose-only 0.232685×/0.164993×; shape+pose 0.352023×/0.287297× (correctives on/off) | 30-call medians; shared-host timing |
+| MHR LOD1 CUDA Warp pose-only performance vs TorchScript | batch 16: 0.899320×/1.056314×; batch 256: 0.744054×/0.736357× (correctives on/off) | both batches meet `≤2×` after matrix-blend LBS |
+| MHR LOD1 CUDA shape+pose performance vs TorchScript | batch 16: 37.085810×/61.101840×; batch 256: 12.738454×/16.263777× (correctives on/off) | fair path remains on BetterRobot Torch FK and misses target |
 | Partial-model property (SMPL-X reduced vs full-with-identity DOFs) | ≤ 5e-7 m | keep |
 | Neutral SMPL mass — argmax segmentation (density 1000) | 73.43 kg parts / 74.76 kg whole, 1.78 % gap | the argmax fallback's inherent gap |
 | Neutral SMPL volume — authored closed-3D segmentation | 24-part sum within +0.0055 % of whole mesh | authored path must hold this |
 | Aggregate vs whole-mesh COM separation | 0.02 mm (authored), 2.47 mm (argmax) | |
 | SMPL/SMPL-X CRBA min eigenvalue (SPD check) | > 0 | keep |
-| Test gate | 228 passed, 20 warnings on pinned RTX 6000 Ada hardware | all five CUDA cases executed; unavailable hardware skips stay visible elsewhere |
+| Test gate | 226 passed, 19 warnings on pinned RTX 6000 Ada hardware | all five CUDA cases executed; unavailable hardware skips stay visible elsewhere |
 
 For MHR, V denotes vertices, P native joint positions, Q sign-agnostic native
 joint quaternions, and S native joint scale. V and P are measured in meters;
@@ -155,11 +163,11 @@ Q and S are dimensionless. Full-grid maxima are:
 | Dtype | LOD | V | P | Q | S |
 |---|---:|---:|---:|---:|---:|
 | float32 | 0 | 2.02656e-6 | 3.57628e-7 | 2.98023e-7 | 0 |
-| float32 | 1 | 2.92063e-6 | 7.59959e-7 | 6.55651e-7 | 0 |
+| float32 | 1 | 2.80142e-6 | 7.59959e-7 | 6.55651e-7 | 0 |
 | float32 | 2 | 1.96695e-6 | 3.57628e-7 | 2.98023e-7 | 0 |
 | float32 | 3 | 2.26498e-6 | 7.15256e-7 | 4.76837e-7 | 0 |
 | float32 | 4 | 2.02656e-6 | 3.57628e-7 | 3.57628e-7 | 0 |
-| float32 | 5 | 1.78814e-6 | 4.76837e-7 | 2.98023e-7 | 0 |
+| float32 | 5 | 1.90735e-6 | 4.76837e-7 | 2.98023e-7 | 0 |
 | float32 | 6 | 1.78814e-6 | 2.68221e-7 | 3.57628e-7 | 0 |
 | float64 | 0 | 6.79632e-7 | 1.83320e-7 | 1.31398e-7 | 2.48013e-8 |
 | float64 | 1 | 8.48870e-7 | 2.21570e-7 | 1.92913e-7 | 4.66294e-8 |
@@ -174,5 +182,6 @@ has rank 119/125 because the overcomplete spine controls contain six
 structural null directions; consequently, any physically derived MHR CRBA has
 rank at most 125/131. The current 19-group inertia placement measures rank
 50/131 at neutral LOD1, with 72 zero diagonal entries and
-`λmin = -7.7016e-15` from numerical roundoff. This is an Order 04 deviation,
-not an accepted baseline.
+`λmin = -7.7016e-15` from numerical roundoff. PSD-not-SPD is structural under
+this overcomplete configuration; solve-based MHR dynamics remain unsupported
+pending an independent-coordinate redesign.

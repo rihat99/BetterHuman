@@ -116,6 +116,7 @@ def test_mhr_loader_can_skip_corrective_members_without_indexing_them(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     model_path = tmp_path / "mhr_lod6.npz"
+    mhr_data["corrective_output_weights"] = np.empty((3000, 12), dtype=object)
     np.savez(model_path, **mhr_data)
     original_getitem = np.lib.npyio.NpzFile.__getitem__
 
@@ -132,19 +133,22 @@ def test_mhr_loader_can_skip_corrective_members_without_indexing_them(
     assert loaded["template_vertices"].shape == (4, 3)
 
 
-def test_mhr_loader_validates_excluded_corrective_headers(
+def test_mhr_loader_allows_excluded_corrective_members_to_be_absent(
     tmp_path: Path,
     mhr_data: dict[str, np.ndarray],
 ) -> None:
     model_path = tmp_path / "mhr_lod6.npz"
-    mhr_data["corrective_output_weights"] = np.empty((3000, 12), dtype=object)
+    for name in MHR_CORRECTIVE_FIELDS:
+        del mhr_data[name]
     np.savez(model_path, **mhr_data)
 
-    with pytest.raises(ValueError, match=r"'corrective_output_weights'.*dtype float32.*dtype object"):
-        load_model_npz(model_path, MHR_SCHEMA, exclude_fields=MHR_CORRECTIVE_FIELDS)
+    loaded = load_model_npz(model_path, MHR_SCHEMA, exclude_fields=MHR_CORRECTIVE_FIELDS)
+
+    assert not (set(loaded) & MHR_CORRECTIVE_FIELDS)
+    assert loaded["template_vertices"].shape == (4, 3)
 
 
-def test_mhr_loader_uses_excluded_headers_to_bind_schema_dimensions(
+def test_mhr_loader_binds_dimensions_from_selected_fields(
     tmp_path: Path,
     mhr_data: dict[str, np.ndarray],
 ) -> None:
@@ -152,8 +156,6 @@ def test_mhr_loader_uses_excluded_headers_to_bind_schema_dimensions(
     np.savez(model_path, **mhr_data)
     excluded = {
         "template_vertices",
-        "skin_indices",
-        "skin_weights",
         "identity_basis",
         "expression_basis",
     }

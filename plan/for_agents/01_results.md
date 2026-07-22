@@ -1,187 +1,118 @@
-# Order 01 results — MHR converter and parity goldens
+# Order 01 results — overengineering removal
 
-Completed on branch `dev` on 2026-07-21. This order adds tools and oracle data
-only: no BetterHuman library code and no BetterRobot code were modified.
+Status: complete on `dev` at working-tree state, 2026-07-21.
 
-## Delivered
+## Finding accounting
 
-- `tools/parity/mhr/environment.yml`: pinned Python 3.12.12, NumPy 2.3.5,
-  PyTorch 2.8.0 CPU, PyMomentum 0.1.90 CPU, and trimesh 4.9.0.
-- `tools/parity/mhr/README.md`: exact environment, conversion, and golden
-  regeneration commands.
-- `tools/convert/mhr/convert_mhr.py`: an all-LOD converter with source/schema,
-  dimensions, units, topology, transform, skinning, bind, corrective, limit,
-  tpose, segmentation, and cross-LOD assertions. It writes one lazy-loadable,
-  self-contained, uncompressed NPZ per LOD under the gitignored
-  `models/MHR/converted/` directory.
-- `tools/parity/mhr/dump_mhr.py`: deterministic CPU/float32 reference runner.
-  It writes every input, flag, vertex output, and `(127, 8)` skeleton state,
-  and performs a bitwise reload/re-run check.
-- 48 generated goldens under `tests/parity/goldens/mhr_lod{0..6}/`: exactly 30
-  LOD1 cases and 3 smoke cases for each other LOD. LOD1 covers zero with
-  correctives on/off, tpose, five random-pose cases, identity, expression and
-  expression-`None`, proportions, both hand-scale limits, root motion, and
-  seven combined cases. One nonzero combined case also disables correctives.
+| Finding | Status | Result |
+|---|---|---|
+| F1 | Applied with deviation | Removed the world/root scalar checks, five converter-constant string checks, and four corrective re-checks. Retained `up_axis`, `forward_axis`, and `coordinate_axis`: the converter reads them from FBX rather than writing literals, while runtime assumes `+y/+z/+x`. |
+| F2 | Applied | Stored `_TreeBinding` once as `self._tree`; all former exploded binding attributes now resolve through it, including the benchmark reach-in. |
+| F3 | Applied | Removed the provisional neutral FK and used zero rest-joint/template placeholders until the existing shape bake overwrites them. |
+| F4 | Applied | The NPZ loader reads and validates only the selected schema. Excluded payloads may be absent or invalid and are never indexed; the guarded test proves lazy exclusion. |
+| F5 | Applied | Removed the unused `pose_feature_6d_from_matrix` API, export, direct test, and its gradcheck half. |
+| F6 | Skipped | Optional archive-format change would require regenerating and revalidating all seven multi-GB converted archives for about 15.8 MB total savings. |
+| F7 | Applied | Removed the dead `_TreeBinding.corrective_euler_indices` member; the local index tensor remains only to construct the accumulating one-hot transform. |
+| F8 | Applied | Removed the production-unused 7D overload from `skinning_transforms`. Non-identity bind coverage now exercises `skinning_transforms_from_inverse`; one overload-only test was deleted. |
+| F9 | Applied | Removed the unused optional MLP bias argument and retained no-bias output and gradient coverage. |
+| F10 | Applied | Re-expressed partitions, host weights, permutations, limits, round trips, and mimic expansion through archive data and public behavior. Private reaches remain only for corrective binding presence and authored-row alignment, with comments explaining the missing public surface. |
+| F11 | Skipped | Pinned `pymomentum` exposes no equivalent load-time FBX metadata, and its FBX SDK integration is unavailable in the parity environment. |
 
-## Measured outputs
+## Numerical parity
 
-All archive sizes below are raw bytes from `stat`; MiB is the converter's
-base-2 display.
+The same script was run before and after the refactor. Every printed maximum
+below is exactly equal before and after.
 
-| LOD | Vertices | Faces | Converted bytes | MiB | Golden cases | Golden bytes |
-|---:|---:|---:|---:|---:|---:|---:|
-| 0 | 73,639 | 147,274 | 2,769,297,616 | 2,641.01 | 3 | 2,376,431 |
-| 1 | 18,439 | 36,874 | 695,985,472 | 663.74 | 30 | 6,159,548 |
-| 2 | 10,661 | 21,318 | 403,843,792 | 385.14 | 3 | 353,563 |
-| 3 | 4,899 | 9,794 | 187,423,072 | 178.74 | 3 | 173,741 |
-| 4 | 2,461 | 4,918 | 95,851,792 | 91.41 | 3 | 98,669 |
-| 5 | 971 | 1,938 | 39,887,392 | 38.04 | 3 | 49,572 |
-| 6 | 595 | 1,186 | 25,764,832 | 24.57 | 3 | 38,522 |
+| Model | dtype | V before | V after | J before | J after |
+|---|---|---:|---:|---:|---:|
+| SMPL | float32 | 7.0780515670776367e-07 | 7.0780515670776367e-07 | 5.289912223815918e-07 | 5.289912223815918e-07 |
+| SMPL | float64 | 1.0412031070661243e-07 | 1.0412031070661243e-07 | 5.7804501407687781e-08 | 5.7804501407687781e-08 |
+| SMPL-X | float32 | 6.5565109252929688e-07 | 6.5565109252929688e-07 | 5.0663948059082031e-07 | 5.0663948059082031e-07 |
+| SMPL-X | float64 | 5.5905974738479358e-08 | 5.5905974738479358e-08 | 8.6539269084084935e-09 | 8.6539269084084935e-09 |
 
-Golden total: **48 files, 9,250,046 bytes**.
+| LOD | dtype | V before | V after | P before | P after | Q before | Q after | S before | S after |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | float32 | 2.0265579223632812e-06 | 2.0265579223632812e-06 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 2.9802322387695312e-07 | 2.9802322387695312e-07 | 0 | 0 |
+| 1 | float32 | 2.9206275939941406e-06 | 2.9206275939941406e-06 | 7.5995922088623047e-07 | 7.5995922088623047e-07 | 6.5565109252929688e-07 | 6.5565109252929688e-07 | 0 | 0 |
+| 2 | float32 | 1.9669532775878906e-06 | 1.9669532775878906e-06 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 2.9802322387695312e-07 | 2.9802322387695312e-07 | 0 | 0 |
+| 3 | float32 | 2.2649765014648438e-06 | 2.2649765014648438e-06 | 7.152557373046875e-07 | 7.152557373046875e-07 | 4.76837158203125e-07 | 4.76837158203125e-07 | 0 | 0 |
+| 4 | float32 | 2.0265579223632812e-06 | 2.0265579223632812e-06 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 0 | 0 |
+| 5 | float32 | 1.7881393432617188e-06 | 1.7881393432617188e-06 | 4.76837158203125e-07 | 4.76837158203125e-07 | 2.9802322387695312e-07 | 2.9802322387695312e-07 | 0 | 0 |
+| 6 | float32 | 1.7881393432617188e-06 | 1.7881393432617188e-06 | 2.6822090148925781e-07 | 2.6822090148925781e-07 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 0 | 0 |
+| 0 | float64 | 6.7963208660870578e-07 | 6.7963208660870578e-07 | 1.8331952966743614e-07 | 1.8331952966743614e-07 | 1.3139750559831853e-07 | 1.3139750559831853e-07 | 2.4801335873902985e-08 | 2.4801335873902985e-08 |
+| 1 | float64 | 8.4886980189491368e-07 | 8.4886980189491368e-07 | 2.215700635188611e-07 | 2.215700635188611e-07 | 1.9291339442562006e-07 | 1.9291339442562006e-07 | 4.6629366146078155e-08 | 4.6629366146078155e-08 |
+| 2 | float64 | 5.5811346433287667e-07 | 5.5811346433287667e-07 | 1.3154689582073331e-07 | 1.3154689582073331e-07 | 1.0220597668197939e-07 | 1.0220597668197939e-07 | 5.7916624163212305e-08 | 5.7916624163212305e-08 |
+| 3 | float64 | 5.6179104368503374e-07 | 5.6179104368503374e-07 | 9.9507051043445927e-08 | 9.9507051043445927e-08 | 1.0819653151195041e-07 | 1.0819653151195041e-07 | 2.9032722226318697e-08 | 2.9032722226318697e-08 |
+| 4 | float64 | 5.5301331047807878e-07 | 5.5301331047807878e-07 | 2.0618963714191807e-07 | 2.0618963714191807e-07 | 1.3338477658497716e-07 | 1.3338477658497716e-07 | 2.5566294747925156e-08 | 2.5566294747925156e-08 |
+| 5 | float64 | 4.4630069462314736e-07 | 4.4630069462314736e-07 | 1.2267317051062321e-07 | 1.2267317051062321e-07 | 1.2220955582231685e-07 | 1.2220955582231685e-07 | 2.2953858813679062e-08 | 2.2953858813679062e-08 |
+| 6 | float64 | 5.9353756443059069e-07 | 5.9353756443059069e-07 | 1.2023582485198858e-07 | 1.2023582485198858e-07 | 1.8299445425640215e-07 | 1.8299445425640215e-07 | 2.9279848323682245e-08 | 2.9279848323682245e-08 |
 
-Transform measurements, all asserted by the converter:
+The packaged parity suite was also unchanged: 103 passed before and 103 passed
+after.
 
-- Dense augmented shape: `(889, 321)`; columns `204:321` are exactly zero.
-- `.model` assignment statements `(translation, rotation, scale)`:
-  **(191, 157, 2) = 350**.
-- Sparse matrix entries: **(191, 175, 2) = 368**.
-- Unique driven rows: **(136, 157, 2) = 295**, across **113 joints**.
-- Multi-source rows: **(55, 12, 0)**. The 12 rotation rows are the documented
-  spine rows; translation also has 55 multi-source rows.
-- Model-parameter column types: **(74, 128, 2)**. Excluding the three root
-  translation and three root rotation parameters gives 71 proportions and 125
-  pose parameters; the two scale parameters are `scale_l_hands` and
-  `scale_r_hands`.
-- Parsed model metadata: 8 parameter sets, 198 unique finite non-root limits,
-  and 19 authored tpose entries. Both elbow-bend tpose values are `-0.5`.
+## Tests and static gates
 
-Other raw validation metrics were identical for every LOD:
+| Gate | Result |
+|---|---|
+| Focused changed-area tests | 54 passed, 2 CUDA-gated skips in the sandbox |
+| Full suite, CUDA visible | 226 passed, 0 skipped, 19 warnings in 91.16 s |
+| Ruff | `ruff check .` passed |
+| Formatting | Changed Python files passed `ruff format --check`; the repository-wide check still reports six untouched pre-existing files |
+| Patch hygiene | `git diff --check` passed |
 
-- Maximum pre-rotation norm error before normalization: `5.96046448e-08`.
-- Maximum skin-weight row-sum error: `1.19209290e-07`; no row was
-  renormalized.
-- FBX mesh versus blendshape base maximum: `0 cm`.
-- FBX bind versus zero-parameter FK maximum: `4.57763672e-05 cm`.
-- FBX bind/inverse product maximum error: `1.52587891e-05` in the native-cm
-  calculation.
-- Corrective activation first-layer nnz: 53,136; output shape is
-  `(3000, V*3)` for each LOD.
-- FBX globals: up `+y`, front `+z`, coordinate/right `+x`, unit scale 1 cm.
+The prior full-suite count was 228. The exact two deleted tests are:
 
-## FK source verification
+- `tests/core/test_pipeline.py::test_matrix_6d_pose_feature_matches_euler_entry_and_is_zero_at_rest` (F5)
+- `tests/core/test_pipeline.py::test_full_bind_poses_and_unit_scales_reduce_exactly_to_legacy_skinning` (F8)
 
-The executable C++ path in
-`references/parametric_body/momentum/momentum/character/joint_state.cpp` and
-the tensor path in
-`references/parametric_body/momentum/pymomentum/tensor_momentum/tensor_skeleton_state.cpp`
-agree. For joint `i`:
+The Euler half of the former combined 6D-feature gradcheck remains under the singular name
+`test_float32_gradcheck_6d_pose_feature`; the full-bind gradcheck remains on
+the production inverse-bind path as
+`test_float32_gradcheck_inverse_bind_transforms_and_scaled_lbs`.
 
-```text
-world_i = world_parent
-        · T(translationOffset_i + [tx, ty, tz])
-        · Rpre_i · Rz(rz) · Ry(ry) · Rx(rx)
-        · S(exp2(sc))
-```
+## LOC accounting
 
-The fixed translation offset and parameter translation are summed before local
-rotation, in the parent frame. The scale parameter is base-2 logarithmic. A
-comment in `joint_state.cpp` says the resulting product is `Rx·Ry·Rz`, but the
-actual descending `2,1,0` loop and the independent tensor implementation both
-execute `Rz·Ry·Rx`; the converter records the executable order.
+| File | Before | After | Delta |
+|---|---:|---:|---:|
+| `src/better_human/bodies/mhr.py` | 791 | 756 | -35 |
+| `src/better_human/io/load.py` | 145 | 116 | -29 |
+| `src/better_human/core/pipeline.py` | 214 | 194 | -20 |
+| `tests/bodies/test_mhr.py` | 473 | 517 | +44 |
+| `tests/io/test_load.py` | 174 | 176 | +2 |
+| `tests/core/test_pipeline.py` | 356 | 293 | -63 |
+| `tests/bodies/test_smpl.py` | 170 | 174 | +4 |
+| `benchmarks/benchmark_mhr.py` | 326 | 326 | 0 |
+| **Total** | **2649** | **2552** | **-97** |
 
-## Verification
+## CUDA performance run
 
-- Final tools environment: NumPy 2.3.5; PyTorch 2.8.0
-  `cpu_mkl_py312_hb1fc07b_102` (`torch.version.cuda is None`); PyMomentum
-  0.1.90 `cpu_py312_h3e3b27a_0`; trimesh 4.9.0; Python 3.12.12.
-- All seven conversions completed in one invocation, including exact
-  cross-LOD skeleton, bind, and transform equality checks.
-- Every golden was reloaded with `allow_pickle=False` and checked for its LOD,
-  shapes, native-unit tag, and float32 input/output dtype.
-- LOD6 `fully_random.npz` was re-evaluated after reload and matched vertices
-  and skeleton state bit-for-bit.
-- `ruff check`, `ruff format --check`, and `py_compile` pass for both Python
-  tools.
-- Full BetterHuman suite: **163 passed, 4 skipped, 0 failed**, 6 warnings.
-- All 16 MHR asset SHA-256 values match the pre-conversion manifest. Nested
-  `git status` is clean for both MHR and Momentum references, and no generated
-  bytecode remains under the MHR reference tree.
+The existing pinned protocol ran on an otherwise idle NVIDIA RTX 6000 Ada:
+PyTorch 2.13.0+cu126, BetterRobot 0.2.0, Warp 1.15.0, five warmups, 30 timed
+iterations, explicit synchronization, float32, LOD1.
 
-Exact primary commands:
+| Batch | Correctives | TorchScript shape+pose ms | BetterHuman pose-only Warp ms | BetterHuman shape+pose Torch-FK ms |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 3.271207 | 2.390250 | 285.119098 |
+| 1 | off | 2.114105 | 0.776293 | 140.865380 |
+| 16 | on | 4.000013 | 3.591153 | 295.218605 |
+| 16 | off | 2.408837 | 1.945176 | 146.289692 |
+| 256 | on | 12.979529 | 33.829921 | 330.098519 |
+| 256 | off | 10.283672 | 29.437234 | 178.906521 |
 
-```bash
-conda env update --name betterhuman-mhr-parity \
-  --file tools/parity/mhr/environment.yml --prune
-conda run --name betterhuman-mhr-parity python \
-  tools/convert/mhr/convert_mhr.py \
-  --assets-dir models/MHR/assets --output-dir models/MHR/converted
-conda run --name betterhuman-mhr-parity python \
-  tools/parity/mhr/dump_mhr.py \
-  --assets-dir models/MHR/assets \
-  --reference-dir references/parametric_body/MHR \
-  --converted-dir models/MHR/converted \
-  --output-dir tests/parity/goldens
-.venv/bin/ruff check tools/convert/mhr/convert_mhr.py \
-  tools/parity/mhr/dump_mhr.py
-.venv/bin/ruff format --check tools/convert/mhr/convert_mhr.py \
-  tools/parity/mhr/dump_mhr.py
-.venv/bin/pytest tests/ -q
-```
+At batch 256, the isolated raw medians were FK 1.546289/1.547522 ms,
+corrective 1.608754/0.008462 ms, and transforms plus LBS
+30.065510/27.749241 ms (correctives on/off). These are observational timings;
+Order 01 defines no performance pass/fail threshold.
 
-## Deviations and findings
+## Deviations from the order
 
-1. **The plan's “350 transform rows” assertion is not the stored transform.**
-   The number 350 is the count of textual assignment statements. Duplicate
-   translation left-hand sides collapse, while multi-driver rotation
-   expressions expand, producing 295 unique matrix rows and 368 nonzero
-   entries. The converter records and asserts all three measurements instead
-   of relabeling one as another.
-2. **Native joint indexing differs from later plan wording.** Joint 0 is the
-   fixed `body_world`; joint 1 is `root` and owns the six root channels.
-   Correctives deliberately use joints `[2:127]`. BetterRobot universe 0 plus
-   explicit free-flyer 1 already matches this layout; Order 03 must not make
-   native joint 0 the free-flyer.
-3. **The static FBX inverse bind is authoritative.** Recomputing it from
-   zero-parameter FK changes the bind by `4.57763672e-05 cm`; recomputing it
-   after a proportion bake would also cancel the intended proportional
-   deformation. The archive preserves the FBX bind and inverse bind.
-4. **PyMomentum does not expose original FBX axis globals or `.model` pose
-   constraints.** The converter therefore parses those two read-only source
-   formats directly, while comparing parsed limits against PyMomentum.
-5. **Pixi was unavailable, so the documented conda fallback was used.** The
-   first solve also showed trimesh 4.9.0 was unavailable from conda-forge; it is
-   the sole pure-Python pip entry. PyMomentum remains conda-only. The final spec
-   explicitly forces CPU PyTorch to avoid solver selection of a CUDA build.
-6. **Reference imports initially emitted four ignored `.pyc` files.** They were
-   removed, the empty cache directory was removed, and the dumper now sets
-   `sys.dont_write_bytecode` before importing the reference package. A repeat
-   oracle run left the reference tree unchanged.
-7. **Large corrective storage must stay lazy in Order 02.** LOD0 is a 2.58 GiB
-   monolithic NPZ primarily because its `(3000, V*3)` output layer is embedded
-   for self-containment. The loader can satisfy `use_correctives=False` only by
-   retaining `np.load` laziness and never indexing corrective arrays in that
-   branch.
+- F1's premise that all eight metadata strings are converter literals is
+  false for the three axes. Those load-bearing checks were retained instead
+  of silently accepting coordinates the runtime does not transform.
+- For F8/F9, affected tests were minimally redirected to the supported
+  inverse-bind/no-bias paths instead of deleting their behavioral and gradient
+  coverage. This is a justified exception to the order's literal F10-only
+  test-rewrite sentence and is safer than shrinking the safety net further.
 
-## BetterRobot gaps for later orders
-
-No BetterRobot change was made. The verified constraints to carry forward are:
-
-- BetterRobot poses are SE(3) `[translation, xyzw]` and do not carry MHR's
-  accumulated `exp2(sc)` scale. BetterHuman must keep scale separately for
-  scaled offsets and LBS.
-- Build-time joint/frame origins are not automatically quaternion-normalized,
-  and `preserve_joint_order=True` repairs ordering rather than asserting native
-  order. The converter/BetterHuman checks are therefore required.
-- Frames cannot own inertia; any undriven segmented part with nonzero mass must
-  be represented by a fixed-joint body.
-- Multi-source mimic declarations are not directly supported, but this is not
-  an MHR blocker: same-axis stacked nodes can represent the 12 multi-driver
-  rotation rows, and the remaining fan-outs are single-source.
-- Full-joint Torch/Warp FK has serial per-joint work. This is a benchmark risk,
-  not yet a measured failure; Order 05 must measure it before proposing a
-  BetterRobot change.
-
-Capabilities already present and not to be duplicated include the explicit
-universe-to-free-flyer builder, fixed joints and frames, affine mimic expansion,
-batched differentiable placements/inertias, and zero-mass intermediate bodies.
+F6 and F11 were explicitly optional and are recorded as skipped, not silent
+deviations. Orders 02 and 03 were not started.

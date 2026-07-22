@@ -1,146 +1,164 @@
-# Order 02 results — SMPL-neutral MHR core stages
+# Order 02 results — matrix-blend LBS
 
-Completed on branch `dev` on 2026-07-21. This order adds the shared loader and
-tensor machinery needed by MHR and promotes only the two model-policy seams
-forced by the next body implementation. BetterRobot was not modified.
+Status: complete on `dev` at working-tree state, 2026-07-21.
 
-## Delivered
+## Implementation
 
-- An explicit 66-field `MHR_SCHEMA` covering every converted archive member,
-  including exact shapes, storage dtypes, the shared vertex dimension, and the
-  derived `V*3` corrective width.
-- `load_model_npz(..., exclude_fields=...)` with required-field checks, full
-  shape/dtype validation, Unicode metadata preservation, and lazy exclusion.
-  Excluded members have their NPY headers validated without reading payloads,
-  which keeps the 2.58 GiB LOD0 corrective layer lazy.
-- A verified canonical resolver call for
-  `$BETTERHUMAN_MODELS_DIR/MHR/converted/mhr_lod{n}.npz`; the existing generic
-  resolver already implemented the required precedence and error behavior.
-- Exact MHR 6D pose features from either XYZ Euler channels or local rotation
-  matrices, with identity subtraction and arbitrary leading batch axes.
-- One-time sparse-to-dense first-layer baking and a functional, non-mutating
-  ReLU MLP corrective stage. The output weight remains `(3000, V*3)`, avoiding
-  a multi-gigabyte transpose at LOD0.
-- Full 7D bind-pose skinning transforms and optional scale-aware LBS about bind
-  joint positions. Scale-one/identity-bind execution is tensor-equal to the
-  legacy SMPL path, including on the real SMPL fixture.
-- Two function policies on `ParametricBody`: model-specific shape baking and
-  pose correctives. The prior SMPL operations were moved verbatim to
-  `smpl_family.py` and bound for both SMPL and SMPL-X.
-- Synthetic schema/loader fixtures, formula tests, arbitrary-leading-axis
-  tests, exact reduction tests, float32 gradchecks, and explicit dtype/device
-  assertions. The Weight files reference contract now states that Unicode
-  metadata remains NumPy because PyTorch has no string tensor dtype.
+- `BodyValues` now stores one spawn-built dense `(V, J)` skinning matrix while
+  retaining the padded sparse weights and indices for archive fidelity and
+  segmentation.
+- Both model families construct the matrix once with duplicate-safe
+  `scatter_add_`.
+- `lbs` has one formulation: convert each joint transform to a 3×4 affine,
+  fold scale and bind pivots into that affine, blend joint affines with one
+  dense contraction, then apply one affine per vertex.
+- Production deformation, MHR neutral mass baking, and benchmark stage
+  instrumentation all call that same implementation. The old per-influence
+  gather path is gone.
+- The SMPL exact-reduction test now pins the requested invariant: `s = 1`
+  scaled matrix-blend output is tensor-equal to the unscaled production path.
 
-## Real archive checks
+## Parity before and after
 
-`models/MHR/converted/mhr_lod6.npz` passed the final schema and loader:
+No tolerance changed. All post-rewrite maxima remain within the existing
+pins.
 
-- full load: 66 fields;
-- corrective-excluded load: 58 fields, with all eight skipped headers still
-  shape/dtype-validated and no corrective payload indexed;
-- template vertices: `(595, 3)` `torch.float32`;
-- joint names: `(127,)` NumPy `<U20`;
-- corrective output: `(3000, 1785)` `torch.float32`;
-- baked first layer: `(3000, 750)`, exactly 53,136 nonzeros, with nonzero mask
-  tensor-equal to the stored mask.
+| Model | dtype | V before | V after | J before | J after |
+|---|---|---:|---:|---:|---:|
+| SMPL | float32 | 7.0780515670776367e-07 | 7.0594251155853271e-07 | 5.289912223815918e-07 | 5.289912223815918e-07 |
+| SMPL | float64 | 1.0412031070661243e-07 | 1.0412031081763473e-07 | 5.7804501407687781e-08 | 5.7804501407687781e-08 |
+| SMPL-X | float32 | 6.5565109252929688e-07 | 6.2584877014160156e-07 | 5.0663948059082031e-07 | 5.0663948059082031e-07 |
+| SMPL-X | float64 | 5.5905974738479358e-08 | 5.5905974738479358e-08 | 8.6539269084084935e-09 | 8.6539269084084935e-09 |
 
-## Parity and verification
+| LOD | dtype | V before | V after | P before | P after | Q before | Q after | S before | S after |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | float32 | 2.0265579223632812e-06 | 2.0265579223632812e-06 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 2.9802322387695312e-07 | 2.9802322387695312e-07 | 0 | 0 |
+| 1 | float32 | 2.9206275939941406e-06 | 2.8014183044433594e-06 | 7.5995922088623047e-07 | 7.5995922088623047e-07 | 6.5565109252929688e-07 | 6.5565109252929688e-07 | 0 | 0 |
+| 2 | float32 | 1.9669532775878906e-06 | 1.9669532775878906e-06 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 2.9802322387695312e-07 | 2.9802322387695312e-07 | 0 | 0 |
+| 3 | float32 | 2.2649765014648438e-06 | 2.2649765014648438e-06 | 7.152557373046875e-07 | 7.152557373046875e-07 | 4.76837158203125e-07 | 4.76837158203125e-07 | 0 | 0 |
+| 4 | float32 | 2.0265579223632812e-06 | 2.0265579223632812e-06 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 0 | 0 |
+| 5 | float32 | 1.7881393432617188e-06 | 1.9073486328125e-06 | 4.76837158203125e-07 | 4.76837158203125e-07 | 2.9802322387695312e-07 | 2.9802322387695312e-07 | 0 | 0 |
+| 6 | float32 | 1.7881393432617188e-06 | 1.7881393432617188e-06 | 2.6822090148925781e-07 | 2.6822090148925781e-07 | 3.5762786865234375e-07 | 3.5762786865234375e-07 | 0 | 0 |
+| 0 | float64 | 6.7963208660870578e-07 | 6.7963208649768347e-07 | 1.8331952966743614e-07 | 1.8331952966743614e-07 | 1.3139750559831853e-07 | 1.3139750559831853e-07 | 2.4801335873902985e-08 | 2.4801335873902985e-08 |
+| 1 | float64 | 8.4886980189491368e-07 | 8.4886980189491368e-07 | 2.215700635188611e-07 | 2.215700635188611e-07 | 1.9291339442562006e-07 | 1.9291339442562006e-07 | 4.6629366146078155e-08 | 4.6629366146078155e-08 |
+| 2 | float64 | 5.5811346433287667e-07 | 5.5811346455492128e-07 | 1.3154689582073331e-07 | 1.3154689582073331e-07 | 1.0220597668197939e-07 | 1.0220597668197939e-07 | 5.7916624163212305e-08 | 5.7916624163212305e-08 |
+| 3 | float64 | 5.6179104368503374e-07 | 5.6179104346298914e-07 | 9.9507051043445927e-08 | 9.9507051043445927e-08 | 1.0819653151195041e-07 | 1.0819653151195041e-07 | 2.9032722226318697e-08 | 2.9032722226318697e-08 |
+| 4 | float64 | 5.5301331047807878e-07 | 5.5301331081114569e-07 | 2.0618963714191807e-07 | 2.0618963714191807e-07 | 1.3338477658497716e-07 | 1.3338477658497716e-07 | 2.5566294747925156e-08 | 2.5566294747925156e-08 |
+| 5 | float64 | 4.4630069462314736e-07 | 4.4630069462314736e-07 | 1.2267317051062321e-07 | 1.2267317051062321e-07 | 1.2220955582231685e-07 | 1.2220955582231685e-07 | 2.2953858813679062e-08 | 2.2953858813679062e-08 |
+| 6 | float64 | 5.9353756443059069e-07 | 5.9353756420854609e-07 | 1.2023582485198858e-07 | 1.2023582485198858e-07 | 1.8299445425640215e-07 | 1.8299445425640215e-07 | 2.9279848323682245e-08 | 2.9279848323682245e-08 |
 
-The exact maxima before and after seam promotion are identical:
+The secondary TorchScript check compares two fixed external artifacts and
+does not execute BetterHuman, so its before and after values are necessarily
+the same. Re-running the four-case grid measured V
+`1.3113021850585938e-06` m and bit-exact P/Q/S (`0` for each). The packaged
+parity suite passed 103 tests before and after.
 
-| Model / dtype | Vertex max before = after | Joint max before = after |
+## Test and static gates
+
+| Gate | Before | After |
 |---|---:|---:|
-| SMPL float64 | `1.0412031070661243e-07` | `5.7804501407687781e-08` |
-| SMPL float32 | `7.0780515670776367e-07` | `5.2899122238159180e-07` |
-| SMPL-X float64 | `5.5905974738479358e-08` | `8.6539269084084935e-09` |
-| SMPL-X float32 | `6.5565109252929688e-07` | `5.0663948059082031e-07` |
+| Collected/full CUDA tests | 226 | 226 |
+| Packaged parity tests | 103 passed | 103 passed |
+| Full CUDA run | 226 passed, 0 skipped, 19 warnings | 226 passed, 0 skipped, 19 warnings |
 
-Final checks:
+Focused changed-area tests passed 57 tests with three expected CUDA skips in
+the sandbox. `ruff check .`, changed-file formatting, and `git diff --check`
+passed. No test was deleted. The permitted baseline-formulation swap renamed
+`test_generalized_skinning_reduces_exactly_on_smpl_fixture` to
+`test_unit_scales_reduce_exactly_to_unscaled_smpl_skinning`.
 
-- SMPL/SMPL-X parity files: **84 passed**, 0 failed.
-- Focused new-stage, I/O, and real-SMPL reduction gate: **36 passed**, 0
-  failed, 9 expected float32-gradcheck warnings.
-- Full suite: **184 passed, 4 skipped, 0 failed**, 15 warnings. The skips are
-  existing unavailable-CUDA cases; warnings are expected float32 gradcheck
-  notices plus two existing SciPy sparse deprecations.
-- `ruff check .` and `git diff --check` pass.
+## Benchmark protocol
 
-Primary commands:
+All tables use LOD1 float32, batches 1/16/256, correctives on/off, five
+warmups, 30 explicitly synchronized timed calls, PyTorch 2.13.0+cu126, and
+BetterRobot 0.2.0. CPU used 112 intra/inter-op threads. CUDA used physical GPU
+7, an otherwise idle NVIDIA RTX 6000 Ada Generation with driver 560.35.03;
+the Warp run used Warp 1.15.0. Ratios are BetterHuman/reference from the same
+invocation and corrective mode.
 
-```bash
-.venv/bin/pytest tests/core/test_pipeline.py tests/io/test_load.py \
-  tests/io/test_schema.py \
-  tests/bodies/test_smpl.py::test_generalized_skinning_reduces_exactly_on_smpl_fixture -q
-.venv/bin/pytest tests/parity/test_smpl_parity.py \
-  tests/parity/test_smplx_parity.py -q
-.venv/bin/pytest tests/ -q
-.venv/bin/ruff check .
-git diff --check
-```
+## CPU benchmark
 
-## Deviations and findings
+| Batch | Correctives | TorchScript shape+pose ms | BetterHuman pose-only ms / ×ref | BetterHuman shape+pose ms / ×ref |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 19.505918 | 104.505661 / 5.357639× | 175.038120 / 8.973590× |
+| 1 | off | 10.832997 | 83.003433 / 7.662093× | 156.004285 / 14.400843× |
+| 16 | on | 43.595248 | 32.781757 / 0.751957× | 61.089930 / 1.401298× |
+| 16 | off | 38.767081 | 51.125402 / 1.318784× | 101.672627 / 2.622654× |
+| 256 | on | 767.727395 | 178.638341 / 0.232685× | 270.257807 / 0.352023× |
+| 256 | off | 860.573079 | 141.988578 / 0.164993× | 247.239801 / 0.287297× |
 
-1. **The reference MHR MLP has no biases.** Both upstream linear layers are
-   constructed with `bias=False`, despite the plan describing a biased first
-   layer. The generic function accepts an optional first-layer bias for formula
-   completeness; MHR will pass `None` in Order 03.
-2. **Unicode archive fields cannot become dense PyTorch tensors.** Sixteen MHR
-   metadata fields remain NumPy Unicode arrays; all numeric and Boolean fields
-   become dense tensors without conversion. `docs/contracts.md` was narrowed
-   accordingly.
-3. **Lazy exclusion still validates the complete schema.** Presence alone was
-   insufficient for the binding contract, while indexing LOD0 correctives
-   would defeat `use_correctives=False`. The loader therefore reads only NPY
-   headers for excluded fields and validates their shapes/dtypes with the full
-   schema. A guarded test proves no skipped payload is indexed.
-4. **No MHR-specific resolver wrapper was added.** The existing
-   `resolve_model_path(family, filename, model_path)` already produces the
-   exact required precedence when called with `("MHR",
-   "converted/mhr_lod{n}.npz", model_path)`. A test pins that behavior; another
-   wrapper would be duplicate code.
-5. **Scaled LBS needs bind positions as well as scales.** The requested
-   similarity transform cannot rotate/scale about the authored bind pivot from
-   `T_skin` alone, so `lbs` accepts `bind_joint_positions` whenever
-   `joint_scales` is supplied. Its scale-one correction is exactly zero and
-   leaves legacy SMPL arithmetic unchanged.
-6. **One derived-width sentinel was necessary.** `V*3` is handled as one
-   explicit special case, parallel to the existing `(J-1)*9` sentinel; no
-   general symbolic-dimension language or parser was introduced.
+| Batch | Correctives | FK ms | Corrective ms | Transforms + LBS ms |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 42.712647 | 36.831736 | 0.593044 |
+| 1 | off | 42.148122 | 6.001499 | 23.995179 |
+| 16 | on | 25.418313 | 3.209571 | 2.274361 |
+| 16 | off | 47.740547 | 0.065788 | 4.028227 |
+| 256 | on | 56.038709 | 24.450985 | 85.244686 |
+| 256 | off | 55.463856 | 0.048177 | 84.558726 |
 
-## BetterRobot carry-forwards
+Shared-host load produced visibly noisy small-batch CPU stage medians. The
+batch-256 matrix-blend stage nevertheless improved by 16.748883×/15.921702×
+against the previously recorded implementation (correctives on/off).
 
-- BetterRobot SE(3) poses do not carry accumulated MHR scale. BetterHuman must
-  retain the scale side channel introduced here and pass it into LBS.
-- MHR skin-joint order is not the current SMPL assumption
-  `joint_pose_world[..., 1:, :]`. Order 03 must bind an explicit native skin
-  joint to BetterRobot joint mapping; `native_joint_indices` must not be
-  repurposed because SMPL-X already uses it for reduced-model provenance.
-- Converting the authoritative float32 4x4 FBX bind matrices to 7D poses may
-  add small quaternion roundoff. Order 03/04 must measure this against the
-  goldens rather than substituting recomputed zero-FK binds.
+## Native CUDA benchmark
 
-## LOC deltas
+| Batch | Correctives | TorchScript shape+pose ms | BetterHuman pose-only ms / ×ref | BetterHuman shape+pose ms / ×ref |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 3.549979 | 95.193920 / 26.815347× | 190.865683 / 53.765299× |
+| 1 | off | 2.275135 | 70.019388 / 30.775927× | 140.907083 / 61.933504× |
+| 16 | on | 3.951922 | 73.523560 / 18.604507× | 146.560227 / 37.085810× |
+| 16 | off | 2.384344 | 72.506513 / 30.409418× | 145.687805 / 61.101840× |
+| 256 | on | 12.171629 | 79.546592 / 6.535411× | 155.047731 / 12.738454× |
+| 256 | off | 9.428837 | 78.125182 / 8.285771× | 153.348507 / 16.263777× |
 
-Counts are additions/deletions against `HEAD` for implementation and tests.
-The `docs/contracts.md` row counts only this order's hunk; the pre-existing
-measured-baselines append is excluded. Task-plan tracking files are also
-excluded.
+| Batch | Correctives | FK ms | Corrective ms | Transforms + LBS ms |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 92.420127 | 0.944153 | 0.556769 |
+| 1 | off | 69.554530 | 0.008936 | 0.460583 |
+| 16 | on | 71.726995 | 0.944954 | 0.642901 |
+| 16 | off | 71.457337 | 0.008841 | 0.645576 |
+| 256 | on | 73.015869 | 1.617321 | 5.103035 |
+| 256 | off | 72.660426 | 0.008654 | 5.102114 |
 
-| File | Added | Deleted |
-|---|---:|---:|
-| `docs/contracts.md` | 3 | 2 |
-| `src/better_human/bodies/smpl.py` | 2 | 3 |
-| `src/better_human/bodies/smpl_family.py` | 85 | 3 |
-| `src/better_human/bodies/smplx.py` | 2 | 3 |
-| `src/better_human/core/body.py` | 17 | 58 |
-| `src/better_human/core/pipeline.py` | 111 | 9 |
-| `src/better_human/io/__init__.py` | 3 | 1 |
-| `src/better_human/io/load.py` | 65 | 7 |
-| `src/better_human/io/schema.py` | 90 | 1 |
-| `tests/bodies/test_smpl.py` | 23 | 0 |
-| `tests/core/test_pipeline.py` | 296 | 2 |
-| `tests/io/conftest.py` | 81 | 0 |
-| `tests/io/test_load.py` | 92 | 1 |
-| `tests/io/test_schema.py` | 36 | 1 |
-| **Total** | **906** | **91** |
+The batch-256 deformation stage is now approximately 5.10 ms, while native
+Torch FK remains approximately 73 ms and dominates this lane.
+
+## Warp CUDA benchmark
+
+| Batch | Correctives | TorchScript shape+pose ms | BetterHuman pose-only ms / ×ref | BetterHuman shape+pose Torch-FK ms / ×ref |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 2.191199 | 2.565200 / 1.170683× | 282.477651 / 128.914649× |
+| 1 | off | 1.120560 | 1.062819 / 0.948471× | 175.837544 / 156.919347× |
+| 16 | on | 2.516612 | 2.263239 / 0.899320× | 184.140042 / 73.169818× |
+| 16 | off | 1.236523 | 1.306156 / 1.056314× | 184.246376 / 149.003598× |
+| 256 | on | 11.200383 | 8.333692 / 0.744054× | 192.926257 / 17.224970× |
+| 256 | off | 9.071364 | 6.679759 / 0.736357× | 187.913769 / 20.715051× |
+
+| Batch | Correctives | Warp FK ms | Corrective ms | Transforms + LBS ms |
+|---:|:---:|---:|---:|---:|
+| 1 | on | 0.632403 | 0.945547 | 0.578162 |
+| 1 | off | 0.615940 | 0.010177 | 0.565254 |
+| 16 | on | 0.658878 | 0.977999 | 0.771719 |
+| 16 | off | 0.642872 | 0.009840 | 0.749222 |
+| 256 | on | 1.688651 | 1.925943 | 5.245006 |
+| 256 | off | 1.596782 | 0.009864 | 5.182707 |
+
+The Warp pose-only path meets the `≤2×` target in both corrective modes at
+batch 16 and 256. The batch-256 deformation stage improved by
+5.732667×/5.352001× against the prior per-influence formulation. The fair
+shape+pose rows remain on BetterRobot Torch FK and still miss the target; no
+kernel or caching workaround was added.
+
+## Findings and deviations
+
+- No implementation deviation was required. The expected summation-order
+  rounding moved vertex maxima only; every existing pin held.
+- The CPU host was busy enough to distort small-batch stage medians. Raw values
+  are retained rather than filtered or rerun selectively.
+- The secondary TorchScript grid currently measures a worst vertex error of
+  `1.3113021850585938e-06` m, not the stale `1.220703125e-06` value in the
+  contracts. Its P/Q/S agreement is bit-exact. Order 03 must correct that
+  documentation while preserving the enforced tolerance wording.
+
+Order 03 was not started until this implementation, report, and all Order 02
+gates were complete.

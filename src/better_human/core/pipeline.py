@@ -73,21 +73,6 @@ def pose_feature_6d_from_euler(joint_euler_angles: torch.Tensor) -> torch.Tensor
     return (feature - identity).flatten(start_dim=-2)
 
 
-def pose_feature_6d_from_matrix(local_rotation_matrices: torch.Tensor) -> torch.Tensor:
-    """Return flattened identity-relative 6D features from local rotations.
-
-    ``local_rotation_matrices`` has shape ``(..., J, 3, 3)``. The result has
-    shape ``(..., J * 6)`` with each joint ordered as matrix column 0 followed
-    by column 1.
-    """
-    feature = torch.cat(
-        (local_rotation_matrices[..., :, 0], local_rotation_matrices[..., :, 1]),
-        dim=-1,
-    )
-    identity = feature.new_tensor((1.0, 0.0, 0.0, 0.0, 1.0, 0.0))
-    return (feature - identity).flatten(start_dim=-2)
-
-
 def linear_corrective(feature: torch.Tensor, posedirs: torch.Tensor) -> torch.Tensor:
     """Apply a linear corrective basis.
 
@@ -115,20 +100,28 @@ def dense_weight_from_sparse(
     return dense_weight.index_put((sparse_indices[0], sparse_indices[1]), sparse_values)
 
 
+def dense_skinning_weights(
+    weights_vk: torch.Tensor,
+    indices_vk: torch.Tensor,
+    joint_count: int,
+) -> torch.Tensor:
+    """Expand padded ``(V, K)`` influences into a dense ``(V, J)`` matrix."""
+    weights_vj = weights_vk.new_zeros((weights_vk.shape[0], joint_count))
+    return weights_vj.scatter_add_(1, indices_vk, weights_vk)
+
+
 def mlp_corrective(
     feature: torch.Tensor,
     first_layer_weight: torch.Tensor,
     output_weight: torch.Tensor,
-    first_layer_bias: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Apply a baked-dense first layer, ReLU, and dense corrective output.
 
     ``feature`` has shape ``(..., P)``, ``first_layer_weight`` is ``(H, P)``,
     and ``output_weight`` is stored as ``(H, V * 3)``. The returned offsets
-    have shape ``(..., V, 3)``. MHR uses no bias, but the optional argument
-    keeps this tensor stage faithful to the general masked-linear formula.
+    have shape ``(..., V, 3)``.
     """
-    hidden = functional.linear(feature, first_layer_weight, first_layer_bias).relu()
+    hidden = functional.linear(feature, first_layer_weight).relu()
     return (hidden @ output_weight).reshape(*feature.shape[:-1], -1, 3)
 
 
@@ -136,18 +129,16 @@ def skinning_transforms(
     world_joint_poses: torch.Tensor,
     bind_poses: torch.Tensor,
 ) -> torch.Tensor:
-    """Build ``T_world @ inverse(T_rest)`` for every native joint.
+    """Build ``T_world @ inverse(T_rest)`` for identity-oriented rest joints.
 
-    ``world_joint_poses`` has shape ``(..., J, 7)``. ``bind_poses`` may have
-    shape ``(..., J, 3)`` for the legacy identity-orientation bind, or full
-    shape ``(..., J, 7)`` for a nonidentity bind orientation.
+    ``world_joint_poses`` has shape ``(..., J, 7)`` and ``bind_poses`` has
+    shape ``(..., J, 3)``.
     """
-    if bind_poses.shape[-1] == 3:
-        identity_quaternions = bind_poses.new_zeros((*bind_poses.shape[:-1], 4))
-        identity_quaternions[..., 3] = 1.0
-        bind_poses = torch.cat((bind_poses, identity_quaternions), dim=-1)
-    elif bind_poses.shape[-1] != 7:
-        raise ValueError(f"bind_poses must have shape (..., J, 3) or (..., J, 7); got {tuple(bind_poses.shape)}")
+    if bind_poses.shape[-1:] != (3,):
+        raise ValueError(f"bind_poses must have shape (..., J, 3); got {tuple(bind_poses.shape)}")
+    identity_quaternions = bind_poses.new_zeros((*bind_poses.shape[:-1], 4))
+    identity_quaternions[..., 3] = 1.0
+    bind_poses = torch.cat((bind_poses, identity_quaternions), dim=-1)
     return se3.compose(world_joint_poses, se3.inverse(bind_poses))
 
 
@@ -169,44 +160,45 @@ def skinning_transforms_from_inverse(
 def lbs(
     rest_vertices: torch.Tensor,
     transforms: torch.Tensor,
-    weights_vk: torch.Tensor,
-    indices_vk: torch.Tensor,
+    weights_vj: torch.Tensor,
     *,
     joint_scales: torch.Tensor | None = None,
     bind_joint_positions: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """Apply padded sparse linear blend skinning.
+    """Apply dense matrix-blend linear blend skinning.
 
     Parameters use shapes ``rest_vertices (..., V, 3)``, ``transforms
-    (..., J, 7)``, and ``weights_vk`` / ``indices_vk (V, K)``. Only the
-    ``K`` stored influences are gathered for each vertex. Optional accumulated
-    ``joint_scales (..., J)`` apply a similarity transform about
-    ``bind_joint_positions (..., J, 3)`` for each influence.
+    (..., J, 7)``, and ``weights_vj (V, J)``. Joint transforms are converted
+    to affines and blended once before being applied to each vertex. Optional
+    accumulated ``joint_scales (..., J)`` apply a similarity transform about
+    ``bind_joint_positions (..., J, 3)``.
     """
-    selected_transforms = transforms[..., indices_vk, :]
-    points = rest_vertices[..., :, None, :]
-    transformed_vertices = se3.act(selected_transforms, points)
+    rotations = so3.to_matrix(transforms[..., 3:7])
+    translations = transforms[..., :3]
     if joint_scales is not None:
         if bind_joint_positions is None:
             raise ValueError("bind_joint_positions are required when joint_scales are provided")
-        selected_bind_positions = bind_joint_positions[..., indices_vk, :]
-        rotated_bind_relative = so3.act(
-            selected_transforms[..., 3:7],
-            points - selected_bind_positions,
-        )
-        selected_scales = joint_scales[..., indices_vk]
-        transformed_vertices = transformed_vertices + (selected_scales[..., None] - 1.0) * rotated_bind_relative
-    return (transformed_vertices * weights_vk[..., None]).sum(dim=-2)
+        rotated_bind_positions = (rotations @ bind_joint_positions.unsqueeze(-1)).squeeze(-1)
+        scale_offsets = joint_scales - 1.0
+        rotations = rotations * joint_scales[..., :, None, None]
+        translations = translations - scale_offsets[..., :, None] * rotated_bind_positions
+
+    batch_shape = torch.broadcast_shapes(rotations.shape[:-3], translations.shape[:-2])
+    rotations = rotations.expand(*batch_shape, *rotations.shape[-3:])
+    translations = translations.expand(*batch_shape, *translations.shape[-2:])
+    joint_affines = torch.cat((rotations, translations.unsqueeze(-1)), dim=-1).flatten(start_dim=-2)
+    blended_affines = torch.einsum("vj,...jx->...vx", weights_vj, joint_affines).unflatten(-1, (3, 4))
+    return (blended_affines[..., :3] @ rest_vertices.unsqueeze(-1)).squeeze(-1) + blended_affines[..., 3]
 
 
 __all__ = [
     "blend_shapes",
+    "dense_skinning_weights",
     "dense_weight_from_sparse",
     "lbs",
     "linear_corrective",
     "mlp_corrective",
     "pose_feature_6d_from_euler",
-    "pose_feature_6d_from_matrix",
     "pose_feature_rotmat_minus_identity",
     "regress_joints",
     "skinning_transforms",

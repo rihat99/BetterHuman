@@ -115,8 +115,7 @@ def _transform_and_lbs(
     return lbs(
         body.values.v_shaped + corrective,
         transforms,
-        body.values.skinning_weights,
-        body.structure.skinning_indices,
+        body.values.skinning_weight_matrix,
         joint_scales=body.values.joint_scales,
         bind_joint_positions=body.values.bind_joint_positions,
     )
@@ -181,7 +180,7 @@ def _betterhuman_results(
             shape_groups = {
                 "identity": identity,
                 "expression": expression,
-                "proportions": model_parameters.index_select(-1, neutral._proportion_parameter_indices),
+                "proportions": model_parameters.index_select(-1, neutral._tree.proportion_parameter_indices),
             }
 
             def pose_only() -> torch.Tensor:

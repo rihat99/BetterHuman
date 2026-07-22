@@ -20,6 +20,7 @@ from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.mass import body_inertias_from_shape, build_part_topology, segment_vertices
 from better_human.core.pipeline import (
     blend_shapes,
+    dense_skinning_weights,
     dense_weight_from_sparse,
     lbs,
     mlp_corrective,
@@ -63,7 +64,6 @@ class _TreeBinding:
     proportion_parameter_indices: torch.Tensor
     pose_host_weights: torch.Tensor
     corrective_full_q_indices: torch.Tensor
-    corrective_euler_indices: torch.Tensor
     corrective_euler_transform: torch.Tensor
     q_from_classic_permutation: torch.Tensor
     q_to_classic_permutation: torch.Tensor
@@ -97,8 +97,6 @@ def _validate_metadata(
     expected_scalars = {
         "format_version": 1,
         "lod": lod,
-        "world_joint_index": 0,
-        "root_joint_index": 1,
     }
     for name, expected in expected_scalars.items():
         actual = int(_tensor(arrays, name))
@@ -106,11 +104,6 @@ def _validate_metadata(
             raise ValueError(f"MHR field {name!r} must be {expected}, got {actual}")
 
     expected_strings = {
-        "storage_unit": "meter",
-        "native_pose_format": MHR_CONFIG.native_pose_format,
-        "quaternion_order": "xyzw",
-        "euler_composition_order": "Rz_Ry_Rx",
-        "scale_encoding": "exp2",
         "up_axis": MHR_CONFIG.up_axis,
         "forward_axis": MHR_CONFIG.forward_axis,
         "coordinate_axis": "+x",
@@ -319,7 +312,6 @@ def _build_mhr_tree(  # noqa: PLR0912, PLR0915 - one audited archive-to-tree bou
             dtype=torch.long,
             device=device,
         ),
-        corrective_euler_indices=corrective_euler_index_tensor,
         corrective_euler_transform=corrective_euler_transform,
         q_from_classic_permutation=q_from_classic,
         q_to_classic_permutation=torch.argsort(q_from_classic),
@@ -424,17 +416,17 @@ def _bake_mhr_shape(
     quaternions = body._joint_pre_rotations[1:].expand(*translations.shape[:-1], 4)
     native_placements = torch.cat((translations, quaternions), dim=-1)
 
-    base_placements = body._base_robot.joint_placements
+    base_placements = body._tree.robot.joint_placements
     joint_placements = base_placements.expand(
         *native_placements.shape[:-2],
         *base_placements.shape,
     )
     joint_placements = joint_placements.index_copy(
         -2,
-        body._native_origin_joint_indices,
+        body._tree.native_origin_joint_indices,
         native_placements,
     )
-    robot = body._base_robot.with_values(joint_placements=joint_placements)
+    robot = body._tree.robot.with_values(joint_placements=joint_placements)
     neutral_data = br.forward_kinematics(robot, robot.q_neutral)
     native_poses = neutral_data.joint_pose_world.index_select(
         -2,
@@ -447,8 +439,7 @@ def _bake_mhr_shape(
         neutral_vertices = lbs(
             v_shaped,
             transforms,
-            body.values.skinning_weights,
-            body.structure.skinning_indices,
+            body.values.skinning_weight_matrix,
             joint_scales=joint_scales,
             bind_joint_positions=body.values.bind_joint_positions,
         )
@@ -487,8 +478,8 @@ def _mhr_pose_corrective(body: ParametricBody, data: Data) -> torch.Tensor:
     if body._corrective_first_layer_weight is None:
         return torch.zeros_like(body.values.v_shaped)
     q_full = expand_configuration(body.robot.structure, data.q)
-    entries = q_full.index_select(-1, body._corrective_full_q_indices)
-    euler = entries @ body._corrective_euler_transform.mT
+    entries = q_full.index_select(-1, body._tree.corrective_full_q_indices)
+    euler = entries @ body._tree.corrective_euler_transform.mT
     feature = pose_feature_6d_from_euler(euler.reshape(*euler.shape[:-1], 125, 3))
     return mlp_corrective(
         feature,
@@ -593,10 +584,10 @@ class MHR(ParametricBody):
             native_pose_format=MHR_CONFIG.native_pose_format,
             native_pose_joint_indices=tree.native_pose_joint_indices,
         )
-        neutral_data = br.forward_kinematics(tree.robot, tree.robot.q_neutral)
-        neutral_native_poses = neutral_data.joint_pose_world.index_select(
-            -2,
-            tree.native_pose_joint_indices,
+        skinning_weight_matrix = dense_skinning_weights(
+            skinning_weights,
+            skinning_indices,
+            len(structure.joint_names),
         )
         values = BodyValues(
             v_template=v_template,
@@ -604,9 +595,10 @@ class MHR(ParametricBody):
             posedirs=None,
             joint_regressor=None,
             skinning_weights=skinning_weights,
+            skinning_weight_matrix=skinning_weight_matrix,
             shape_parameters=parameters,
             v_shaped=v_template,
-            rest_joints=neutral_native_poses[..., :3],
+            rest_joints=v_template.new_zeros((len(structure.joint_names), 3)),
             pelvis_offset=None,
             density=density_value,
             body_inertias=None,
@@ -624,18 +616,6 @@ class MHR(ParametricBody):
         first_layer_weight = None
         output_weight = None
         if use_correctives:
-            expected_corrective_joints = torch.arange(2, 127, dtype=torch.long)
-            if not torch.equal(_tensor(arrays, "corrective_joint_indices"), expected_corrective_joints):
-                raise ValueError("MHR corrective joints must be native joints 2:127 in order")
-            expected_joint_names = tuple(structure.joint_names[index] for index in range(2, 127))
-            if _strings(arrays, "corrective_joint_names") != expected_joint_names:
-                raise ValueError("MHR corrective joint names must match native joints 2:127")
-            expected_matrix_indices = torch.tensor((0, 3, 6, 1, 4, 7), dtype=torch.long)
-            if not torch.equal(_tensor(arrays, "corrective_feature_matrix_indices"), expected_matrix_indices):
-                raise ValueError("MHR corrective feature indices must select the first two rotation columns")
-            expected_identity_feature = torch.tensor((1, 0, 0, 0, 1, 0), dtype=torch.float32)
-            if not torch.equal(_tensor(arrays, "corrective_identity_feature"), expected_identity_feature):
-                raise ValueError("MHR corrective identity feature must be [1, 0, 0, 0, 1, 0]")
             first_layer_weight = dense_weight_from_sparse(
                 _tensor(arrays, "corrective_first_layer_indices").to(
                     device=target_device,
@@ -660,7 +640,7 @@ class MHR(ParametricBody):
         object.__setattr__(self, "robot", tree.robot)
         object.__setattr__(self, "_shape_bake_policy", _bake_mhr_shape)
         object.__setattr__(self, "_pose_corrective_policy", _mhr_pose_corrective)
-        object.__setattr__(self, "_base_robot", tree.robot)
+        object.__setattr__(self, "_tree", tree)
         object.__setattr__(self, "_identity_basis", identity_basis)
         object.__setattr__(self, "_expression_basis", expression_basis)
         object.__setattr__(self, "_use_expression", use_expression)
@@ -676,15 +656,6 @@ class MHR(ParametricBody):
         object.__setattr__(self, "_scale_basis", scale_basis)
         object.__setattr__(self, "_root_parameter_transform", root_transform)
         object.__setattr__(self, "_root_parameter_transform_inverse", torch.linalg.inv(root_transform))
-        object.__setattr__(self, "_native_origin_joint_indices", tree.native_origin_joint_indices)
-        object.__setattr__(self, "_pose_parameter_indices", tree.pose_parameter_indices)
-        object.__setattr__(self, "_proportion_parameter_indices", tree.proportion_parameter_indices)
-        object.__setattr__(self, "_pose_host_weights", tree.pose_host_weights)
-        object.__setattr__(self, "_corrective_full_q_indices", tree.corrective_full_q_indices)
-        object.__setattr__(self, "_corrective_euler_indices", tree.corrective_euler_indices)
-        object.__setattr__(self, "_corrective_euler_transform", tree.corrective_euler_transform)
-        object.__setattr__(self, "_q_from_classic_permutation", tree.q_from_classic_permutation)
-        object.__setattr__(self, "_q_to_classic_permutation", tree.q_to_classic_permutation)
         object.__setattr__(self, "_part_native_joint_indices", part_native_joint_indices)
         object.__setattr__(self, "_part_body_indices", part_body_indices)
         object.__setattr__(self, "_corrective_first_layer_weight", first_layer_weight)
@@ -725,7 +696,7 @@ class MHR(ParametricBody):
         model_parameters = model_parameters.expand(*batch_shape, MODEL_PARAMETER_COUNT)
         shape_groups = {
             "identity": identity,
-            "proportions": model_parameters.index_select(-1, self._proportion_parameter_indices),
+            "proportions": model_parameters.index_select(-1, self._tree.proportion_parameter_indices),
         }
         if self._use_expression:
             shape_groups["expression"] = (
@@ -738,9 +709,9 @@ class MHR(ParametricBody):
         root_parameters = model_parameters[..., :ROOT_PARAMETER_COUNT]
         root_channels = root_parameters @ self._root_parameter_transform.mT
         root = torch.cat((root_channels[..., :3], so3.from_euler(root_channels[..., 3:6])), dim=-1)
-        pose = model_parameters.index_select(-1, self._pose_parameter_indices) * self._pose_host_weights
+        pose = model_parameters.index_select(-1, self._tree.pose_parameter_indices) * self._tree.pose_host_weights
         external_q = torch.cat((root, pose), dim=-1)
-        return shaped, external_q.index_select(-1, self._q_from_classic_permutation)
+        return shaped, external_q.index_select(-1, self._tree.q_from_classic_permutation)
 
     def to_classic(self, q: torch.Tensor) -> MHRClassic:
         """Convert ``q`` plus this body's baked shape back to native MHR.
@@ -751,7 +722,7 @@ class MHR(ParametricBody):
         """
         identity = self.values.shape_parameters["identity"]
         q, batch_shape = broadcast_configuration(q, self.robot, identity)
-        external_q = q.index_select(-1, self._q_to_classic_permutation)
+        external_q = q.index_select(-1, self._tree.q_to_classic_permutation)
         root_quaternion = so3.normalize(external_q[..., 3:7])
         root_euler = so3.to_euler(root_quaternion)
         reconstructed = so3.from_euler(root_euler)
@@ -764,16 +735,16 @@ class MHR(ParametricBody):
         root_euler = torch.cat((roll, root_euler[..., 1:]), dim=-1)
         root_channels = torch.cat((external_q[..., :3], root_euler), dim=-1)
         root_parameters = root_channels @ self._root_parameter_transform_inverse.mT
-        pose_parameters = external_q[..., 7:] / self._pose_host_weights
+        pose_parameters = external_q[..., 7:] / self._tree.pose_host_weights
         proportions = self.values.shape_parameters["proportions"].expand(*batch_shape, 73)
 
         model_parameters = q.new_zeros((*batch_shape, MODEL_PARAMETER_COUNT))
         root_indices = torch.arange(ROOT_PARAMETER_COUNT, dtype=torch.long, device=q.device)
         model_parameters = model_parameters.index_copy(-1, root_indices, root_parameters)
-        model_parameters = model_parameters.index_copy(-1, self._pose_parameter_indices, pose_parameters)
+        model_parameters = model_parameters.index_copy(-1, self._tree.pose_parameter_indices, pose_parameters)
         model_parameters = model_parameters.index_copy(
             -1,
-            self._proportion_parameter_indices,
+            self._tree.proportion_parameter_indices,
             proportions,
         )
         expression = (

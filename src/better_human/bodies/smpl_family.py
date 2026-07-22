@@ -20,6 +20,7 @@ from better_human.core.mass import (
 )
 from better_human.core.pipeline import (
     blend_shapes,
+    dense_skinning_weights,
     linear_corrective,
     pose_feature_rotmat_minus_identity,
     regress_joints,
@@ -144,12 +145,18 @@ def make_body_values(
     world_joints = regress_joints(joint_regressor, world_vertices)
     pelvis_offset = world_joints[0]
     skinning_weights, skinning_indices = padded_skinning(dense_weights)
+    skinning_weight_matrix = dense_skinning_weights(
+        skinning_weights,
+        skinning_indices,
+        dense_weights.shape[1],
+    )
     values = BodyValues(
         v_template=v_template,
         shape_basis=shape_basis,
         posedirs=posedirs.reshape(-1, posedirs.shape[-1]).T,
         joint_regressor=joint_regressor,
         skinning_weights=skinning_weights,
+        skinning_weight_matrix=skinning_weight_matrix,
         shape_parameters=parameters,
         v_shaped=world_vertices - pelvis_offset,
         rest_joints=world_joints - pelvis_offset,
