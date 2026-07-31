@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 viewer = ["better-robot[viewer]"]
+studio = ["viser>=1.0"]
 
 [dependency-groups]
 dev = [

@@ -46,6 +46,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+studio = [
+    { name = "viser" },
+]
 viewer = [
     { name = "better-robot", extra = ["viewer"] },
 ]
@@ -65,8 +68,9 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu126" },
+    { name = "viser", marker = "extra == 'studio'", specifier = ">=1.0" },
 ]
-provides-extras = ["viewer"]
+provides-extras = ["viewer", "studio"]
 
 [package.metadata.requires-dev]
 dev = [
