@@ -5,12 +5,20 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from numbers import Real
+from pathlib import Path
 
 import torch
 from better_robot import Data, Model
 from better_robot.io.builders.kinematic_tree import build_kinematic_tree_model
+from better_robot.io.ir import IRFrame
 
 from better_human.core import BodyStructure, BodyValues, ParametricBody
+from better_human.core.contact_frames import (
+    ContactFrames,
+    frame_local_placements,
+    parse_frame_set,
+    resolve_parents,
+)
 from better_human.core.mass import (
     PartMeshTopology,
     body_inertias_from_shape,
@@ -25,6 +33,73 @@ from better_human.core.pipeline import (
     pose_feature_rotmat_minus_identity,
     regress_joints,
 )
+
+
+def contact_frame_ir(
+    contact_frames: str | Path | Mapping[str, tuple[int, str | None]],
+    structure: BodyStructure,
+    values: BodyValues,
+) -> tuple[list[IRFrame], ContactFrames]:
+    """Resolve an authored contact-frame set against a body under construction.
+
+    :param contact_frames: frame-set JSON path, or an already-parsed mapping
+        name -> ``(vertex_id, joint_name | None)``.
+    :returns: the IR frames to build the robot with, plus the matching spec.
+        Frame ids follow BetterRobot's assignment — one automatic ``body_<name>``
+        frame per body first, then these in order.
+    """
+    entries = (
+        dict(contact_frames)
+        if isinstance(contact_frames, Mapping)
+        else parse_frame_set(contact_frames, structure.num_vertices)
+    )
+    joint_names = structure.joint_names
+    parents = resolve_parents(entries, joint_names, structure.part_ids)
+    vertices = tuple(vertex for vertex, _ in entries.values())
+    placements = frame_local_placements(
+        values.v_shaped,
+        values.rest_joints,
+        structure.faces,
+        vertices,
+        parents,
+    ).cpu()
+    ir_frames = [
+        IRFrame(name=name, parent_body=joint_names[parent], placement=placement)
+        for name, parent, placement in zip(entries, parents, placements)
+    ]
+    num_bodies = len(joint_names) + 1
+    spec = ContactFrames(
+        names=tuple(entries),
+        vertex_ids=vertices,
+        parent_joints=tuple(parents),
+        frame_ids=tuple(range(num_bodies, num_bodies + len(entries))),
+    )
+    return ir_frames, spec
+
+
+def rebaked_frame_placements(
+    body: ParametricBody,
+    contact_frames: ContactFrames,
+    v_shaped: torch.Tensor,
+    rest_joints: torch.Tensor,
+) -> torch.Tensor:
+    """Full ``(..., nframes, 7)`` frame table for a reshaped body.
+
+    The automatic ``body_<name>`` frames sit at the joint origin, so their rows
+    stay identity; only the contact-frame rows are re-baked from the new shape.
+    """
+    placements = frame_local_placements(
+        v_shaped,
+        rest_joints,
+        body.structure.faces,
+        contact_frames.vertex_ids,
+        contact_frames.parent_joints,
+    )
+    table = placements.new_zeros((*placements.shape[:-2], body.robot.nframes, 7))
+    table[..., 6] = 1.0
+    frame_ids = torch.as_tensor(contact_frames.frame_ids, dtype=torch.long, device=placements.device)
+    table[..., frame_ids, :] = placements
+    return table
 
 
 def bake_regressed_pelvis_shape(
@@ -68,9 +143,15 @@ def bake_regressed_pelvis_shape(
         pelvis_offset=pelvis_offset,
         body_inertias=body_inertias,
     )
+    contact_frames = getattr(body, "contact_frames", None)
+    frame_placements = None
+    if contact_frames is not None:
+        frame_placements = rebaked_frame_placements(body, contact_frames, centered_vertices, centered_joints)
+
     robot = body.robot.with_values(
         joint_placements=joint_placements,
         body_inertias=body_inertias,
+        frame_placements=frame_placements,
     )
     return values, robot
 
@@ -235,8 +316,13 @@ def build_family_robot(
     rest_joints: torch.Tensor,
     dtype: torch.dtype,
     device: torch.device,
+    frames: Sequence[IRFrame] | None = None,
 ) -> Model:
-    """Build the preserved-order free-flyer/spherical BetterRobot tree."""
+    """Build the preserved-order free-flyer/spherical BetterRobot tree.
+
+    ``frames`` attaches extra operational frames, e.g. contact frames; each
+    ``IRFrame.parent_body`` must name one of ``joint_names``.
+    """
     parent_tensor = torch.tensor(parents[1:], dtype=torch.long, device=rest_joints.device)
     child_offsets = rest_joints[1:] - rest_joints[parent_tensor]
     translations = torch.cat((torch.zeros_like(rest_joints[:1]), child_offsets), dim=0)
@@ -247,6 +333,7 @@ def build_family_robot(
         translations=translations.cpu(),
         root_kind="free_flyer",
         child_kind="spherical",
+        frames=frames,
         preserve_joint_order=True,
         dtype=dtype,
     ).to(device=device)
@@ -257,9 +344,11 @@ __all__ = [
     "bind_smpl_body",
     "build_family_robot",
     "bind_mass_properties",
+    "contact_frame_ir",
     "density_tensor",
     "make_body_values",
     "padded_skinning",
     "parents_from_kintree",
+    "rebaked_frame_placements",
     "smpl_linear_pose_corrective",
 ]

@@ -145,9 +145,13 @@ class ParametricBody:
         values, robot = self._shape_bake_policy(self, expanded_parameters)
         return self._replace(values=values, robot=robot)
 
-    def fk(self, q: torch.Tensor) -> Data:
-        """Run BetterRobot forward kinematics for ``q (..., nq)``."""
-        return br.forward_kinematics(self.robot, q)
+    def fk(self, q: torch.Tensor, *, compute_frames: bool = False) -> Data:
+        """Run BetterRobot forward kinematics for ``q (..., nq)``.
+
+        Set ``compute_frames`` to also fill ``Data.frame_pose_world``, e.g. for
+        contact frames.
+        """
+        return br.forward_kinematics(self.robot, q, compute_frames=compute_frames)
 
     def vertices(self, q: torch.Tensor) -> torch.Tensor:
         """Run one FK traversal, pose correctives, and matrix-blend LBS."""

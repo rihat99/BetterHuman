@@ -16,6 +16,8 @@ from pathlib import Path
 
 import torch
 
+from better_human.core.contact_frames import parse_frame_set
+
 _ASSET_PACKAGE = "better_human.bodies.assets"
 
 
@@ -110,29 +112,13 @@ def save_segmentation(path: Path, parts: Mapping[str, Sequence[int]]) -> None:
     _write_json(path, payload)
 
 
-def _parse_frame_entry(value: object, num_vertices: int, name: str) -> tuple[int, str | None]:
-    """Parse one frame entry, accepting a bare vertex or a ``{vertex, joint}`` dict.
-
-    The parent joint is kept as a portable name (or ``None``); it is not resolved
-    to an index here because this layer does not know the body's joint names.
-    """
-    if isinstance(value, dict):
-        vertex = _checked_vertex_id(value.get("vertex"), num_vertices, name)
-        joint = value.get("joint")
-        if joint is not None and not isinstance(joint, str):
-            raise ValueError(f"{name!r}: frame joint {joint!r} is not a joint name or null")
-        return vertex, joint
-    return _checked_vertex_id(value, num_vertices, name), None
-
-
 def load_frame_set(path: Path, num_vertices: int) -> dict[str, tuple[int, str | None]]:
     """Load a frame set, accepting the legacy and ``{vertex, joint}`` entry forms.
 
     :returns: mapping name -> ``(vertex_id, joint_name | None)``; the caller that
         knows the body resolves ``joint_name`` to a native joint index.
     """
-    raw = json.loads(path.read_text())
-    return {name: _parse_frame_entry(value, num_vertices, name) for name, value in raw.items()}
+    return parse_frame_set(path, num_vertices)
 
 
 def save_frame_set(path: Path, frames: Mapping[str, tuple[int, str | None]]) -> None:

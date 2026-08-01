@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from .shared import (
     bind_mass_properties,
     bind_smpl_body,
     build_family_robot,
+    contact_frame_ir,
     density_tensor,
     make_body_values,
     parents_from_kintree,
@@ -100,6 +102,7 @@ class SMPLX(ParametricBody):
         flat_hand_mean: bool = False,
         density: float | torch.Tensor = 1000.0,
         compute_mass: bool = True,
+        contact_frames: str | Path | Mapping[str, tuple[int, str | None]] | None = None,
         dtype: torch.dtype = torch.float32,
         device: torch.device | str | None = None,
     ) -> None:
@@ -192,6 +195,9 @@ class SMPLX(ParametricBody):
             forward_axis=SMPLX_CONFIG.forward_axis,
             native_pose_format=SMPLX_CONFIG.native_pose_format,
         )
+        frame_specs, contact_frame_spec = (
+            (None, None) if contact_frames is None else contact_frame_ir(contact_frames, structure, values)
+        )
         robot = build_family_robot(
             f"smplx_{normalized_gender}",
             joint_names,
@@ -199,6 +205,7 @@ class SMPLX(ParametricBody):
             values.rest_joints,
             dtype,
             target_device,
+            frame_specs,
         )
         if values.body_inertias is not None:
             robot = robot.with_values(body_inertias=values.body_inertias)
@@ -209,6 +216,7 @@ class SMPLX(ParametricBody):
             left_mean = torch.zeros_like(left_mean)
             right_mean = torch.zeros_like(right_mean)
         bind_smpl_body(self, structure, values, robot)
+        object.__setattr__(self, "contact_frames", contact_frame_spec)
         object.__setattr__(
             self,
             "_left_hand_components",
