@@ -111,17 +111,17 @@ class FramesLayer:
             return
         self._clear()
         vertices = self._session.vertices
-        for name, vertex_id in self._session.frame_set.items():
+        for name, entry in self._session.frame_set.items():
             color = FRAME_ACTIVE_COLOR if name == self._active else FRAME_COLOR
             handle = self._server.scene.add_icosphere(
                 f"{_ROOT}/{name}",
                 radius=self._radius,
                 color=color,
-                position=vertices[vertex_id].detach().cpu().numpy(),
+                position=vertices[entry.vertex].detach().cpu().numpy(),
                 visible=self._visible,
             )
             handle.on_click(self._make_click(name))
-            self._nodes.append((handle, vertex_id, name))
+            self._nodes.append((handle, entry.vertex, name))
         self._rebuild_connectors()
 
     def _make_click(self, name: str) -> Callable[[object], None]:
@@ -135,10 +135,9 @@ class FramesLayer:
         session = self._session
         vertices = session.vertices
         poses = session.native_poses
-        joints = session.vertex_native_joints
         connectors_visible = self._visible and self._skeleton_visible
-        for index, (_handle, vertex_id, _name) in enumerate(self._nodes):
-            native_joint = int(joints[vertex_id])
+        for index, (_handle, vertex_id, name) in enumerate(self._nodes):
+            native_joint = session.resolved_joint(session.frame_set[name])
             position, orientation, height = bone_transform(vertices[vertex_id], poses[native_joint, :3])
             if height <= 0.0:
                 continue

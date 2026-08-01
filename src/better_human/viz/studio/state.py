@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from typing import NamedTuple
 
 import torch
 from better_robot.lie import so3
@@ -23,6 +24,18 @@ from .posing import JointHandle, apply_local_rotation, joint_handles
 
 #: Change kinds broadcast to subscribers.
 ChangeKind = str  # "pose" | "shape" | "body" | "segmentation" | "frames"
+
+
+class FrameEntry(NamedTuple):
+    """A named frame: an anchor vertex and an optional parent-joint override.
+
+    ``joint`` is a native joint index that overrides the default parent (the
+    frame vertex's strongest-weighted skinning joint); ``None`` selects that
+    argmax default.  Resolve it with :meth:`StudioSession.resolved_joint`.
+    """
+
+    vertex: int
+    joint: int | None = None
 
 
 def _vertex_native_joints(body: ParametricBody) -> torch.Tensor:
@@ -87,7 +100,7 @@ class StudioSession:
         self,
         body: ParametricBody,
         model_key: str,
-        frame_set: dict[str, int] | None = None,
+        frame_set: dict[str, FrameEntry] | None = None,
         *,
         notify: bool = True,
     ) -> None:
@@ -202,11 +215,26 @@ class StudioSession:
             self._reset_default_segmentation()
             self._notify("segmentation")
 
-    def set_frame_set(self, frame_set: dict[str, int]) -> None:
+    def set_frame_set(self, frame_set: dict[str, FrameEntry]) -> None:
         """Install a new active frame set and notify a frames change."""
         with self._lock:
             self.frame_set = dict(frame_set)
             self._notify("frames")
+
+    def set_frame_joint(self, name: str, joint: int | None) -> None:
+        """Override (``None`` clears) one frame's parent native joint index."""
+        with self._lock:
+            entry = self.frame_set.get(name)
+            if entry is None:
+                return
+            self.frame_set[name] = FrameEntry(entry.vertex, joint)
+            self._notify("frames")
+
+    def resolved_joint(self, entry: FrameEntry) -> int:
+        """Return a frame's parent joint: its override, else the argmax joint."""
+        if entry.joint is not None:
+            return entry.joint
+        return int(self.vertex_native_joints[entry.vertex])
 
     # -- subscription --------------------------------------------------------
 
@@ -219,4 +247,4 @@ class StudioSession:
             callback(kind)
 
 
-__all__ = ["ChangeKind", "StudioSession"]
+__all__ = ["ChangeKind", "FrameEntry", "StudioSession"]

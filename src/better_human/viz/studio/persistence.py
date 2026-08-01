@@ -110,15 +110,41 @@ def save_segmentation(path: Path, parts: Mapping[str, Sequence[int]]) -> None:
     _write_json(path, payload)
 
 
-def load_frame_set(path: Path, num_vertices: int) -> dict[str, int]:
-    """Load and validate a saved frame set from ``path``."""
+def _parse_frame_entry(value: object, num_vertices: int, name: str) -> tuple[int, str | None]:
+    """Parse one frame entry, accepting a bare vertex or a ``{vertex, joint}`` dict.
+
+    The parent joint is kept as a portable name (or ``None``); it is not resolved
+    to an index here because this layer does not know the body's joint names.
+    """
+    if isinstance(value, dict):
+        vertex = _checked_vertex_id(value.get("vertex"), num_vertices, name)
+        joint = value.get("joint")
+        if joint is not None and not isinstance(joint, str):
+            raise ValueError(f"{name!r}: frame joint {joint!r} is not a joint name or null")
+        return vertex, joint
+    return _checked_vertex_id(value, num_vertices, name), None
+
+
+def load_frame_set(path: Path, num_vertices: int) -> dict[str, tuple[int, str | None]]:
+    """Load a frame set, accepting the legacy and ``{vertex, joint}`` entry forms.
+
+    :returns: mapping name -> ``(vertex_id, joint_name | None)``; the caller that
+        knows the body resolves ``joint_name`` to a native joint index.
+    """
     raw = json.loads(path.read_text())
-    return {name: _checked_vertex_id(vid, num_vertices, name) for name, vid in raw.items()}
+    return {name: _parse_frame_entry(value, num_vertices, name) for name, value in raw.items()}
 
 
-def save_frame_set(path: Path, frames: Mapping[str, int]) -> None:
-    """Save a frame set as ``{frame_name: vertex_id}`` JSON."""
-    payload = {str(name): int(vid) for name, vid in frames.items()}
+def save_frame_set(path: Path, frames: Mapping[str, tuple[int, str | None]]) -> None:
+    """Save a frame set as ``{name: {"vertex": int, "joint": name | null}}`` JSON.
+
+    ``frames`` maps each name to ``(vertex_id, joint_name | None)``; entries with
+    no override are written with ``"joint": null``.
+    """
+    payload = {
+        str(name): {"vertex": int(vertex), "joint": None if joint is None else str(joint)}
+        for name, (vertex, joint) in frames.items()
+    }
     _write_json(path, payload)
 
 

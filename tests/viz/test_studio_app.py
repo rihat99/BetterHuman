@@ -89,6 +89,37 @@ def test_frame_click_selects_and_syncs(studio: HumanStudio) -> None:
     assert editor._selected.value == name
 
 
+def test_frame_parent_joint_override_and_roundtrip(studio: HumanStudio) -> None:
+    session = studio._session
+    editor = studio._frames_editor
+    frames = studio._layers["frames"]
+    studio._set_layer_visible("frames", True)
+    studio._set_layer_visible("skeleton", True)
+
+    name = next(iter(session.frame_set))
+    entry = session.frame_set[name]
+    studio._select_frame_from_click(name)
+    # Activating a frame shows the argmax label in the Parent-joint dropdown.
+    assert editor._parent_joint.value.startswith("argmax (")
+
+    joint_names = list(session.body.structure.joint_names)
+    argmax_joint = session.resolved_joint(entry)
+    other = (argmax_joint + 1) % len(joint_names)
+    editor._parent_joint.value = joint_names[other]  # fires on_update -> set_frame_joint
+    assert session.frame_set[name].joint == other
+    # The connector for this frame now targets the overridden joint.
+    targets = [nj for _, vid, nj in frames._connectors if vid == entry.vertex]
+    assert targets == [other]
+
+    # Save, then reload the saved set: the override survives the round-trip.
+    editor._save_name.value = "override_set"
+    editor._save()
+    editor._source.options = editor._source_options()
+    editor._source.value = "override_set"
+    editor._load_source()
+    assert session.frame_set[name].joint == other
+
+
 def test_session_rotation_changes_vertices(studio: HumanStudio) -> None:
     session = studio._session
     before = session.vertices.clone()

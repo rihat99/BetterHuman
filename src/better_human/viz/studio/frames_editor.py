@@ -1,8 +1,9 @@
 """Frames editor: click to add named frames, then save or export as config.
 
 Wires the Frames tab to the session: it loads config / saved frame sets, adds a
-frame at the vertex nearest a click, renames or deletes frames, saves the set,
-and exports the paste-ready ``frame_names`` / ``frame_vertex_ids`` snippet.
+frame at the vertex nearest a click, sets each frame's parent joint (argmax
+default or a per-frame override), renames or deletes frames, saves the set, and
+exports the paste-ready ``frame_names`` / ``frame_vertex_ids`` snippet.
 """
 
 from __future__ import annotations
@@ -13,7 +14,9 @@ import torch
 import viser
 
 from . import persistence, picking
-from .state import StudioSession
+from .state import FrameEntry, StudioSession
+
+_ARGMAX_PREFIX = "argmax ("
 
 
 class FramesEditor:
@@ -25,7 +28,7 @@ class FramesEditor:
         session: StudioSession,
         paths: persistence.StudioPaths,
         status: Callable[[str], None],
-        default_frames: Callable[[], dict[str, int]],
+        default_frames: Callable[[], dict[str, FrameEntry]],
         set_edit_overlay: Callable[[bool], None],
         set_active_frame: Callable[[str | None], None],
     ) -> None:
@@ -38,6 +41,7 @@ class FramesEditor:
         self._set_active_frame = set_active_frame
         self._editing = False
         self._highlighted: str | None = None
+        self._suppress_joint = False
         self._click = None
         self.on_edit_start: Callable[[], None] = lambda: None
 
@@ -51,6 +55,8 @@ class FramesEditor:
         self._selected = gui.add_dropdown("Frame", self._frame_names())
         self._selected.on_update(lambda _event: self._on_selected_change())
         gui.add_button("Deselect frame").on_click(lambda _event: self.clear_active())
+        self._parent_joint = gui.add_dropdown("Parent joint", ("(no frame selected)",))
+        self._parent_joint.on_update(lambda _event: self._on_parent_joint_change())
         self._rename = gui.add_text("Rename to", initial_value="")
         gui.add_button("Rename").on_click(lambda _event: self._do_rename())
         gui.add_button("Delete").on_click(lambda _event: self._do_delete())
@@ -58,6 +64,7 @@ class FramesEditor:
         gui.add_button("Save frames").on_click(lambda _event: self._save())
         gui.add_button("Export as config").on_click(lambda _event: self._export())
         self._config = gui.add_markdown("")
+        self._sync_parent_joint()
 
     # -- sources -------------------------------------------------------------
 
@@ -73,12 +80,33 @@ class FramesEditor:
                 self._session.set_frame_set(self._default_frames())
             else:
                 path = self._paths.frame_dir(self._session.model_key) / f"{choice}.json"
-                frames = persistence.load_frame_set(path, self._session.body.structure.num_vertices)
-                self._session.set_frame_set(frames)
+                raw = persistence.load_frame_set(path, self._session.body.structure.num_vertices)
+                self._session.set_frame_set(self._resolve_loaded(raw))
         except (ValueError, OSError) as error:
             self._status(f"frame load failed: {error}")
             return
         self._sync_selected()
+
+    def _resolve_loaded(self, raw: dict[str, tuple[int, str | None]]) -> dict[str, FrameEntry]:
+        """Resolve loaded parent-joint names to native indices for this body.
+
+        An unknown joint name falls back to the argmax default (``None``) and is
+        reported in the status bar.
+        """
+        index = {name: position for position, name in enumerate(self._session.body.structure.joint_names)}
+        frames: dict[str, FrameEntry] = {}
+        unknown: list[str] = []
+        for name, (vertex, joint_name) in raw.items():
+            joint = None
+            if joint_name is not None:
+                if joint_name in index:
+                    joint = index[joint_name]
+                else:
+                    unknown.append(joint_name)
+            frames[name] = FrameEntry(vertex, joint)
+        if unknown:
+            self._status(f"unknown parent joint(s) {', '.join(sorted(set(unknown)))}: using argmax")
+        return frames
 
     # -- editing -------------------------------------------------------------
 
@@ -113,7 +141,7 @@ class FramesEditor:
         vertex_id = int(((self._session.vertices - hit[0]) ** 2).sum(-1).argmin())
         frames = dict(self._session.frame_set)
         name = self._unique_name(frames)
-        frames[name] = vertex_id
+        frames[name] = FrameEntry(vertex_id, None)
         self._session.set_frame_set(frames)
         self._selected.options = self._frame_names()
         self._selected.value = name
@@ -139,9 +167,46 @@ class FramesEditor:
     def _set_highlight(self, name: str | None) -> None:
         self._highlighted = name
         self._set_active_frame(name)
+        self._sync_parent_joint()
 
     def _on_selected_change(self) -> None:
         self._set_highlight(self._active_name())
+
+    # -- parent joint --------------------------------------------------------
+
+    def _sync_parent_joint(self) -> None:
+        """Populate the Parent-joint dropdown for the active frame."""
+        name = self._highlighted
+        joint_names = tuple(self._session.body.structure.joint_names)
+        self._suppress_joint = True
+        try:
+            if name is None or name not in self._session.frame_set:
+                self._parent_joint.options = ("(no frame selected)",)
+                self._parent_joint.value = "(no frame selected)"
+                self._parent_joint.disabled = True
+                return
+            entry = self._session.frame_set[name]
+            argmax_index = int(self._session.vertex_native_joints[entry.vertex])
+            argmax_label = f"{_ARGMAX_PREFIX}{joint_names[argmax_index]})"
+            self._parent_joint.options = (argmax_label, *joint_names)
+            self._parent_joint.value = argmax_label if entry.joint is None else joint_names[entry.joint]
+            self._parent_joint.disabled = False
+        finally:
+            self._suppress_joint = False
+
+    def _on_parent_joint_change(self) -> None:
+        if self._suppress_joint:
+            return
+        name = self._highlighted
+        if name is None or name not in self._session.frame_set:
+            return
+        value = self._parent_joint.value
+        if value.startswith(_ARGMAX_PREFIX):
+            joint: int | None = None
+        else:
+            joint_names = list(self._session.body.structure.joint_names)
+            joint = joint_names.index(value) if value in joint_names else None
+        self._session.set_frame_joint(name, joint)
 
     def _unique_name(self, frames: dict[str, int]) -> str:
         index = len(frames)
@@ -157,7 +222,7 @@ class FramesEditor:
         if not old or not new or new in self._session.frame_set:
             self._status("rename needs a selected frame and an unused new name")
             return
-        frames = {new if name == old else name: vid for name, vid in self._session.frame_set.items()}
+        frames = {new if name == old else name: entry for name, entry in self._session.frame_set.items()}
         self._session.set_frame_set(frames)
         self._sync_selected()
 
@@ -165,7 +230,7 @@ class FramesEditor:
         name = self._selected.value
         if name not in self._session.frame_set:
             return
-        frames = {key: vid for key, vid in self._session.frame_set.items() if key != name}
+        frames = {key: entry for key, entry in self._session.frame_set.items() if key != name}
         self._session.set_frame_set(frames)
         self._sync_selected()
 
@@ -176,13 +241,19 @@ class FramesEditor:
         if not name:
             self._status("provide a name to save frames")
             return
+        joint_names = self._session.body.structure.joint_names
+        records = {
+            frame: (entry.vertex, None if entry.joint is None else joint_names[entry.joint])
+            for frame, entry in self._session.frame_set.items()
+        }
         path = self._paths.frame_dir(self._session.model_key) / f"{name}.json"
-        persistence.save_frame_set(path, self._session.frame_set)
+        persistence.save_frame_set(path, records)
         self._source.options = self._source_options()
         self._status(f"saved frames to {path}")
 
     def _export(self) -> None:
-        snippet = persistence.frame_config_snippet(self._session.frame_set)
+        vertices = {name: entry.vertex for name, entry in self._session.frame_set.items()}
+        snippet = persistence.frame_config_snippet(vertices)
         self._config.content = f"```python\n{snippet}\n```"
 
     # -- helpers -------------------------------------------------------------

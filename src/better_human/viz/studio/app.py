@@ -32,7 +32,7 @@ from .layers import FramesLayer, MeshLayer, PartsLayer, SkeletonLayer
 from .layers.base import EDIT_POINT_COLOR, to_numpy
 from .layers.mesh import fast_skinning_available
 from .segment_editor import SegmentEditor
-from .state import StudioSession, compact_segmentation
+from .state import FrameEntry, StudioSession, compact_segmentation
 
 _GENDERS = ("neutral", "male", "female")
 _LODS = tuple(str(lod) for lod in range(7))
@@ -131,12 +131,17 @@ class HumanStudio:
         return persistence.model_key(model, gender=gender)
 
     @staticmethod
-    def _default_frames(model: str) -> dict[str, int]:
+    def _default_frames(model: str) -> dict[str, FrameEntry]:
         if model == "smpl":
-            return dict(zip(SMPL_CONFIG.frame_names, SMPL_CONFIG.frame_vertex_ids, strict=True))
-        if model == "smplx":
-            return dict(zip(SMPLX_CONFIG.frame_names, SMPLX_CONFIG.frame_vertex_ids, strict=True))
-        return {}
+            config = SMPL_CONFIG
+        elif model == "smplx":
+            config = SMPLX_CONFIG
+        else:
+            return {}
+        return {
+            name: FrameEntry(int(vertex), None)
+            for name, vertex in zip(config.frame_names, config.frame_vertex_ids, strict=True)
+        }
 
     # -- sidebar -------------------------------------------------------------
 

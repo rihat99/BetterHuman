@@ -1,0 +1,50 @@
+{
+  "toe_under_left": {
+    "vertex": 5855,
+    "joint": null
+  },
+  "toe_under_right": {
+    "vertex": 8549,
+    "joint": null
+  },
+  "heel_left": {
+    "vertex": 8924,
+    "joint": null
+  },
+  "heel_right": {
+    "vertex": 8712,
+    "joint": null
+  },
+  "toe_above_left": {
+    "vertex": 5895,
+    "joint": null
+  },
+  "toe_above_right": {
+    "vertex": 8589,
+    "joint": null
+  },
+  "knee_left": {
+    "vertex": 3673,
+    "joint": "left_knee"
+  },
+  "knee_right": {
+    "vertex": 6434,
+    "joint": null
+  },
+  "palm_left": {
+    "vertex": 4704,
+    "joint": null
+  },
+  "palm_right": {
+    "vertex": 7440,
+    "joint": null
+  },
+  "finger_right": {
+    "vertex": 7789,
+    "joint": null
+  },
+  "finger_left": {
+    "vertex": 5077,
+    "joint": null
+  }
+}
