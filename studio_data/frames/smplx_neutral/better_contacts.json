@@ -1,0 +1,134 @@
+{
+  "heel_left": {
+    "vertex": 8924,
+    "joint": null
+  },
+  "heel_right": {
+    "vertex": 8712,
+    "joint": null
+  },
+  "toe_above_left": {
+    "vertex": 5895,
+    "joint": null
+  },
+  "toe_above_right": {
+    "vertex": 8589,
+    "joint": null
+  },
+  "palm_left": {
+    "vertex": 4704,
+    "joint": null
+  },
+  "palm_right": {
+    "vertex": 7440,
+    "joint": null
+  },
+  "finger_right": {
+    "vertex": 7789,
+    "joint": null
+  },
+  "finger_left": {
+    "vertex": 5077,
+    "joint": null
+  },
+  "sit_left": {
+    "vertex": 3463,
+    "joint": null
+  },
+  "sit_right": {
+    "vertex": 6224,
+    "joint": null
+  },
+  "elbow_left": {
+    "vertex": 4374,
+    "joint": null
+  },
+  "elbow_right": {
+    "vertex": 7110,
+    "joint": null
+  },
+  "back_right": {
+    "vertex": 8278,
+    "joint": "right_collar"
+  },
+  "back_left": {
+    "vertex": 5566,
+    "joint": "left_collar"
+  },
+  "ball_inner_left": {
+    "vertex": 5906,
+    "joint": null
+  },
+  "ball_outer_left": {
+    "vertex": 5916,
+    "joint": null
+  },
+  "ball_inner_right": {
+    "vertex": 8600,
+    "joint": null
+  },
+  "ball_outer_right": {
+    "vertex": 8610,
+    "joint": null
+  },
+  "big_toe_left": {
+    "vertex": 5847,
+    "joint": null
+  },
+  "big_toe_right": {
+    "vertex": 8541,
+    "joint": null
+  },
+  "knee_left": {
+    "vertex": 3677,
+    "joint": null
+  },
+  "knee_right": {
+    "vertex": 6438,
+    "joint": null
+  },
+  "sacrum": {
+    "vertex": 5613,
+    "joint": null
+  },
+  "shoulder_right": {
+    "vertex": 6822,
+    "joint": null
+  },
+  "shoulder_left": {
+    "vertex": 4078,
+    "joint": null
+  },
+  "hip_side_left": {
+    "vertex": 3958,
+    "joint": null
+  },
+  "hip_side_right": {
+    "vertex": 6706,
+    "joint": null
+  },
+  "chest": {
+    "vertex": 3855,
+    "joint": null
+  },
+  "pelvis_front_left": {
+    "vertex": 4420,
+    "joint": null
+  },
+  "pelvis_front_right": {
+    "vertex": 7156,
+    "joint": null
+  },
+  "head": {
+    "vertex": 9003,
+    "joint": null
+  },
+  "forearm_left": {
+    "vertex": 4364,
+    "joint": null
+  },
+  "forearm_right": {
+    "vertex": 7100,
+    "joint": null
+  }
+}
