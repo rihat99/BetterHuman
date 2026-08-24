@@ -24,7 +24,7 @@
     "joint": null
   },
   "finger_right": {
-    "vertex": 7789,
+    "vertex": 7813,
     "joint": null
   },
   "finger_left": {
@@ -123,12 +123,20 @@
     "vertex": 9003,
     "joint": null
   },
-  "forearm_left": {
-    "vertex": 4364,
+  "palm_distal_left": {
+    "vertex": 4903,
+    "joint": "left_middle1"
+  },
+  "palm_distal_right": {
+    "vertex": 7639,
+    "joint": "right_middle1"
+  },
+  "thumb_right": {
+    "vertex": 8114,
     "joint": null
   },
-  "forearm_right": {
-    "vertex": 7100,
+  "thumb_left": {
+    "vertex": 5380,
     "joint": null
   }
 }
