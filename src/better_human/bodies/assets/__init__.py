@@ -9,10 +9,13 @@ asset filename against this directory.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
 import torch
+
+from .densities import density_for_parts
 
 _ASSET_DIR = Path(__file__).parent
 
@@ -38,16 +41,22 @@ def load_closed_segmentation(
 def load_density_table(
     filename: str,
     table_name: str,
-    num_parts: int,
+    joint_names: Sequence[str],
     exemplar: torch.Tensor,
 ) -> torch.Tensor:
     """Resolve one named density table to a per-part tensor in native order.
 
+    The tables are authored for SMPL's 24 joints, so a part is looked up by
+    name: SMPL's own joints match their entry exactly, and any other name
+    (SMPL-X fingers and face joints, MHR segments) is mapped onto the closest
+    SMPL category by keyword — fingers take the hand entry, jaw and eyes the
+    head entry (see :mod:`better_human.bodies.assets.densities`).
+
     :param filename: density-table asset filename, e.g. ``"body_densities.json"``.
-    :param table_name: table key, e.g. ``"Chandler"``.
-    :param num_parts: native joint count the table must fully cover.
+    :param table_name: table key, e.g. ``"Dempster"``.
+    :param joint_names: native joint names, one per physical part.
     :param exemplar: tensor whose dtype and device the result matches.
-    :returns: ``(num_parts,)`` density tensor in native joint order.
+    :returns: ``(len(joint_names),)`` density tensor in native joint order.
     """
     tables = json.loads((_ASSET_DIR / filename).read_text())
     try:
@@ -56,11 +65,7 @@ def load_density_table(
         raise ValueError(
             f"{filename} has no density table {table_name!r}; available: {sorted(tables)}"
         ) from error
-    try:
-        densities = [float(table[str(part)]) for part in range(num_parts)]
-    except KeyError as error:
-        raise ValueError(f"density table {table_name!r} is missing native joint {error}") from error
-    return exemplar.new_tensor(densities)
+    return density_for_parts(joint_names, table).to(dtype=exemplar.dtype, device=exemplar.device)
 
 
 __all__ = ["load_closed_segmentation", "load_density_table"]

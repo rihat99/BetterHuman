@@ -86,7 +86,7 @@ class SMPL(ParametricBody):
         )
         v_template = arrays["v_template"].to(device=target_device, dtype=dtype)
         if isinstance(density, str):
-            density = load_density_table(SMPL_CONFIG.density_table, density, joint_count, v_template)
+            density = load_density_table(SMPL_CONFIG.density_table, density, SMPL_CONFIG.joint_names, v_template)
         density_value = density_tensor(density, joint_count, v_template)
         values, skinning_indices = make_body_values(
             v_template,

@@ -25,7 +25,8 @@ from better_human.bodies.smpl_family.config_smpl import SMPL_CONFIG
 from better_human.bodies.smpl_family.config_smplx import SMPLX_CONFIG
 from better_human.core import ParametricBody
 
-from . import densities, persistence
+from ...bodies.assets import densities
+from . import persistence
 from .frames_editor import FramesEditor
 from .gizmo import GizmoController
 from .layers import FramesLayer, MeshLayer, PartsLayer, SkeletonLayer

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from better_human.bodies.smpl_family.config_smpl import SMPL_CONFIG
-from better_human.viz.studio import densities
+from better_human.bodies.assets import densities
 
 MODELS_DIR = Path(__file__).parents[2] / "models"
 SMPLX_PATH = MODELS_DIR / "smplx" / "SMPLX_NEUTRAL.npz"

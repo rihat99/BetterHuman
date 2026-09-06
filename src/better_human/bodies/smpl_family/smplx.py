@@ -20,6 +20,7 @@ from better_human.core.classic import (
 from better_human.core.reduction import reduce_joint_data, slice_parameter_basis
 from better_human.io import SMPLX_SCHEMA, load_model_npz, resolve_model_path
 
+from ..assets import load_density_table
 from ..registry import register
 from .config_smplx import SMPLX_CONFIG
 from .shared import (
@@ -100,7 +101,7 @@ class SMPLX(ParametricBody):
         use_hands: bool = True,
         use_face: bool = True,
         flat_hand_mean: bool = False,
-        density: float | torch.Tensor = 1000.0,
+        density: float | torch.Tensor | str = 1000.0,
         compute_mass: bool = True,
         contact_frames: str | Path | Mapping[str, tuple[int, str | None]] | None = None,
         dtype: torch.dtype = torch.float32,
@@ -157,7 +158,13 @@ class SMPLX(ParametricBody):
         )
         joint_names, reduced_parents, regressor, weights, posedirs, survivors = reduced
         v_template = arrays["v_template"].to(device=target_device, dtype=dtype)
-        density_value = density_tensor(density, len(joint_names), v_template)
+        density_value = density_tensor(
+            load_density_table(SMPLX_CONFIG.density_table, density, joint_names, v_template)
+            if isinstance(density, str)
+            else density,
+            len(joint_names),
+            v_template,
+        )
         values, skinning_indices = make_body_values(
             v_template,
             shape_basis.to(device=target_device, dtype=dtype),

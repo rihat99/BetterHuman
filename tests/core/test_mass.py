@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from better_robot.spatial import Inertia
 
 import better_human as bh
 from better_human.bodies.assets import load_density_table
+from better_human.bodies.smpl_family.config_smpl import SMPL_CONFIG
 from better_human.core.mass import (
     PartMeshTopology,
     body_inertias_from_shape,
@@ -24,6 +26,7 @@ from better_human.core.mass import (
 MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
 SMPLX_MODEL_PATH = Path(__file__).parents[2] / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
 SEGMENTATION_PATH = Path(bh.__file__).parent / "bodies" / "assets" / "smpl_3d_segmentation.npy"
+DENSITY_TABLE_PATH = Path(bh.__file__).parent / "bodies" / "assets" / "body_densities.json"
 CONSERVATION_RTOL = 2e-2
 AUTHORED_VOLUME_RTOL = 1e-4
 COM_ATOL = 3e-3
@@ -238,7 +241,7 @@ def test_authored_segmentation_is_batched_and_finite(mass_body: bh.SMPL) -> None
 def test_named_density_table_feeds_per_part_density(mass_body: bh.SMPL) -> None:
     exemplar = mass_body.values.v_shaped
     num_parts = len(mass_body.structure.joint_names)
-    chandler = load_density_table("body_densities.json", "Chandler", num_parts, exemplar)
+    chandler = load_density_table("body_densities.json", "Chandler", mass_body.structure.joint_names, exemplar)
     assert chandler.shape == (num_parts,)
     torch.testing.assert_close(chandler[0], exemplar.new_tensor(853.0))
     torch.testing.assert_close(chandler[16], exemplar.new_tensor(1005.0))
@@ -251,6 +254,33 @@ def test_named_density_table_feeds_per_part_density(mass_body: bh.SMPL) -> None:
 
     with pytest.raises(ValueError, match="no density table"):
         bh.SMPL(MODEL_PATH, density="Nonexistent")
+
+
+def test_named_density_table_maps_smplx_parts_by_name() -> None:
+    if not SMPLX_MODEL_PATH.is_file():
+        pytest.skip(f"licensed SMPL-X fixture is absent: {SMPLX_MODEL_PATH}")
+    table = json.loads(DENSITY_TABLE_PATH.read_text())["Dempster"]
+    smpl_names = list(SMPL_CONFIG.joint_names)
+    uniform = bh.SMPLX(SMPLX_MODEL_PATH, use_face=False)
+    body = bh.SMPLX(SMPLX_MODEL_PATH, use_face=False, density="Dempster")
+    names = list(body.structure.joint_names)
+    density = body.values.density
+    assert density.shape == (len(names),)
+    for index, name in enumerate(names):
+        # SMPL's own joints keep their entry; a finger takes its hand's entry.
+        category = name if name in smpl_names else f"{name.split('_')[0]}_hand"
+        assert float(density[index]) == pytest.approx(table[str(smpl_names.index(category))])
+
+    # The same part volumes, so every packed inertia row scales with its own density —
+    # at the neutral shape and after shaping.
+    betas = torch.linspace(-0.4, 0.4, 16)
+    for dempster, plain in (
+        (body.values.body_inertias, uniform.values.body_inertias),
+        (body.with_shape(betas=betas).values.body_inertias, uniform.with_shape(betas=betas).values.body_inertias),
+    ):
+        torch.testing.assert_close(
+            dempster[1:] / density[:, None], plain[1:] / uniform.values.density, rtol=2e-5, atol=2e-5
+        )
 
 
 def test_argmax_fallback_integrates_smplx_parts() -> None:

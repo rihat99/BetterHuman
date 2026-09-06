@@ -24,7 +24,9 @@ ones. Breaking a contract is a bug even if tests pass.
   the public API.
 - Shape-derived mass uses 1000 kg/m³ by default. A density override is either
   scalar, a tensor in the model-declared physical-part order with one positive
-  kg/m³ value per part, or a named density table resolved to that tensor. MHR
+  kg/m³ value per part, or a named density table resolved to that tensor by
+  joint name (SMPL's joints match their own entry; SMPL-X's fingers and face
+  joints take the hand and head entries, see `bodies/assets/densities.py`). MHR
   declares 19 reference segmentation groups. The BetterRobot universe remains
   massless. Packed COM and inertia values are expressed in each part's
   rest-joint frame.
