@@ -1,160 +1,163 @@
-"""Headless construction and session-driven behavior of the HumanStudio app."""
+"""Headless HumanStudio tests on the fake viser server."""
 
 from __future__ import annotations
 
-import socket
+import os
 from pathlib import Path
+from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
 
-pytest.importorskip("viser")
+from better_human.viz.studio import state as studio_state
+from better_human.viz.studio.app import HumanStudio
+from tests.viz.fake_server import FakeHandle, FakeServer
 
-from better_robot.lie import so3  # noqa: E402 - after importorskip guard
-
-from better_human.viz.studio import app, frames_editor, segment_editor, state  # noqa: E402
-from better_human.viz.studio.app import HumanStudio  # noqa: E402
-from better_human.viz.studio.layers import FramesLayer, MeshLayer, PartsLayer, SkeletonLayer  # noqa: E402
-
-MODELS_DIR = Path(__file__).parents[2] / "models"
-SMPL_PATH = MODELS_DIR / "smpl" / "SMPL_NEUTRAL.npz"
-
-
-def _free_port() -> int:
-    with socket.socket() as probe:
-        probe.bind(("", 0))
-        return probe.getsockname()[1]
+pytestmark = pytest.mark.skipif(
+    not Path(os.environ.get("BETTERHUMAN_MODELS_DIR", "models"), "smpl", "SMPL_NEUTRAL.npz").exists(),
+    reason="licensed SMPL weights absent",
+)
 
 
 @pytest.fixture
 def studio(tmp_path: Path):
-    if not SMPL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {SMPL_PATH}")
-    instance = HumanStudio(model="smpl", port=_free_port(), data_dir=tmp_path, models_dir=MODELS_DIR)
-    yield instance
-    instance.stop()
+    return HumanStudio(server=FakeServer(), data_dir=tmp_path)
+
+
+def _click(studio, origin, target) -> None:
+    origin = np.asarray(origin, float)
+    event = SimpleNamespace(ray_origin=origin, ray_direction=np.asarray(target, float) - origin)
+    studio.viewer.server.scene.pointer_callbacks["click"](event)
 
 
 def test_imports_without_running_server() -> None:
-    # Module import (above, after importorskip) already proves the studio
-    # surface imports without weights or a live server; confirm the symbols.
-    assert hasattr(app, "HumanStudio")
-    assert hasattr(state, "StudioSession")
-    assert hasattr(segment_editor, "SegmentEditor")
-    assert hasattr(frames_editor, "FramesEditor")
-    assert all(cls is not None for cls in (MeshLayer, SkeletonLayer, FramesLayer, PartsLayer))
+    assert callable(HumanStudio) and hasattr(studio_state, "StudioSession")
 
 
-def test_layers_and_session_built(studio: HumanStudio) -> None:
-    assert set(studio._layers) == {"mesh", "skeleton", "frames", "parts"}
-    session = studio._session
-    assert session.body.robot.nq == 99
-    assert len(session.handles) == 24
-    assert len(session.part_names) == 24
-    assert session.total_mass is not None and session.total_mass > 0.0
-    # The mesh and skeleton layers created scene nodes.
-    assert studio._layers["mesh"]._nodes
-    assert studio._layers["skeleton"]._spheres
+def test_layers_session_and_tabs_built(studio) -> None:
+    assert studio.session.model_key == "smpl_neutral"
+    assert "click" in studio.viewer.server.scene.pointer_callbacks
+    assert isinstance(studio.viewer.server.gui.control("Build bodies"), FakeHandle)
+    assert studio.status.startswith("smpl_neutral loaded")
 
 
-def test_select_joint_attaches_and_detaches_gizmo(studio: HumanStudio) -> None:
-    studio.select_joint(18)
-    assert studio._gizmo is not None and studio._selected == 18
+def test_shape_slider_changes_vertices(studio) -> None:
+    before = studio.session.vertices.clone()
+    slider = (
+        studio.shape_sliders["betas"][0]
+        if "betas" in studio.shape_sliders
+        else next(iter(studio.shape_sliders.values()))[0]
+    )
+    slider.value = 2.0
+    slider.fire()
+    assert not torch.allclose(before, studio.session.vertices)
+
+
+def test_click_on_joint_selects_and_highlights(studio) -> None:
+    joint = studio.session.state.joints.detach().reshape(-1, 3)[5].numpy()
+    _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
+    assert studio.gizmo.joint == 5
+
+
+def test_pose_save_and_load_roundtrip(studio) -> None:
+    q = studio.session.q.clone()
+    q[..., -1] += 0.3
+    studio.session.set_q(q)
+    studio.save_pose("p")
+    studio.session.reset_pose()
+    studio.load_pose("p")
+    assert torch.allclose(studio.session.q, q)
+
+
+def test_segment_paint_and_build_bodies(studio) -> None:
+    studio.segment.load_builtin()
+    studio.segment.add_part("blob")
+    studio.segment.set_painting(True)
+    assert studio.mode == "segment"
+    center = studio.session.vertices[0].detach().numpy()
+    _click(studio, center + np.array([0.0, 0.0, 2.0]), center)
+    rows = studio.segment.build_bodies()
+    assert rows[-1][0] == "total" and rows[-1][1] > 10.0
+    assert "blob" in dict(rows)
+
+
+def test_frame_add_rename_delete_export(studio) -> None:
+    studio.frames.set_adding(True)
+    point = studio.session.vertices[100].detach().numpy()
+    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
+    name = studio.frames.active
+    assert name in studio.session.frame_set
+    studio.frames.rename(name, "toe")
+    studio.frames.set_joint("toe", studio.session.body.joint_names[1])
+    snippet = studio.frames.export()
+    namespace: dict[str, object] = {}
+    exec(snippet, {}, namespace)  # noqa: S102
+    assert namespace["contact_frames"]["toe"][1] == studio.session.body.joint_names[1]
+    studio.frames.save("set")
+    studio.frames.delete("toe")
+    assert "toe" not in studio.session.frame_set
+    studio.frames.load("set")
+    assert "toe" in studio.session.frame_set
+
+
+def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
+    opacities: list[float] = []
+    studio.layers.set_opacity = opacities.append
+    before = np.array(studio.layers.skeleton.colors, copy=True)
+    studio.select_joint(5)
+    during = np.array(studio.layers.skeleton.colors, copy=True)
+    changed = np.flatnonzero(~np.isclose(during, before).all(-1).reshape(-1))
+    assert changed.tolist() == [5]
+    studio.set_opacity(0.8)
+    assert opacities[-1] == pytest.approx(0.8 * 0.35)
     studio.select_joint(None)
-    assert studio._gizmo is None and studio._selected is None
+    assert opacities[-1] == pytest.approx(0.8)
+    np.testing.assert_allclose(studio.layers.skeleton.colors, before)
 
 
-def test_select_joint_highlights_sphere(studio: HumanStudio) -> None:
-    from better_human.viz.studio.layers.base import JOINT_COLOR, SELECTED_JOINT_COLOR  # noqa: PLC0415
-
-    skeleton = studio._layers["skeleton"]
-    color_of = lambda idx: next(tuple(h.color) for h, i in skeleton._spheres if i == idx)  # noqa: E731
-    studio.select_joint(18)
-    assert color_of(18) == SELECTED_JOINT_COLOR
-    studio.select_joint(None)
-    assert color_of(18) == JOINT_COLOR
+def test_gizmo_drag_rotates_session_vertices(studio) -> None:
+    studio.select_joint(5)
+    before = studio.session.vertices.clone()
+    pose = studio.session.joint_poses[5].detach().numpy().copy()
+    pose[3:] = [np.sin(0.4), 0.0, 0.0, np.cos(0.4)]
+    studio.gizmo._on_drag(studio.gizmo.handle_for(5), pose)
+    assert (studio.session.vertices - before).abs().max() > 1e-3
 
 
-def test_frame_click_selects_and_syncs(studio: HumanStudio) -> None:
-    frames = studio._layers["frames"]
-    editor = studio._frames_editor
-    name = next(iter(studio._session.frame_set))
-    # A viewport frame-sphere click activates it and syncs the dropdown.
-    studio._select_frame_from_click(name)
-    assert frames._active == name
-    assert editor._selected.value == name
-    # Clicking the same frame again clears the highlight; the dropdown value stays.
-    studio._select_frame_from_click(name)
-    assert frames._active is None
-    assert editor._selected.value == name
+def test_frame_click_selects_and_syncs_editor(studio) -> None:
+    studio.frames.set_adding(True)
+    point = studio.session.vertices[100].detach().numpy()
+    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
+    name = studio.frames.active
+    studio.frames.set_adding(False)
+    studio.frames.active = None
+    studio.frames.frame_dropdown.value = None
+    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
+    assert studio.frames.active == name
+    assert studio.frames.frame_dropdown.value == name
 
 
-def test_frame_parent_joint_override_and_roundtrip(studio: HumanStudio) -> None:
-    session = studio._session
-    editor = studio._frames_editor
-    frames = studio._layers["frames"]
-    studio._set_layer_visible("frames", True)
-    studio._set_layer_visible("skeleton", True)
-
-    name = next(iter(session.frame_set))
-    entry = session.frame_set[name]
-    studio._select_frame_from_click(name)
-    # Activating a frame shows the argmax label in the Parent-joint dropdown.
-    assert editor._parent_joint.value.startswith("argmax (")
-
-    joint_names = list(session.body.structure.joint_names)
-    argmax_joint = session.resolved_joint(entry)
-    other = (argmax_joint + 1) % len(joint_names)
-    editor._parent_joint.value = joint_names[other]  # fires on_update -> set_frame_joint
-    assert session.frame_set[name].joint == other
-    # The connector for this frame now targets the overridden joint.
-    targets = [nj for _, vid, nj in frames._connectors if vid == entry.vertex]
-    assert targets == [other]
-
-    # Save, then reload the saved set: the override survives the round-trip.
-    editor._save_name.value = "override_set"
-    editor._save()
-    editor._source.options = editor._source_options()
-    editor._source.value = "override_set"
-    editor._load_source()
-    assert session.frame_set[name].joint == other
+def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
+    studio.segment.add_part("blob")
+    blob = studio.session.part_names.index("blob")
+    studio.start_marquee()
+    camera = SimpleNamespace(position=(0.0, -0.3, 4.0), wxyz=(0.0, 0.0, 1.0, 0.0), fov=1.0, aspect=1.0)
+    event = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_pos=((0.0, 0.0), (1.0, 1.0)))
+    studio.viewer.server.scene.pointer_callbacks["rect-select"](event)
+    assert int((studio.session.part_ids == blob).sum()) == studio.session.vertices.shape[-2]
+    assert set(studio.viewer.server.scene.pointer_callbacks) == {"click"}
 
 
-def test_session_rotation_changes_vertices(studio: HumanStudio) -> None:
-    session = studio._session
-    before = session.vertices.clone()
-    studio.select_joint(18)
-    handle = next(item for item in session.handles if item.native_index == 18)
-    world_old = session.native_poses[18].clone()
-    world_new = world_old.clone()
-    world_new[3:7] = so3.normalize(so3.compose(world_old[3:7], so3.exp(torch.tensor([0.3, -0.2, 0.1]))))
-    session.rotate_joint(handle, world_old, world_new)
-    assert (session.vertices - before).abs().max().item() > 1e-3
-    # The gizmo is re-seated after the recompute and the server is still usable.
-    assert studio._gizmo is not None
-    assert studio._server.get_clients() == {}
+def test_build_bodies_total_matches_session_mass(studio) -> None:
+    rows = studio.segment.build_bodies()
+    assert rows[-1][1] == pytest.approx(float(studio.session.total_mass), rel=0.01)
 
 
-def test_session_shape_change_changes_vertices(studio: HumanStudio) -> None:
-    session = studio._session
-    before = session.vertices.clone()
-    session.set_shape(betas=session.shape_tensor("betas", [1.5] + [0.0] * 9))
-    assert (session.vertices - before).abs().max().item() > 1e-3
-
-
-def test_pose_save_and_load_roundtrip(studio: HumanStudio, tmp_path: Path) -> None:
-    session = studio._session
-    posed = session.body.robot.integrate(session.q, torch.full((session.body.robot.nv,), 0.1))
-    session.set_q(posed)
-    studio._pose_name.value = "roundtrip"
-    studio._save_pose()
-    session.reset_pose()
-    assert not torch.allclose(session.q, posed)
-    studio._pose_dropdown.value = "roundtrip"
-    studio._load_pose()
-    torch.testing.assert_close(session.q, posed)
-
-
-def test_build_default_parts_topology(studio: HumanStudio) -> None:
-    studio._ensure_parts_topology()
-    assert len(studio._layers["parts"]._nodes) == len(studio._session.part_names)
+def test_density_table_and_saved_pose_dropdown(studio) -> None:
+    studio.density_input.value = "Dempster"
+    assert studio.chosen_density() == "Dempster"
+    studio.reload(studio.chosen_density())
+    assert studio.session.body.density.numel() > 1
+    studio.save_pose("first")
+    assert studio.saved_poses.options == ("first",) and studio.saved_poses.value == "first"

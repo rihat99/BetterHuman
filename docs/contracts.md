@@ -5,7 +5,10 @@ Rules every family, term and viewer layer must keep. Architecture is in `docs/ar
 ## Units and frames
 
 - Metres, seconds, kilograms, radians. Density in kg/m³.
-- y-up world. Families whose native frame differs are converted by their loader.
+- y-up world. Families whose native frame differs are converted by their loader. The baked BR
+  model carries gravity against `FamilySpec.up_axis` (`model.gravity[:3] == (0, -9.81, 0)` for every
+  shipped family), so `root_wrench` and BR dynamics need no root rotation; `terms.ground` defaults to
+  `up=(0, 1, 0)` for the same reason.
 - Joint order: `HumanState.joints`, `joint_poses`, `rest_joints` use the family's native skin-joint
   order. `q` and BR quantities use BR model order; `rig.native_joint_ids(spec, model)` maps between them.
 - `pelvis` is the root offset from the native origin. `transl + pelvis` is the root position.
@@ -43,7 +46,10 @@ take one pose each. Unknown group names raise `ValueError`.
   `mhr_to_classic(identity, q, stream=None)` in `families/mhr.py`.
 - Hand PCA (SMPL-H, SMPL-X, MANO): `num_pca_comps` must be in `[1, 45]` or `None` (full axis-angle).
   `to_classic` raises `ValueError` when the hand pose leaves the requested PCA subspace.
-- Dropped joints: a hand pose given to a body loaded with `hands=False` raises `ValueError`.
+- Dropped joints: a hand pose given to a body loaded with `hands=False` raises `ValueError`;
+  `to_classic` on such a body returns `None` for that hand, so the round trip is closed.
+- Round trips are exact up to rotation equivalence: an axis-angle with norm above π comes back
+  as the same rotation with norm below π (vertices match to float precision).
 
 ## Weight-file layout
 

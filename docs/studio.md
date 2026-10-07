@@ -1,113 +1,78 @@
 # HumanStudio
 
-HumanStudio is an interactive [viser](https://viser.studio) app for inspecting
-and authoring parametric-body data: pose joints with in-viewport gizmos, sweep
-shape and density, paint vertex segmentations, place named frames, and read out
-per-part and total mass. It talks to viser directly and never modifies
-BetterRobot.
+HumanStudio is a browser tool for inspecting and authoring body-model data: pose joints with
+in-viewport gizmos, sweep shape and density, paint vertex segmentations, place named contact frames,
+and read out part masses. It runs on CPU.
 
-## Install and launch
+It is a client of the BetterRobot viewer (`better_robot.viewer.Viewer`, y-up dark theme). All scene
+geometry is BetterRobot `Layer`s added with `viewer.add`: the BetterHuman mesh / frames layers
+(`better_human.viz.human_layers`), a skeleton `SkeletonLayer`, and two studio layers in
+`viz/studio/layers.py` (`SegmentationLayer`, `PartsLayer`). The *Timeline* folder in the sidebar
+belongs to the viewer; the studio adds a tab group (Body, Layers, Segment, Frames).
 
-viser ships in the optional `studio` extra:
-
-```bash
-uv sync --extra studio
-```
-
-Launch from the command line (weights resolve through the standard loader; pass
-`--models-dir` or set `$BETTERHUMAN_MODELS_DIR`, otherwise the in-repo `models/`
-directory is used):
+## Launch
 
 ```bash
-uv run python -m better_human.viz.studio --model smpl --port 8080
-uv run python -m better_human.viz.studio --model smplx --gender female
-uv run python -m better_human.viz.studio --model mhr --lod 1
+uv run python -m better_human.viz.studio --family smpl --gender neutral --port 8080
+uv run python -m better_human.viz.studio --family mhr --lod 1
 ```
 
-Then open the printed `http://localhost:<port>` URL. Equivalent programmatic
-entry points:
+Flags: `--family` (smpl, smplh, smplx, mhr, ...), `--gender`, `--lod` (MHR), `--port`, `--host`
+(default `127.0.0.1`), `--models-dir` (sets `BETTERHUMAN_MODELS_DIR`), `--data-dir` (default
+`studio_data`). From Python:
 
 ```python
 from better_human.viz.studio import HumanStudio, launch
-
-launch(model="smpl", port=8080)          # construct and block
-studio = HumanStudio(model="mhr", lod=1)  # construct without blocking
-studio.run()
+studio = HumanStudio(family="smplx", gender="neutral", port=8080, data_dir="studio_data")
+studio.run()            # or: launch(family="smpl")
 ```
 
-`better_human` itself never imports viser: the studio lives under
-`better_human.viz.studio` and only pulls viser in when the app is constructed.
+`HumanStudio(..., server=...)` accepts an existing viser server (the tests pass a fake one).
 
 ## Feature tour
 
-The sidebar has four tabs and a status line that reports load time, mass, and
-errors (load failures land here instead of stopping the server).
+- **Body** tab: shape sliders per identity group (first 10 coefficients, range +-5) with *Reset* and
+  *Random* per group; density control (SMPL / SMPL-H: a dropdown with the uniform launch density and
+  the `body_densities.json` tables Naive, Chandler, Dempster, Clauser, Custom; other families: a
+  number in kg/m^3); *Apply density* reloads the body keeping pose and frames; *Deselect joint*;
+  *Reset pose*; pose *Save* (by name) and *Load* from a saved-pose dropdown that refreshes after each
+  save; total-mass readout from the baked model.
+- **Posing**: click a joint sphere (or the mesh, which selects the vertex's skinning joint) to attach
+  a gizmo at the joint's world pose. Non-root joints get a rotation-only gizmo, the root a 6-DoF one;
+  a joint without degrees of freedom reports so in the status line. The selected sphere is
+  highlighted and the mesh is dimmed (35 % of the opacity slider value) until deselected.
+- **Layers** tab: visibility toggles, *Color by segmentation*, mesh opacity, joint radius and the
+  part *Explode* slider.
+- **Segment** tab: pick or add a part, paint with a sphere brush (click the mesh), or drag a
+  rectangle marquee; save / load named segmentations or the built-in `*_vert_segmentation.json`.
+  *Build bodies* integrates each part's mass on the rest shape (`identity.v_shaped`) and fills a
+  table. With the body's own segmentation it reuses the body's mass topology, so the total equals
+  the total-mass readout; an edited segmentation closes parts with `build_part_topology`.
+- **Frames** tab: in add mode a mesh click places a frame at the hit vertex; a click on an existing
+  frame (pose mode) selects it and syncs the editor; rename, set the parent joint (or default
+  skinning joint), delete, save / load, and *Export* a `contact_frames={...}` snippet for
+  `bh.load(family, contact_frames=...)`.
 
-- **Body** — model / gender / LOD dropdowns and a *Load model* button; one
-  folder per shape group with a slider per coefficient (range ±3, step 0.05)
-  plus per-group *Reset* and *Random*; a density control (a
-  `body_densities.json` table dropdown for SMPL, a number input otherwise) with
-  *Apply density* to reload; the total-mass readout; and pose *Save* / *Load* /
-  *Reset* with a saved-pose dropdown. *Deselect joint* detaches the gizmo.
-- **Layers** — visibility checkboxes for the mesh, skeleton, frames, and parts
-  layers; a *Color by segmentation* toggle; and sliders for mesh opacity,
-  joint-sphere radius, frame radius, and parts explode. Defaults: mesh and
-  skeleton on, frames and parts off.
-- **Segment** — choose the active segmentation (argmax, a built-in
-  `*_vert_segmentation.json`, or a saved set), then in edit mode paint vertices
-  onto the active part with a sphere brush or rectangle marquee
-  (assign/unassign). *Build bodies* closes the current part labels into solid
-  meshes, feeds the parts layer, and prints a per-part and total mass table at
-  the loaded body's density.
-- **Frames** — choose a frame set (config default or saved), and in edit mode
-  click the mesh to add a frame at the nearest vertex (auto-named `frame_N`).
-  Rename, delete, save, or *Export as config*.
-
-**Posing.** Click a red joint sphere to attach the single gizmo at that joint's
-world pose. Non-root joints get a rotation-only gizmo; the root joint gets a
-full 6-DOF gizmo. Dragging rewrites the configuration through the safe local
-`q` update and the mesh re-skins. Clicking a fixed MHR joint (one with no
-degree of freedom) reports that in the status line instead of showing a gizmo.
-
-## Authored data (`studio_data/`)
-
-Saves land under a `studio_data/` root (override with `--data-dir`), keyed by
-mesh topology (`smpl_neutral`, `smplx_female`, `mhr_lod1`, ...):
+## Data layout
 
 ```
-studio_data/
-  segmentations/<key>/<name>.json   # {part_name: [vertex_id, ...]}
-  frames/<key>/<name>.json          # {frame_name: vertex_id}
-  poses/<key>/<name>.json           # {"model_key": ..., "q": [floats]}
+<data_dir>/segmentations/<model_key>/<name>.json
+<data_dir>/frames/<model_key>/<name>.json
+<data_dir>/poses/<model_key>/<name>.json
 ```
 
-Segmentation files use the same schema as the shipped
-`*_vert_segmentation.json` assets, so they interchange. A pose file records the
-topology key and configuration width; loading checks both and refuses a
-mismatch.
-
-## Export to config
-
-The Frames tab's *Export as config* button renders the active frame set as the
-paste-ready `frame_names` / `frame_vertex_ids` tuples used by a
-`BodyConfig` (`bodies/smpl_family/config_smpl.py` and friends). Copy the block
-into a config to promote authored frames into a model's built-in landmarks.
+`model_key` identifies the mesh topology (`persistence.model_key`), so files are shared between
+genders of one family and refused for a different topology.
 
 ## Known limitations
 
-- **Browser interactions are not covered by tests.** The automated tests drive
-  the session and app API headlessly; gizmo dragging, brush/marquee painting,
-  and click-to-add-frame are exercised through their handlers but not through a
-  real browser pointer.
-- **Pose changes lag.** Every pose or shape edit recomputes blendshapes, FK,
-  and skinning on CPU, so the mesh updates with a visible delay. This is
-  expected and acceptable.
-- **MHR has many shape sliders.** MHR exposes identity (45), expression (72),
-  and proportions (73) coefficients, so its shape folders are large; they are
-  collapsed by default.
-- **Parts posing is a rigid approximation.** Each closed part is moved by its
-  dominant native joint's skinning transform, which matches the skinned surface
-  only where a part is rigidly weighted to one joint.
-- **User-segmentation mass uses a single density.** *Build bodies* integrates
-  every part at the loaded body's mean density, since per-part densities are not
-  defined for arbitrary authored segmentations.
+- Browser interactions (real clicks, drags, marquee) are not tested; the tests drive the handlers
+  with synthetic events on a fake server.
+- Every pose or shape edit recomputes skinning on CPU; expect lag on SMPL-X and MHR.
+- MHR exposes many identity sliders (only the first 10 per group are shown); MHR posing is untested.
+- *Explode* moves rigid open part meshes, posed by their dominant joint, not closed part meshes.
+- *Build bodies* uses one (mean) density for an edited segmentation; per-part table densities apply
+  only to the body's own parts.
+- Opacity and radius changes rebuild the whole layer group; the joint highlight writes the
+  skeleton layer's colour array in place.
+- Clicking a selected frame again does not clear its highlight (the old studio toggled it).

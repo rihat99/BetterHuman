@@ -17,7 +17,7 @@ from typing import NamedTuple
 import torch
 from better_robot.lie import so3
 
-from better_human.core import ParametricBody
+from better_human.core.body import Body, HumanState, Identity
 from better_human.core.mass import _majority_face_parts, segment_vertices
 
 from .posing import JointHandle, apply_local_rotation, joint_handles
@@ -38,9 +38,9 @@ class FrameEntry(NamedTuple):
     joint: int | None = None
 
 
-def _vertex_native_joints(body: ParametricBody) -> torch.Tensor:
+def _vertex_native_joints(body: Body) -> torch.Tensor:
     """Return the strongest-weighted native skin joint per vertex ``(V,)``."""
-    return segment_vertices(body.values.skinning_weights, body.structure.skinning_indices)
+    return segment_vertices(body.spec.skin_weights, body.spec.skin_indices)
 
 
 def _part_representatives(part_ids: torch.Tensor, num_parts: int, vertex_native_joints: torch.Tensor) -> list[int]:
@@ -86,7 +86,7 @@ def compact_segmentation(
 class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
-    def __init__(self, body: ParametricBody, model_key: str, frame_set: dict[str, int] | None = None) -> None:
+    def __init__(self, body: Body, model_key: str, frame_set: dict[str, int] | None = None) -> None:
         # Reentrant so a mutating method may call another (set_shape -> set_q)
         # while a single mutate -> recompute -> notify sequence stays atomic
         # against viser's fire-and-forget callback threads.
@@ -98,7 +98,7 @@ class StudioSession:
 
     def load_body(
         self,
-        body: ParametricBody,
+        body: Body,
         model_key: str,
         frame_set: dict[str, FrameEntry] | None = None,
         *,
@@ -108,9 +108,13 @@ class StudioSession:
         with self._lock:
             self.body = body
             self.model_key = model_key
-            self.handles = joint_handles(body)
-            self.q = body.robot.q_neutral.clone()
-            self.shape = {name: value.clone() for name, value in body.values.shape_parameters.items()}
+            self.shape = {
+                name: torch.zeros(width, dtype=body.dtype, device=body.device)
+                for name, width in body.identity_groups.items()
+            }
+            self.identity: Identity = body.bake(**self.shape)
+            self.handles = joint_handles(self.identity)
+            self.q = self.identity.q_neutral.clone()
             self.vertex_native_joints = _vertex_native_joints(body)
             self._reset_default_segmentation()
             self.frame_set = dict(frame_set) if frame_set else {}
@@ -120,18 +124,18 @@ class StudioSession:
 
     def _reset_default_segmentation(self) -> None:
         """Install the argmax segmentation with joint-derived part names."""
-        part_ids = self.body.structure.part_ids.clone()
+        part_ids = self.body.spec.parts.ids.clone().to(torch.long)
         num_parts = int(part_ids.max()) + 1
         representatives = _part_representatives(part_ids, num_parts, self.vertex_native_joints)
-        joint_names = self.body.structure.joint_names
+        joint_names = self.body.joint_names
         self.part_ids = part_ids
         self.part_names = tuple(joint_names[rep] for rep in representatives)
 
     def _recompute(self) -> None:
-        """Refresh the FK data, posed vertices, and native world joint poses."""
-        self.data = self.body.fk(self.q)
-        self.vertices = self.body.vertices_from_data(self.data)
-        self.native_poses = self.body.native_joint_poses(self.data)
+        """Refresh the posed state, vertices ``(V, 3)`` and native world joint poses ``(J, 7)``."""
+        self.state: HumanState = self.identity.forward(self.q)
+        self.vertices = self.state.vertices()
+        self.joint_poses = self.state.joint_poses
 
     # -- pose ----------------------------------------------------------------
 
@@ -165,17 +169,16 @@ class StudioSession:
             self.set_q(q)
 
     def reset_pose(self) -> None:
-        """Return the configuration to the robot neutral pose."""
-        self.set_q(self.body.robot.q_neutral.clone())
+        """Return the configuration to the model neutral pose."""
+        self.set_q(self.identity.q_neutral.clone())
 
     # -- shape ---------------------------------------------------------------
 
     def set_shape(self, **groups: torch.Tensor) -> None:
-        """Bake named shape groups into the body and notify a shape change."""
+        """Re-bake the identity with named identity groups ``(n,)`` and notify a shape change."""
         with self._lock:
             self.shape.update({name: value for name, value in groups.items()})
-            self.body = self.body.with_shape(**groups)
-            self.vertex_native_joints = _vertex_native_joints(self.body)
+            self.identity = self.body.bake(**self.shape)
             self._recompute()
             self._notify("shape")
 
@@ -186,19 +189,17 @@ class StudioSession:
         :param values: one coefficient per group slider.
         :returns: a ``(width,)`` tensor matching the body dtype and device.
         """
-        width = self.body.structure.parameter_groups[group]
+        width = self.body.identity_groups[group]
         if len(values) != width:
             raise ValueError(f"shape group {group!r} expects {width} values, got {len(values)}")
-        exemplar = self.body.values.v_template
-        return torch.tensor(values, dtype=exemplar.dtype, device=exemplar.device)
+        return torch.tensor(values, dtype=self.body.dtype, device=self.body.device)
 
     @property
     def total_mass(self) -> float | None:
-        """Return the loaded body's total mass in kilograms, if mass is baked."""
-        inertias = self.body.values.body_inertias
-        if inertias is None:
+        """Return the baked identity's total mass in kilograms, or ``None`` when loaded without mass."""
+        if getattr(self.body, "topology", None) is None:
             return None
-        return float(inertias[..., 0].sum())
+        return float(self.identity.model.body_inertias[..., 0].sum())
 
     # -- segmentation and frames --------------------------------------------
 

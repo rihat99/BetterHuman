@@ -175,23 +175,14 @@ def test_builtin_smpl_range_check_rejects_too_small_v() -> None:
 
 
 def test_frame_config_snippet_golden() -> None:
-    snippet = persistence.frame_config_snippet({"nose": 331, "reye": 6260})
-    expected = (
-        "frame_names=(\n"
-        '    "nose",\n'
-        '    "reye",\n'
-        ")\n"
-        "frame_vertex_ids=(\n"
-        "    331,\n"
-        "    6260,\n"
-        ")"
-    )
+    snippet = persistence.frame_config_snippet({"nose": (331, None), "reye": (6260, "head")})
+    expected = "contact_frames={\n    'nose': (331, None),\n    'reye': (6260, 'head'),\n}"
     assert snippet == expected
 
 
 def test_frame_config_snippet_is_valid_python() -> None:
-    frames = {"nose": 331, "reye": 6260, "leye": 2800}
+    frames = {"nose": (331, None), "reye": (6260, None), "leye": (2800, "head")}
     namespace: dict[str, object] = {}
     exec(persistence.frame_config_snippet(frames), {}, namespace)  # noqa: S102
-    assert namespace["frame_names"] == tuple(frames.keys())
-    assert namespace["frame_vertex_ids"] == tuple(frames.values())
+    assert namespace["contact_frames"] == frames
+    assert list(namespace["contact_frames"]) == list(frames)

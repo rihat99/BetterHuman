@@ -6,7 +6,7 @@ Pure torch plus :mod:`better_robot.lie.so3`; no viser import.  One
 ``q`` update.
 
 The MHR channel convention was verified empirically against
-``body.native_joint_poses``: each native rotation joint is a chain of revolute
+``HumanState.joint_poses``: each native rotation joint is a chain of revolute
 hosts added in archive channel order ``z, y, x``
 (``bodies/mhr/tree.py:88-98``), so its local rotation composes
 ``Rz(z) @ Ry(y) @ Rx(x)`` -- exactly the ``so3.from_euler`` /
@@ -22,7 +22,7 @@ from dataclasses import dataclass
 import torch
 from better_robot.lie import so3
 
-from better_human.core import ParametricBody
+from better_human.core.body import Identity
 
 _REVOLUTE_AXIS = {
     "revolute_rx": "x",
@@ -49,27 +49,27 @@ class JointHandle:
     channels: tuple[tuple[str, int], ...]
 
 
-def joint_handles(body: ParametricBody) -> tuple[JointHandle, ...]:
-    """Return one handle per poseable native skin joint.
+def joint_handles(identity: Identity) -> tuple[JointHandle, ...]:
+    """Return one handle per poseable native skin joint of ``identity.model``.
 
     SMPL/SMPLX map native joint ``j`` to BetterRobot joint ``j + 1``: the root
     is a free-flyer, every other joint a spherical joint.  MHR walks the tree
-    upward from ``structure.native_pose_joint_indices[j]`` to the parent native
-    joint, collecting revolute host joints and skipping fixed and mimic joints;
-    joints without any host are not returned.
+    upward from ``body.native_joint_ids[j]`` to the parent native joint,
+    collecting revolute host joints and skipping fixed and mimic joints; native
+    joint 0 (the world anchor) and joints without any host are not returned.
     """
-    robot = body.robot
-    joint_names = body.structure.joint_names
-    native_indices = body.structure.native_pose_joint_indices
+    body = identity.body
+    robot = identity.model
+    joint_names = body.joint_names
+    native_leaves = [int(value) for value in body.native_joint_ids.tolist()]
 
-    if native_indices is None:
+    if native_leaves == list(range(1, len(joint_names) + 1)):
         handles = [JointHandle(0, joint_names[0], "free_flyer", robot.idx_qs[1], ())]
         for native_index in range(1, len(joint_names)):
             branch = robot.idx_qs[native_index + 1]
             handles.append(JointHandle(native_index, joint_names[native_index], "spherical", branch, ()))
         return tuple(handles)
 
-    native_leaves = [int(value) for value in native_indices.tolist()]
     native_set = set(native_leaves)
     kind_codes = [joint.kind for joint in robot.joint_models]
     handles = []
@@ -84,7 +84,7 @@ def joint_handles(body: ParametricBody) -> tuple[JointHandle, ...]:
             if robot.nqs[current] > 0 and kind_codes[current] in _REVOLUTE_AXIS:
                 hosts.append((_REVOLUTE_AXIS[kind_codes[current]], robot.idx_qs[current]))
             parent = robot.parents[current]
-            if parent in native_set:
+            if parent in native_set or parent < 0:
                 break
             current = parent
         if not hosts:

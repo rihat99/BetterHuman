@@ -2,7 +2,7 @@
 
 Round-trips vertex segmentations, named frame sets, and poses as JSON under a
 ``studio_data`` root, and loads the built-in segmentations shipped with
-:mod:`better_human.bodies.assets`. Pure serialization with range and type
+:mod:`better_human.families.assets`. Pure serialization with range and type
 validation on load — no viser or model dependencies.
 """
 
@@ -18,7 +18,7 @@ import torch
 
 from better_human.core.contact_frames import parse_frame_set
 
-_ASSET_PACKAGE = "better_human.bodies.assets"
+_ASSET_PACKAGE = "better_human.families.assets"
 
 
 @dataclass(frozen=True)
@@ -158,8 +158,10 @@ def load_pose(path: Path, model_key: str, nq: int) -> torch.Tensor:
     return torch.tensor(coordinates, dtype=torch.float32)
 
 
-def frame_config_snippet(frames: Mapping[str, int]) -> str:
-    """Render a frame set as paste-ready ``frame_names`` / ``frame_vertex_ids`` tuples."""
-    names = "".join(f'\n    "{name}",' for name in frames)
-    ids = "".join(f"\n    {vid}," for vid in frames.values())
-    return f"frame_names=({names}\n)\nframe_vertex_ids=({ids}\n)"
+def frame_config_snippet(frames: Mapping[str, tuple[int, str | None]]) -> str:
+    """Render a frame set as a paste-ready ``contact_frames={...}`` argument for ``bh.load``.
+
+    :param frames: frame name -> ``(vertex_id, joint_name | None)``, as accepted by ``Body``.
+    """
+    rows = "".join(f"\n    {name!r}: ({vertex}, {joint!r})," for name, (vertex, joint) in frames.items())
+    return f"contact_frames={{{rows}\n}}"

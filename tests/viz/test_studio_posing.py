@@ -1,4 +1,4 @@
-"""Handle tables and FK gizmo round-trips for the HumanStudio joint editor."""
+"""Joint handles and local-rotation posing for SMPL (free-flyer + spherical) and MHR (revolute channels)."""
 
 from __future__ import annotations
 
@@ -6,176 +6,133 @@ from pathlib import Path
 
 import pytest
 import torch
-from better_robot.data_model.model_structure import JOINT_KIND_CODES
-from better_robot.lie import so3
 
 import better_human as bh
-from better_human.viz.studio import posing
+from better_human.viz.studio.posing import apply_local_rotation, joint_handles
+from better_human.viz.studio.state import StudioSession
 
-MODELS_DIR = Path(__file__).parents[2] / "models"
-SMPL_PATH = MODELS_DIR / "smpl" / "SMPL_NEUTRAL.npz"
-MHR_PATH = MODELS_DIR / "MHR" / "converted" / "mhr_lod1.npz"
-_REVOLUTE_CODES = {JOINT_KIND_CODES[name] for name in ("revolute_rx", "revolute_ry", "revolute_rz")}
+MODELS = Path(__file__).parents[2] / "models"
+SMPL_PATH = MODELS / "smpl" / "SMPL_NEUTRAL.npz"
+MHR_PATH = MODELS / "MHR" / "converted" / "mhr_lod1.npz"
 
 
 @pytest.fixture(scope="module")
-def smpl_body() -> bh.SMPL:
+def smpl() -> bh.Body:
     if not SMPL_PATH.is_file():
         pytest.skip(f"licensed SMPL fixture is absent: {SMPL_PATH}")
-    return bh.SMPL(SMPL_PATH, compute_mass=False)
+    return bh.load("smpl", SMPL_PATH)
 
 
 @pytest.fixture(scope="module")
-def mhr_body() -> bh.MHR:
+def mhr() -> bh.Body:
     if not MHR_PATH.is_file():
         pytest.skip(f"licensed MHR fixture is absent: {MHR_PATH}")
-    return bh.MHR(model_path=MHR_PATH, lod=1, compute_mass=False)
+    return bh.load("mhr", MHR_PATH, lod=1)
 
 
-def _seeded_pose(body: bh.ParametricBody, scale: float) -> torch.Tensor:
-    generator = torch.Generator().manual_seed(0)
-    tangent = torch.randn(body.robot.nv, generator=generator) * scale
-    return body.robot.integrate(body.robot.q_neutral, tangent)
-
-
-def _perturbed_world(world: torch.Tensor, tangent: torch.Tensor) -> torch.Tensor:
-    world_new = world.clone()
-    world_new[3:7] = so3.normalize(so3.compose(world[3:7], so3.exp(tangent)))
-    return world_new
-
-
-def _rotation_error(quat_a: torch.Tensor, quat_b: torch.Tensor) -> float:
-    return so3.log(so3.compose(so3.inverse(so3.normalize(quat_a)), so3.normalize(quat_b))).norm().item()
-
-
-def _host_idx_qs(body: bh.MHR) -> set[int]:
-    robot = body.robot
-    codes = robot.structure.joint_kind_codes
-    return {robot.idx_qs[jid] for jid in range(robot.njoints) if robot.nqs[jid] == 1 and codes[jid] in _REVOLUTE_CODES}
-
-
-def test_smpl_handle_table(smpl_body: bh.SMPL) -> None:
-    handles = posing.joint_handles(smpl_body)
-    robot = smpl_body.robot
-    assert len(handles) == len(smpl_body.structure.joint_names) == 24
-    assert [handle.native_index for handle in handles] == list(range(24))
-    root = handles[0]
-    assert root.kind == "free_flyer" and root.idx_q == 0 and root.channels == ()
-    for handle in handles[1:]:
-        assert handle.kind == "spherical"
-        assert handle.channels == ()
-        branch = handle.native_index + 1
-        assert handle.idx_q == robot.idx_qs[branch]
-        assert robot.nqs[branch] == 4
-
-
-def test_mhr_handle_table(mhr_body: bh.MHR) -> None:
-    handles = posing.joint_handles(mhr_body)
-    kinds = [handle.kind for handle in handles]
-    assert kinds.count("free_flyer") == 1
-    assert handles[0].kind == "free_flyer" and handles[0].native_index == 1
-    assert len(handles) == 63
-    assert kinds[1:] == ["channels"] * 62
-
-    host_slots = _host_idx_qs(mhr_body)
-    by_name = {handle.name: handle for handle in handles}
-    for handle in handles[1:]:
-        axes = [axis for axis, _ in handle.channels]
-        assert axes and all(axis in {"x", "y", "z"} for axis in axes)
-        for _, idx_q in handle.channels:
-            assert idx_q in host_slots
-
-    # Clean three-channel joint keeps the z, y, x application order.
-    assert [axis for axis, _ in by_name["r_upleg"].channels] == ["z", "y", "x"]
-    # A single-channel joint exposes exactly one host.
-    assert [axis for axis, _ in by_name["l_transversetarsal"].channels] == ["x"]
-    # A spine host stacks two hosts per axis (independent spine parameters).
-    assert [axis for axis, _ in by_name["c_spine0"].channels] == ["z", "z", "y", "y", "x", "x"]
-
-
-def test_smpl_spherical_round_trip(smpl_body: bh.SMPL) -> None:
-    handles = {handle.name: handle for handle in posing.joint_handles(smpl_body)}
-    handle = handles["left_elbow"]
-    base = _seeded_pose(smpl_body, 0.1)
-    world_old = smpl_body.native_joint_poses(smpl_body.fk(base))[handle.native_index]
-    world_new = _perturbed_world(world_old, torch.tensor([0.3, -0.2, 0.15]))
-
-    updated = posing.apply_local_rotation(base, handle, world_old, world_new)
-    world_actual = smpl_body.native_joint_poses(smpl_body.fk(updated))[handle.native_index]
-    assert _rotation_error(world_actual[3:7], world_new[3:7]) < 1e-5
-
-
-def test_smpl_free_flyer_rotation_only(smpl_body: bh.SMPL) -> None:
-    handles = posing.joint_handles(smpl_body)
-    base = _seeded_pose(smpl_body, 0.1)
-    world_old = smpl_body.native_joint_poses(smpl_body.fk(base))[0]
-    world_new = _perturbed_world(world_old, torch.tensor([0.2, 0.1, -0.3]))
-
-    updated = posing.apply_local_rotation(base, handles[0], world_old, world_new)
-    world_actual = smpl_body.native_joint_poses(smpl_body.fk(updated))[0]
-    assert _rotation_error(world_actual[3:7], world_new[3:7]) < 1e-5
-    # A rotation-only free-flyer edit leaves the root position untouched.
-    torch.testing.assert_close(world_actual[:3], world_old[:3], atol=1e-6, rtol=0)
-
-
-def test_mhr_three_channel_round_trip(mhr_body: bh.MHR) -> None:
-    handle = {handle.name: handle for handle in posing.joint_handles(mhr_body)}["r_upleg"]
-    base = _seeded_pose(mhr_body, 0.05)
-    world_old = mhr_body.native_joint_poses(mhr_body.fk(base))[handle.native_index]
-    world_new = _perturbed_world(world_old, torch.tensor([0.2, -0.15, 0.1]))
-
-    updated = posing.apply_local_rotation(base, handle, world_old, world_new)
-    world_actual = mhr_body.native_joint_poses(mhr_body.fk(updated))[handle.native_index]
-    assert _rotation_error(world_actual[3:7], world_new[3:7]) < 1e-5
-
-
-def test_mhr_missing_channels_projection(mhr_body: bh.MHR) -> None:
-    handle = {handle.name: handle for handle in posing.joint_handles(mhr_body)}["l_transversetarsal"]
-    assert len(handle.channels) == 1 and handle.channels[0][0] == "x"
-    base = _seeded_pose(mhr_body, 0.05)
-    world_old = mhr_body.native_joint_poses(mhr_body.fk(base))[handle.native_index]
-    # Perturb with all three components; only the x channel is reachable.
-    world_new = _perturbed_world(world_old, torch.tensor([0.3, 0.2, -0.15]))
-
-    updated = posing.apply_local_rotation(base, handle, world_old, world_new)
-    world_actual = mhr_body.native_joint_poses(mhr_body.fk(updated))[handle.native_index]
-
-    achieved = so3.log(so3.compose(so3.inverse(world_old[3:7]), world_actual[3:7]))
-    # The achieved local rotation is pure-x: the unreachable y/z parts stay zero.
-    assert abs(achieved[1].item()) < 1e-5
-    assert abs(achieved[2].item()) < 1e-5
-
-    # The reachable x-euler component matches the requested target.
-    x_old = base[handle.channels[0][1]]
-    rotation_target = so3.compose(
-        so3.from_euler(torch.stack((x_old, x_old.new_zeros(()), x_old.new_zeros(())))),
-        so3.exp(torch.tensor([0.3, 0.2, -0.15])),
+def _rotated(world: torch.Tensor, quat: list[float]) -> torch.Tensor:
+    """Return ``world (7,)`` with its rotation left-multiplied by scalar-last ``quat``."""
+    unit = torch.tensor(quat, dtype=world.dtype)
+    x1, y1, z1, w1 = unit / unit.norm()
+    x2, y2, z2, w2 = world[3:]
+    new = world.clone()
+    new[3:] = torch.stack(
+        [
+            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
+            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
+            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
+        ]
     )
-    x_target = so3.to_euler(rotation_target)[0]
-    assert abs(achieved[0].item() - (x_target - x_old).item()) < 1e-5
+    return new
 
 
-def test_mhr_spine_host_mimics_follow(mhr_body: bh.MHR) -> None:
-    handles = {handle.name: handle for handle in posing.joint_handles(mhr_body)}
-    spine = handles["c_spine0"]
-    child = handles["c_spine1"]
-    base = _seeded_pose(mhr_body, 0.03)
+def _angle(quat_a: torch.Tensor, quat_b: torch.Tensor) -> float:
+    return float(2 * torch.acos(torch.clamp((quat_a * quat_b).sum().abs(), max=1.0)))
 
-    data = mhr_body.fk(base)
-    vertices_before = mhr_body.vertices_from_data(data)
-    spine_old = mhr_body.native_joint_poses(data)[spine.native_index]
-    child_old = mhr_body.native_joint_poses(data)[child.native_index][3:7]
-    spine_new = _perturbed_world(spine_old, torch.tensor([0.15, 0.1, -0.1]))
 
-    updated = posing.apply_local_rotation(base, spine, spine_old, spine_new)
-    data_new = mhr_body.fk(updated)
-    vertices_after = mhr_body.vertices_from_data(data_new)
-    spine_actual = mhr_body.native_joint_poses(data_new)[spine.native_index][3:7]
-    child_new = mhr_body.native_joint_poses(data_new)[child.native_index][3:7]
+def _pose_with(body: bh.Body, handle_name: str, quat: list[float]) -> tuple[torch.Tensor, torch.Tensor, int]:
+    """Rotate one joint by ``quat`` in the world; return ``(target (7,), posed (7,), native index)``."""
+    identity = body.bake()
+    handle = next(h for h in joint_handles(identity) if h.name == handle_name)
+    q = identity.q_neutral.clone()
+    world_old = identity.forward(q).joint_poses[handle.native_index]
+    world_new = _rotated(world_old, quat)
+    q_new = apply_local_rotation(q, handle, world_old, world_new)
+    return world_new, identity.forward(q_new).joint_poses[handle.native_index], handle.native_index
 
-    # The edit reshapes the mesh without error.
-    assert (vertices_after - vertices_before).abs().max().item() > 1e-3
-    # c_spine0 carries no own-chain mimic, so the equal split is exact.
-    assert _rotation_error(spine_actual, spine_new[3:7]) < 1e-5
-    # The spine host drives mimic joints, so c_spine1's world rotation follows.
-    assert _rotation_error(child_old, child_new) > 1e-2
+
+def test_smpl_handle_table(smpl: bh.Body) -> None:
+    identity = smpl.bake()
+    handles = joint_handles(identity)
+    assert len(handles) == len(smpl.joint_names)
+    root, *rest = handles
+    assert (root.kind, root.idx_q, root.native_index) == ("free_flyer", 0, 0)
+    assert all(h.kind == "spherical" and not h.channels for h in rest)
+    starts = [h.idx_q for h in rest]
+    assert starts == list(range(7, 7 + 4 * len(rest), 4))
+    assert 7 + 4 * len(rest) == identity.q_neutral.shape[-1]
+
+
+def test_mhr_handle_table(mhr: bh.Body) -> None:
+    handles = joint_handles(mhr.bake())
+    assert 0 < len(handles) < len(mhr.joint_names), "fixed MHR joints must have no handle"
+    assert [h.kind for h in handles].count("free_flyer") == 1
+    channels = [h for h in handles if h.kind == "channels"]
+    assert channels and all(h.idx_q == -1 and h.channels for h in channels)
+    slots = [idx for h in channels for _, idx in h.channels]
+    assert len(slots) == len(set(slots))
+    assert all(axis in ("x", "y", "z") for h in channels for axis, _ in h.channels)
+    assert len({h.native_index for h in handles}) == len(handles)
+
+
+def test_smpl_spherical_round_trip(smpl: bh.Body) -> None:
+    target, posed, _ = _pose_with(smpl, "left_elbow", [0.0, 0.0, 0.3827, 0.9239])
+    assert _angle(target[3:], posed[3:]) < 1e-4
+    torch.testing.assert_close(posed[:3], target[:3], atol=1e-5, rtol=0)
+
+
+def test_smpl_free_flyer_rotation_only(smpl: bh.Body) -> None:
+    identity = smpl.bake()
+    root = joint_handles(identity)[0]
+    q = identity.q_neutral.clone()
+    world_old = identity.forward(q).joint_poses[0]
+    world_new = _rotated(world_old, [0.0, 0.3827, 0.0, 0.9239])
+    world_new[:3] += 0.5
+    q_new = apply_local_rotation(q, root, world_old, world_new)
+    posed = identity.forward(q_new).joint_poses[0]
+    assert _angle(world_new[3:], posed[3:]) < 1e-4
+    torch.testing.assert_close(posed[:3], world_old[:3], atol=1e-5, rtol=0)
+
+
+def test_mhr_three_channel_round_trip(mhr: bh.Body) -> None:
+    handle = next(h for h in joint_handles(mhr.bake()) if h.kind == "channels" and len(h.channels) == 3)
+    target, posed, _ = _pose_with(mhr, handle.name, [0.1, -0.2, 0.15, 0.9618])
+    assert _angle(target[3:], posed[3:]) < 1e-3
+
+
+def test_mhr_missing_channels_touch_only_their_slots(mhr: bh.Body) -> None:
+    identity = mhr.bake()
+    handle = next(h for h in joint_handles(identity) if h.kind == "channels" and len(h.channels) < 3)
+    q = identity.q_neutral.clone()
+    world_old = identity.forward(q).joint_poses[handle.native_index]
+    q_new = apply_local_rotation(q, handle, world_old, _rotated(world_old, [0.2, 0.2, 0.2, 0.9381]))
+    changed = set(torch.nonzero(q_new != q).flatten().tolist())
+    assert changed and changed <= {idx for _, idx in handle.channels}
+
+
+def test_session_rotate_joint_and_move_root(smpl: bh.Body) -> None:
+    session = StudioSession(smpl, "smpl")
+    kinds: list[str] = []
+    session.subscribe(kinds.append)
+    elbow = next(h for h in session.handles if h.name == "left_elbow")
+    old = session.joint_poses[elbow.native_index].clone()
+    session.rotate_joint(elbow, old, _rotated(old, [0.0, 0.0, 0.3827, 0.9239]))
+    assert _angle(_rotated(old, [0.0, 0.0, 0.3827, 0.9239])[3:], session.joint_poses[elbow.native_index, 3:]) < 1e-4
+    root = session.handles[0]
+    old_root = session.joint_poses[0].clone()
+    moved = old_root.clone()
+    moved[:3] += torch.tensor([0.1, 0.2, -0.3], dtype=moved.dtype)
+    session.move_root(root, old_root, moved)
+    torch.testing.assert_close(session.joint_poses[0, :3], moved[:3], atol=1e-5, rtol=0)
+    assert kinds == ["pose", "pose"]

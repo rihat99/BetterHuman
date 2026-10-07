@@ -1,575 +1,329 @@
-"""HumanStudio: the viser front end that wires the scene, sidebar, and session.
-
-``HumanStudio`` owns the :class:`~viser.ViserServer`, the shared
-:class:`~better_human.viz.studio.state.StudioSession`, the scene layers, and the
-sidebar tabs. It loads bodies, drives single-gizmo joint posing, exposes shape
-and density controls, and delegates segmentation and frame authoring to the
-editors. Slow rebuilds are wrapped so load failures land in the status line
-instead of killing the server.
-"""
+"""``HumanStudio``: an interactive body editor built on ``better_robot.viewer.Viewer``."""
 
 from __future__ import annotations
 
-import json
 import os
 import time
+from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
-import torch
-import viser
+import numpy as np
+from better_robot.viewer import DARK, Viewer
+from better_robot.viewer.tools import CameraFrustum, ray_hit, vertices_in_rect
 
 import better_human as bh
-from better_human.bodies.assets import _ASSET_DIR
-from better_human.core.mass import build_part_topology
-from better_human.bodies.smpl_family.config_smpl import SMPL_CONFIG
-from better_human.bodies.smpl_family.config_smplx import SMPLX_CONFIG
-from better_human.core import ParametricBody
+from better_human.families.assets import load_density_table
+from better_human.viz.studio import persistence
+from better_human.viz.studio.frames_editor import FramesEditor
+from better_human.viz.studio.gizmo import GizmoController
+from better_human.viz.studio.layers import StudioLayers
+from better_human.viz.studio.segment_editor import SegmentEditor
+from better_human.viz.studio.state import FrameEntry, StudioSession
 
-from ...bodies.assets import densities
-from . import persistence
-from .frames_editor import FramesEditor
-from .gizmo import GizmoController
-from .layers import FramesLayer, MeshLayer, PartsLayer, SkeletonLayer
-from .layers.base import EDIT_POINT_COLOR, to_numpy
-from .layers.mesh import fast_skinning_available
-from .segment_editor import SegmentEditor
-from .state import FrameEntry, StudioSession, compact_segmentation
+_TABLE_FAMILIES = ("smpl", "smplh")
+_DENSITY_TABLES = ("Naive", "Chandler", "Dempster", "Clauser", "Custom")  #: keys of body_densities.json
+_DIM = 0.35  #: mesh opacity factor while a joint is selected
 
-_GENDERS = ("neutral", "male", "female")
-_LODS = tuple(str(lod) for lod in range(7))
-_MODELS = ("smpl", "smplx", "mhr")
+_LAYER_TOGGLES = (
+    ("Mesh", "mesh", True),
+    ("Skeleton", "skeleton", True),
+    ("Frames", "frames", True),
+    ("Parts", "parts", False),
+)
 
 
 class HumanStudio:
-    """Interactive viser studio for inspecting and authoring parametric bodies."""
+    """Pose, shape, segment and frame-edit one body family in the browser.
+
+    Click modes: ``"pose"`` (pick a joint, drag its gizmo), ``"segment"`` (sphere-brush painting) and
+    ``"frames"`` (add a frame on the nearest vertex). ``server`` injects a viser-compatible server (tests).
+    """
 
     def __init__(
         self,
         *,
-        model: str = "smpl",
+        family: str = "smpl",
         gender: str = "neutral",
         lod: int = 1,
         port: int = 8080,
-        data_dir: str | Path = "studio_data",
+        host: str = "127.0.0.1",
         models_dir: str | Path | None = None,
-        device: str | torch.device = "cpu",
+        data_dir: str | Path = "studio_data",
+        density: float | None = None,
+        server: Any = None,
     ) -> None:
-        self._device = str(device)
-        self._models_dir = self._resolve_models_dir(models_dir)
-        self._paths = persistence.StudioPaths(Path(data_dir))
-        self._server = viser.ViserServer(port=port)
-
-        self._selected: int | None = None
-        self._suppress_shape = False
-        self._coloring_busy = False
-        self._coloring_before_fast = False
-        self._density_note = ""
-        self._edit_pointcloud: object | None = None
-        self._shape_sliders: dict[str, list] = {}
-        self._visibility_checks: dict[str, object] = {}
-
-        self._status = self._server.gui.add_markdown("HumanStudio starting...")
-        body = self._load_body(model, gender, lod, None)
-        self._session = StudioSession(body, self._current_key(model, gender, lod), self._default_frames(model))
-        self._session.subscribe(self._on_change)
-        self._gizmo_ctrl = GizmoController(self._server, self._session, self._set_status)
-
-        self._skeleton = SkeletonLayer(self.select_joint, base_radius=0.015 if model == "mhr" else 0.02)
-        self._layers = {
-            "mesh": MeshLayer(),
-            "skeleton": self._skeleton,
-            "frames": FramesLayer(self._select_frame_from_click),
-            "parts": PartsLayer(),
-        }
-        for layer in self._layers.values():
-            layer.build(self._server, self._session)
-
-        self._build_sidebar()
-        self._refresh_status(load_seconds=0.0)
-
-    # -- weight resolution ---------------------------------------------------
-
-    @staticmethod
-    def _resolve_models_dir(models_dir: str | Path | None) -> Path:
         if models_dir is not None:
-            return Path(models_dir)
-        env = os.environ.get("BETTERHUMAN_MODELS_DIR")
-        if env:
-            return Path(env)
-        repo_models = Path(__file__).resolve().parents[4] / "models"
-        if repo_models.is_dir():
-            return repo_models
-        raise FileNotFoundError(
-            "No models directory found: pass models_dir, set $BETTERHUMAN_MODELS_DIR, "
-            "or run inside a repo checkout with a models/ directory."
-        )
+            os.environ["BETTERHUMAN_MODELS_DIR"] = str(Path(models_dir).expanduser())
+        self.family, self.gender, self.lod = family.lower(), gender, lod
+        self.density = 1000.0 if density is None else float(density)
+        self._uniform_density, self.opacity = self.density, 1.0
+        self.paths = persistence.StudioPaths(Path(data_dir))
+        self.mode = "pose"
+        self.status = ""
+        started = time.perf_counter()
+        body = self._load_body()
+        self.session = StudioSession(body, self._key(), self._default_frames(body))
+        self.viewer = Viewer(host=host, port=port, theme=replace(DARK, up="+y"), server=server)
+        self.layers = StudioLayers(self.viewer, self.session, theme=self.viewer.theme)
+        self.gizmo = GizmoController(self.viewer, self.session, on_status=self.set_status)
+        self.segment = SegmentEditor(self)
+        self.frames = FramesEditor(self)
+        self.session.subscribe(self._on_change)
+        self._build_sidebar()
+        self.viewer.server.scene.on_pointer_event(event_type="click")(self.on_click)
+        self.viewer.show()
+        self.set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
 
-    def _model_path(self, model: str, gender: str, lod: int) -> Path:
-        if model == "smpl":
-            return self._models_dir / "smpl" / f"SMPL_{gender.upper()}.npz"
-        if model == "smplx":
-            return self._models_dir / "smplx" / f"SMPLX_{gender.upper()}.npz"
-        return self._models_dir / "MHR" / "converted" / f"mhr_lod{lod}.npz"
+    def _key(self) -> str:
+        if self.family == "mhr":
+            return persistence.model_key("mhr", lod=self.lod)
+        return persistence.model_key(self.family, gender=self.gender)
 
-    def _load_body(self, model: str, gender: str, lod: int, density: object | None) -> ParametricBody:
-        cfg: dict[str, object] = {
-            "model_path": str(self._model_path(model, gender, lod)),
-            "compute_mass": True,
-            "device": self._device,
-        }
-        if model in ("smpl", "smplx"):
-            cfg["gender"] = gender
-        else:
-            cfg["lod"] = lod
-        if density is not None:
-            cfg["density"] = density
-        return bh.load(model, **cfg)
-
-    @staticmethod
-    def _current_key(model: str, gender: str, lod: int) -> str:
-        if model == "mhr":
-            return persistence.model_key(model, lod=lod)
-        return persistence.model_key(model, gender=gender)
+    def _load_body(self) -> bh.Body:
+        options = {"lod": self.lod} if self.family == "mhr" else {"gender": self.gender}
+        density = self.density
+        if isinstance(density, str):
+            body = self.session.body
+            names = [body.joint_names[j] for j in body.spec.parts.joints]
+            density = load_density_table("body_densities.json", density, names, body.spec.vertices)
+        return bh.load(self.family, mass=True, density=density, **options)
 
     @staticmethod
-    def _default_frames(model: str) -> dict[str, FrameEntry]:
-        if model == "smpl":
-            config = SMPL_CONFIG
-        elif model == "smplx":
-            config = SMPLX_CONFIG
-        else:
+    def _default_frames(body: bh.Body) -> dict[str, FrameEntry]:
+        frames = body.contact_frames
+        if frames is None:
             return {}
-        return {
-            name: FrameEntry(int(vertex), None)
-            for name, vertex in zip(config.frame_names, config.frame_vertex_ids, strict=True)
-        }
-
-    # -- sidebar -------------------------------------------------------------
+        return {name: FrameEntry(int(vertex)) for name, vertex in zip(frames.names, frames.vertex_ids, strict=True)}
 
     def _build_sidebar(self) -> None:
-        tabs = self._server.gui.add_tab_group()
-        self._body_tab = tabs.add_tab("Body")
-        with self._body_tab:
-            self._build_body_static()
-            self._build_dynamic()
-            self._build_pose_controls()
+        gui = self.viewer.server.gui
+        self.status_text = gui.add_markdown("")
+        tabs = gui.add_tab_group()
+        with tabs.add_tab("Body"):
+            gui.add_markdown(f"**{self.family}** {self.gender if self.family != 'mhr' else f'lod {self.lod}'}")
+            self.shape_sliders: dict[str, list[Any]] = {}
+            for group, width in self.session.body.identity_groups.items():
+                sliders = [
+                    gui.add_slider(f"{group}[{k}]", min=-5.0, max=5.0, step=0.05, initial_value=0.0)
+                    for k in range(min(width, 10))
+                ]
+                for slider in sliders:
+                    slider.on_update(lambda _event, group=group: self.apply_shape(group))
+                self.shape_sliders[group] = sliders
+                gui.add_button(f"Reset {group}").on_click(lambda _event, group=group: self.reset_shape(group))
+                gui.add_button(f"Random {group}").on_click(lambda _event, group=group: self.random_shape(group))
+            if self.family in _TABLE_FAMILIES:
+                self._uniform = f"uniform {self.density:g} kg/m^3"
+                self.density_input = gui.add_dropdown(
+                    "Density table", options=(self._uniform, *_DENSITY_TABLES), initial_value=self._uniform
+                )
+            else:
+                self.density_input = gui.add_number("Density (kg/m^3)", initial_value=self.density)
+            gui.add_button("Apply density").on_click(lambda _event: self.reload(self.chosen_density()))
+            gui.add_button("Deselect joint").on_click(lambda _event: self.select_joint(None))
+            gui.add_button("Reset pose").on_click(lambda _event: self.session.reset_pose())
+            self.pose_name = gui.add_text("Pose name", initial_value="pose")
+            gui.add_button("Save pose").on_click(lambda _event: self.save_pose(self.pose_name.value))
+            self.saved_poses = gui.add_dropdown("Saved poses", options=self._pose_options())
+            gui.add_button("Load pose").on_click(lambda _event: self.load_pose(self.saved_poses.value))
+            self.mass_text = gui.add_markdown("")
         with tabs.add_tab("Layers"):
-            self._build_layer_controls()
-        self._segment = SegmentEditor(
-            self._server,
-            self._session,
-            self._paths,
-            self.set_segmentation_coloring,
-            self._layers["parts"],
-            self._set_status,
-            self._set_edit_overlay,
-        )
-        self._frames_editor = FramesEditor(
-            self._server,
-            self._session,
-            self._paths,
-            self._set_status,
-            lambda: self._default_frames(self._model.value),
-            self._set_edit_overlay,
-            self._layers["frames"].set_active,
-        )
+            for label, key, initial in _LAYER_TOGGLES:
+                toggle = gui.add_checkbox(label, initial_value=initial)
+                toggle.on_update(
+                    lambda _event, key=key, toggle=toggle: self.layers.set_visible(key, bool(toggle.value))
+                )
+            self.seg_toggle = gui.add_checkbox("Color by segmentation", initial_value=False)
+            self.seg_toggle.on_update(lambda _event: self.set_segmentation_coloring(bool(self.seg_toggle.value)))
+            opacity = gui.add_slider("Opacity", min=0.1, max=1.0, step=0.05, initial_value=1.0)
+            opacity.on_update(lambda _event: self.set_opacity(float(opacity.value)))
+            radius = gui.add_slider("Joint radius", min=0.005, max=0.05, step=0.005, initial_value=self.layers.radius)
+            radius.on_update(lambda _event: self.layers.set_radius(float(radius.value)))
+            explode = gui.add_slider("Explode", min=0.0, max=1.0, step=0.05, initial_value=0.0)
+            explode.on_update(lambda _event: self.layers.set_explode(float(explode.value)))
         with tabs.add_tab("Segment"):
-            self._segment.build()
+            self.segment.build(gui)
         with tabs.add_tab("Frames"):
-            self._frames_editor.build()
-        self._segment.on_edit_start = self._frames_editor.exit_edit
-        self._frames_editor.on_edit_start = self._segment.exit_edit
-
-    def _build_body_static(self) -> None:
-        gui = self._server.gui
-        self._model = gui.add_dropdown("Model", _MODELS, initial_value=self._session.model_key.split("_")[0])
-        self._gender = gui.add_dropdown("Gender", _GENDERS, initial_value="neutral")
-        self._lod = gui.add_dropdown("LOD", _LODS, initial_value="1")
-        gui.add_button("Load model").on_click(lambda _event: self._reload(density=None))
-
-    def _build_dynamic(self) -> None:
-        """Create the reloadable shape, density, and mass section.
-
-        The caller is responsible for making the Body tab the active container,
-        so this never re-enters ``self._body_tab`` (whose context is not
-        re-entrant).
-        """
-        gui = self._server.gui
-        self._dynamic = gui.add_folder("Shape & density")
-        with self._dynamic:
-            self._build_shape_controls()
-            self._build_density_controls()
-            self._mass_md = gui.add_markdown("")
+            self.frames.build(gui)
         self._update_mass()
 
-    def _build_shape_controls(self) -> None:
-        gui = self._server.gui
-        self._shape_sliders = {}
-        for group, width in self._session.body.structure.parameter_groups.items():
-            with gui.add_folder(group, expand_by_default=width <= 12):
-                sliders = []
-                for index in range(width):
-                    slider = gui.add_slider(f"{group}[{index}]", min=-3.0, max=3.0, step=0.05, initial_value=0.0)
-                    slider.on_update(self._make_shape_handler(group))
-                    sliders.append(slider)
-                self._shape_sliders[group] = sliders
-                gui.add_button(f"Reset {group}").on_click(self._make_shape_reset(group))
-                gui.add_button(f"Random {group}").on_click(self._make_shape_random(group))
+    def set_status(self, message: str) -> None:
+        """Show ``message`` on the status line."""
+        self.status = message
+        if hasattr(self, "status_text"):
+            self.status_text.content = message
 
-    def _build_density_controls(self) -> None:
-        gui = self._server.gui
-        tables = tuple(json.loads((_ASSET_DIR / "body_densities.json").read_text()))
-        if self._model.value == "smpl":
-            options = ("uniform (1000)", *tables)
-        else:
-            options = ("uniform (1000)", *(f"{table} (name-mapped)" for table in tables))
-        self._density = gui.add_dropdown("Density table", options)
-        gui.add_button("Apply density").on_click(lambda _event: self._reload(density=self._density_value()))
-
-    def _density_value(self) -> object:
-        """Resolve the density dropdown to a scalar, table name, or per-part tensor.
-
-        SMPL keeps the exact table path (a name string); SMPL-X and MHR resolve
-        the chosen table by mapping their joint names onto the 24 SMPL density
-        categories, producing a per-native-joint tensor and a mapped/unmapped
-        note surfaced on the next status refresh.
-        """
-        value = self._density.value
-        self._density_note = ""
-        if value == "uniform (1000)":
-            return 1000.0
-        if self._model.value == "smpl":
-            return value
-        table_name = value.removesuffix(" (name-mapped)")
-        table = json.loads((_ASSET_DIR / "body_densities.json").read_text())[table_name]
-        names = self._session.body.structure.joint_names
-        mapped = sum(category is not None for category in densities.part_categories(names))
-        self._density_note = f", {table_name}: {mapped}/{len(names)} name-mapped"
-        exemplar = self._session.body.values.v_template
-        return densities.density_for_parts(names, table).to(dtype=exemplar.dtype, device=exemplar.device)
-
-    def _build_pose_controls(self) -> None:
-        gui = self._server.gui
-        with gui.add_folder("Pose"):
-            self._pose_name = gui.add_text("Save pose as", initial_value="pose")
-            gui.add_button("Save pose").on_click(lambda _event: self._save_pose())
-            self._pose_dropdown = gui.add_dropdown("Saved pose", self._saved_poses())
-            gui.add_button("Load pose").on_click(lambda _event: self._load_pose())
-            gui.add_button("Reset pose").on_click(lambda _event: self._session.reset_pose())
-            gui.add_button("Deselect joint").on_click(lambda _event: self.select_joint(None))
-
-    def _build_layer_controls(self) -> None:
-        gui = self._server.gui
-        self._add_visibility("Mesh", "mesh", True)
-        self._color_checkbox = gui.add_checkbox("Color by segmentation", initial_value=False)
-        self._color_checkbox.on_update(lambda _event: self.set_segmentation_coloring(self._color_checkbox.value))
-        self._fast_check = gui.add_checkbox(
-            "Fast skinning (GPU, no pose correctives)",
-            initial_value=False,
-            hint="Deform on the GPU: uploads once, writes only bone transforms per pose. "
-            "Skips pose correctives and segmentation coloring. MHR uses a top-4 "
-            "skin-weight approximation (viser caps influences at 4 per vertex).",
-        )
-        self._fast_check.on_update(lambda _event: self._toggle_fast())
-        self._wireframe_check = gui.add_checkbox(
-            "Wireframe",
-            initial_value=False,
-            hint="Overlay a thin wireframe on top of the solid mesh. Disabled in fast-skinning mode.",
-        )
-        self._wireframe_check.on_update(lambda _event: self._layers["mesh"].set_wireframe(self._wireframe_check.value))
-        self._opacity_slider = gui.add_slider("Mesh opacity", min=0.1, max=1.0, step=0.05, initial_value=0.9)
-        self._opacity_slider.on_update(lambda _event: self._on_opacity_change())
-        self._add_visibility("Skeleton", "skeleton", True)
-        self._radius_slider = gui.add_slider("Joint radius (x)", min=0.2, max=3.0, step=0.05, initial_value=1.0)
-        self._radius_slider.on_update(
-            lambda _event: self._layers["skeleton"].set_radius_multiplier(self._radius_slider.value)
-        )
-        self._add_visibility("Frames", "frames", False)
-        frame_radius = gui.add_slider("Frame radius", min=0.002, max=0.05, step=0.001, initial_value=0.012)
-        frame_radius.on_update(lambda _event: self._layers["frames"].set_radius(frame_radius.value))
-        self._add_visibility("Parts", "parts", False)
-        explode = gui.add_slider("Explode", min=0.0, max=1.0, step=0.05, initial_value=0.0)
-        explode.on_update(lambda _event: self._layers["parts"].set_explode(explode.value))
-        self._refresh_fast_availability()
-
-    def _toggle_fast(self) -> None:
-        enabled = self._fast_check.value
-        if enabled and not fast_skinning_available(self._session.body):
-            self._fast_check.value = False
-            self._set_status("fast skinning unavailable: body uses non-identity joint scales")
-            return
-        if enabled:
-            # Remember the coloring choice so it survives a fast on/off cycle.
-            self._coloring_before_fast = self._color_checkbox.value
-            self.set_segmentation_coloring(False)
-            self._layers["mesh"].set_fast(True)
-        else:
-            self._layers["mesh"].set_fast(False)
-            self.set_segmentation_coloring(self._coloring_before_fast)
-        # Wireframe overlay can't be represented cheaply while GPU-skinning, so
-        # grey the checkbox out (keeping fast mode's per-pose cost minimal).
-        self._wireframe_check.disabled = enabled
-        self._set_status("fast skinning on (no correctives/segmentation colors)" if enabled else "fast skinning off")
-
-    def _refresh_fast_availability(self) -> None:
-        available = fast_skinning_available(self._session.body)
-        self._fast_check.disabled = not available
-        if not available and self._fast_check.value:
-            self._fast_check.value = False
-            self._layers["mesh"].set_fast(False)
-        self._wireframe_check.disabled = self._fast_check.value
-
-    def _on_opacity_change(self) -> None:
-        # The slider is the authoritative opacity; a joint selection only dims
-        # the mesh transiently (see :meth:`_dim_mesh_for_selection`).
-        self._layers["mesh"].set_opacity(self._opacity_slider.value)
+    def set_mode(self, mode: str) -> None:
+        """Switch the click mode (``"pose"``, ``"segment"``, ``"frames"``); entering an edit mode drops the gizmo."""
+        self.mode = mode
+        if mode != "pose":
+            self.select_joint(None)
+        if mode != "segment" and self.segment.painting:
+            self.segment.painting = False
+            self.segment.paint_toggle.value = False
+        if mode != "frames" and self.frames.adding:
+            self.frames.adding = False
+            self.frames.add_toggle.value = False
 
     def set_segmentation_coloring(self, enabled: bool) -> None:
-        """Toggle mesh segmentation coloring, keeping checkbox and mesh in sync.
+        """Swap the skin mesh for the per-part segmentation mesh."""
+        self.layers.set_visible("mesh", not enabled)
+        self.layers.set_visible("segmentation", enabled)
 
-        The single entry point for both the Layers checkbox and the editors; a
-        reentrancy guard absorbs the checkbox's callback echo.
-        """
-        if self._coloring_busy:
-            return
-        self._coloring_busy = True
-        try:
-            self._color_checkbox.value = enabled
-            self._layers["mesh"].set_mode("segmentation" if enabled else "solid")
-        finally:
-            self._coloring_busy = False
+    def select_joint(self, joint: int | None) -> None:
+        """Attach the gizmo to ``joint`` (native index) and highlight its sphere; ``None`` clears both."""
+        self.gizmo.select(joint)
+        self.layers.set_highlight(joint)
+        self.layers.set_opacity(self.opacity if joint is None else self.opacity * _DIM)
 
-    def _add_visibility(self, label: str, key: str, initial: bool) -> None:
-        checkbox = self._server.gui.add_checkbox(label, initial_value=initial)
-        checkbox.on_update(lambda _event: self._set_layer_visible(key, checkbox.value))
-        self._visibility_checks[key] = checkbox
-        self._layers[key].set_visible(initial)
+    def set_opacity(self, opacity: float) -> None:
+        """Set the mesh opacity the user chose; it stays dimmed while a joint is selected."""
+        self.opacity = opacity
+        self.layers.set_opacity(opacity if self.gizmo.joint is None else opacity * _DIM)
 
-    def _set_layer_visible(self, key: str, visible: bool) -> None:
-        if key == "parts" and visible:
-            try:
-                self._ensure_parts_topology()
-            except (ValueError, RuntimeError) as error:
-                self._visibility_checks["parts"].value = False
-                self._set_status(f"parts layer failed: {error}")
-                return
-        self._layers[key].set_visible(visible)
-        if key == "skeleton":
-            self._layers["frames"].set_skeleton_visible(visible)
-
-    def _ensure_parts_topology(self) -> None:
-        session = self._session
-        part_ids, _names = compact_segmentation(session.body.structure.faces, session.part_ids, session.part_names)
-        topology = build_part_topology(session.body.structure.faces, part_ids, len(_names))
-        self._layers["parts"].set_topology(topology, part_ids)
-
-    # -- shape handlers ------------------------------------------------------
-
-    def _make_shape_handler(self, group: str):
-        def _handler(_event: object) -> None:
-            if self._suppress_shape:
-                return
-            self._apply_shape(group)
-
-        return _handler
-
-    def _make_shape_reset(self, group: str):
-        def _handler(_event: object) -> None:
-            self._set_group_values(group, [0.0] * len(self._shape_sliders[group]))
-
-        return _handler
-
-    def _make_shape_random(self, group: str):
-        def _handler(_event: object) -> None:
-            values = torch.empty(len(self._shape_sliders[group])).uniform_(-2.0, 2.0).tolist()
-            self._set_group_values(group, values)
-
-        return _handler
-
-    def _set_group_values(self, group: str, values: list[float]) -> None:
-        self._suppress_shape = True
-        for slider, value in zip(self._shape_sliders[group], values, strict=True):
-            slider.value = value
-        self._suppress_shape = False
-        self._apply_shape(group)
-
-    def _apply_shape(self, group: str) -> None:
-        values = [slider.value for slider in self._shape_sliders[group]]
-        self._session.set_shape(**{group: self._session.shape_tensor(group, values)})
-
-    # -- posing --------------------------------------------------------------
-
-    @property
-    def _gizmo(self) -> viser.TransformControlsHandle | None:
-        """The live posing gizmo handle, or ``None`` (kept for test access)."""
-        return self._gizmo_ctrl.gizmo
-
-    def select_joint(self, native_index: int | None) -> None:
-        """Attach the single posing gizmo to a joint, or detach on ``None``.
-
-        Selecting a joint also dims the mesh so the gizmo handles are visible and
-        grabbable even when the joint sits inside the body.
-        """
-        self._gizmo_ctrl.detach()
-        if native_index is None:
-            self._selected = None
-            self._skeleton.set_selected(None)
-            self._restore_mesh_opacity()
-            self._set_status("")
-            return
-        handle = next((item for item in self._session.handles if item.native_index == native_index), None)
-        name = self._session.body.structure.joint_names[native_index]
-        if handle is None:
-            self._selected = None
-            self._skeleton.set_selected(None)
-            self._restore_mesh_opacity()
-            self._set_status(f"{name}: fixed joint - no DOF")
-            return
-        self._selected = native_index
-        self._skeleton.set_selected(native_index)
-        self._gizmo_ctrl.attach(handle, self._session.native_poses[native_index])
-        self._dim_mesh_for_selection()
-        self._set_status(f"selected {name} ({handle.kind})")
-
-    def _select_frame_from_click(self, name: str) -> None:
-        """Route a frame-sphere click to the Frames editor's selection."""
-        self._frames_editor.select_frame(name)
-
-    def _dim_mesh_for_selection(self) -> None:
-        self._layers["mesh"].set_opacity(min(self._opacity_slider.value, 0.35))
-
-    def _restore_mesh_opacity(self) -> None:
-        self._layers["mesh"].set_opacity(self._opacity_slider.value)
-
-    # -- edit-mode all-vertices point cloud ---------------------------------
-
-    def _set_edit_overlay(self, active: bool) -> None:
-        """Show or hide a neutral point cloud of every mesh vertex while editing."""
-        self._clear_edit_pointcloud()
-        if active:
-            self._edit_pointcloud = self._server.scene.add_point_cloud(
-                "/edit/points",
-                points=to_numpy(self._session.vertices),
-                colors=EDIT_POINT_COLOR,
-                point_size=0.004,
-            )
-
-    def _update_edit_pointcloud(self) -> None:
-        if self._edit_pointcloud is not None:
-            self._edit_pointcloud.points = to_numpy(self._session.vertices)
-
-    def _clear_edit_pointcloud(self) -> None:
-        if self._edit_pointcloud is not None:
-            self._edit_pointcloud.remove()
-            self._edit_pointcloud = None
-
-    # -- pose persistence ----------------------------------------------------
-
-    def _saved_poses(self) -> tuple[str, ...]:
-        return tuple(persistence.list_saved(self._paths.pose_dir(self._session.model_key))) or ("",)
-
-    def _save_pose(self) -> None:
-        name = self._pose_name.value.strip()
-        if not name:
-            self._set_status("provide a name to save the pose")
-            return
-        path = self._paths.pose_dir(self._session.model_key) / f"{name}.json"
-        persistence.save_pose(path, self._session.q, self._session.model_key)
-        self._pose_dropdown.options = self._saved_poses()
-        self._set_status(f"saved pose to {path}")
-
-    def _load_pose(self) -> None:
-        name = self._pose_dropdown.value
-        if not name:
-            return
-        path = self._paths.pose_dir(self._session.model_key) / f"{name}.json"
-        try:
-            q = persistence.load_pose(path, self._session.model_key, self._session.body.robot.nq)
-        except (ValueError, OSError) as error:
-            self._set_status(f"pose load failed: {error}")
-            return
-        self._session.set_q(q)
-        self._set_status(f"loaded pose {name}")
-
-    # -- reload --------------------------------------------------------------
-
-    def _reload(self, *, density: object | None) -> None:
-        model, gender, lod = self._model.value, self._gender.value, int(self._lod.value)
-        start = time.perf_counter()
-        try:
-            body = self._load_body(model, gender, lod, density)
-        except (FileNotFoundError, ValueError, RuntimeError) as error:
-            self._set_status(f"load failed: {error}")
-            return
-        self._gizmo_ctrl.detach()
-        self._selected = None
-        self._clear_edit_pointcloud()
-        self._session.load_body(body, self._current_key(model, gender, lod), self._default_frames(model), notify=False)
-        for layer in self._layers.values():
-            layer.clear()
-        self._radius_slider.value = 1.0
-        self._skeleton.set_base_radius(0.015 if model == "mhr" else 0.02)
-        self._skeleton.set_radius_multiplier(1.0)
-        for layer in self._layers.values():
-            layer.build(self._server, self._session)
-        self._layers["frames"].set_skeleton_visible(self._visibility_checks["skeleton"].value)
-        self._refresh_fast_availability()
-        self._restore_mesh_opacity()
-        self._dynamic.remove()
-        with self._body_tab:
-            self._build_dynamic()
-        self._pose_dropdown.options = self._saved_poses()
-        self._segment.refresh()
-        self._frames_editor.refresh()
-        self._refresh_status(load_seconds=time.perf_counter() - start)
-
-    # -- change dispatch and status -----------------------------------------
-
-    def _on_change(self, kind: str) -> None:
-        for layer in self._layers.values():
-            layer.update(self._session, kind)
-        if kind == "shape":
-            self._gizmo_ctrl.reseat_external()
-            self._update_mass()
-        elif kind == "pose" and not self._gizmo_ctrl.applying:
-            # Gizmo-driven pose edits never re-seat (that fought the drag); only
-            # non-gizmo sources (reset/load) do.
-            self._gizmo_ctrl.reseat_external()
-        if kind in ("pose", "shape"):
-            self._update_edit_pointcloud()
-
-    def _update_mass(self) -> None:
-        mass = self._session.total_mass
-        self._mass_md.content = "Total mass: unavailable" if mass is None else f"**Total mass:** {mass:.2f} kg"
-
-    def _refresh_status(self, *, load_seconds: float) -> None:
-        mass = self._session.total_mass
-        mass_text = "n/a" if mass is None else f"{mass:.2f} kg"
-        self._set_status(
-            f"loaded {self._session.model_key} in {load_seconds:.2f}s, mass {mass_text}{self._density_note}"
+    def pick_joint(self, origin: np.ndarray, direction: np.ndarray) -> int | None:
+        """Nearest joint (along the ray) whose sphere of radius ``layers.radius`` the ray crosses."""
+        return _nearest_on_ray(
+            self.session.state.joints.detach().reshape(-1, 3).numpy(), origin, direction, self.layers.radius
         )
 
-    def _set_status(self, message: str) -> None:
-        self._status.content = f"**Status:** {message}" if message else "**Status:** ready"
+    def pick_frame(self, origin: np.ndarray, direction: np.ndarray) -> str | None:
+        """Nearest frame (along the ray) whose vertex lies within ``layers.radius`` of the ray."""
+        names = list(self.session.frame_set)
+        if not names:
+            return None
+        points = self.session.vertices.detach().numpy()[[self.session.frame_set[name].vertex for name in names]]
+        index = _nearest_on_ray(points, origin, direction, self.layers.radius)
+        return None if index is None else names[index]
 
-    # -- lifecycle -----------------------------------------------------------
+    def on_click(self, event: Any) -> None:
+        """Dispatch a scene click (``event.ray_origin``, ``event.ray_direction``) to the active mode."""
+        if event.ray_origin is None or event.ray_direction is None:
+            return
+        origin, direction = np.asarray(event.ray_origin, float), np.asarray(event.ray_direction, float)
+        if self.mode == "pose":
+            joint = self.pick_joint(origin, direction)
+            if joint is not None:
+                self.select_joint(joint)
+                return
+            frame = self.pick_frame(origin, direction)
+            if frame is not None:
+                self.frames.select_frame(frame)
+                return
+        hit = ray_hit(origin, direction, self.session.vertices.detach().numpy(), self.session.body.faces.numpy())
+        if hit is None:
+            return
+        point, face = hit
+        if self.mode == "segment":
+            self.segment.paint(point)
+        elif self.mode == "frames":
+            self.frames.add_at(point)
+        else:
+            vertex_joints = self.session.vertex_native_joints
+            nearest = int(self.session.body.faces[face, 0])
+            self.select_joint(int(vertex_joints[nearest]))
 
-    def run(self, *, block: bool = True) -> None:
-        """Serve the studio, optionally blocking the calling thread."""
-        if block:
-            self._server.sleep_forever()
+    def start_marquee(self) -> None:
+        """Arm one rectangle selection that assigns the enclosed vertices to the active segment part."""
 
-    def stop(self) -> None:
-        """Stop the gizmo worker and the underlying viser server."""
-        self._gizmo_ctrl.shutdown()
-        self._server.stop()
+        def _on_rect(event: Any) -> None:
+            self.viewer.server.scene.remove_pointer_callback()
+            camera = CameraFrustum.from_camera(event.client.camera)
+            (x0, y0), (x1, y1) = event.screen_pos
+            ids = vertices_in_rect(
+                self.session.vertices.detach().numpy(), camera, np.array([x0, y0]), np.array([x1, y1])
+            )
+            self.segment.assign(ids)
+            self.viewer.server.scene.on_pointer_event(event_type="click")(self.on_click)
+
+        self.viewer.server.scene.remove_pointer_callback()
+        self.viewer.server.scene.on_pointer_event(event_type="rect-select")(_on_rect)
+        self.set_status("drag a rectangle to select vertices")
+
+    def apply_shape(self, group: str) -> None:
+        """Push the ``group`` sliders into the session (re-bakes the identity)."""
+        width = self.session.body.identity_groups[group]
+        values = [float(slider.value) for slider in self.shape_sliders[group]] + [0.0] * width
+        self.session.set_shape(**{group: self.session.shape_tensor(group, values[:width])})
+
+    def reset_shape(self, group: str) -> None:
+        """Zero the ``group`` sliders and coefficients."""
+        for slider in self.shape_sliders[group]:
+            slider.value = 0.0
+        self.apply_shape(group)
+
+    def random_shape(self, group: str) -> None:
+        """Draw the ``group`` sliders from ``N(0, 1)``."""
+        for slider in self.shape_sliders[group]:
+            slider.value = round(float(np.random.normal()), 2)
+        self.apply_shape(group)
+
+    def chosen_density(self) -> float | str:
+        """The density control's value: kg/m^3, or a table name for SMPL / SMPL-H."""
+        value = self.density_input.value
+        if self.family not in _TABLE_FAMILIES:
+            return float(value)
+        return self._uniform_density if value == self._uniform else value
+
+    def _pose_options(self) -> tuple[str, ...]:
+        return tuple(persistence.list_saved(self.paths.pose_dir(self.session.model_key))) or ("(none)",)
+
+    def save_pose(self, name: str) -> Path:
+        """Save ``q`` to ``<data>/poses/<model_key>/<name>.json``."""
+        path = self.paths.pose_dir(self.session.model_key) / f"{name}.json"
+        persistence.save_pose(path, self.session.q, self.session.model_key)
+        self.saved_poses.options = self._pose_options()
+        self.saved_poses.value = name
+        self.set_status(f"saved pose {path}")
+        return path
+
+    def load_pose(self, name: str) -> None:
+        """Load a saved pose by name."""
+        path = self.paths.pose_dir(self.session.model_key) / f"{name}.json"
+        if not path.is_file():
+            self.set_status(f"no saved pose {name!r}")
+            return
+        self.session.set_q(persistence.load_pose(path, self.session.model_key, self.session.q.shape[-1]))
+
+    def reload(self, density: float | str) -> None:
+        """Reload the body at a new density, keeping the pose and frames."""
+        self.density = density
+        q, frames = self.session.q.clone(), dict(self.session.frame_set)
+        self.session.load_body(self._load_body(), self._key(), frames)
+        self.session.set_q(q)
+
+    def _on_change(self, kind: str) -> None:
+        if kind in ("body", "shape"):
+            self._update_mass()
+        if kind in ("body", "segmentation"):
+            self.segment.refresh()
+        if kind in ("body", "frames"):
+            self.frames.refresh()
+
+    def _update_mass(self) -> None:
+        mass = self.session.total_mass
+        if hasattr(self, "mass_text"):
+            self.mass_text.content = "mass: n/a" if mass is None else f"mass: {float(mass):.2f} kg"
+
+    def run(self) -> None:
+        """Block until interrupted."""
+        while True:
+            time.sleep(1.0)
 
 
-def launch(**kwargs: object) -> HumanStudio:
-    """Construct a :class:`HumanStudio` and run it (blocking)."""
+def _nearest_on_ray(points: np.ndarray, origin: np.ndarray, direction: np.ndarray, radius: float) -> int | None:
+    """Index of the point ``(N, 3)`` within ``radius`` of the ray nearest its origin, or ``None``."""
+    direction = direction / np.linalg.norm(direction)
+    along = (points - origin) @ direction
+    distance = np.linalg.norm(points - origin - along[:, None] * direction, axis=-1)
+    hits = np.flatnonzero((distance <= radius) & (along > 0))
+    return None if hits.size == 0 else int(hits[np.argmin(along[hits])])
+
+
+def launch(**kwargs: Any) -> HumanStudio:
+    """Build a :class:`HumanStudio` with ``kwargs``, print its URL and block."""
     studio = HumanStudio(**kwargs)
+    print(f"HumanStudio at http://{kwargs.get('host', '127.0.0.1')}:{kwargs.get('port', 8080)}")
     studio.run()
     return studio
-
-
-__all__ = ["HumanStudio", "launch"]
