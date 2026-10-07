@@ -78,10 +78,10 @@ def test_parts_fall_back_to_open_submeshes(smpl: bh.Body, monkeypatch: pytest.Mo
 
 def test_parts_explode_moves_parts_apart(smpl: bh.Body) -> None:
     _, layers, _ = _setup(smpl)
-    layers.parts.set_frame(0)
+    layers.parts.set_step(0)
     assembled = np.stack([np.asarray(handle.position) for _, handle, _ in layers.parts._handles_by_part])
     layers.set_explode(0.5)
-    layers.parts.set_frame(0)
+    layers.parts.set_step(0)
     exploded = np.stack([np.asarray(handle.position) for _, handle, _ in layers.parts._handles_by_part])
     assert layers.parts.explode == 0.5
     assert np.linalg.norm(exploded - assembled, axis=1).max() > 0.05

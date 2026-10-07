@@ -166,6 +166,6 @@ tests/               core, families, dynamics, io, parity (goldens), contract, v
 ## Verification
 
 - Parity gates against upstream goldens (`tests/parity/`): SMPL, SMPL-X (29 goldens) and MHR
-  (all 7 LODs, against goldens and the TorchScript model). Tolerances are in `docs/contracts.md`.
+  (all 7 LODs, against goldens and the TorchScript model). Tolerances are in `docs/contracts/bh-addendum.md`.
 - Contract test `tests/contract/test_br_imports.py`: public BR API only.
 - Examples: each runs headless with `--check`.

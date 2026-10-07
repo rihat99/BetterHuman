@@ -43,6 +43,7 @@ class FakeHandle:
         self.callbacks.append(callback)
 
     on_click = on_update
+    on_drag_end = on_update
 
     def fire(self) -> None:
         for callback in self.callbacks:

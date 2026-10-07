@@ -77,24 +77,39 @@ def test_mhr_schema_binds_vertex_count_across_geometry_fields(mhr_data: dict[str
         validate(mhr_data, MHR_SCHEMA, source="mhr_lod6.npz")
 
 
-def test_mhr_schema_requires_correct_flattened_corrective_width(mhr_data: dict[str, np.ndarray]) -> None:
-    mhr_data["corrective_output_weights"] = np.zeros((3000, 13), dtype=np.float32)
-
-    with pytest.raises(ValueError, match=r"mhr_lod6\.npz.*'corrective_output_weights'.*V\*3.*shape"):
-        validate(mhr_data, MHR_SCHEMA, source="mhr_lod6.npz")
-
-
-def test_mhr_schema_requires_scalar_metadata_and_exact_storage_dtypes(mhr_data: dict[str, np.ndarray]) -> None:
-    mhr_data["lod"] = np.zeros(1, dtype=np.int64)
-    with pytest.raises(ValueError, match=r"'lod'.*rank 0.*shape \(1,\)"):
-        validate(mhr_data, MHR_SCHEMA, source="wrong_scalar.npz")
-
-    mhr_data["lod"] = np.asarray(6, dtype=np.int64)
-    mhr_data["model_parameter_channel_types"] = np.zeros(204, dtype=np.int64)
-    with pytest.raises(ValueError, match=r"'model_parameter_channel_types'.*dtype int8.*dtype int64"):
-        validate(mhr_data, MHR_SCHEMA, source="wrong_dtype.npz")
-
-    mhr_data["model_parameter_channel_types"] = np.zeros(204, dtype=np.int8)
-    mhr_data["joint_names"] = np.full(127, "joint", dtype="<U21")
-    with pytest.raises(ValueError, match=r"'joint_names'.*dtype <U20.*dtype <U21"):
-        validate(mhr_data, MHR_SCHEMA, source="wrong_string_dtype.npz")
+# Each case mutates one key of a fresh fixture (the old sequential test restored the previous key first).
+@pytest.mark.parametrize(
+    ("key", "bad_value", "source", "match"),
+    [
+        pytest.param(
+            "corrective_output_weights",
+            np.zeros((3000, 13), dtype=np.float32),
+            "mhr_lod6.npz",
+            r"mhr_lod6\.npz.*'corrective_output_weights'.*V\*3.*shape",
+            id="flattened_corrective_width",
+        ),
+        pytest.param(
+            "lod", np.zeros(1, dtype=np.int64), "wrong_scalar.npz", r"'lod'.*rank 0.*shape \(1,\)", id="scalar_lod"
+        ),
+        pytest.param(
+            "model_parameter_channel_types",
+            np.zeros(204, dtype=np.int64),
+            "wrong_dtype.npz",
+            r"'model_parameter_channel_types'.*dtype int8.*dtype int64",
+            id="storage_dtype",
+        ),
+        pytest.param(
+            "joint_names",
+            np.full(127, "joint", dtype="<U21"),
+            "wrong_string_dtype.npz",
+            r"'joint_names'.*dtype <U20.*dtype <U21",
+            id="string_dtype",
+        ),
+    ],
+)
+def test_mhr_schema_rejects(
+    mhr_data: dict[str, np.ndarray], key: str, bad_value: np.ndarray, source: str, match: str
+) -> None:
+    mhr_data[key] = bad_value
+    with pytest.raises(ValueError, match=match):
+        validate(mhr_data, MHR_SCHEMA, source=source)

@@ -32,7 +32,7 @@ def test_layers_have_one_frame_per_pose(clip) -> None:
     identity, state = clip
     layers = human_layers(state, frames=True, forces={"heel": torch.ones(5, 3)})
     assert [layer.name for layer in layers] == ["mesh", "skeleton", "frames", "forces"]
-    assert all(layer.num_frames == 5 for layer in layers)
+    assert all(layer.nsteps == 5 for layer in layers)
     assert layers[0].vertices.shape == (5, identity.body.num_vertices, 3)
     assert layers[1].joints.shape == (5, 24, 3)
     np.testing.assert_allclose(layers[3].origins[2, 0], state.kinematics.frame_translation[2, -1].numpy(), atol=1e-6)

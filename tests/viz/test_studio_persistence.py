@@ -113,32 +113,28 @@ def test_list_saved_sorted_and_missing(tmp_path: Path) -> None:
     assert saved["alpha"] == directory / "alpha.json"
 
 
-def test_segmentation_out_of_range_id_raises(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("payload", "match", "load"),
+    [
+        pytest.param({"head": [0, 999]}, "'head'.*out of range",
+                     lambda path: persistence.load_segmentation(path, num_vertices=100),
+                     id="segmentation_out_of_range_id"),
+        pytest.param({"torso": [0, 1.5]}, "'torso'.*not an int",
+                     lambda path: persistence.load_segmentation(path, num_vertices=100),
+                     id="segmentation_non_int_id"),
+        pytest.param({"left_arm": []}, "'left_arm'.*empty",
+                     lambda path: persistence.load_segmentation(path, num_vertices=100),
+                     id="segmentation_empty_part"),
+        pytest.param({"nose": 10000}, "'nose'.*out of range",
+                     lambda path: persistence.load_frame_set(path, num_vertices=SMPL_NUM_VERTICES),
+                     id="frame_set_out_of_range"),
+    ],
+)
+def test_invalid_vertex_file_raises(tmp_path: Path, payload: dict, match: str, load) -> None:
     path = tmp_path / "bad.json"
-    path.write_text(json.dumps({"head": [0, 999]}))
-    with pytest.raises(ValueError, match="'head'.*out of range"):
-        persistence.load_segmentation(path, num_vertices=100)
-
-
-def test_segmentation_non_int_id_raises(tmp_path: Path) -> None:
-    path = tmp_path / "bad.json"
-    path.write_text(json.dumps({"torso": [0, 1.5]}))
-    with pytest.raises(ValueError, match="'torso'.*not an int"):
-        persistence.load_segmentation(path, num_vertices=100)
-
-
-def test_segmentation_empty_part_raises(tmp_path: Path) -> None:
-    path = tmp_path / "bad.json"
-    path.write_text(json.dumps({"left_arm": []}))
-    with pytest.raises(ValueError, match="'left_arm'.*empty"):
-        persistence.load_segmentation(path, num_vertices=100)
-
-
-def test_frame_set_out_of_range_raises(tmp_path: Path) -> None:
-    path = tmp_path / "bad.json"
-    path.write_text(json.dumps({"nose": 10000}))
-    with pytest.raises(ValueError, match="'nose'.*out of range"):
-        persistence.load_frame_set(path, num_vertices=SMPL_NUM_VERTICES)
+    path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match=match):
+        load(path)
 
 
 def test_pose_model_key_mismatch_raises(tmp_path: Path) -> None:
@@ -155,18 +151,18 @@ def test_pose_nq_mismatch_raises(tmp_path: Path) -> None:
         persistence.load_pose(path, model_key="smpl_neutral", nq=132)
 
 
-def test_builtin_smpl_segmentation() -> None:
-    parts = persistence.load_builtin_segmentation("smpl_vert_segmentation.json", SMPL_NUM_VERTICES)
-    assert len(parts) == 24
+@pytest.mark.parametrize(
+    ("filename", "num_vertices", "num_parts"),
+    [
+        pytest.param("smpl_vert_segmentation.json", SMPL_NUM_VERTICES, 24, id="smpl"),
+        pytest.param("smplx_vert_segmentation.json", SMPLX_NUM_VERTICES, 27, id="smplx"),
+    ],
+)
+def test_builtin_segmentation(filename: str, num_vertices: int, num_parts: int) -> None:
+    parts = persistence.load_builtin_segmentation(filename, num_vertices)
+    assert len(parts) == num_parts
     ids = [vid for part in parts.values() for vid in part]
-    assert all(isinstance(vid, int) and 0 <= vid < SMPL_NUM_VERTICES for vid in ids)
-
-
-def test_builtin_smplx_segmentation() -> None:
-    parts = persistence.load_builtin_segmentation("smplx_vert_segmentation.json", SMPLX_NUM_VERTICES)
-    assert len(parts) == 27
-    ids = [vid for part in parts.values() for vid in part]
-    assert all(isinstance(vid, int) and 0 <= vid < SMPLX_NUM_VERTICES for vid in ids)
+    assert all(isinstance(vid, int) and 0 <= vid < num_vertices for vid in ids)
 
 
 def test_builtin_smpl_range_check_rejects_too_small_v() -> None:

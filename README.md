@@ -109,7 +109,7 @@ view = HumanView(identity.forward(identity.q_neutral))   # viewer layers, update
 
 Per-frame groups such as SMPL-X expression go to `forward`:
 `identity.forward(q, stream={"expression": torch.zeros(B, 10)})`.
-See `docs/architecture.md` for the design and `docs/contracts.md` for shapes, units and gates.
+See `docs/architecture.md` for the design and `docs/contracts/bh-addendum.md` for shapes, units and gates.
 
 ## Supported families
 
@@ -142,4 +142,4 @@ uv run python benchmarks/run.py --device cpu --threads 8 --batches 1 64 1024 819
   --out benchmarks/results/p4_bodies_cpu.json
 ```
 
-Measured numbers are in `docs/contracts.md`.
+Measured numbers are in `docs/contracts/bh-addendum.md`.

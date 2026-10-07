@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from better_robot.viewer import DARK, Viewer
+from better_robot.viewer import LIGHT, Viewer
 from better_robot.viewer.tools import CameraFrustum, ray_hit, vertices_in_rect
 
 import better_human as bh
@@ -64,7 +64,7 @@ class HumanStudio:
         started = time.perf_counter()
         body = self._load_body()
         self.session = StudioSession(body, self._key(), self._default_frames(body))
-        self.viewer = Viewer(host=host, port=port, theme=replace(DARK, up="+y"), server=server)
+        self.viewer = Viewer(host=host, port=port, theme=replace(LIGHT, up="+y"), server=server)
         self.layers = StudioLayers(self.viewer, self.session, theme=self.viewer.theme)
         self.gizmo = GizmoController(self.viewer, self.session, on_status=self.set_status)
         self.segment = SegmentEditor(self)

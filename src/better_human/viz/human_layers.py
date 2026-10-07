@@ -148,7 +148,7 @@ class HumanView:
         self.layers = human_layers(
             state, mesh=mesh, skeleton=skeleton, frames=frames, theme=theme, color=color, opacity=opacity
         )
-        if any(layer.num_frames != 1 for layer in self.layers):
+        if any(layer.nsteps != 1 for layer in self.layers):
             raise ValueError("HumanView takes a single pose, not a clip")
 
     def __iter__(self):

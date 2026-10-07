@@ -80,9 +80,9 @@ class SegmentationLayer(Layer):
         self.dispose()
         self.build(self._scene, self._root)
 
-    def set_frame(self, frame: int) -> None:
+    def set_step(self, step: int) -> None:
         for mesh in self._meshes:
-            mesh.vertices = self.vertices[frame]
+            mesh.vertices = self.vertices[step]
 
 
 class PartsLayer(Layer):
@@ -155,7 +155,7 @@ class PartsLayer(Layer):
         self.dispose()
         self.build(self._scene, self._root)
 
-    def set_frame(self, frame: int) -> None:
+    def set_step(self, step: int) -> None:
         poses = self.session.joint_poses.detach().cpu().numpy()
         center = poses[:, :3].mean(axis=0)
         for joint, handle, local_center in self._handles_by_part:
@@ -228,7 +228,7 @@ class StudioLayers:
     def set_highlight(self, joint: int | None, *, show: bool = True) -> None:
         """Colour native joint ``joint`` with the highlight colour (``None`` clears it)."""
         self.highlight = joint
-        colors = self.skeleton.colors  # (1, J, 3) uint8, read by SkeletonLayer.set_frame
+        colors = self.skeleton.colors  # (1, J, 3) uint8, read by SkeletonLayer.set_step
         colors[...] = np.round(self._base_colors * 255).astype(np.uint8)
         if joint is not None:
             colors[0, joint] = _HIGHLIGHT
