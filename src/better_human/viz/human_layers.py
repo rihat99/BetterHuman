@@ -128,8 +128,46 @@ def human_layers(
     return layers
 
 
+class HumanView:
+    """Live human: layers with ``T = 1`` arrays that :meth:`update` rewrites in place (then call ``viewer.show()``).
+
+    Same options as :func:`human_layers` except ``forces``; iterate it to add the layers.
+    """
+
+    def __init__(
+        self,
+        state: HumanState,
+        *,
+        mesh: str | None = "exact",
+        skeleton: bool = True,
+        frames: bool = False,
+        theme: Theme = DARK,
+        color: RGB = _SKIN,
+        opacity: float = 1.0,
+    ) -> None:
+        self.layers = human_layers(
+            state, mesh=mesh, skeleton=skeleton, frames=frames, theme=theme, color=color, opacity=opacity
+        )
+        if any(layer.num_frames != 1 for layer in self.layers):
+            raise ValueError("HumanView takes a single pose, not a clip")
+
+    def __iter__(self):
+        return iter(self.layers)
+
+    def update(self, state: HumanState) -> None:
+        for layer in self.layers:
+            if isinstance(layer, MeshLayer):
+                layer.vertices[...] = _frames(state.vertices(), 2)
+            elif isinstance(layer, SkinnedMeshLayer):
+                layer.bone_poses[...] = _frames(state.joint_poses, 2)
+            elif isinstance(layer, SkeletonLayer):
+                layer.joints[...] = _frames(state.joints, 2)
+            elif isinstance(layer, FramesLayer):
+                layer.poses[...] = _frames(state.frame_poses(), 2)
+
+
 def _as_clip(value: torch.Tensor) -> torch.Tensor:
     return value if value.ndim == 2 else value[None]
 
 
-__all__ = ["forces_layer", "frames_layer", "human_layers", "mesh_layer", "skeleton_layer", "skinned_layer"]
+__all__ = ["HumanView", "forces_layer", "frames_layer", "human_layers", "mesh_layer", "skeleton_layer", "skinned_layer"]

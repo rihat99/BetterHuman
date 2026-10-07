@@ -1,120 +1,80 @@
-"""Interactively change SMPL shape and pose on the BetterRobot manifold.
+"""SMPL shape and pose sliders on the BetterRobot viewer.
 
-Run without a viewer for CI or smoke checks::
-
-    uv run python examples/01_smpl_shape_pose.py --headless --frames 1
+    uv run python examples/01_smpl_shape_pose.py            # open the printed URL
+    uv run python examples/01_smpl_shape_pose.py --check    # build the scene, move sliders once, exit
 """
 
 from __future__ import annotations
 
 import argparse
-import time
-from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
-from typing import Any
 
 import torch
-from better_robot.viewer import RenderContext, ViserBackend
 
 import better_human as bh
-from better_human.viz import SkinnedMeshMode
+from better_human.viz import HumanView
+from better_robot.viewer import DARK, GroundLayer, Viewer
 
-
-def _arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-path", type=Path, help="Converted SMPL .npz; otherwise use BETTERHUMAN_MODELS_DIR")
-    parser.add_argument("--headless", action="store_true", help="Use BetterRobot's recording backend")
-    parser.add_argument("--frames", type=int, help="Stop after this many frames; headless defaults to one")
-    parser.add_argument("--port", type=int, default=8080)
-    arguments = parser.parse_args()
-    if arguments.frames is not None and arguments.frames < 1:
-        parser.error("--frames must be positive")
-    return arguments
-
-
-def _backend(headless: bool, port: int) -> Any:
-    if headless:
-        from better_robot.viewer.renderers.testing import MockBackend  # noqa: PLC0415
-
-        return MockBackend()
-    return ViserBackend(port=port)
+POSE_SLIDERS = (("left shoulder", "left_shoulder", 0), ("left elbow", "left_elbow", 1), ("right shoulder", "right_shoulder", 0))
 
 
 def main() -> None:
-    """Run the live SMPL shape-and-pose demo."""
-    arguments = _arguments()
-    frame_limit = arguments.frames if arguments.frames is not None else (1 if arguments.headless else None)
-    backend = _backend(arguments.headless, arguments.port)
-    neutral = bh.SMPL(arguments.model_path, compute_mass=False)
-    beta_values = [0.0] * 10
-    tangent = torch.zeros(neutral.robot.nv)
-    state = {"shape_dirty": False}
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model-path", type=Path, help="SMPL .npz; otherwise $BETTERHUMAN_MODELS_DIR")
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--port", type=int, default=8080)
+    args = parser.parse_args()
 
-    def set_beta(index: int) -> Callable[[Any], None]:
-        def callback(event: Any) -> None:
-            beta_values[index] = float(event.target.value)
-            state["shape_dirty"] = True
+    body = bh.load("smpl", args.model_path, num_betas=10, mass=False)
+    betas = torch.zeros(10)
+    tangent = torch.zeros(body.model.nv)
+    identity = body.bake(betas=betas)
+    view = HumanView(identity.forward(identity.q_neutral))
 
-        return callback
+    viewer = Viewer(port=args.port, theme=replace(DARK, up="+y"))
+    viewer.add(GroundLayer(plane="xz"), group="scene")
+    for layer in view:
+        viewer.add(layer, group="smpl")
 
-    for index in range(10):
-        backend.add_gui_slider(
-            f"beta {index}",
-            min=-3.0,
-            max=3.0,
-            step=0.1,
-            value=0.0,
-            callback=set_beta(index),
-        )
+    def refresh() -> None:
+        nonlocal identity
+        view.update(identity.forward(identity.model.integrate(identity.q_neutral, tangent)))
+        viewer.show()
 
-    pose_controls = (
-        ("left shoulder", "left_shoulder", 0),
-        ("left elbow", "left_elbow", 1),
-        ("right shoulder", "right_shoulder", 0),
-    )
-    for label, joint_name, axis in pose_controls:
-        joint_id = neutral.robot.joint_id(joint_name)
-        tangent_index = neutral.robot.idx_vs[joint_id] + axis
+    gui = viewer.server.gui
+    with gui.add_folder("Shape"):
+        for index in range(10):
+            slider = gui.add_slider(f"beta {index}", min=-3.0, max=3.0, step=0.1, initial_value=0.0)
 
-        def set_pose(event: Any, *, index: int = tangent_index) -> None:
-            tangent[index] = float(event.target.value)
+            def on_beta(_: object, index: int = index, slider: object = slider) -> None:
+                nonlocal identity
+                betas[index] = float(slider.value)
+                identity = body.bake(betas=betas)
+                refresh()
 
-        backend.add_gui_slider(
-            label,
-            min=-1.5,
-            max=1.5,
-            step=0.05,
-            value=0.0,
-            callback=set_pose,
-        )
+            slider.on_update(on_beta)
+    with gui.add_folder("Pose"):
+        for label, joint, axis in POSE_SLIDERS:
+            coordinate = body.model.idx_vs[body.model.joint_id(joint)] + axis
+            slider = gui.add_slider(label, min=-1.5, max=1.5, step=0.05, initial_value=0.0)
 
-    body = neutral
-    mode = SkinnedMeshMode(body)
-    context = RenderContext(backend=backend, namespace="/smpl")
-    mode.attach(context, body.robot, body.fk(body.robot.q_neutral))
-    rendered = 0
-    started = time.perf_counter()
-    try:
-        while frame_limit is None or rendered < frame_limit:
-            frame_started = time.perf_counter()
-            if state["shape_dirty"]:
-                mode.detach()
-                body = neutral.with_shape(betas=torch.tensor(beta_values))
-                mode = SkinnedMeshMode(body)
-                mode.attach(context, body.robot, body.fk(body.robot.q_neutral))
-                state["shape_dirty"] = False
-            q = body.robot.integrate(body.robot.q_neutral, tangent)
-            mode.update(body.fk(q))
-            rendered += 1
-            if not arguments.headless:
-                time.sleep(max(0.0, 1.0 / 60.0 - (time.perf_counter() - frame_started)))
-    except KeyboardInterrupt:
-        pass
-    finally:
-        mode.detach()
+            def on_pose(_: object, coordinate: int = coordinate, slider: object = slider) -> None:
+                tangent[coordinate] = float(slider.value)
+                refresh()
 
-    elapsed = time.perf_counter() - started
-    print(f"Rendered {rendered} SMPL frames in {elapsed:.3f} s ({rendered / elapsed:.1f} FPS)")
+            slider.on_update(on_pose)
+
+    if args.check:
+        betas[0] = 2.0
+        identity = body.bake(betas=betas)
+        tangent[body.model.idx_vs[body.model.joint_id("left_elbow")] + 1] = 1.0
+        refresh()
+        print(f"scene with {len(view.layers)} layers; elbow bent, beta0 = 2")
+        viewer.server.stop()
+        return
+    print(f"open {viewer.url}; Ctrl-C to exit")
+    viewer.server.sleep_forever()
 
 
 if __name__ == "__main__":

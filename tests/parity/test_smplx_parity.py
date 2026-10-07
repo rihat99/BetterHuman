@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 import torch
 
-from better_human import SMPLX
-from better_human.bodies import SMPLXClassic
+import better_human as bh
+from better_human.families.classic import SMPLXClassic, smplx_from_classic
 
 ROOT = Path(__file__).parents[2]
 MODEL_PATH = ROOT / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
@@ -44,26 +44,29 @@ if GOLDEN_FILES:
 PARITY_CASES: tuple[Path | None, ...] = GOLDEN_FILES if GOLDEN_FILES else (None,)
 FLOAT64_ATOL = 1e-6
 FLOAT32_ATOL = 1e-6
-_BODY_CACHE: dict[tuple[torch.dtype, int, int, bool], SMPLX] = {}
+_BODY_CACHE: dict[tuple[torch.dtype, int, int, bool, bool], bh.Body] = {}
 
 
-def _body(dtype: torch.dtype, num_betas: int, num_expression: int, flat_hand_mean: bool) -> SMPLX:
-    key = (dtype, num_betas, num_expression, flat_hand_mean)
+def _body(
+    dtype: torch.dtype, num_betas: int, num_expression: int, flat_hand_mean: bool, stream_joints: bool = True
+) -> bh.Body:
+    key = (dtype, num_betas, num_expression, flat_hand_mean, stream_joints)
     if key not in _BODY_CACHE:
-        _BODY_CACHE[key] = SMPLX(
+        spec = bh.families.smplx(
             MODEL_PATH,
             num_betas=num_betas,
             num_expression=num_expression,
             flat_hand_mean=flat_hand_mean,
-            compute_mass=False,
             dtype=dtype,
         )
+        _BODY_CACHE[key] = bh.Body(spec, mass=False, stream_joints=stream_joints)
     return _BODY_CACHE[key]
 
 
 def _evaluate(
     dtype: torch.dtype,
     golden_path: Path | None,
+    stream_joints: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, np.lib.npyio.NpzFile]:
     if golden_path is None:
         pytest.skip(
@@ -77,13 +80,11 @@ def _evaluate(
     flat_hand_mean = bool(golden["flat_hand_mean"].item())
     stored_pca = int(golden["num_pca_comps"].item())
     num_pca_comps = None if stored_pca < 0 else stored_pca
-    body = _body(dtype, num_betas, num_expression, flat_hand_mean)
+    body = _body(dtype, num_betas, num_expression, flat_hand_mean, stream_joints)
     expression = torch.from_numpy(golden["expression"]).to(dtype=dtype)
-    shaped = body.with_shape(
-        betas=torch.from_numpy(golden["betas"]).to(dtype=dtype),
-        expression=expression,
-    )
-    q = shaped.from_classic(
+    identity = body.bake(betas=torch.from_numpy(golden["betas"]).to(dtype=dtype))
+    q, stream = smplx_from_classic(
+        identity,
         SMPLXClassic(
             global_orient=torch.from_numpy(golden["global_orient"]).to(dtype=dtype),
             body_pose=torch.from_numpy(golden["body_pose"]).to(dtype=dtype),
@@ -95,10 +96,10 @@ def _evaluate(
             expression=expression,
             transl=torch.from_numpy(golden["transl"]).to(dtype=dtype),
             num_pca_comps=num_pca_comps,
-        )
+        ),
     )
-    data = shaped.fk(q)
-    return shaped.vertices_from_data(data), data.joint_pose_world[..., 1:, :3], golden
+    state = identity.forward(q, stream)
+    return state.vertices(), state.joints, golden
 
 
 @pytest.mark.parametrize("golden_path", PARITY_CASES, ids=lambda path: "missing" if path is None else path.stem)
@@ -121,3 +122,17 @@ def test_smplx_float32_parity(golden_path: Path | None) -> None:
     golden.close()
     assert vertex_error <= FLOAT32_ATOL, f"{golden_path.stem}: vertex max error {vertex_error:.3e}"
     assert joint_error <= FLOAT32_ATOL, f"{golden_path.stem}: joint max error {joint_error:.3e}"
+
+
+def test_smplx_static_joints_are_approximate() -> None:
+    """``stream_joints=False`` keeps the expression-free joints: measured on ``expression_plus_two`` (float64) the
+    joint error is 1.17e-3 m and the vertex error 5.8e-10 m."""
+    golden_path = GOLDEN_DIR / "expression_plus_two.npz"
+    if not golden_path.is_file():
+        pytest.skip("SMPL-X goldens are absent; regenerate with the command in tools/parity/smplx/README.md")
+    vertices, joints, golden = _evaluate(torch.float64, golden_path, stream_joints=False)
+    vertex_error = (vertices - torch.from_numpy(golden["vertices"])).abs().max().item()
+    joint_error = (joints - torch.from_numpy(golden["joints"])).abs().max().item()
+    golden.close()
+    error = max(vertex_error, joint_error)
+    assert 1e-5 < error < 2e-3, f"static-joint error {error:.3e}"

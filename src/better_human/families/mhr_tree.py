@@ -17,7 +17,7 @@ from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
 from better_robot.lie import so3
 
-from . import archive
+from . import mhr_archive as archive
 
 
 @dataclass(frozen=True)

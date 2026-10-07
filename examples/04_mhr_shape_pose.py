@@ -1,95 +1,69 @@
-"""Render an identity-shaped and articulated MHR LOD1 body.
+"""MHR LOD1: identity sliders and an arm swing on the BetterRobot viewer.
 
-Run without a viewer for CI or smoke checks::
-
-    uv run python examples/04_mhr_shape_pose.py --headless --frames 1
+    uv run python examples/04_mhr_shape_pose.py [--check]
 """
 
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
-import time
-from typing import Any
 
 import torch
-from better_robot.viewer import RenderContext, ViserBackend
 
 import better_human as bh
-from better_human.viz import SkinnedMeshMode
-
-
-def _arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-path", type=Path, help="Converted MHR LOD1 .npz; otherwise use BETTERHUMAN_MODELS_DIR")
-    parser.add_argument("--headless", action="store_true", help="Use BetterRobot's recording backend")
-    parser.add_argument("--frames", type=int, help="Stop after this many frames; headless defaults to one")
-    parser.add_argument("--port", type=int, default=8080)
-    arguments = parser.parse_args()
-    if arguments.frames is not None and arguments.frames < 1:
-        parser.error("--frames must be positive")
-    return arguments
-
-
-def _backend(headless: bool, port: int) -> Any:
-    if headless:
-        from better_robot.viewer.renderers.testing import MockBackend  # noqa: PLC0415
-
-        return MockBackend()
-    return ViserBackend(port=port)
-
-
-def _set_named_pose(q: torch.Tensor, body: bh.MHR, joint_name: str, value: float) -> None:
-    joint_id = body.robot.joint_id(joint_name)
-    q[body.robot.idx_qs[joint_id]] = value
+from better_human.viz import HumanView
+from better_robot.viewer import DARK, GroundLayer, Viewer
 
 
 def main() -> None:
-    """Run the MHR shape, hand-scale, and named-pose demo."""
-    arguments = _arguments()
-    frame_limit = arguments.frames if arguments.frames is not None else (1 if arguments.headless else None)
-    backend = _backend(arguments.headless, arguments.port)
-    neutral = bh.MHR(arguments.model_path, lod=1, compute_mass=False)
-    identity = torch.zeros(45)
-    identity[0] = 0.8
-    proportions = torch.zeros(73)
-    proportions[11] = 0.12
-    proportions[14] = 0.18
-    body = neutral.with_shape(
-        identity=identity,
-        expression=torch.zeros(72),
-        proportions=proportions,
-    )
-    q = body.robot.q_neutral.clone()
-    for joint_name, value in (
-        ("l_uparm_rz", -0.6),
-        ("l_elbow_bend", 0.8),
-        ("r_uparm_rz", 0.45),
-    ):
-        _set_named_pose(q, body, joint_name, value)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model-path", type=Path)
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--port", type=int, default=8080)
+    args = parser.parse_args()
 
-    mode = SkinnedMeshMode(body, rgba=(0.58, 0.78, 0.96, 1.0))
-    mode.attach(
-        RenderContext(backend=backend, namespace="/mhr"),
-        body.robot,
-        body.fk(q),
-    )
-    rendered = 0
-    started = time.perf_counter()
-    try:
-        while frame_limit is None or rendered < frame_limit:
-            frame_started = time.perf_counter()
-            mode.update(body.fk(q))
-            rendered += 1
-            if not arguments.headless:
-                time.sleep(max(0.0, 1.0 / 60.0 - (time.perf_counter() - frame_started)))
-    except KeyboardInterrupt:
-        pass
-    finally:
-        mode.detach()
+    body = bh.load("mhr", args.model_path, lod=1, mass=False)
+    coefficients = torch.zeros(45)
+    tangent = torch.zeros(body.model.nv)
+    identity = body.bake(identity=coefficients)
+    view = HumanView(identity.forward(identity.q_neutral))
+    viewer = Viewer(port=args.port, theme=replace(DARK, up="+y"))
+    viewer.add(GroundLayer(plane="xz"), group="scene")
+    for layer in view:
+        viewer.add(layer, group="mhr")
 
-    elapsed = time.perf_counter() - started
-    print(f"Rendered {rendered} MHR LOD1 frames in {elapsed:.3f} s with {body.structure.num_vertices} vertices")
+    def refresh() -> None:
+        view.update(identity.forward(identity.model.integrate(identity.q_neutral, tangent)))
+        viewer.show()
+
+    gui = viewer.server.gui
+    with gui.add_folder("Identity"):
+        for index in range(8):
+            slider = gui.add_slider(f"identity {index}", min=-3.0, max=3.0, step=0.1, initial_value=0.0)
+
+            def on_identity(_: object, index: int = index, slider: object = slider) -> None:
+                nonlocal identity
+                coefficients[index] = float(slider.value)
+                identity = body.bake(identity=coefficients)
+                refresh()
+
+            slider.on_update(on_identity)
+    arm = body.model.idx_vs[body.model.joint_id("l_shoulder_rx")] if "l_shoulder_rx" in body.model.joint_names else 6
+    with gui.add_folder("Pose"):
+        slider = gui.add_slider("left shoulder", min=-1.5, max=1.5, step=0.05, initial_value=0.0)
+        slider.on_update(lambda _: (tangent.__setitem__(arm, float(slider.value)), refresh()))
+
+    if args.check:
+        coefficients[0] = 2.0
+        identity = body.bake(identity=coefficients)
+        tangent[arm] = 1.0
+        refresh()
+        print(f"MHR nq={body.model.nq}, {body.num_vertices} vertices; identity0 = 2, shoulder bent")
+        viewer.server.stop()
+        return
+    print(f"open {viewer.url}; Ctrl-C to exit")
+    viewer.server.sleep_forever()
 
 
 if __name__ == "__main__":

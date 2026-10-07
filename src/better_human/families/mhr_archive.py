@@ -14,7 +14,7 @@ import torch
 
 from better_human.core.mass import segment_vertices
 
-from .config import MHR_CONFIG
+from .mhr_config import MHR_CONFIG
 
 JOINT_CHANNEL_COUNT = 7
 TRANSLATION_CHANNELS = (0, 1, 2)

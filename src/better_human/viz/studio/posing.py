@@ -20,15 +20,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import torch
-from better_robot.data_model.model_structure import JOINT_KIND_CODES
 from better_robot.lie import so3
 
 from better_human.core import ParametricBody
 
 _REVOLUTE_AXIS = {
-    JOINT_KIND_CODES["revolute_rx"]: "x",
-    JOINT_KIND_CODES["revolute_ry"]: "y",
-    JOINT_KIND_CODES["revolute_rz"]: "z",
+    "revolute_rx": "x",
+    "revolute_ry": "y",
+    "revolute_rz": "z",
 }
 _EULER_INDEX = {"x": 0, "y": 1, "z": 2}
 
@@ -72,7 +71,7 @@ def joint_handles(body: ParametricBody) -> tuple[JointHandle, ...]:
 
     native_leaves = [int(value) for value in native_indices.tolist()]
     native_set = set(native_leaves)
-    kind_codes = robot.structure.joint_kind_codes
+    kind_codes = [joint.kind for joint in robot.joint_models]
     handles = []
     for native_index in range(1, len(native_leaves)):
         leaf = native_leaves[native_index]

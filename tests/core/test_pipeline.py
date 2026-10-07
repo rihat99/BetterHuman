@@ -17,6 +17,8 @@ from better_human.core.pipeline import (
     pose_feature_6d_from_euler,
     pose_feature_rotmat_minus_identity,
     regress_joints,
+    lbs_affines,
+    skin_affines,
     skinning_transforms,
     skinning_transforms_from_inverse,
 )
@@ -290,3 +292,52 @@ def test_float32_gradcheck_inverse_bind_transforms_and_scaled_lbs() -> None:
         rtol=3e-2,
         fast_mode=True,
     )
+
+
+def _random_world_poses(batch: int, joints: int, dtype: torch.dtype) -> torch.Tensor:
+    generator = torch.Generator().manual_seed(3)
+    quaternions = functional.normalize(torch.randn(batch, joints, 4, generator=generator, dtype=dtype), dim=-1)
+    translations = torch.randn(batch, joints, 3, generator=generator, dtype=dtype)
+    return torch.cat((translations, quaternions), dim=-1)
+
+
+def _affine(poses: torch.Tensor) -> torch.Tensor:
+    return torch.cat((so3.to_matrix(poses[..., 3:]), poses[..., :3, None]), dim=-1)
+
+
+@pytest.mark.parametrize("scaled", [False, True])
+def test_skin_affines_match_skinning_transforms_and_lbs(scaled: bool) -> None:
+    generator = torch.Generator().manual_seed(4)
+    world = _random_world_poses(2, 5, torch.float64)
+    rest_joints = torch.randn(5, 3, generator=generator, dtype=torch.float64)
+    rest_vertices = torch.randn(2, 40, 3, generator=generator, dtype=torch.float64)
+    weights = torch.rand(40, 5, generator=generator, dtype=torch.float64)
+    weights = weights / weights.sum(dim=-1, keepdim=True)
+    scales = {}
+    if scaled:
+        scales = {
+            "joint_scales": 0.5 + torch.rand(2, 5, generator=generator, dtype=torch.float64),
+            "bind_joint_positions": torch.randn(5, 3, generator=generator, dtype=torch.float64),
+        }
+    expected = lbs(rest_vertices, skinning_transforms(world, rest_joints), weights, **scales)
+    affines = skin_affines(_affine(world), rest_joints=rest_joints, **scales)
+    torch.testing.assert_close(lbs_affines(rest_vertices, affines, weights), expected, atol=1e-6, rtol=0)
+
+
+@pytest.mark.parametrize("scaled", [False, True])
+def test_skin_affines_match_inverse_bind_skinning(scaled: bool) -> None:
+    generator = torch.Generator().manual_seed(5)
+    world = _random_world_poses(3, 4, torch.float64)
+    inverse_bind = _random_world_poses(1, 4, torch.float64)[0]
+    rest_vertices = torch.randn(30, 3, generator=generator, dtype=torch.float64)
+    weights = torch.rand(30, 4, generator=generator, dtype=torch.float64)
+    weights = weights / weights.sum(dim=-1, keepdim=True)
+    scales = {}
+    if scaled:
+        scales = {
+            "joint_scales": 0.5 + torch.rand(3, 4, generator=generator, dtype=torch.float64),
+            "bind_joint_positions": torch.randn(4, 3, generator=generator, dtype=torch.float64),
+        }
+    expected = lbs(rest_vertices, skinning_transforms_from_inverse(world, inverse_bind), weights, **scales)
+    affines = skin_affines(_affine(world), inverse_bind_poses=inverse_bind, **scales)
+    torch.testing.assert_close(lbs_affines(rest_vertices, affines, weights), expected, atol=1e-6, rtol=0)

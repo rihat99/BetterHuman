@@ -9,8 +9,9 @@ import numpy as np
 import pytest
 import torch
 
-import better_human as bh
-from better_human.bodies import MHRClassic
+from better_human import families
+from better_human.core.body import Body
+from better_human.families.mhr import MHRClassic, mhr_from_classic
 
 ROOT = Path(__file__).parents[2]
 MODEL_DIR = ROOT / "models" / "MHR" / "converted"
@@ -129,16 +130,13 @@ def test_mhr_parity_grid(
     """Stream one oracle group through one body to bound peak memory."""
     paths = _selected_goldens(lod, use_correctives, use_expression)
     assert paths, "parity configuration selected no golden cases"
-    body = bh.MHR(
-        _model_path(lod),
-        lod=lod,
-        use_correctives=use_correctives,
-        use_expression=use_expression,
-        compute_mass=False,
-        dtype=dtype,
+    body = Body(
+        families.mhr(
+            _model_path(lod), lod=lod, correctives=use_correctives, expression=use_expression, dtype=dtype
+        )
     )
     vertex_atol, position_atol, quaternion_atol, scale_atol = PARITY_ATOLS[dtype][lod]
-    shaped = q = data = actual_vertices = actual_poses = actual_scales = None
+    baked = q = state = actual_vertices = actual_poses = actual_scales = None
 
     try:
         with torch.inference_mode():
@@ -175,11 +173,11 @@ def test_mhr_parity_grid(
                     expected_vertices = torch.from_numpy(golden["vertices"]).to(dtype=dtype) * length_scale
                     expected_state = torch.from_numpy(golden["skel_state"]).to(dtype=dtype)
 
-                shaped, q = body.from_classic(MHRClassic(identity, model_parameters, expression))
-                data = shaped.fk(q)
-                actual_vertices = shaped.vertices_from_data(data)
-                actual_poses = shaped.native_joint_poses(data)
-                actual_scales = shaped.values.joint_scales
+                baked, q, stream = mhr_from_classic(body, MHRClassic(identity, model_parameters, expression))
+                state = baked.forward(q, stream)
+                actual_vertices = state.vertices()
+                actual_poses = state.joint_poses
+                actual_scales = baked.joint_scales
 
                 assert actual_vertices.dtype == dtype
                 assert actual_poses.dtype == dtype
@@ -197,5 +195,5 @@ def test_mhr_parity_grid(
                 assert quaternion_error <= quaternion_atol, f"{context}: quaternion max error {quaternion_error:.9e}"
                 assert scale_error <= scale_atol, f"{context}: scale max error {scale_error:.9e}"
     finally:
-        del actual_scales, actual_poses, actual_vertices, data, q, shaped, body
+        del actual_scales, actual_poses, actual_vertices, state, q, baked, body
         gc.collect()

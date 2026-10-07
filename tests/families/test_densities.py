@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from better_human.bodies.smpl_family.config_smpl import SMPL_CONFIG
-from better_human.bodies.assets import densities
+from better_human.families import tables
+from better_human.families.assets import densities
 
 MODELS_DIR = Path(__file__).parents[2] / "models"
 SMPLX_PATH = MODELS_DIR / "smplx" / "SMPLX_NEUTRAL.npz"
@@ -16,7 +16,7 @@ MHR_PATH = MODELS_DIR / "MHR" / "converted" / "mhr_lod1.npz"
 
 def test_categories_match_smpl_config() -> None:
     # The 24 density categories are exactly SMPL's native joints, in order.
-    assert densities.SMPL_CATEGORY_NAMES == tuple(SMPL_CONFIG.joint_names)
+    assert densities.SMPL_CATEGORY_NAMES == tuple(tables.SMPL.joint_names)
 
 
 def test_part_categories_smplx_names() -> None:
@@ -75,10 +75,10 @@ def test_full_coverage_on_real_joint_names(path: Path) -> None:
     import better_human as bh  # noqa: PLC0415 - only needed with weights present
 
     if "smplx" in path.name.lower():
-        body = bh.SMPLX(str(path), compute_mass=False)
+        body = bh.Body(bh.families.smplx(path), mass=False)
     else:
-        body = bh.MHR(model_path=str(path), lod=1, compute_mass=False)
-    names = list(body.structure.joint_names)
+        body = bh.load("mhr", str(path), lod=1, mass=False)
+    names = list(body.joint_names)
     categories = densities.part_categories(names)
     unmapped = [name for name, category in zip(names, categories, strict=True) if category is None]
     assert unmapped == []

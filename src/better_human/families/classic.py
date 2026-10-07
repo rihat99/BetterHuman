@@ -49,6 +49,10 @@ def _hand_axes(
     meta = identity.spec.meta
     exemplar = identity.pelvis
     width = _pca_width(num_pca_comps)
+    if side not in meta.get("hand_joints", {side}):  # hands dropped at load: no mean, no pose
+        if pose is not None:
+            raise ValueError(f"{side} hand pose given for a body loaded with hands=False")
+        return exemplar.new_zeros((*batch, 15, 3))
     delta = _zeros(pose, batch, width, exemplar)
     if num_pca_comps is not None:
         delta = delta @ meta["hand_components"][side][:width]

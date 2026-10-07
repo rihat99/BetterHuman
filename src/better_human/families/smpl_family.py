@@ -190,6 +190,7 @@ def smplx(
         drop += [table.joint_names[j] for j in table.face_joints]
     if not hands:
         drop += [table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints)]
+    hand_meta["hand_joints"] = {"left", "right"} if hands else set()
     streams = {"expression": _check_width("num_expression", num_expression, SMPLX_EXPRESSION_DIM)} if face else {}
     return load_family(
         table,
