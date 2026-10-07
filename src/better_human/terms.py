@@ -220,7 +220,7 @@ def root_wrench(
         mid_velocity = 0.5 * (velocity[:, 1:] + velocity[:, :-1])
         kinematics = forward_kinematics_state(model, pose[:, 1:-1])
         fext = contact_wrenches(model, kinematics, frame_ids.to(force.device), force[:, 1:-1])
-        return inverse_dynamics(model, kinematics, mid_velocity, acceleration, fext=fext)[..., :6]
+        return inverse_dynamics(model, kinematics, v=mid_velocity, a=acceleration, fext=fext)[..., :6]
 
     return TermFn(fn=residual, reads=(q, forces), window=3)
 

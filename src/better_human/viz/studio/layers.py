@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from better_robot.viewer import DARK, Layer, PointsLayer, SkeletonLayer, Theme
+from better_robot.viewer import LIGHT, Layer, PointsLayer, SkeletonLayer, Theme
 
 from better_human.core.mass import _majority_face_parts, build_part_topology, meshes_from_topology
 from better_human.viz.human_layers import HumanView
@@ -41,6 +41,8 @@ class SegmentationLayer(Layer):
 
     ``vertices (1, V, 3)`` is rewritten in place on pose changes; faces are split by majority part label.
     """
+
+    stale = False
 
     def __init__(self, name: str, session: StudioSession, *, opacity: float = 1.0) -> None:
         super().__init__(name, 1)
@@ -80,6 +82,13 @@ class SegmentationLayer(Layer):
         self.dispose()
         self.build(self._scene, self._root)
 
+    def set_visible(self, visible: bool) -> None:
+        # A hidden layer skips rebuilds (StudioLayers marks it stale); catch up when it is shown.
+        if visible and self.stale:
+            self.stale = False
+            self.rebuild()
+        super().set_visible(visible)
+
     def set_step(self, step: int) -> None:
         for mesh in self._meshes:
             mesh.vertices = self.vertices[step]
@@ -91,6 +100,8 @@ class PartsLayer(Layer):
     Parts come from :func:`build_part_topology` on the compacted segmentation (``closed = True``); when no
     closed topology can be built for the current labels they fall back to open submeshes (``closed = False``).
     """
+
+    stale = False
 
     def __init__(self, name: str, session: StudioSession, *, explode: float = 0.0) -> None:
         super().__init__(name, 1)
@@ -155,6 +166,13 @@ class PartsLayer(Layer):
         self.dispose()
         self.build(self._scene, self._root)
 
+    def set_visible(self, visible: bool) -> None:
+        # A hidden layer skips rebuilds (StudioLayers marks it stale); catch up when it is shown.
+        if visible and self.stale:
+            self.stale = False
+            self.rebuild()
+        super().set_visible(visible)
+
     def set_step(self, step: int) -> None:
         poses = self.session.joint_poses.detach().cpu().numpy()
         center = poses[:, :3].mean(axis=0)
@@ -173,7 +191,7 @@ class StudioLayers:
     edit-overlay :class:`PointsLayer`.
     """
 
-    def __init__(self, viewer: Any, session: StudioSession, *, theme: Theme = DARK) -> None:
+    def __init__(self, viewer: Any, session: StudioSession, *, theme: Theme = LIGHT) -> None:
         self.viewer = viewer
         self.session = session
         self.theme = theme
@@ -182,11 +200,15 @@ class StudioLayers:
         self.explode = 0.0
         self.highlight: int | None = None
         self.edit_vertices = np.zeros(0, dtype=np.int64)
-        self.visible: dict[str, bool] = {"mesh": True, "skeleton": True, "frames": True}
-        self._add()
+        self._add({"mesh": True, "skeleton": True, "frames": True})
         session.subscribe(self._on_change)
 
-    def _add(self) -> None:
+    @property
+    def visible(self) -> dict[str, bool]:
+        """Visibility of every layer by name; the viewer's Layers checkboxes own it."""
+        return {name: layer.visible for name, layer in self.layers.items()}
+
+    def _add(self, visible: dict[str, bool]) -> None:
         session = self.session
         frames = session.body.contact_frames is not None
         self.view = HumanView(session.state, skeleton=False, frames=frames, theme=self.theme, opacity=self.opacity)
@@ -210,18 +232,19 @@ class StudioLayers:
         self.layers.update(skeleton=self.skeleton, segmentation=self.segmentation, parts=self.parts, edit=self.edit)
         for name, layer in self.layers.items():
             self.viewer.add(layer, GROUP)
-            self.viewer.set_visible(layer, self.visible.get(name, name == "edit" and bool(len(self.edit_vertices))))
+            shown = bool(len(self.edit_vertices)) if name == "edit" else visible.get(name, False)
+            self.viewer.set_visible(layer, shown)
         self.set_highlight(self.highlight, show=False)
         self.viewer.show()
 
     def rebuild(self) -> None:
-        """Remove the ``"human"`` group and add every layer again from the session."""
+        """Remove the ``"human"`` group and add every layer again from the session, keeping visibility."""
+        visible = self.visible
         self.viewer.remove_group(GROUP)
-        self._add()
+        self._add(visible)
 
     def set_visible(self, name: str, visible: bool) -> None:
         """Show or hide one layer by name (``mesh``, ``skeleton``, ``frames``, ``segmentation``, ``parts``)."""
-        self.visible[name] = visible
         if name in self.layers:
             self.viewer.set_visible(self.layers[name], visible)
 
@@ -255,20 +278,27 @@ class StudioLayers:
         self.edit_vertices = np.asarray(vertex_ids, dtype=np.int64)
         self.rebuild()
 
+    def _refresh(self, layer: SegmentationLayer | PartsLayer) -> None:
+        # Through the viewer so a rebuilt layer keeps its visibility; hidden layers rebuild when shown.
+        if layer.visible:
+            self.viewer.rebuild(layer)
+        else:
+            layer.stale = True
+
     def _on_change(self, kind: ChangeKind) -> None:
         if kind in ("pose", "shape"):
             session = self.session
             self.view.update(session.state)
             if kind == "shape":
-                self.parts.rebuild()
+                self._refresh(self.parts)
             self.skeleton.joints[...] = session.state.joints.detach().cpu().numpy()[None]
             self.segmentation.vertices[...] = session.vertices.detach().cpu().numpy()[None]
             if len(self.edit_vertices):
                 self.edit.points[...] = session.vertices.detach().cpu().numpy()[self.edit_vertices][None]
             self.viewer.show()
         elif kind == "segmentation":
-            self.segmentation.rebuild()
-            self.parts.rebuild()
+            self._refresh(self.segmentation)
+            self._refresh(self.parts)
             self.viewer.show()
         elif kind == "body":
             self.highlight = None

@@ -46,6 +46,7 @@ def test_segmentation_face_groups_cover_every_face(smpl: bh.Body) -> None:
 
 def test_segmentation_rebuild_on_edit(smpl: bh.Body) -> None:
     session, layers, server = _setup(smpl)
+    layers.set_visible("segmentation", True)  # hidden layers rebuild lazily, when shown
     ids = (session.vertices[:, 0] > 0).to(torch.long)
     session.set_segmentation(("right", "left"), ids)
     groups = layers.segmentation.face_groups()
@@ -131,3 +132,29 @@ def test_visibility_defaults_and_body_reload(smpl: bh.Body) -> None:
     assert layers.segmentation is not old and layers.highlight is None
     assert layers.visible["parts"] is True
     assert set(layers.layers) >= {"mesh", "skeleton", "segmentation", "parts", "edit"}
+
+
+def _visible_parts(server: FakeServer, layer: str) -> int:
+    return sum(bool(server.scene.nodes[name].visible) for name in _part_nodes(server, layer))
+
+
+def test_hidden_parts_stay_hidden_after_shape_and_segmentation_change(smpl: bh.Body) -> None:
+    session, layers, server = _setup(smpl)
+    assert _visible_parts(server, "parts") == 0 and _visible_parts(server, "segmentation") == 0
+    betas = session.shape_tensor("betas", [2.0] + [0.0] * (smpl.identity_groups["betas"] - 1))
+    session.set_shape(betas=betas)
+    session.set_segmentation(("right", "left"), (session.vertices[:, 0] > 0).to(torch.long))
+    assert _visible_parts(server, "parts") == 0 and _visible_parts(server, "segmentation") == 0
+    assert layers.parts.stale and layers.segmentation.stale
+    layers.set_visible("parts", True)
+    assert not layers.parts.stale
+    assert _visible_parts(server, "parts") == len(_part_nodes(server, "parts")) == 2
+
+
+def test_visible_parts_keep_visibility_through_viewer_rebuild(smpl: bh.Body) -> None:
+    session, layers, server = _setup(smpl)
+    layers.set_visible("parts", True)
+    count = len(_part_nodes(server, "parts"))
+    session.set_shape(betas=session.shape_tensor("betas", [1.0] + [0.0] * (smpl.identity_groups["betas"] - 1)))
+    assert _visible_parts(server, "parts") == len(_part_nodes(server, "parts")) == count
+    assert layers.visible["parts"] is True

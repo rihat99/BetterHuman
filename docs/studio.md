@@ -4,11 +4,13 @@ HumanStudio is a browser tool for inspecting and authoring body-model data: pose
 in-viewport gizmos, sweep shape and density, paint vertex segmentations, place named contact frames,
 and read out part masses. It runs on CPU.
 
-It is a client of the BetterRobot viewer (`better_robot.viewer.Viewer`, y-up dark theme). All scene
+It is a client of the BetterRobot viewer (`better_robot.viewer.Viewer`, y-up light theme). All scene
 geometry is BetterRobot `Layer`s added with `viewer.add`: the BetterHuman mesh / frames layers
 (`better_human.viz.human_layers`), a skeleton `SkeletonLayer`, and two studio layers in
 `viz/studio/layers.py` (`SegmentationLayer`, `PartsLayer`). The *Timeline* folder in the sidebar
-belongs to the viewer; the studio adds a tab group (Body, Layers, Segment, Frames).
+belongs to the viewer; the studio adds a tab group (Body, Display, Segment, Frames). Layer visibility has one control: the viewer's
+**Layers** folder, one checkbox per layer (`human/mesh`, `human/skeleton`, `human/segmentation`,
+`human/parts`, `human/edit`). Hidden segmentation/parts layers are rebuilt when shown, not on every edit.
 
 ## Launch
 
@@ -18,12 +20,12 @@ uv run python -m better_human.viz.studio --family mhr --lod 1
 ```
 
 Flags: `--family` (smpl, smplh, smplx, mhr, ...), `--gender`, `--lod` (MHR), `--port`, `--host`
-(default `127.0.0.1`), `--models-dir` (sets `BETTERHUMAN_MODELS_DIR`), `--data-dir` (default
-`studio_data`). From Python:
+(default `127.0.0.1`), `--models-dir` (sets `BETTERHUMAN_MODELS_DIR`), `--data-dir` (default: the
+repo's `studio_data`, whatever the cwd). From Python:
 
 ```python
 from better_human.viz.studio import HumanStudio, launch
-studio = HumanStudio(family="smplx", gender="neutral", port=8080, data_dir="studio_data")
+studio = HumanStudio(family="smplx", gender="neutral", port=8080)  # data_dir defaults to <repo>/studio_data
 studio.run()            # or: launch(family="smpl")
 ```
 
@@ -41,7 +43,7 @@ studio.run()            # or: launch(family="smpl")
   a gizmo at the joint's world pose. Non-root joints get a rotation-only gizmo, the root a 6-DoF one;
   a joint without degrees of freedom reports so in the status line. The selected sphere is
   highlighted and the mesh is dimmed (35 % of the opacity slider value) until deselected.
-- **Layers** tab: visibility toggles, *Color by segmentation*, mesh opacity, joint radius and the
+- **Display** tab: mesh opacity, joint radius and the
   part *Explode* slider.
 - **Segment** tab: pick or add a part, paint with a sphere brush (click the mesh), or drag a
   rectangle marquee; save / load named segmentations or the built-in `*_vert_segmentation.json`.

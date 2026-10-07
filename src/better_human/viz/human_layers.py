@@ -14,13 +14,13 @@ from better_robot.viewer import (
     SkeletonLayer,
     SkinnedMeshLayer,
 )
-from better_robot.viewer import DARK, Theme
+from better_robot.viewer import LIGHT, Theme
 
 from ..core.body import HumanState, Identity
 
 RGB = tuple[float, float, float]
 
-_SKIN: RGB = DARK.human
+_SKIN: RGB = LIGHT.human
 
 
 def _frames(value: torch.Tensor, event_ndim: int) -> np.ndarray:
@@ -66,7 +66,7 @@ def skinned_layer(
 
 
 def skeleton_layer(
-    state: HumanState, *, name: str = "skeleton", theme: Theme = DARK, radius: float = 0.015
+    state: HumanState, *, name: str = "skeleton", theme: Theme = LIGHT, radius: float = 0.015
 ) -> SkeletonLayer:
     """Joints and bones of the native skeleton."""
     return SkeletonLayer(
@@ -86,7 +86,7 @@ def forces_layer(
     *,
     name: str = "forces",
     scale: float = 1e-3,
-    theme: Theme = DARK,
+    theme: Theme = LIGHT,
 ) -> ArrowsLayer:
     """World ``forces (T, C, 3)`` applied at model ``frame_ids (C,)``, drawn as arrows (``scale`` metres per newton)."""
     origins = state.kinematics.frame_translation[..., frame_ids, :]
@@ -100,7 +100,7 @@ def human_layers(
     skeleton: bool = True,
     frames: bool = False,
     forces: Mapping[str, torch.Tensor] | None = None,
-    theme: Theme = DARK,
+    theme: Theme = LIGHT,
     color: RGB = _SKIN,
     opacity: float = 1.0,
 ) -> list[Layer]:
@@ -141,7 +141,7 @@ class HumanView:
         mesh: str | None = "exact",
         skeleton: bool = True,
         frames: bool = False,
-        theme: Theme = DARK,
+        theme: Theme = LIGHT,
         color: RGB = _SKIN,
         opacity: float = 1.0,
     ) -> None:

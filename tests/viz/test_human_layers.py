@@ -60,8 +60,8 @@ def test_human_view_updates_in_place(clip) -> None:
     assert frames.poses.shape == (1, identity.model.nframes, 7)
 
 
-def test_geometry_for_offline_rendering(clip) -> None:
+def test_world_points_for_camera_fitting(clip) -> None:
     _, state = clip
     for layer in human_layers(state):
-        geometry = layer.geometry(2)
-        assert geometry and all(g.vertices.shape[-1] == 3 and g.faces.shape[-1] == 3 for g in geometry)
+        points = layer.world_points(2)
+        assert points is not None and points.ndim == 2 and points.shape[-1] == 3 and len(points) > 0

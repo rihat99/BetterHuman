@@ -21,6 +21,10 @@ from better_human.core.contact_frames import parse_frame_set
 _ASSET_PACKAGE = "better_human.families.assets"
 
 
+# The repo's ``studio_data`` (src/better_human/viz/studio -> repo root), so the studio finds it from any cwd.
+DEFAULT_ROOT = Path(__file__).resolve().parents[4] / "studio_data"
+
+
 @dataclass(frozen=True)
 class StudioPaths:
     """Directory layout for authored data under a single ``studio_data`` root."""

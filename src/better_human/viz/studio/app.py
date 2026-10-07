@@ -25,14 +25,6 @@ _TABLE_FAMILIES = ("smpl", "smplh")
 _DENSITY_TABLES = ("Naive", "Chandler", "Dempster", "Clauser", "Custom")  #: keys of body_densities.json
 _DIM = 0.35  #: mesh opacity factor while a joint is selected
 
-_LAYER_TOGGLES = (
-    ("Mesh", "mesh", True),
-    ("Skeleton", "skeleton", True),
-    ("Frames", "frames", True),
-    ("Parts", "parts", False),
-)
-
-
 class HumanStudio:
     """Pose, shape, segment and frame-edit one body family in the browser.
 
@@ -49,7 +41,7 @@ class HumanStudio:
         port: int = 8080,
         host: str = "127.0.0.1",
         models_dir: str | Path | None = None,
-        data_dir: str | Path = "studio_data",
+        data_dir: str | Path | None = None,
         density: float | None = None,
         server: Any = None,
     ) -> None:
@@ -58,7 +50,7 @@ class HumanStudio:
         self.family, self.gender, self.lod = family.lower(), gender, lod
         self.density = 1000.0 if density is None else float(density)
         self._uniform_density, self.opacity = self.density, 1.0
-        self.paths = persistence.StudioPaths(Path(data_dir))
+        self.paths = persistence.StudioPaths(persistence.DEFAULT_ROOT if data_dir is None else Path(data_dir))
         self.mode = "pose"
         self.status = ""
         started = time.perf_counter()
@@ -128,14 +120,8 @@ class HumanStudio:
             self.saved_poses = gui.add_dropdown("Saved poses", options=self._pose_options())
             gui.add_button("Load pose").on_click(lambda _event: self.load_pose(self.saved_poses.value))
             self.mass_text = gui.add_markdown("")
-        with tabs.add_tab("Layers"):
-            for label, key, initial in _LAYER_TOGGLES:
-                toggle = gui.add_checkbox(label, initial_value=initial)
-                toggle.on_update(
-                    lambda _event, key=key, toggle=toggle: self.layers.set_visible(key, bool(toggle.value))
-                )
-            self.seg_toggle = gui.add_checkbox("Color by segmentation", initial_value=False)
-            self.seg_toggle.on_update(lambda _event: self.set_segmentation_coloring(bool(self.seg_toggle.value)))
+        # Visibility lives only in the viewer's Layers folder (one checkbox per layer).
+        with tabs.add_tab("Display"):
             opacity = gui.add_slider("Opacity", min=0.1, max=1.0, step=0.05, initial_value=1.0)
             opacity.on_update(lambda _event: self.set_opacity(float(opacity.value)))
             radius = gui.add_slider("Joint radius", min=0.005, max=0.05, step=0.005, initial_value=self.layers.radius)
@@ -165,11 +151,6 @@ class HumanStudio:
         if mode != "frames" and self.frames.adding:
             self.frames.adding = False
             self.frames.add_toggle.value = False
-
-    def set_segmentation_coloring(self, enabled: bool) -> None:
-        """Swap the skin mesh for the per-part segmentation mesh."""
-        self.layers.set_visible("mesh", not enabled)
-        self.layers.set_visible("segmentation", enabled)
 
     def select_joint(self, joint: int | None) -> None:
         """Attach the gizmo to ``joint`` (native index) and highlight its sphere; ``None`` clears both."""

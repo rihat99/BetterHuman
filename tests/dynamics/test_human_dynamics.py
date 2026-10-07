@@ -28,7 +28,7 @@ def test_gravity_inverse_dynamics_zero_velocity_and_mass_matrix_spd(mass_body: b
     state = forward_kinematics_state(model, q)
     velocity = torch.zeros(model.nv, dtype=q.dtype)
     acceleration = torch.zeros_like(velocity)
-    tau = inverse_dynamics(model, state, velocity, acceleration)
+    tau = inverse_dynamics(model, state, v=velocity, a=acceleration)
     assert torch.isfinite(tau).all()
 
     M = mass_matrix(model, state)
@@ -43,7 +43,7 @@ def test_batched_shapes_drive_batched_dynamics(mass_body: bh.Body) -> None:
     velocity = torch.zeros(model.nv, dtype=q.dtype)
     acceleration = torch.zeros_like(velocity)
     state = forward_kinematics_state(model, q)
-    tau = inverse_dynamics(model, state, velocity, acceleration)
+    tau = inverse_dynamics(model, state, v=velocity, a=acceleration)
     M = mass_matrix(model, state)
     assert tau.shape == (2, model.nv)
     assert M.shape == (2, model.nv, model.nv)
@@ -57,7 +57,7 @@ def test_betas_to_inverse_dynamics_backward_is_finite_and_nonzero(mass_body: bh.
     q = identity.q_neutral
     velocity = torch.zeros(identity.nv, dtype=q.dtype)
     state = identity.forward(q)
-    tau = inverse_dynamics(identity.model, state.kinematics, velocity, torch.zeros_like(velocity))
+    tau = inverse_dynamics(identity.model, state.kinematics, v=velocity, a=torch.zeros_like(velocity))
     tau.square().sum().backward()
     assert betas.grad is not None
     assert torch.isfinite(betas.grad).all()
@@ -72,7 +72,7 @@ def test_cuda_mass_inverse_dynamics_and_mass_matrix_smoke() -> None:
     q = model.q_neutral
     velocity = torch.zeros(model.nv, dtype=q.dtype, device=q.device)
     state = forward_kinematics_state(model, q)
-    tau = inverse_dynamics(model, state, velocity, torch.zeros_like(velocity))
+    tau = inverse_dynamics(model, state, v=velocity, a=torch.zeros_like(velocity))
     M = mass_matrix(model, state)
     assert tau.is_cuda and M.is_cuda
     assert torch.isfinite(tau).all()
