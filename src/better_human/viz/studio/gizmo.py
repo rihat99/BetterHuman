@@ -58,7 +58,7 @@ class GizmoController:
             self.viewer,
             "joint_gizmo",
             self._world_pose(joint),
-            on_change=lambda pose: self._on_drag(handle, pose),
+            on_change=lambda pose: self._drag_locked(handle, pose),
             scale=self.scale,
             **options,
         )
@@ -73,6 +73,10 @@ class GizmoController:
 
     def _world_pose(self, joint: int) -> np.ndarray:
         return self.session.joint_poses[joint].detach().cpu().numpy().astype(np.float32)
+
+    def _drag_locked(self, handle: JointHandle, pose: np.ndarray) -> None:
+        with self.session.lock:  # drags arrive on BR's worker thread
+            self._on_drag(handle, pose)
 
     def _on_drag(self, handle: JointHandle, pose: np.ndarray) -> None:
         world_old = self.session.joint_poses[handle.native_index]

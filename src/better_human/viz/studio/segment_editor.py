@@ -32,21 +32,24 @@ class SegmentEditor:
 
     def build(self, gui) -> None:  # noqa: ANN001
         """Add the Segment tab controls to ``gui`` (a viser tab or the GUI root)."""
+        layers = self.studio.layers
+        self.color_mode = gui.add_dropdown("Colour", options=("skin", "segmentation", "parts"), initial_value=layers.mesh.mode)
+        self.color_mode.on_update(self.studio._locked(lambda _event: layers.set_mode(self.color_mode.value)))
         self.part_dropdown = gui.add_dropdown("Part", options=self._options(), initial_value=_UNASSIGNED)
-        self.part_dropdown.on_update(lambda _event: setattr(self, "part", self.part_dropdown.value))
+        self.part_dropdown.on_update(self.studio._locked(lambda _event: setattr(self, "part", self.part_dropdown.value)))
         self.new_part = gui.add_text("New part", initial_value="")
-        gui.add_button("Add part").on_click(lambda _event: self.add_part(self.new_part.value))
+        gui.add_button("Add part").on_click(self.studio._locked(lambda _event: self.add_part(self.new_part.value)))
         self.paint_toggle = gui.add_checkbox("Paint (click mesh)", initial_value=False)
-        self.paint_toggle.on_update(lambda _event: self.set_painting(bool(self.paint_toggle.value)))
+        self.paint_toggle.on_update(self.studio._locked(lambda _event: self.set_painting(bool(self.paint_toggle.value))))
         self.brush = gui.add_slider("Brush radius", min=0.005, max=0.2, step=0.005, initial_value=0.03)
-        gui.add_button("Marquee select").on_click(lambda _event: self.studio.start_marquee())
+        gui.add_button("Marquee select").on_click(self.studio._locked(lambda _event: self.studio.start_marquee()))
         self.saved = gui.add_dropdown("Saved", options=self._saved_options(), initial_value=self._saved_options()[0])
         self.save_name = gui.add_text("Save as", initial_value="custom")
-        gui.add_button("Save segmentation").on_click(lambda _event: self.save(self.save_name.value))
-        gui.add_button("Load segmentation").on_click(lambda _event: self.load(self.saved.value))
-        gui.add_button("Load built-in").on_click(lambda _event: self.load_builtin())
-        gui.add_button("Reset to skinning").on_click(lambda _event: self.session.reset_segmentation())
-        gui.add_button("Build bodies").on_click(lambda _event: self.build_bodies())
+        gui.add_button("Save segmentation").on_click(self.studio._locked(lambda _event: self.save(self.save_name.value)))
+        gui.add_button("Load segmentation").on_click(self.studio._locked(lambda _event: self.load(self.saved.value)))
+        gui.add_button("Load built-in").on_click(self.studio._locked(lambda _event: self.load_builtin()))
+        gui.add_button("Reset to skinning").on_click(self.studio._locked(lambda _event: self.session.reset_segmentation()))
+        gui.add_button("Build bodies").on_click(self.studio._locked(lambda _event: self.build_bodies()))
         self.mass_table = gui.add_markdown("")
 
     def _options(self) -> tuple[str, ...]:

@@ -13,7 +13,7 @@ import torch
 
 import better_human as bh
 from better_human.viz import HumanView
-from better_robot.viewer import DARK, GroundLayer, Viewer
+from better_robot.viewer import LIGHT, GroundLayer, Viewer
 
 
 def main() -> None:
@@ -28,7 +28,7 @@ def main() -> None:
     tangent = torch.zeros(body.model.nv)
     identity = body.bake(identity=coefficients)
     view = HumanView(identity.forward(identity.q_neutral))
-    viewer = Viewer(port=args.port, theme=replace(DARK, up="+y"))
+    viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
     viewer.add(GroundLayer(plane="xz"), group="scene")
     for layer in view:
         viewer.add(layer, group="mhr")

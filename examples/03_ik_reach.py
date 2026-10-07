@@ -17,7 +17,7 @@ from better_human import terms
 from better_human.viz import HumanView
 from better_robot.optim import LevenbergMarquardt, Problem, solve
 from better_robot.terms import RobotManifold
-from better_robot.viewer import DARK, GroundLayer, Viewer
+from better_robot.viewer import LIGHT, GroundLayer, Viewer
 from better_robot.viewer.tools import PoseGizmo
 
 WRIST = 20  # native joint index of left_wrist
@@ -36,7 +36,7 @@ def main() -> None:
     q = identity.q_neutral[None].clone()
     state = identity.forward(q)
     view = HumanView(state)
-    viewer = Viewer(port=args.port, theme=replace(DARK, up="+y"))
+    viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
     viewer.add(GroundLayer(plane="xz"), group="scene")
     for layer in view:
         viewer.add(layer, group="smpl")

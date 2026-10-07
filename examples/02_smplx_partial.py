@@ -14,7 +14,7 @@ import torch
 import better_human as bh
 from better_human.families.classic import SMPLXClassic, smplx_from_classic
 from better_human.viz import human_layers
-from better_robot.viewer import DARK, GroundLayer, Viewer
+from better_robot.viewer import LIGHT, GroundLayer, Viewer
 
 
 def main() -> None:
@@ -35,7 +35,7 @@ def main() -> None:
     hands = 0.5 * torch.sin(phase)[:, None] * torch.ones(frames, 6)
     expression = 2.0 * torch.sin(phase)[:, None] * torch.ones(frames, 10)
 
-    viewer = Viewer(port=args.port, theme=replace(DARK, up="+y"))
+    viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
     viewer.add(GroundLayer(plane="xz"), group="scene")
     for body, name, classic, offset in (
         (full, "full", SMPLXClassic(body_pose=body_pose, left_hand_pose=hands, right_hand_pose=hands, expression=expression, num_pca_comps=6), (-0.5, 0.0, 0.0)),

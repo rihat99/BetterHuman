@@ -90,6 +90,9 @@ class _FakeTabs:
     def add_tab(self, _label: str) -> contextlib.AbstractContextManager:
         return contextlib.nullcontext()
 
+    def remove(self) -> None:
+        self.removed = True
+
 
 class FakeGui:
     def __init__(self) -> None:

@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 import torch
 
+from better_human.viz.studio import persistence
 from better_human.viz.studio import state as studio_state
 from better_human.viz.studio.app import HumanStudio
 from tests.viz.fake_server import FakeHandle, FakeServer
@@ -161,3 +162,43 @@ def test_density_table_and_saved_pose_dropdown(studio) -> None:
     assert studio.session.body.density.numel() > 1
     studio.save_pose("first")
     assert studio.saved_poses.options == ("first",) and studio.saved_poses.value == "first"
+
+
+@pytest.mark.skipif(
+    not Path(os.environ.get("BETTERHUMAN_MODELS_DIR", "models"), "smplx", "SMPLX_NEUTRAL.npz").exists(),
+    reason="licensed SMPL-X weights absent",
+)
+def test_frames_layer_follows_frame_set() -> None:
+    studio = HumanStudio(family="smplx", server=FakeServer(), data_dir=persistence.DEFAULT_ROOT)
+    studio.frames.load("contacts")
+    count = len(studio.session.frame_set)
+    assert count > 0 and studio.layers.frames.poses.shape == (1, count, 7)
+    studio.frames.add_at(studio.session.vertices[0].detach().numpy())
+    assert studio.layers.frames.poses.shape == (1, count + 1, 7)
+
+
+def test_model_switch_rebuilds_body_widgets(studio) -> None:
+    for family, key in (("smplx", "smplx_neutral"), ("mhr", "mhr_lod1")):
+        if family == "mhr" and not Path(os.environ.get("BETTERHUMAN_MODELS_DIR", "models"), "MHR").exists():
+            continue
+        studio.load_model(family, gender="neutral", lod=1)
+        body = studio.session.body
+        assert studio.session.model_key == key and body.spec.name == family
+        groups = body.identity_groups
+        assert set(studio.shape_sliders) == set(groups)
+        assert all(len(studio.shape_sliders[g]) == min(w, 10) for g, w in groups.items())
+        names = [layer.name for layer in studio.layers.layers.values()]
+        assert len(names) == len(set(names)) and "frames" in names
+        assert key in studio.status
+
+
+def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
+    """Regression: viser's tab-group remove() raised when the Model tab rebuilt the tabs."""
+    viser = pytest.importorskip("viser")
+    server = viser.ViserServer(host="127.0.0.1", port=8097, verbose=False)
+    try:
+        studio = HumanStudio(server=server, data_dir=tmp_path)
+        studio.load_model("smpl", gender="neutral")
+        assert studio.status.startswith("smpl_neutral loaded")
+    finally:
+        server.stop()

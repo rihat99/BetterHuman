@@ -31,20 +31,24 @@ class FramesEditor:
     def build(self, gui) -> None:  # noqa: ANN001
         """Add the Frames tab controls to ``gui``."""
         self.add_toggle = gui.add_checkbox("Add frames (click mesh)", initial_value=False)
-        self.add_toggle.on_update(lambda _event: self.set_adding(bool(self.add_toggle.value)))
+        self.add_toggle.on_update(self.studio._locked(lambda _event: self.set_adding(bool(self.add_toggle.value))))
         self.frame_dropdown = gui.add_dropdown("Frame", options=self._names(), initial_value=self._names()[0])
-        self.frame_dropdown.on_update(lambda _event: self.select_frame(self.frame_dropdown.value))
+        self.frame_dropdown.on_update(self.studio._locked(lambda _event: self.select_frame(self.frame_dropdown.value)))
         self.rename_text = gui.add_text("Name", initial_value="")
-        gui.add_button("Rename").on_click(lambda _event: self.rename(self.active, self.rename_text.value))
+        gui.add_button("Rename").on_click(self.studio._locked(lambda _event: self.rename(self.active, self.rename_text.value)))
         joints = (_DEFAULT_JOINT, *self.session.body.joint_names)
         self.joint_dropdown = gui.add_dropdown("Parent joint", options=joints, initial_value=_DEFAULT_JOINT)
-        self.joint_dropdown.on_update(lambda _event: self.set_joint(self.active, self.joint_dropdown.value))
-        gui.add_button("Delete").on_click(lambda _event: self.delete(self.active))
+        self.joint_dropdown.on_update(self.studio._locked(lambda _event: self.set_joint(self.active, self.joint_dropdown.value)))
+        gui.add_button("Delete").on_click(self.studio._locked(lambda _event: self.delete(self.active)))
+        self.saved = gui.add_dropdown("Saved", options=self._saved_options(), initial_value=self._saved_options()[0])
+        gui.add_button("Load frames").on_click(self.studio._locked(lambda _event: self.load(self.saved.value)))
         self.save_name = gui.add_text("Save as", initial_value="frames")
-        gui.add_button("Save frames").on_click(lambda _event: self.save(self.save_name.value))
-        gui.add_button("Load frames").on_click(lambda _event: self.load(self.save_name.value))
-        gui.add_button("Export as config").on_click(lambda _event: self.export())
+        gui.add_button("Save frames").on_click(self.studio._locked(lambda _event: self.save(self.save_name.value)))
+        gui.add_button("Export as config").on_click(self.studio._locked(lambda _event: self.export()))
         self.export_box = gui.add_markdown("")
+
+    def _saved_options(self) -> tuple[str, ...]:
+        return tuple(persistence.list_saved(self.studio.paths.frame_dir(self.session.model_key))) or ("(none)",)
 
     def _names(self) -> tuple[str, ...]:
         return tuple(self.session.frame_set) or ("(none)",)
@@ -125,6 +129,8 @@ class FramesEditor:
         """Write the frame set to ``<data>/frames/<model_key>/<name>.json``."""
         path = self.studio.paths.frame_dir(self.session.model_key) / f"{name}.json"
         persistence.save_frame_set(path, self._as_io())
+        self.saved.options = self._saved_options()
+        self.saved.value = name
         self.studio.set_status(f"saved frames {path}")
 
     def load(self, name: str) -> None:

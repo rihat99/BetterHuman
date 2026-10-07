@@ -57,7 +57,7 @@ def test_gizmo_and_layers_follow_the_session(body: bh.Body) -> None:
     pose = session.joint_poses[18].numpy().copy()
     pose[3:] = [0.0, 0.3827, 0.0, 0.9239]
     gizmo._on_drag(gizmo.handle_for(18), pose)
-    np.testing.assert_allclose(layers.segmentation.vertices[0], session.vertices.numpy(), atol=1e-5)
+    np.testing.assert_allclose(layers.mesh.segmentation.vertices[0], session.vertices.numpy(), atol=1e-5)
     layers.set_highlight(18)
     assert layers.skeleton.colors[0, 18].tolist() == [255, 200, 40]
     session.reset_segmentation()

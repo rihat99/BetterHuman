@@ -87,10 +87,8 @@ class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
     def __init__(self, body: Body, model_key: str, frame_set: dict[str, int] | None = None) -> None:
-        # Reentrant so a mutating method may call another (set_shape -> set_q)
-        # while a single mutate -> recompute -> notify sequence stays atomic
-        # against viser's fire-and-forget callback threads.
-        self._lock = threading.RLock()
+        # The one studio lock: every GUI callback, the gizmo worker and each mutation run under it (re-entrant: nested calls).
+        self.lock = threading.RLock()
         self._subscribers: list[Callable[[ChangeKind], None]] = []
         self.load_body(body, model_key, frame_set, notify=False)
 
@@ -105,7 +103,7 @@ class StudioSession:
         notify: bool = True,
     ) -> None:
         """Swap in a freshly loaded body and reset pose, shape, and selections."""
-        with self._lock:
+        with self.lock:
             self.body = body
             self.model_key = model_key
             self.shape = {
@@ -141,14 +139,14 @@ class StudioSession:
 
     def set_q(self, q: torch.Tensor) -> None:
         """Set the configuration, recompute caches, and notify a pose change."""
-        with self._lock:
+        with self.lock:
             self.q = q.to(dtype=self.q.dtype, device=self.q.device)
             self._recompute()
             self._notify("pose")
 
     def rotate_joint(self, handle: JointHandle, world_old: torch.Tensor, world_new: torch.Tensor) -> None:
         """Apply a gizmo world-rotation edit to one joint's local ``q`` slots."""
-        with self._lock:
+        with self.lock:
             self.set_q(apply_local_rotation(self.q, handle, world_old, world_new))
 
     def move_root(self, handle: JointHandle, world_old: torch.Tensor, world_new: torch.Tensor) -> None:
@@ -161,7 +159,7 @@ class StudioSession:
         """
         if handle.kind != "free_flyer":
             raise ValueError(f"move_root requires a free_flyer handle, got {handle.kind!r}")
-        with self._lock:
+        with self.lock:
             q = self.q.clone()
             idx = handle.idx_q
             q[idx : idx + 3] = q[idx : idx + 3] + (world_new[:3] - world_old[:3])
@@ -176,7 +174,7 @@ class StudioSession:
 
     def set_shape(self, **groups: torch.Tensor) -> None:
         """Re-bake the identity with named identity groups ``(n,)`` and notify a shape change."""
-        with self._lock:
+        with self.lock:
             self.shape.update({name: value for name, value in groups.items()})
             self.identity = self.body.bake(**self.shape)
             self._recompute()
@@ -205,26 +203,26 @@ class StudioSession:
 
     def set_segmentation(self, part_names: tuple[str, ...], part_ids: torch.Tensor) -> None:
         """Install a new active segmentation and notify a segmentation change."""
-        with self._lock:
+        with self.lock:
             self.part_names = part_names
             self.part_ids = part_ids.to(dtype=torch.long, device=self.q.device)
             self._notify("segmentation")
 
     def reset_segmentation(self) -> None:
         """Restore the argmax segmentation and notify a segmentation change."""
-        with self._lock:
+        with self.lock:
             self._reset_default_segmentation()
             self._notify("segmentation")
 
     def set_frame_set(self, frame_set: dict[str, FrameEntry]) -> None:
         """Install a new active frame set and notify a frames change."""
-        with self._lock:
+        with self.lock:
             self.frame_set = dict(frame_set)
             self._notify("frames")
 
     def set_frame_joint(self, name: str, joint: int | None) -> None:
         """Override (``None`` clears) one frame's parent native joint index."""
-        with self._lock:
+        with self.lock:
             entry = self.frame_set.get(name)
             if entry is None:
                 return
