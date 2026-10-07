@@ -2,7 +2,7 @@
 
 Authored closed-3D segmentation face tables and named density tables are
 derived metadata, not license-gated weights, so they ship inside the package.
-The loaders resolve a :class:`~better_human.bodies.config_body.BodyConfig`
+The loaders resolve a :class:`~better_human.families.tables.FamilyTable`
 asset filename against this directory.
 """
 
@@ -50,7 +50,7 @@ def load_density_table(
     name: SMPL's own joints match their entry exactly, and any other name
     (SMPL-X fingers and face joints, MHR segments) is mapped onto the closest
     SMPL category by keyword — fingers take the hand entry, jaw and eyes the
-    head entry (see :mod:`better_human.bodies.assets.densities`).
+    head entry (see :mod:`better_human.families.assets.densities`).
 
     :param filename: density-table asset filename, e.g. ``"body_densities.json"``.
     :param table_name: table key, e.g. ``"Dempster"``.
@@ -62,9 +62,7 @@ def load_density_table(
     try:
         table = tables[table_name]
     except KeyError as error:
-        raise ValueError(
-            f"{filename} has no density table {table_name!r}; available: {sorted(tables)}"
-        ) from error
+        raise ValueError(f"{filename} has no density table {table_name!r}; available: {sorted(tables)}") from error
     return density_for_parts(joint_names, table).to(dtype=exemplar.dtype, device=exemplar.device)
 
 

@@ -20,11 +20,30 @@ import torch
 #: in ``body_densities.json`` names SMPL joint ``i``; this is the SMPL
 #: part-index -> category-name mapping (identical to ``SMPL_CONFIG.joint_names``).
 SMPL_CATEGORY_NAMES: tuple[str, ...] = (
-    "pelvis", "left_hip", "right_hip", "spine1", "left_knee", "right_knee",
-    "spine2", "left_ankle", "right_ankle", "spine3", "left_foot", "right_foot",
-    "neck", "left_collar", "right_collar", "head", "left_shoulder",
-    "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist",
-    "left_hand", "right_hand",
+    "pelvis",
+    "left_hip",
+    "right_hip",
+    "spine1",
+    "left_knee",
+    "right_knee",
+    "spine2",
+    "left_ankle",
+    "right_ankle",
+    "spine3",
+    "left_foot",
+    "right_foot",
+    "neck",
+    "left_collar",
+    "right_collar",
+    "head",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hand",
+    "right_hand",
 )
 
 # Region keyword -> (base category name, whether the category needs a side

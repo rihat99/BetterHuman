@@ -75,6 +75,16 @@ _smplx_fields.update(
 )
 SMPLX_SCHEMA = ModelSchema(name="smplx", fields=_smplx_fields, dimensions={"S": 400})
 
+_smplh_fields = _base_fields(shapedirs_dtype="floating", other_float_dtype="floating")
+_smplh_fields.update({"kintree_table": FieldSpec((2, "J"), "integer"), "f": FieldSpec(("F", 3), "integer")})
+SMPLH_SCHEMA = ModelSchema(name="smplh", fields=_smplh_fields)
+
+_mano_fields = dict(_smplh_fields)
+_mano_fields.update({"hands_components": FieldSpec((45, 45), "floating"), "hands_mean": FieldSpec((45,), "floating")})
+MANO_SCHEMA = ModelSchema(name="mano", fields=_mano_fields)
+
+FLAME_SCHEMA = ModelSchema(name="flame", fields=_smplh_fields, dimensions={"S": 400})
+
 MHR_CORRECTIVE_FIELDS = frozenset(
     {
         "corrective_first_layer_indices",

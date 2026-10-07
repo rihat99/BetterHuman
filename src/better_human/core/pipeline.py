@@ -191,8 +191,51 @@ def lbs(
     return (blended_affines[..., :3] @ rest_vertices.unsqueeze(-1)).squeeze(-1) + blended_affines[..., 3]
 
 
+def skin_affines(
+    joint_transforms: torch.Tensor,
+    *,
+    rest_joints: torch.Tensor | None = None,
+    inverse_bind_poses: torch.Tensor | None = None,
+    joint_scales: torch.Tensor | None = None,
+    bind_joint_positions: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Per-joint rest-to-world affines ``(..., J, 3, 4)`` from world ``[R | p]`` joint transforms.
+
+    The rest frame is either identity-oriented at ``rest_joints (..., J, 3)`` (SMPL family) or an
+    authored ``inverse_bind_poses (J, 7)`` (MHR). Optional accumulated ``joint_scales (..., J)``
+    apply a similarity about ``bind_joint_positions (J, 3)``.
+    """
+    rotation, translation = joint_transforms[..., :3], joint_transforms[..., 3]
+    if inverse_bind_poses is not None:
+        bind_rotation = so3.to_matrix(inverse_bind_poses[..., 3:])
+        translation = (rotation @ inverse_bind_poses[..., :3, None]).squeeze(-1) + translation
+        rotation = rotation @ bind_rotation
+    elif rest_joints is not None:
+        translation = translation - (rotation @ rest_joints[..., :, None]).squeeze(-1)
+    else:
+        raise ValueError("either rest_joints or inverse_bind_poses is required")
+    if joint_scales is not None:
+        if bind_joint_positions is None:
+            raise ValueError("bind_joint_positions are required when joint_scales are provided")
+        pivot = (rotation @ bind_joint_positions[..., :, None]).squeeze(-1)
+        translation = translation - (joint_scales - 1.0)[..., None] * pivot
+        rotation = rotation * joint_scales[..., None, None]
+    return torch.cat((rotation, translation[..., None]), dim=-1)
+
+
+def lbs_affines(rest_vertices: torch.Tensor, affines: torch.Tensor, weights_vj: torch.Tensor) -> torch.Tensor:
+    """Linear blend skinning: ``rest_vertices (..., V, 3)``, ``affines (..., J, 3, 4)``, ``weights_vj (V, J)``."""
+    batch = torch.broadcast_shapes(rest_vertices.shape[:-2], affines.shape[:-3])
+    flat = affines.expand(*batch, *affines.shape[-3:]).flatten(-2)
+    blended = torch.einsum("vj,...jx->...vx", weights_vj, flat).unflatten(-1, (3, 4))
+    rest_vertices = rest_vertices.expand(*batch, *rest_vertices.shape[-2:])
+    return (blended[..., :3] @ rest_vertices[..., None]).squeeze(-1) + blended[..., 3]
+
+
 __all__ = [
     "blend_shapes",
+    "lbs_affines",
+    "skin_affines",
     "dense_skinning_weights",
     "dense_weight_from_sparse",
     "lbs",
