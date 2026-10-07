@@ -1,4 +1,4 @@
-"""Human cost terms on optim2: residual shapes, camera alignment, physics residual, input validation."""
+"""Human cost terms on optim: residual shapes, camera alignment, physics residual, input validation."""
 
 from __future__ import annotations
 

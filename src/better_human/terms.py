@@ -1,4 +1,4 @@
-"""Human cost terms for ``better_robot.optim2``: plain functions over a cached :class:`HumanState`.
+"""Human cost terms for ``better_robot.optim``: plain functions over a cached :class:`HumanState`.
 
 Register the state once per problem (``problem.cached(human_state(identity), name="state")``);
 every term below reads it, so one forward pass serves all terms. Pose variables are ``q (B, nq)``
@@ -15,7 +15,7 @@ import torch
 from better_robot.dynamics.state import inverse_dynamics
 from better_robot import Model
 from better_robot.kinematics import KinematicState, forward_kinematics_state
-from better_robot.optim2 import TermFn
+from better_robot.optim import TermFn
 
 from .core.body import Body, HumanState, Identity
 

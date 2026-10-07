@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 SRC = Path(__file__).parents[2] / "src" / "better_human"
-PRIVATE = re.compile(r"better_robot\.(io\.builders|io\.ir|data_model\.|_|kinematics\._|dynamics\._|optim2\._|viewer\._)")
+PRIVATE = re.compile(r"better_robot\.(io\.builders|io\.ir|data_model\.|_|kinematics\._|dynamics\._|optim\._|viewer\._)")
 IMPORT = re.compile(r"^\s*(from|import)\s+(better_robot[\w.]*)", re.MULTILINE)
 
 

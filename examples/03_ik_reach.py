@@ -15,7 +15,7 @@ import torch
 import better_human as bh
 from better_human import terms
 from better_human.viz import HumanView
-from better_robot.optim2 import LevenbergMarquardt, Problem, solve
+from better_robot.optim import LevenbergMarquardt, Problem, solve
 from better_robot.terms import RobotManifold
 from better_robot.viewer import DARK, GroundLayer, Viewer
 from better_robot.viewer.tools import PoseGizmo
