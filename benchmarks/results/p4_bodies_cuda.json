@@ -1,0 +1,831 @@
+{
+  "torch": "2.13.0+cu129",
+  "device": "cuda",
+  "device_name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "threads": 192,
+  "git_commit": "b08b9732d5309af94e47ce9e9281ced18ed77be8",
+  "dtype": "float32",
+  "memory_limit_gb": 8.0,
+  "rows": [
+    {
+      "family": "SMPL",
+      "op": "bake",
+      "batch": 1,
+      "variant": "mass",
+      "median_ms": 20.751237,
+      "p90_ms": 21.710310999999997,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "bake",
+      "batch": 1,
+      "variant": "no_mass",
+      "median_ms": 0.4232355,
+      "p90_ms": 0.43781499999999995,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 1.4812979999999998,
+      "p90_ms": 1.512908,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 7.7832155,
+      "p90_ms": 7.856859,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 1.187946,
+      "p90_ms": 1.2060359999999999,
+      "iterations": 30,
+      "baseline_median_ms": 1.4812979999999998,
+      "ratio_vs_baseline": 0.8019628731018338
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 6.320012499999999,
+      "p90_ms": 6.450590999999999,
+      "iterations": 30,
+      "baseline_median_ms": 7.7832155,
+      "ratio_vs_baseline": 0.8120053337852459
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.6044805,
+      "p90_ms": 0.621263,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.7277985,
+      "p90_ms": 0.743325,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 1.7473325,
+      "p90_ms": 1.7665739999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 5.5708945,
+      "p90_ms": 5.618520999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 1.5913475,
+      "p90_ms": 1.6068399999999998,
+      "iterations": 30,
+      "baseline_median_ms": 1.7473325,
+      "ratio_vs_baseline": 0.910729640752404
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 4.8536705,
+      "p90_ms": 4.882035,
+      "iterations": 30,
+      "baseline_median_ms": 5.5708945,
+      "ratio_vs_baseline": 0.8712551458298124
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 0.7261015,
+      "p90_ms": 0.736335,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 0.7980019999999999,
+      "p90_ms": 0.807095,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 8.108557999999999,
+      "p90_ms": 8.126057,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 22.069665999999998,
+      "p90_ms": 22.103973999999997,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 8.0538215,
+      "p90_ms": 8.088935,
+      "iterations": 30,
+      "baseline_median_ms": 8.108557999999999,
+      "ratio_vs_baseline": 0.9932495395605484
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 22.3820695,
+      "p90_ms": 22.460466,
+      "iterations": 30,
+      "baseline_median_ms": 22.069665999999998,
+      "ratio_vs_baseline": 1.0141553342945926
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 0.7381329999999999,
+      "p90_ms": 0.765046,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 0.807871,
+      "p90_ms": 0.831059,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "upstream",
+      "skipped": "estimated 10.8 GB > 8 GB"
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 10.8 GB > 8 GB"
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 14.4 GB > 8 GB"
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 0.7622825,
+      "p90_ms": 0.7776529999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 1.6285105,
+      "p90_ms": 1.636962,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "bake",
+      "batch": 1,
+      "variant": "mass",
+      "median_ms": 45.37211,
+      "p90_ms": 46.736644,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "bake",
+      "batch": 1,
+      "variant": "no_mass",
+      "median_ms": 0.46984549999999997,
+      "p90_ms": 0.48070599999999997,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 2.6514284999999997,
+      "p90_ms": 2.757027,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 10.673795,
+      "p90_ms": 15.534065,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 1.2459919999999998,
+      "p90_ms": 1.318304,
+      "iterations": 30,
+      "baseline_median_ms": 2.6514284999999997,
+      "ratio_vs_baseline": 0.46993234024602204
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 6.4343135,
+      "p90_ms": 7.000235,
+      "iterations": 30,
+      "baseline_median_ms": 10.673795,
+      "ratio_vs_baseline": 0.6028140413039599
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "expression_stream_joints",
+      "median_ms": 2.0551649999999997,
+      "p90_ms": 2.15511,
+      "iterations": 30,
+      "baseline_median_ms": 2.6514284999999997,
+      "ratio_vs_baseline": 0.7751161307951543
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "expression_stream_joints",
+      "median_ms": 9.076484,
+      "p90_ms": 10.271054,
+      "iterations": 30,
+      "baseline_median_ms": 10.673795,
+      "ratio_vs_baseline": 0.8503521006352474
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "expression_frozen_joints",
+      "median_ms": 1.2914015,
+      "p90_ms": 1.3322939999999999,
+      "iterations": 30,
+      "baseline_median_ms": 2.6514284999999997,
+      "ratio_vs_baseline": 0.4870587685091264
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "expression_frozen_joints",
+      "median_ms": 8.6353385,
+      "p90_ms": 9.638914999999999,
+      "iterations": 30,
+      "baseline_median_ms": 10.673795,
+      "ratio_vs_baseline": 0.8090223299210824
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.789465,
+      "p90_ms": 1.624063,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.7160625,
+      "p90_ms": 0.780898,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 3.0317784999999997,
+      "p90_ms": 3.372743,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 10.440016499999999,
+      "p90_ms": 15.130576999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 1.8271595,
+      "p90_ms": 1.959185,
+      "iterations": 30,
+      "baseline_median_ms": 3.0317784999999997,
+      "ratio_vs_baseline": 0.6026691923568955
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 5.279339,
+      "p90_ms": 7.525773,
+      "iterations": 30,
+      "baseline_median_ms": 10.440016499999999,
+      "ratio_vs_baseline": 0.505683013048878
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "expression_stream_joints",
+      "median_ms": 2.693518,
+      "p90_ms": 2.824062,
+      "iterations": 30,
+      "baseline_median_ms": 3.0317784999999997,
+      "ratio_vs_baseline": 0.8884283597894768
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "expression_stream_joints",
+      "median_ms": 8.569390499999999,
+      "p90_ms": 9.805218,
+      "iterations": 30,
+      "baseline_median_ms": 10.440016499999999,
+      "ratio_vs_baseline": 0.8208215475521519
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "expression_frozen_joints",
+      "median_ms": 1.9109374999999997,
+      "p90_ms": 2.024387,
+      "iterations": 30,
+      "baseline_median_ms": 3.0317784999999997,
+      "ratio_vs_baseline": 0.6303024775721577
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "expression_frozen_joints",
+      "median_ms": 9.4742585,
+      "p90_ms": 10.407275,
+      "iterations": 30,
+      "baseline_median_ms": 10.440016499999999,
+      "ratio_vs_baseline": 0.9074945906455225
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 0.854552,
+      "p90_ms": 1.696867,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 0.770929,
+      "p90_ms": 0.801407,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 14.903112499999999,
+      "p90_ms": 15.035684,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 36.78520999999999,
+      "p90_ms": 36.987364,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 12.29144,
+      "p90_ms": 12.367792,
+      "iterations": 30,
+      "baseline_median_ms": 14.903112499999999,
+      "ratio_vs_baseline": 0.8247565735010053
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 34.1604235,
+      "p90_ms": 34.252838,
+      "iterations": 30,
+      "baseline_median_ms": 36.78520999999999,
+      "ratio_vs_baseline": 0.9286456024037923
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "expression_stream_joints",
+      "median_ms": 13.3769765,
+      "p90_ms": 13.481439,
+      "iterations": 30,
+      "baseline_median_ms": 14.903112499999999,
+      "ratio_vs_baseline": 0.8975961565075752
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "expression_stream_joints",
+      "median_ms": 35.497057999999996,
+      "p90_ms": 35.645286999999996,
+      "iterations": 30,
+      "baseline_median_ms": 36.78520999999999,
+      "ratio_vs_baseline": 0.9649817956727719
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "expression_frozen_joints",
+      "median_ms": 12.363927,
+      "p90_ms": 12.475242999999999,
+      "iterations": 30,
+      "baseline_median_ms": 14.903112499999999,
+      "ratio_vs_baseline": 0.829620456800551
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "expression_frozen_joints",
+      "median_ms": 34.2516815,
+      "p90_ms": 34.354272,
+      "iterations": 30,
+      "baseline_median_ms": 36.78520999999999,
+      "ratio_vs_baseline": 0.9311264364128954
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 0.832025,
+      "p90_ms": 0.8883789999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 0.8147205,
+      "p90_ms": 0.858267,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "upstream",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 22.0 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "expression_stream_joints",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "expression_stream_joints",
+      "skipped": "estimated 22.0 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "expression_frozen_joints",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "expression_frozen_joints",
+      "skipped": "estimated 22.0 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 1.056736,
+      "p90_ms": 1.127896,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 3.6571774999999995,
+      "p90_ms": 3.674197,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "bake",
+      "batch": 1,
+      "variant": "mass",
+      "median_ms": 21.7897975,
+      "p90_ms": 21.976945,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "bake",
+      "batch": 1,
+      "variant": "no_mass",
+      "median_ms": 5.309081,
+      "p90_ms": 5.921367,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "torchscript",
+      "median_ms": 2.1758195,
+      "p90_ms": 2.305101,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 2.499846,
+      "p90_ms": 2.634325,
+      "iterations": 30,
+      "baseline_median_ms": 2.1758195,
+      "ratio_vs_baseline": 1.1489215902330134
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 13.467272999999999,
+      "p90_ms": 13.883604,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 1.6116514999999998,
+      "p90_ms": 1.8151329999999999,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.7704285,
+      "p90_ms": 0.856926,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "torchscript",
+      "median_ms": 3.3664994999999998,
+      "p90_ms": 3.541651,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 3.9524929999999996,
+      "p90_ms": 4.1067149999999994,
+      "iterations": 30,
+      "baseline_median_ms": 3.3664994999999998,
+      "ratio_vs_baseline": 1.1740661182334944
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 11.359555,
+      "p90_ms": 16.249902,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 2.0329435,
+      "p90_ms": 2.097079,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 0.8328365,
+      "p90_ms": 0.8540909999999999,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "torchscript",
+      "median_ms": 26.2873915,
+      "p90_ms": 26.414816,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 26.831437,
+      "p90_ms": 26.973141,
+      "iterations": 30,
+      "baseline_median_ms": 26.2873915,
+      "ratio_vs_baseline": 1.0206960625971582
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 71.860049,
+      "p90_ms": 71.990858,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 2.0837955,
+      "p90_ms": 2.257905,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 1.545789,
+      "p90_ms": 1.587152,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "torchscript",
+      "skipped": "estimated 29.0 GB > 8 GB"
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 29.0 GB > 8 GB"
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 38.7 GB > 8 GB"
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 3.483143,
+      "p90_ms": 3.5471589999999997,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 12.106349999999999,
+      "p90_ms": 12.142484999999999,
+      "iterations": 30
+    }
+  ]
+}

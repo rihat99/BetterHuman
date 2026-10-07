@@ -1,0 +1,831 @@
+{
+  "torch": "2.13.0+cu129",
+  "device": "cpu",
+  "device_name": "AMD EPYC 9654 96-Core Processor",
+  "threads": 8,
+  "git_commit": "b08b9732d5309af94e47ce9e9281ced18ed77be8",
+  "dtype": "float32",
+  "memory_limit_gb": 8.0,
+  "rows": [
+    {
+      "family": "SMPL",
+      "op": "bake",
+      "batch": 1,
+      "variant": "mass",
+      "median_ms": 11.2173045,
+      "p90_ms": 11.252763999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "bake",
+      "batch": 1,
+      "variant": "no_mass",
+      "median_ms": 0.409115,
+      "p90_ms": 0.418068,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 1.7473415,
+      "p90_ms": 1.7992199999999998,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 4.434957,
+      "p90_ms": 4.4564569999999994,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 1.212365,
+      "p90_ms": 1.2298689999999999,
+      "iterations": 30,
+      "baseline_median_ms": 1.7473415,
+      "ratio_vs_baseline": 0.6938340330152977
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 3.2509664999999996,
+      "p90_ms": 3.265382,
+      "iterations": 30,
+      "baseline_median_ms": 4.434957,
+      "ratio_vs_baseline": 0.7330322481142432
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.2608715,
+      "p90_ms": 0.26994,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.3066415,
+      "p90_ms": 0.317306,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 9.878881999999999,
+      "p90_ms": 10.003276999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 40.430085,
+      "p90_ms": 46.170207999999995,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 14.749036,
+      "p90_ms": 15.047780999999999,
+      "iterations": 30,
+      "baseline_median_ms": 9.878881999999999,
+      "ratio_vs_baseline": 1.4929863520993572
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 41.3190155,
+      "p90_ms": 41.711948,
+      "iterations": 30,
+      "baseline_median_ms": 40.430085,
+      "ratio_vs_baseline": 1.0219868570644854
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 0.8445475,
+      "p90_ms": 0.8588979999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 1.400985,
+      "p90_ms": 1.4136279999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 310.520654,
+      "p90_ms": 330.481904,
+      "iterations": 9
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 632.312728,
+      "p90_ms": 642.061277,
+      "iterations": 5
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 296.46477749999997,
+      "p90_ms": 297.441561,
+      "iterations": 10,
+      "baseline_median_ms": 310.520654,
+      "ratio_vs_baseline": 0.9547344876453854
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 657.84272,
+      "p90_ms": 661.857686,
+      "iterations": 5,
+      "baseline_median_ms": 632.312728,
+      "ratio_vs_baseline": 1.0403755782059791
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 6.8726695,
+      "p90_ms": 6.932098,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 15.8408865,
+      "p90_ms": 16.082897,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "upstream",
+      "skipped": "estimated 10.8 GB > 8 GB"
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 10.8 GB > 8 GB"
+    },
+    {
+      "family": "SMPL",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 14.4 GB > 8 GB"
+    },
+    {
+      "family": "SMPL",
+      "op": "fk",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 50.568006499999996,
+      "p90_ms": 51.012325999999995,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL",
+      "op": "rnea",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 81.942708,
+      "p90_ms": 86.395425,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "bake",
+      "batch": 1,
+      "variant": "mass",
+      "median_ms": 23.4534165,
+      "p90_ms": 23.621989,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "bake",
+      "batch": 1,
+      "variant": "no_mass",
+      "median_ms": 1.2208364999999999,
+      "p90_ms": 1.230421,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 7.12899,
+      "p90_ms": 7.186026,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "upstream",
+      "median_ms": 14.729073,
+      "p90_ms": 14.861267999999999,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 3.024343,
+      "p90_ms": 3.046404,
+      "iterations": 30,
+      "baseline_median_ms": 7.12899,
+      "ratio_vs_baseline": 0.424231623273423
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 7.180312499999999,
+      "p90_ms": 7.204110999999999,
+      "iterations": 30,
+      "baseline_median_ms": 14.729073,
+      "ratio_vs_baseline": 0.48749249189001914
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "expression_stream_joints",
+      "median_ms": 3.5426719999999996,
+      "p90_ms": 3.5551489999999997,
+      "iterations": 30,
+      "baseline_median_ms": 7.12899,
+      "ratio_vs_baseline": 0.49693883705826486
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "expression_stream_joints",
+      "median_ms": 7.853619,
+      "p90_ms": 7.9022619999999995,
+      "iterations": 30,
+      "baseline_median_ms": 14.729073,
+      "ratio_vs_baseline": 0.5332052465216243
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "expression_frozen_joints",
+      "median_ms": 3.1984325,
+      "p90_ms": 3.2195069999999997,
+      "iterations": 30,
+      "baseline_median_ms": 7.12899,
+      "ratio_vs_baseline": 0.44865156214274393
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "expression_frozen_joints",
+      "median_ms": 7.367184999999999,
+      "p90_ms": 7.527425,
+      "iterations": 30,
+      "baseline_median_ms": 14.729073,
+      "ratio_vs_baseline": 0.5001798144391029
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.34984699999999996,
+      "p90_ms": 0.362319,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.372198,
+      "p90_ms": 0.390248,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 29.726918499999996,
+      "p90_ms": 30.235077999999998,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "upstream",
+      "median_ms": 69.72730999999999,
+      "p90_ms": 71.222638,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 37.2408655,
+      "p90_ms": 46.990891999999995,
+      "iterations": 30,
+      "baseline_median_ms": 29.726918499999996,
+      "ratio_vs_baseline": 1.2527657550512679
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 75.99649600000001,
+      "p90_ms": 83.433289,
+      "iterations": 30,
+      "baseline_median_ms": 69.72730999999999,
+      "ratio_vs_baseline": 1.0899100510259183
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "expression_stream_joints",
+      "median_ms": 45.249188,
+      "p90_ms": 46.668078,
+      "iterations": 30,
+      "baseline_median_ms": 29.726918499999996,
+      "ratio_vs_baseline": 1.5221620767722697
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "expression_stream_joints",
+      "median_ms": 87.54716450000001,
+      "p90_ms": 92.494782,
+      "iterations": 30,
+      "baseline_median_ms": 69.72730999999999,
+      "ratio_vs_baseline": 1.2555649214059745
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "expression_frozen_joints",
+      "median_ms": 24.3462525,
+      "p90_ms": 26.335585,
+      "iterations": 30,
+      "baseline_median_ms": 29.726918499999996,
+      "ratio_vs_baseline": 0.8189968462422367
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "expression_frozen_joints",
+      "median_ms": 83.58215849999999,
+      "p90_ms": 92.28666899999999,
+      "iterations": 30,
+      "baseline_median_ms": 69.72730999999999,
+      "ratio_vs_baseline": 1.1987004589736792
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 1.8019395,
+      "p90_ms": 1.815443,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 3.980212,
+      "p90_ms": 4.189412,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 627.354436,
+      "p90_ms": 636.228475,
+      "iterations": 5
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "upstream",
+      "median_ms": 1163.498445,
+      "p90_ms": 1230.90754,
+      "iterations": 5
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 463.783351,
+      "p90_ms": 468.301315,
+      "iterations": 7,
+      "baseline_median_ms": 627.354436,
+      "ratio_vs_baseline": 0.7392684651392184
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 932.694704,
+      "p90_ms": 1008.0907109999999,
+      "iterations": 5,
+      "baseline_median_ms": 1163.498445,
+      "ratio_vs_baseline": 0.8016295234498574
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "expression_stream_joints",
+      "median_ms": 499.906285,
+      "p90_ms": 543.310537,
+      "iterations": 6,
+      "baseline_median_ms": 627.354436,
+      "ratio_vs_baseline": 0.7968482508665964
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "expression_stream_joints",
+      "median_ms": 995.842916,
+      "p90_ms": 1132.94625,
+      "iterations": 5,
+      "baseline_median_ms": 1163.498445,
+      "ratio_vs_baseline": 0.8559039509502739
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "expression_frozen_joints",
+      "median_ms": 459.95084699999995,
+      "p90_ms": 489.680149,
+      "iterations": 6,
+      "baseline_median_ms": 627.354436,
+      "ratio_vs_baseline": 0.7331594719129395
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "expression_frozen_joints",
+      "median_ms": 1096.523009,
+      "p90_ms": 1175.150831,
+      "iterations": 5,
+      "baseline_median_ms": 1163.498445,
+      "ratio_vs_baseline": 0.9424361620010588
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 11.985109,
+      "p90_ms": 12.416912,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 25.554932,
+      "p90_ms": 26.518562,
+      "iterations": 30
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "upstream",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 22.0 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "expression_stream_joints",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "expression_stream_joints",
+      "skipped": "estimated 22.0 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "expression_frozen_joints",
+      "skipped": "estimated 16.5 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "expression_frozen_joints",
+      "skipped": "estimated 22.0 GB > 8 GB"
+    },
+    {
+      "family": "SMPL-X",
+      "op": "fk",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 119.746555,
+      "p90_ms": 126.097056,
+      "iterations": 25
+    },
+    {
+      "family": "SMPL-X",
+      "op": "rnea",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 168.977567,
+      "p90_ms": 171.729066,
+      "iterations": 17
+    },
+    {
+      "family": "MHR",
+      "op": "bake",
+      "batch": 1,
+      "variant": "mass",
+      "median_ms": 20.2503025,
+      "p90_ms": 20.689365,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "bake",
+      "batch": 1,
+      "variant": "no_mass",
+      "median_ms": 6.194741,
+      "p90_ms": 6.641318999999999,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "torchscript",
+      "median_ms": 37.753251500000005,
+      "p90_ms": 39.328116,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 22.437168,
+      "p90_ms": 23.671909,
+      "iterations": 30,
+      "baseline_median_ms": 37.753251500000005,
+      "ratio_vs_baseline": 0.5943108767730906
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 48.3068325,
+      "p90_ms": 52.101107,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.941379,
+      "p90_ms": 0.955063,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 1,
+      "variant": "default",
+      "median_ms": 0.5476105,
+      "p90_ms": 0.560228,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "torchscript",
+      "median_ms": 278.089567,
+      "p90_ms": 283.61447599999997,
+      "iterations": 10
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 119.390474,
+      "p90_ms": 133.15549199999998,
+      "iterations": 29,
+      "baseline_median_ms": 278.089567,
+      "ratio_vs_baseline": 0.42932381566116073
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 241.879346,
+      "p90_ms": 248.303871,
+      "iterations": 13
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 4.9963809999999995,
+      "p90_ms": 5.4600789999999995,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 64,
+      "variant": "default",
+      "median_ms": 10.241477,
+      "p90_ms": 10.987511,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "torchscript",
+      "median_ms": 5218.719261,
+      "p90_ms": 5335.999938,
+      "iterations": 5
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 1310.0555419999998,
+      "p90_ms": 1404.4870079999998,
+      "iterations": 5,
+      "baseline_median_ms": 5218.719261,
+      "ratio_vs_baseline": 0.25103008544455974
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 2847.6755,
+      "p90_ms": 2862.507798,
+      "iterations": 5
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 41.152276,
+      "p90_ms": 41.404035,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 1024,
+      "variant": "default",
+      "median_ms": 45.2194755,
+      "p90_ms": 45.452507999999995,
+      "iterations": 30
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "torchscript",
+      "skipped": "estimated 29.0 GB > 8 GB"
+    },
+    {
+      "family": "MHR",
+      "op": "vertices",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 29.0 GB > 8 GB"
+    },
+    {
+      "family": "MHR",
+      "op": "vertices_backward",
+      "batch": 8192,
+      "variant": "default",
+      "skipped": "estimated 38.7 GB > 8 GB"
+    },
+    {
+      "family": "MHR",
+      "op": "fk",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 463.30105349999997,
+      "p90_ms": 469.71858799999995,
+      "iterations": 6
+    },
+    {
+      "family": "MHR",
+      "op": "rnea",
+      "batch": 8192,
+      "variant": "default",
+      "median_ms": 389.35060899999996,
+      "p90_ms": 412.786006,
+      "iterations": 8
+    }
+  ]
+}
