@@ -26,6 +26,9 @@ dev = [
     "pytest>=8.0",
     "ruff",
     "matplotlib>=3.8",
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.26",
 ]
 
 [[tool.uv.index]]

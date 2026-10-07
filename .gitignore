@@ -25,3 +25,4 @@ trash/
 .claude/
 agent_notes/**/vis/
 agent_notes/**/artifacts/
+site/

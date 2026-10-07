@@ -74,8 +74,8 @@ centroid-capped parts.
 
 | Authored closed-3D | Argmax fallback |
 |---|---|
-| ![SMPL authored surface](segmentation/smpl_authored_surface.png) | ![SMPL argmax surface](segmentation/smpl_argmax_surface.png) |
-| ![SMPL authored split](segmentation/smpl_authored_split.png) | ![SMPL argmax split](segmentation/smpl_argmax_split.png) |
+| ![SMPL authored surface](../segmentation/smpl_authored_surface.png) | ![SMPL argmax surface](../segmentation/smpl_argmax_surface.png) |
+| ![SMPL authored split](../segmentation/smpl_authored_split.png) | ![SMPL argmax split](../segmentation/smpl_argmax_split.png) |
 
 The authored split parts are closed volumes (note the solid caps at every
 joint); the argmax split parts are closed by centroid fans and carry the 1.78 %
@@ -91,8 +91,8 @@ per-finger joints appear as their own parts).
 
 | Authored per-vertex labeling | Argmax fallback |
 |---|---|
-| ![SMPL-X authored surface](segmentation/smplx_authored_surface.png) | ![SMPL-X argmax surface](segmentation/smplx_argmax_surface.png) |
-| ![SMPL-X authored split](segmentation/smplx_authored_split.png) | ![SMPL-X argmax split](segmentation/smplx_argmax_split.png) |
+| ![SMPL-X authored surface](../segmentation/smplx_authored_surface.png) | ![SMPL-X argmax surface](../segmentation/smplx_argmax_surface.png) |
+| ![SMPL-X authored split](../segmentation/smplx_authored_split.png) | ![SMPL-X argmax split](../segmentation/smplx_argmax_split.png) |
 
 The authored split shells are open (they have no joint caps); the argmax split
 parts are the closed, centroid-capped solids that feed SMPL-X inertias.
@@ -107,10 +107,24 @@ centroid-capped solids that feed MHR inertias.
 
 | Grouped argmax surface | Grouped argmax split |
 |---|---|
-| ![MHR grouped argmax surface](segmentation/mhr_argmax_surface.png) | ![MHR grouped argmax split](segmentation/mhr_argmax_split.png) |
+| ![MHR grouped argmax surface](../segmentation/mhr_argmax_surface.png) | ![MHR grouped argmax split](../segmentation/mhr_argmax_split.png) |
 
 An authored volume-preserving partition remains roadmap work.
 
-The images are reproducible artifacts; follow the
-[segmentation rendering guide](guide_render_segmentation.md) when their source
-data or rendering semantics intentionally change.
+## Regenerate the images
+
+The PNGs are reproducible. After an intentional change to segmentation data, topology
+construction or the renderer, run from the repository root:
+
+```bash
+uv run python docs/render_segmentation.py --models-dir "$BETTERHUMAN_MODELS_DIR"
+```
+
+The script uses headless matplotlib, fixed colours and a fixed camera. It rewrites each
+available SMPL, SMPL-X and MHR image under `docs/segmentation/` and skips models whose weights
+are absent. Inspect every changed PNG; unchanged inputs give the same bytes.
+
+## Where next
+
+- [Architecture](architecture.md): where parts live in the package.
+- [Studio](../studio.md): paint and inspect parts interactively.

@@ -1,0 +1,53 @@
+/* Sober reading layout: a narrower prose column, centred captioned figures, compact tables. */
+.md-typeset > p,
+.md-typeset > ul,
+.md-typeset > ol,
+.md-typeset > blockquote,
+.md-typeset > .admonition,
+.md-typeset > details {
+  max-width: 76ch;
+}
+
+.md-typeset figure {
+  margin: 1.5em auto;
+  text-align: center;
+}
+
+.md-typeset figure img {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+
+.md-typeset figcaption {
+  max-width: 64ch;
+  margin: 0.6em auto 0;
+  font-size: 0.8rem;
+  font-style: normal;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Figures draw with currentColor; inline SVGs inherit the palette's text colour in light and dark. */
+.md-typeset svg {
+  color: var(--md-default-fg-color);
+}
+
+/* SVGs loaded through <img> cannot see currentColor; invert them in the dark palette instead. */
+[data-md-color-scheme="slate"] .md-typeset img[src$=".svg"] {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+.md-typeset table:not([class]) {
+  font-size: 0.72rem;
+}
+
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  padding: 0.45em 0.8em;
+}
+
+/* API reference: keep signatures readable without dominating the page. */
+.doc-signature {
+  font-size: 0.75rem;
+}

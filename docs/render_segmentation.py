@@ -1,4 +1,4 @@
-"""Render the segmentation comparison images embedded in ``docs/segmentation.md``.
+"""Render the segmentation comparison images embedded in ``docs/concepts/segmentation.md``.
 
 For every available body (SMPL, SMPL-X, MHR) and every segmentation type it supports
 (authored, argmax) this writes a part-colored surface and an exploded body-split

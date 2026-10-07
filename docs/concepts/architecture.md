@@ -4,22 +4,32 @@ BetterHuman turns parametric human weight files (SMPL, SMPL-H, SMPL-X, MANO, FLA
 BetterRobot (BR) models. A family is data. One `Rig` object holds the only family-specific
 behaviour. Shape is baked once per subject; pose is a batched, differentiable BR query.
 
-## Layering
+## Layers sit on top of BetterRobot
+
+BetterHuman builds a BetterRobot `Model` per subject and reuses BetterRobot for everything else.
+
+| Shared with BetterRobot | Human-specific (BetterHuman) |
+|---|---|
+| `Model`, `ModelBuilder`, `io.build_model` | weight-file readers, family tables, MHR rig |
+| `KinematicState`, Jacobians, `dynamics` | blend shapes, pose correctives, top-K skinning |
+| `lie.{so3,se3}`, `spatial.Inertia` | per-part mass from mesh volume, contact frames |
+| `optim` solvers, `Problem`, `TermFn` | `better_human.terms` (markers, reprojection, ground, ...) |
+| `viewer` layers and `Viewer` | `better_human.viz` (`human_layers`, `HumanView`, HumanStudio) |
+
+`tests/contract/test_br_imports.py` fails on any private BetterRobot import.
+
+## The package DAG is a test
+
+`tests/contract/test_layer_dependencies.py` (rule `H-LAYER-1`) fails on any import that points
+the wrong way inside `better_human`:
 
 ```text
-better_robot (public API only: Model, ModelBuilder, io.build_model, kinematics, dynamics,
-              lie.{so3,se3}, spatial.Inertia, viewer)
-      ^
-better_human.core       spec, rig, body, pipeline, mass, contact_frames, reduction, classic
-      ^
-better_human.families   smpl_family, tables, classic, mhr, mhr_rig, mhr_tree, mhr_archive, mhr_config
-      ^
-better_human.terms      better_human.viz      (both use core + families, never each other's internals)
+viz  ->  better_human (root), core, families, io, terms
+terms    ->  core
+families ->  core, io
+core          (nothing)
+io            (nothing)
 ```
-
-- Each layer imports only from layers below it.
-- BetterHuman imports BR through its public surface only. `tests/contract/test_br_imports.py`
-  fails on any private BR import (`better_robot.io.builders.*`, `better_robot.io.ir`, ...).
 
 ## The four objects
 
@@ -52,7 +62,7 @@ Two rigs exist:
 
 ### Body (`core/body.py`)
 
-```python
+```python { .no-run }
 Body(spec, *, dtype=None, device=None, mass=True, density=1000.0, contact_frames=None, stream_joints=True)
 ```
 
@@ -118,8 +128,7 @@ This matches upstream SMPL-X exactly (expression moves the jaw and eye joints). 
 
 ## Classic converters (at the boundary)
 
-Native parameter sets (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA, ...) are
-converted at the boundary, never inside the core:
+Native parameter sets (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA, ...) are converted at the boundary, never inside the core:
 
 | family | module | functions |
 |---|---|---|
@@ -145,27 +154,7 @@ joints and the expression group. Converting a pose that uses a dropped joint rai
 3. The inertias are written into `identity.model`, so BR dynamics (`inverse_dynamics`,
    `mass_matrix`) use the subject's mass.
 
-## Package layout
-
-```text
-src/better_human/
-  __init__.py        load, Body, FamilySpec, Identity, HumanState
-  core/              spec, rig, body, pipeline (blend shapes, top-K skinning), mass,
-                     contact_frames, reduction, classic
-  families/          loaders smpl/smplh/smplx/mano/flame (smpl_family), mhr; tables (file layout,
-                     joint names); classic converters; MHR rig, tree, archive, config
-  terms.py           optimisation terms (markers, landmarks, reprojection, ground, priors,
-                     shape fit, root_wrench) for BR solvers
-  viz/human_layers.py   human_layers, HumanView, mesh/skinned/skeleton/frames/forces layers
-  io/                weight-file readers, convert_chumpy
-examples/            01_smpl_shape_pose, 02_smplx_partial, 03_ik_reach, 04_mhr_shape_pose
-benchmarks/          run.py, report.py, results/*.json
-tests/               core, families, dynamics, io, parity (goldens), contract, viz
-```
-
-## Verification
-
-- Parity gates against upstream goldens (`tests/parity/`): SMPL, SMPL-X (29 goldens) and MHR
-  (all 7 LODs, against goldens and the TorchScript model). Tolerances are in `docs/contracts/bh-addendum.md`.
-- Contract test `tests/contract/test_br_imports.py`: public BR API only.
-- Examples: each runs headless with `--check`.
+## Where next
+- [Segmentation](segmentation.md): how bodies split into parts.
+- [Studio](../studio.md): look at a body and edit its parts and frames.
+- [Contracts](../contracts/index.md): the rules these layers obey, parity gates and tolerances.

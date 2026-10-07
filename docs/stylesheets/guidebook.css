@@ -1,0 +1,42 @@
+:root, [data-md-color-scheme="default"] {
+  --md-primary-fg-color: #1f3a68; --md-primary-fg-color--light: #2f5597; --md-primary-fg-color--dark: #14284a;
+  --md-primary-bg-color: #ffffff; --md-accent-fg-color: #2f6fdd;
+  --md-typeset-a-color: #1f4fa3;
+  --md-code-bg-color: #f6f8fb; --md-code-fg-color: #1f2328;
+  --md-code-hl-keyword-color: #0033b3; --md-code-hl-string-color: #067d17; --md-code-hl-number-color: #1750eb;
+  --md-code-hl-function-color: #00627a; --md-code-hl-name-color: #1f2328; --md-code-hl-comment-color: #8c8c8c;
+  --md-code-hl-constant-color: #871094; --md-code-hl-special-color: #9e880d; --md-code-hl-operator-color: #1f2328;
+  --md-code-hl-punctuation-color: #1f2328; --md-code-hl-variable-color: #871094; --md-code-hl-generic-color: #8c8c8c;
+  --br-output-bg: #0f1b2d; --br-output-fg: #d6e2f0;
+}
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #1a2f55; --md-primary-fg-color--light: #2a4a80; --md-primary-fg-color--dark: #0f1e3a;
+  --md-accent-fg-color: #7aa7ff; --md-typeset-a-color: #8fb4ff;
+  --md-default-bg-color: #0e1726; --md-code-bg-color: #1e1f22; --md-code-fg-color: #bcbec4;
+  --md-code-hl-keyword-color: #cf8e6d; --md-code-hl-string-color: #6aab73; --md-code-hl-number-color: #2aacb8;
+  --md-code-hl-function-color: #56a8f5; --md-code-hl-name-color: #bcbec4; --md-code-hl-comment-color: #7a7e85;
+  --md-code-hl-constant-color: #c77dbb; --md-code-hl-special-color: #b3ae60; --md-code-hl-operator-color: #bcbec4;
+  --md-code-hl-punctuation-color: #bcbec4; --md-code-hl-variable-color: #c77dbb; --md-code-hl-generic-color: #7a7e85;
+  --br-output-bg: #05090f; --br-output-fg: #c9d4e3;
+}
+.md-typeset code, .md-typeset pre { font-size: 0.85em; line-height: 1.55; }
+.md-typeset pre > code { padding: 0.9em 1.1em; }
+.md-typeset .highlight + .br-output, .md-typeset .highlight + pre.br-output { margin-top: -0.6em; }
+.md-typeset pre.br-output { position: relative; border-radius: 0 0 0.3rem 0.3rem; background: var(--br-output-bg);
+  border-top: 2px solid var(--md-primary-fg-color--light); padding-top: 1.4em; }
+.md-typeset pre.br-output::before { content: "Output"; position: absolute; top: 0.25em; left: 1.1em;
+  font: 600 0.62rem/1 var(--md-text-font-family); letter-spacing: .08em; text-transform: uppercase; color: #8fa3bf; }
+.md-typeset pre.br-output > code { background: transparent; color: var(--br-output-fg); white-space: pre-wrap; }
+.md-typeset .highlight:has(+ pre.br-output) pre > code { border-radius: 0.3rem 0.3rem 0 0; }
+.md-typeset { font-size: 0.8rem; line-height: 1.7; }
+.md-typeset h1 { font-weight: 700; letter-spacing: -0.01em; color: var(--md-default-fg-color); margin-bottom: 0.8em; }
+.md-typeset h2 { font-weight: 650; margin-top: 2.2em; padding-top: 0.6em; border-top: 1px solid var(--md-default-fg-color--lightest); }
+.md-typeset h3 { font-weight: 600; margin-top: 1.6em; }
+.md-typeset video, .md-typeset figure video { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 0.3rem; }
+.md-typeset pre.br-output .md-clipboard { display: none; }
+/* Material leaves --md-primary-bg-color undefined for `primary: custom` in the slate scheme, so the tab labels
+   inherited a dark colour on the navy tab bar and were nearly invisible in dark mode. */
+[data-md-color-scheme="slate"] { --md-primary-bg-color: #ffffff; --md-primary-bg-color--light: rgba(255, 255, 255, 0.7); }
+.md-tabs { color: #ffffff; }
+.md-tabs__link { color: #ffffff; opacity: 0.75; }
+.md-tabs__link--active, .md-tabs__link:hover { opacity: 1; }

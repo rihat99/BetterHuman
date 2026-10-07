@@ -4,7 +4,7 @@ BetterHuman is a PyTorch library of **parametric human body models on a
 robotics core**. It unifies models that today live in incompatible,
 single-model codebases — SMPL, SMPL-H, SMPL-X, MANO, STAR, SUPR, MHR, Anny,
 and future ones — under one clean API, backed by
-[BetterRobot](../../BetterRobot) for kinematics, dynamics, and optimization.
+BetterRobot for kinematics, dynamics, and optimization.
 
 ## The problem
 

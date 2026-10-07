@@ -109,7 +109,7 @@ view = HumanView(identity.forward(identity.q_neutral))   # viewer layers, update
 
 Per-frame groups such as SMPL-X expression go to `forward`:
 `identity.forward(q, stream={"expression": torch.zeros(B, 10)})`.
-See `docs/architecture.md` for the design and `docs/contracts/bh-addendum.md` for shapes, units and gates.
+See `docs/concepts/architecture.md` for the design and `docs/contracts/bh-addendum.md` for shapes, units and gates.
 
 ## Supported families
 
