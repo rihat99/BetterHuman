@@ -142,8 +142,8 @@ joints and the expression group. Converting a pose that uses a dropped joint rai
 2. On every bake the shaped part meshes go through
    `better_robot.spatial.Inertia.from_mesh` (differentiable) with `density` in kg/m³
    (scalar or one value per part).
-3. The inertias are written into `identity.model`, so BR dynamics (`rnea`,
-   `inverse_dynamics`) use the subject's mass.
+3. The inertias are written into `identity.model`, so BR dynamics (`inverse_dynamics`,
+   `mass_matrix`) use the subject's mass.
 
 ## Package layout
 

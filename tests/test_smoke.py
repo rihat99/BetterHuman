@@ -36,12 +36,12 @@ def test_foundation_imports_from_editable_checkouts() -> None:
 
 def test_free_flyer_spherical_forward_kinematics_is_batched() -> None:
     model = _free_flyer_spherical_tree()
-    data = better_robot.forward_kinematics(model, model.q_neutral)
+    state = better_robot.forward_kinematics_state(model, model.q_neutral)
 
     assert model.nq == 99
     assert model.nv == 75
-    assert data.joint_pose_world.shape == (25, 7)
+    assert state.joint_pose.shape == (25, 7)
 
     q_batch = model.q_neutral.expand(4, -1).clone()
-    batch_data = better_robot.forward_kinematics(model, q_batch)
-    assert batch_data.joint_pose_world.shape == (4, 25, 7)
+    batch_state = better_robot.forward_kinematics_state(model, q_batch)
+    assert batch_state.joint_pose.shape == (4, 25, 7)
