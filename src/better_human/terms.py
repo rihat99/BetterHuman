@@ -80,7 +80,17 @@ def landmarks(*, target: str, name: str = "keypoints", state: str = "state") -> 
 
 
 def project(points: torch.Tensor, camera: torch.Tensor) -> torch.Tensor:
-    """Pinhole projection of ``points (..., M, 3)`` with ``camera (..., 3, 4)`` (``K [R | t]``). Returns ``(..., M, 2)``."""
+    """Pinhole projection of ``points (..., M, 3)`` with ``camera (..., 3, 4)`` (``K [R | t]``). Returns ``(..., M, 2)``.
+
+    The camera's batch axes align with the *leading* batch axes of ``points``: a per-sequence
+    ``camera (B, 3, 4)`` applies to ``points (B, T, M, 3)`` (it is not right-aligned broadcasting).
+    """
+    missing = (points.ndim - 2) - (camera.ndim - 2)
+    if missing < 0 or camera.shape[:-2] != points.shape[: camera.ndim - 2]:
+        raise ValueError(
+            f"camera batch {tuple(camera.shape[:-2])} must lead the points batch {tuple(points.shape[:-2])}"
+        )
+    camera = camera.reshape(*camera.shape[:-2], *([1] * missing), 3, 4)
     homogeneous = torch.cat((points, torch.ones_like(points[..., :1])), dim=-1)
     pixels = homogeneous @ camera.mT
     return pixels[..., :2] / pixels[..., 2:3]
@@ -173,8 +183,11 @@ def contact_wrenches(
     model: Model, kinematics: KinematicState, frame_ids: torch.Tensor, forces: torch.Tensor
 ) -> torch.Tensor:
     """``fext (..., njoints, 6)`` in joint frames from world ``forces (..., C, 3)`` applied at model frames ``frame_ids (C,)``."""
-    parents = torch.as_tensor([model.structure.frame_parent_joint_ids[int(f)] for f in frame_ids], device=forces.device)
+    parents = torch.as_tensor(
+        [model.structure.frame_parent_joint_ids[int(f)] for f in frame_ids], dtype=torch.long, device=forces.device
+    )
     joint = kinematics.joint_transform[..., parents, :, :]  # (..., C, 3, 4)
+    forces = forces.expand(*joint.shape[:-2], 3)
     lever = kinematics.frame_translation[..., frame_ids, :] - joint[..., 3]
     rotation = joint[..., :3]
     linear = (rotation.mT @ forces[..., None]).squeeze(-1)
@@ -198,6 +211,10 @@ def root_wrench(
     frame_ids = torch.as_tensor([model.frame_id(name) for name in contacts], dtype=torch.long)
 
     def residual(pose: torch.Tensor, force: torch.Tensor) -> torch.Tensor:
+        if pose.ndim != 3 or pose.shape[1] < 3:
+            raise ValueError(f"root_wrench needs q (B, T >= 3, nq); got {tuple(pose.shape)}")
+        if force.shape[:2] != pose.shape[:2] or force.shape[-2:] != (len(contacts), 3):
+            raise ValueError(f"forces must be (B, T, {len(contacts)}, 3) matching q; got {tuple(force.shape)}")
         velocity = model.difference(pose[:, :-1], pose[:, 1:]) / dt  # (B, T-1, nv) at half steps
         acceleration = (velocity[:, 1:] - velocity[:, :-1]) / dt  # (B, T-2, nv)
         mid_velocity = 0.5 * (velocity[:, 1:] + velocity[:, :-1])

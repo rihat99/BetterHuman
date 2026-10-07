@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from numbers import Real
 from pathlib import Path
@@ -265,25 +265,24 @@ class HumanState:
     @property
     def skin_affines(self) -> torch.Tensor:
         """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world."""
-        if "skin_affines" not in self._memo:
-            spec = self.spec
-            inverse_bind = spec.meta.get("inverse_bind_poses")
-            self._memo["skin_affines"] = skin_affines(
+        spec = self.spec
+        inverse_bind = spec.meta.get("inverse_bind_poses")
+        return self._memoised(
+            "skin_affines",
+            lambda: skin_affines(
                 self.joint_transforms,
                 rest_joints=None if inverse_bind is not None else self.rest_joints,
                 inverse_bind_poses=inverse_bind,
                 joint_scales=self.identity.joint_scales,
                 bind_joint_positions=spec.meta.get("bind_joint_positions"),
-            )
-        return self._memo["skin_affines"]
+            ),
+        )
 
     @property
     def corrective_feature(self) -> torch.Tensor | None:
         if self.spec.corrective.kind == "none":
             return None
-        if "feature" not in self._memo:
-            self._memo["feature"] = self.spec.rig.corrective_features(self.spec, self.model, self.q)
-        return self._memo["feature"]
+        return self._memoised("feature", lambda: self.spec.rig.corrective_features(self.spec, self.model, self.q))
 
     def rest_vertices(self, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
         """``(..., V, 3)`` (or the ``vertex_ids`` subset) before skinning: shape + streams + corrective."""
@@ -303,9 +302,16 @@ class HumanState:
 
     def vertices(self) -> torch.Tensor:
         """``(..., V, 3)`` posed mesh."""
-        if "vertices" not in self._memo:
-            self._memo["vertices"] = lbs_affines(self.rest_vertices(), self.skin_affines, self.body.skin_matrix)
-        return self._memo["vertices"]
+        return self._memoised(
+            "vertices", lambda: lbs_affines(self.rest_vertices(), self.skin_affines, self.body.skin_matrix)
+        )
+
+    def _memoised(self, key: str, compute: Callable[[], torch.Tensor]) -> torch.Tensor:
+        # A value computed under no_grad must not serve a grad-enabled caller: key by grad mode.
+        key = f"{key}/{torch.is_grad_enabled()}"
+        if key not in self._memo:
+            self._memo[key] = compute()
+        return self._memo[key]
 
     def points(self, vertex_ids: torch.Tensor) -> torch.Tensor:
         """``(..., M, 3)`` posed positions of ``vertex_ids (M,)``, skinning only those vertices."""

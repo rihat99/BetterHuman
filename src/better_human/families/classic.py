@@ -59,9 +59,11 @@ def _hand_axes(
     return (delta + meta["hand_mean"][side]).unflatten(-1, (15, 3))
 
 
-def _hand_pose(identity: Identity, side: str, axes: torch.Tensor, num_pca_comps: int | None) -> torch.Tensor:
+def _hand_pose(identity: Identity, side: str, axes: torch.Tensor, num_pca_comps: int | None) -> torch.Tensor | None:
     """Inverse of :func:`_hand_axes`; raises when ``axes`` leave the requested PCA subspace."""
     meta = identity.spec.meta
+    if side not in meta.get("hand_joints", {side}):  # hands dropped at load: the axes are zero, no pose
+        return None
     delta = axes.flatten(-2) - meta["hand_mean"][side]
     if num_pca_comps is None:
         return delta

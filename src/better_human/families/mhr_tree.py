@@ -17,7 +17,10 @@ from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
 from better_robot.lie import so3
 
+from better_human.core.rig import gravity
+
 from . import mhr_archive as archive
+from .mhr_config import MHR_CONFIG
 
 
 @dataclass(frozen=True)
@@ -73,7 +76,7 @@ def build_mhr_tree(  # noqa: PLR0912, PLR0915 - one audited archive-to-tree boun
         host = next((candidate for candidate in candidates if candidate[2] == 1.0), candidates[0])
         host_entries[column] = (host[0], host[2])
 
-    builder = ModelBuilder("mhr")
+    builder = ModelBuilder("mhr", gravity=gravity(MHR_CONFIG.up_axis))
     root_body = builder.add_body(joint_names[1], mass=0.0)
     root_joint_name = builder.add_free_flyer_root(
         "root",

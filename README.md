@@ -66,7 +66,7 @@ Point BetterHuman at the containing directory:
 export BETTERHUMAN_MODELS_DIR="$PWD/models"
 ```
 
-An explicit `model_path=` always takes precedence over the environment
+An explicit `path` argument (`bh.load("smpl", path)`) always takes precedence over the environment
 variable.
 
 Legacy Chumpy-backed SMPL pickles can be converted without installing Chumpy:
@@ -87,62 +87,59 @@ terms accompanying the exact release archive before redistributing its assets.
 Convert the author files with `tools/convert/mhr/convert_mhr.py`; the runtime
 does not import `pymomentum`.
 
-## Create and pose a body
+## Quick start
 
 ```python
 import torch
-
 import better_human as bh
+from better_human.viz import HumanView
 
-body = bh.SMPL(gender="neutral", num_betas=10, compute_mass=False)
-body = body.with_shape(betas=torch.tensor([0.5, 0.0, -0.2, 0.0, 0.0,
-                                           0.0, 0.0, 0.0, 0.0, 0.0]))
+body = bh.load("smpl", gender="neutral")         # one BetterRobot model per family
+identity = body.bake(betas=torch.zeros(1, 10))   # bake shape once (mass, joints, contact frames)
+q = identity.q_neutral.expand(4, -1).clone()     # (B, nq): free-flyer root + spherical joints
+q[:, 1] = 1.0                                    # root 1 m up (y-up, metres)
+state = identity.forward(q)                      # HumanState for 4 poses
+print(state.vertices().shape, state.joints.shape)  # (4, 6890, 3) (4, 24, 3)
 
-q = body.robot.q_neutral
-velocity = torch.zeros(body.robot.nv)
-velocity[body.robot.idx_vs[body.robot.joint_id("left_elbow")]] = 0.5
-q = body.robot.integrate(q, velocity)
-
-vertices = body.vertices(q)  # (6890, 3), with autograd support
+view = HumanView(identity.forward(identity.q_neutral))   # viewer layers, updated in place
+# from better_robot.viewer import Viewer
+# viewer = Viewer(); [viewer.add(layer, group="human") for layer in view]
+# view.update(state_for_next_frame); viewer.show()
 ```
 
-Set `compute_mass=True` (the default) when dynamics need shape-dependent body
-mass and inertia.
+Per-frame groups such as SMPL-X expression go to `forward`:
+`identity.forward(q, stream={"expression": torch.zeros(B, 10)})`.
+See `docs/architecture.md` for the design and `docs/contracts.md` for shapes, units and gates.
 
-## Supported models
+## Supported families
 
-| Model | Spawn controls | Surface |
-|---|---|---:|
-| SMPL | `gender`, `num_betas` | 6,890 vertices |
-| SMPL-X | `gender`, `num_betas`, `num_expression`, `use_hands`, `use_face`, `flat_hand_mean` | 10,475 vertices |
-| MHR | `lod=0..6` (default 1), `use_expression`, `use_correctives` | 73,639 / 18,439 / 10,661 / 4,899 / 2,461 / 971 / 595 vertices |
+| family | loader | identity groups | stream groups |
+|---|---|---|---|
+| SMPL | `bh.load("smpl")` | `betas` | |
+| SMPL-H | `bh.load("smplh")` | `betas` | |
+| SMPL-X | `bh.load("smplx", hands=, face=)` | `betas` | `expression` |
+| MANO | `bh.load("mano")` | `betas` | |
+| FLAME | `bh.load("flame")` (no asset tested here) | `betas` | `expression` |
+| MHR | `bh.load("mhr", lod=1)` | `identity`, `proportions` | `expression` |
 
-`use_hands=False` and `use_face=False` remove those SMPL-X articulation
-subtrees while preserving its full surface topology. All models also accept
-`dtype`, `device`, `density`, and `compute_mass`; MHR supports float32/float64
-and scalar or 19-part density.
+Options `mass`, `density`, `contact_frames` and `stream_joints` go to `Body`; the rest go to the loader.
 
 ## Run the examples
 
 ```bash
-uv run python examples/01_smpl_shape_pose.py
-uv run python examples/02_smplx_partial.py
-uv run python examples/03_ik_reach.py
-uv run python examples/04_mhr_shape_pose.py
+uv run python examples/01_smpl_shape_pose.py    # SMPL shape sliders and pose
+uv run python examples/02_smplx_partial.py      # full SMPL-X next to body-only SMPL-X
+uv run python examples/03_ik_reach.py           # drag a target, the left wrist follows (LM solve)
+uv run python examples/04_mhr_shape_pose.py     # MHR LOD1 identity sliders and arm swing
 ```
 
-The first demo exposes shape and joint sliders, the second compares full and
-body-only SMPL-X, the third drives an SMPL wrist target through BetterRobot
-IK, and the fourth shows MHR identity, proportions, hand scale, and named
-revolute pose controls. Every example has a deterministic no-server smoke path:
+Add `--check` to build the scene and exit (used in CI).
+
+## Benchmarks
 
 ```bash
-uv run python examples/01_smpl_shape_pose.py --headless --frames 1
+uv run python benchmarks/run.py --device cpu --threads 8 --batches 1 64 1024 8192 \
+  --out benchmarks/results/p4_bodies_cpu.json
 ```
 
-Start with [the vision](docs/vision.md), then see
-[architecture](docs/architecture.md), [tensor and convention contracts](docs/contracts.md),
-and [design principles](docs/design_principles.md). To inspect and author body
-data interactively, see [HumanStudio](docs/studio.md). Measured parity and
-performance baselines live in the contracts and architecture docs; the
-current implementation orders live in [`plan/`](plan/).
+Measured numbers are in `docs/contracts.md`.

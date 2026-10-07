@@ -26,15 +26,15 @@ solver — just a graphics-style forward function from parameters to vertices.
    BetterRobot kinematic tree: spherical joints for the SMPL family, and
    named revolute and mimic joints for MHR. FK, IK, Jacobians, dynamics, and
    trajectory optimization come from BetterRobot, batched and differentiable.
-   Every model provides
+   Every family provides
    `from_classic` / `to_classic` to translate its native convention
    losslessly, so existing datasets and codebases remain reachable.
 3. **Model/Data split, human edition.** Following Pinocchio and BetterRobot:
    static topology in the model structure, differentiable model tensors in
-   model values, per-query state in `Data`. Named shape groups live on the
+   model values, per-query state in `HumanState`. Named shape groups live on the
    model side — changing shape updates the model once; vertex queries then run
    FK, pose correctives, and skinning without recomputing shape. Joint angles
-   live in `Data`.
+   live in `q`, passed per query.
 4. **LEGO composability.** Partial models are constructor parameters, not
    separate classes (SMPL-X without expressions, without articulated
    fingers). Human-specific residuals plug into the BetterRobot optimizer.

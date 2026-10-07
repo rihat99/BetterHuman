@@ -22,14 +22,14 @@ win. Read this before writing or refactoring any code.
    dynamics, Lie math, solvers, viewers come from BetterRobot. The moment a
    would-be BetterHuman utility is model-agnostic robotics, it is a
    BetterRobot contribution instead.
-6. **One model, one file; shared math in shared modules.** A body model
-   subclass declares *what* it is (topology, parameter spaces, weight-file
+6. **One model, one file; shared math in shared modules.** A family loader
+   returns a `FamilySpec` that declares *what* it is (topology, parameter spaces, weight-file
    schema, classic-convention quirks); the *how* (LBS, blend shapes,
    correctives, regressors) lives once in common modules. Copy-pasted
    forward passes across model classes — the smplx-package disease — are
    forbidden.
-7. **Partial models are parameters, never subclasses.** `SMPLX(...,
-   use_hands=False)` style spawn options, implemented by one generic
+7. **Partial models are parameters, never subclasses.** `smplx(...,
+   hands=False)` style loader options, implemented by one generic
    reduction mechanism in the base machinery. No `SMPLXmini`-style class
    forks, ever.
 8. **Classic conventions are quarantined at the boundary.** Inside

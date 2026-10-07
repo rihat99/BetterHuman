@@ -59,3 +59,12 @@ def test_expression_width_is_validated() -> None:
         identity.forward(identity.q_neutral, {"expression": torch.zeros(11, dtype=F64)})
     with pytest.raises(ValueError):
         bh.families.smplx(MODEL_PATH, num_expression=1000)
+
+
+def test_body_without_hands_round_trips_classic() -> None:
+    identity = _body(hands=False).bake()
+    q, stream = smplx_from_classic(identity, SMPLXClassic(body_pose=0.3 * torch.ones(63, dtype=F64)))
+    classic = smplx_to_classic(identity, q, stream)
+    assert classic.left_hand_pose is None and classic.right_hand_pose is None
+    q_again, _ = smplx_from_classic(identity, classic)
+    torch.testing.assert_close(q_again, q)

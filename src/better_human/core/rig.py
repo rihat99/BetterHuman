@@ -64,6 +64,13 @@ class Rig(Protocol):
     def to(self, dtype: torch.dtype, device: torch.device) -> Rig: ...
 
 
+def gravity(up_axis: str, magnitude: float = 9.81) -> tuple[float, float, float]:
+    """World gravity ``(3,)`` pointing against ``up_axis`` (``"+y"``, ``"-z"``, ...)."""
+    sign, axis = up_axis[0], "xyz".index(up_axis[1])
+    value = -magnitude if sign == "+" else magnitude
+    return tuple(value if i == axis else 0.0 for i in range(3))
+
+
 @dataclass(frozen=True)
 class RegressedRig:
     """SMPL-family rig: ``J = joint_regressor @ v_shaped``, root free-flyer + one spherical joint per joint.
@@ -77,7 +84,7 @@ class RegressedRig:
     def build_model(
         self, spec: FamilySpec, *, frames: Sequence[FrameSpec], dtype: torch.dtype, device: torch.device
     ) -> Model:
-        builder = ModelBuilder(spec.name)
+        builder = ModelBuilder(spec.name, gravity=gravity(spec.up_axis))
         for name in spec.joint_names:
             builder.add_body(name)
         builder.add_free_flyer_root(spec.joint_names[0], child=spec.joint_names[0])
@@ -127,4 +134,4 @@ def _identity_quaternions(positions: torch.Tensor) -> torch.Tensor:
     return quaternions
 
 
-__all__ = ["FrameSpec", "RegressedRig", "Rig", "RigBake"]
+__all__ = ["FrameSpec", "RegressedRig", "Rig", "RigBake", "gravity"]
