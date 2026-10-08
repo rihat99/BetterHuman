@@ -237,7 +237,8 @@ class HumanState:
     rest_joints: torch.Tensor  #: ``(..., J, 3)`` rest joints after the stream joint shift.
     pelvis: torch.Tensor  #: ``(..., 3)``
     rest_offset: torch.Tensor | None  #: ``(..., V, 3)`` stream vertex offsets, if any.
-    _memo: dict[str, torch.Tensor] = field(default_factory=dict, repr=False, compare=False)
+    # init=False: dataclasses.replace (e.g. a new identity) starts a fresh memo instead of sharing the old one.
+    _memo: dict[str, torch.Tensor] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     @property
     def body(self) -> Body:
@@ -282,7 +283,9 @@ class HumanState:
     def corrective_feature(self) -> torch.Tensor | None:
         if self.spec.corrective.kind == "none":
             return None
-        return self._memoised("feature", lambda: self.spec.rig.corrective_features(self.spec, self.model, self.q))
+        return self._memoised(
+            "feature", lambda: self.spec.rig.corrective_features(self.spec, self.model, self.q, identity=self.identity.params)
+        )
 
     def rest_vertices(self, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
         """``(..., V, 3)`` (or the ``vertex_ids`` subset) before skinning: shape + streams + corrective."""
@@ -300,6 +303,7 @@ class HumanState:
         )
         return vertices if corrective is None else vertices + corrective
 
+    @property
     def vertices(self) -> torch.Tensor:
         """``(..., V, 3)`` posed mesh."""
         return self._memoised(
@@ -322,6 +326,7 @@ class HumanState:
         """``(..., L, 3)`` posed landmark set ``name`` of the family."""
         return self.points(self.spec.landmarks[name])
 
+    @property
     def frame_poses(self) -> torch.Tensor:
         """``(..., nframes, 7)`` world poses of the model frames (contact frames included)."""
         return self.kinematics.frame_pose

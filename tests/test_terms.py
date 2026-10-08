@@ -75,5 +75,5 @@ def test_state_memo_does_not_leak_no_grad_results(identity: bh.Identity) -> None
     q = identity.q_neutral.clone().requires_grad_(True)
     state = identity.forward(q)
     with torch.no_grad():
-        assert not state.vertices().requires_grad
-    assert state.vertices().requires_grad
+        assert not state.vertices.requires_grad
+    assert state.vertices.requires_grad

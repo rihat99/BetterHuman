@@ -18,6 +18,7 @@ from better_robot.io import build_model
 from .pipeline import pose_feature_rotmat_minus_identity, regress_joints
 
 if TYPE_CHECKING:
+    from .body import Tensors
     from .spec import FamilySpec
 
 #: An operational frame to attach at build time: ``(name, parent joint name, placement (7,))``.
@@ -58,8 +59,14 @@ class Rig(Protocol):
     def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         """``(J,)`` BR joint ids in native skin-joint order."""
 
-    def corrective_features(self, spec: FamilySpec, model: Model, q: torch.Tensor) -> torch.Tensor:
-        """``(..., P)`` features the corrective reads, from ``q (..., nq)``."""
+    def corrective_features(
+        self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None
+    ) -> torch.Tensor:
+        """``(..., P)`` features the corrective reads, from ``q (..., nq)``.
+
+        ``identity`` holds the identity group values ``(I..., n)`` :meth:`Body.bake` used (``None`` when the
+        caller has none), so a rig whose corrective depends on shape (STAR, SUPR) can read them.
+        """
 
     def to(self, dtype: torch.dtype, device: torch.device) -> Rig: ...
 
@@ -120,7 +127,9 @@ class RegressedRig:
     def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return torch.arange(1, spec.num_joints + 1, device=model.joint_placements.device)
 
-    def corrective_features(self, spec: FamilySpec, model: Model, q: torch.Tensor) -> torch.Tensor:
+    def corrective_features(
+        self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None
+    ) -> torch.Tensor:
         quaternions = q[..., 7:].unflatten(-1, (spec.num_joints - 1, 4))
         return pose_feature_rotmat_minus_identity(quaternions)
 

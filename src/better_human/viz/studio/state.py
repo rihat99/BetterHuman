@@ -132,7 +132,7 @@ class StudioSession:
     def _recompute(self) -> None:
         """Refresh the posed state, vertices ``(V, 3)`` and native world joint poses ``(J, 7)``."""
         self.state: HumanState = self.identity.forward(self.q)
-        self.vertices = self.state.vertices()
+        self.vertices = self.state.vertices
         self.joint_poses = self.state.joint_poses
 
     # -- pose ----------------------------------------------------------------

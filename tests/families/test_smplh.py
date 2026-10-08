@@ -47,7 +47,7 @@ def test_posed_hand_moves_finger_vertices(body: bh.Body) -> None:
     neutral = identity.forward(*smplh_from_classic(identity, SMPLHClassic()))
     q, stream = smplh_from_classic(identity, SMPLHClassic(left_hand_pose=torch.full((45,), 0.5, dtype=torch.float64)))
     posed = identity.forward(q, stream)
-    displacement = (posed.vertices() - neutral.vertices()).norm(dim=-1)
+    displacement = (posed.vertices - neutral.vertices).norm(dim=-1)
     assert displacement.max() > 1e-2
     assert (displacement > 1e-3).sum() < body.num_vertices // 4
     torch.testing.assert_close(posed.joints[:22], neutral.joints[:22], atol=1e-12, rtol=0)

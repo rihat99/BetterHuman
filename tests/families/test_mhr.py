@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
 
 from better_human import Body, families
+from better_human.families import mhr_rig
 from better_human.families.mhr import MHRClassic, mhr_from_classic, mhr_to_classic
 
 ROOT = Path(__file__).parents[2]
@@ -80,13 +82,13 @@ def test_expression_toggle() -> None:
 
     reference, q_reference, zero_stream = mhr_from_classic(with_expression, classic)
     torch.testing.assert_close(zero_stream["expression"], torch.zeros(72))
-    neutral_face = reference.forward(q_reference, zero_stream).vertices()
-    torch.testing.assert_close(identity.forward(q).vertices(), neutral_face, rtol=0, atol=1e-6)
+    neutral_face = reference.forward(q_reference, zero_stream).vertices
+    torch.testing.assert_close(identity.forward(q).vertices, neutral_face, rtol=0, atol=1e-6)
     expression = 0.5 * torch.randn(72, generator=torch.Generator().manual_seed(1))
     reference, q_reference, stream = mhr_from_classic(
         with_expression, MHRClassic(classic.identity_coeffs, classic.model_parameters, expression)
     )
-    assert (reference.forward(q_reference, stream).vertices() - neutral_face).abs().amax() > 1e-4
+    assert (reference.forward(q_reference, stream).vertices - neutral_face).abs().amax() > 1e-4
 
 
 def test_correctives_toggle() -> None:
@@ -98,7 +100,7 @@ def test_correctives_toggle() -> None:
         body = Body(families.mhr(path, lod=6, correctives=correctives))
         for name, value in (("posed", classic), ("rest", zero_pose)):
             identity, q, stream = mhr_from_classic(body, value)
-            vertices[name, correctives] = identity.forward(q, stream).vertices()
+            vertices[name, correctives] = identity.forward(q, stream).vertices
     assert (vertices["posed", True] - vertices["posed", False]).abs().amax() > 1e-4
     torch.testing.assert_close(vertices["rest", True], vertices["rest", False], rtol=0, atol=1e-6)
 
@@ -117,7 +119,7 @@ def test_classic_round_trip(body: Body) -> None:
     identity_back, q_back, stream_back = mhr_from_classic(body, restored)
     torch.testing.assert_close(q_back, q, rtol=0, atol=1e-6)
     restored_state = identity_back.forward(q_back, stream_back)
-    torch.testing.assert_close(restored_state.vertices(), state.vertices(), rtol=0, atol=1e-6)
+    torch.testing.assert_close(restored_state.vertices, state.vertices, rtol=0, atol=1e-6)
     torch.testing.assert_close(restored_state.joint_poses[..., :3], state.joint_poses[..., :3], rtol=0, atol=1e-6)
 
 
@@ -127,22 +129,22 @@ def test_identity_batch_broadcasts_against_pose_batch(body: Body) -> None:
     poses = _random_classic(generator, (3,))
     identity, _, _ = mhr_from_classic(body, identities)
     _, q, _ = mhr_from_classic(body, MHRClassic(torch.zeros(45), poses.model_parameters))
-    vertices = identity.forward(q).vertices()
+    vertices = identity.forward(q).vertices
     assert vertices.shape == (2, 3, body.spec.num_vertices, 3)
-    torch.testing.assert_close(vertices, identity.forward(q, {"expression": torch.zeros(72)}).vertices())
+    torch.testing.assert_close(vertices, identity.forward(q, {"expression": torch.zeros(72)}).vertices)
     for i in range(2):
         single, _, _ = mhr_from_classic(
             body, MHRClassic(identities.identity_coeffs[i, 0], identities.model_parameters[i, 0])
         )
         for j in range(3):
-            torch.testing.assert_close(vertices[i, j], single.forward(q[j]).vertices(), rtol=0, atol=1e-6)
+            torch.testing.assert_close(vertices[i, j], single.forward(q[j]).vertices, rtol=0, atol=1e-6)
 
 
 def test_points_match_vertex_rows(body: Body) -> None:
     identity, q, stream = mhr_from_classic(body, _random_classic(torch.Generator().manual_seed(5), (2,)))
     state = identity.forward(q, stream)
     ids = torch.tensor([0, 17, 4096, body.spec.num_vertices - 1])
-    torch.testing.assert_close(state.points(ids), state.vertices()[..., ids, :], rtol=0, atol=0)
+    torch.testing.assert_close(state.points(ids), state.vertices[..., ids, :], rtol=0, atol=0)
 
 
 def test_mass_lives_on_part_bodies_only(body: Body) -> None:
@@ -178,3 +180,20 @@ def test_spec_and_classic_validation() -> None:
     identity, q, stream = mhr_from_classic(body, MHRClassic(torch.zeros(45), torch.zeros(204)))
     with pytest.raises(ValueError, match="132"):
         mhr_to_classic(identity, q[:-1], stream)
+
+
+def test_build_model_reuses_cached_tree_for_bare_cuda(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``device="cuda"`` means the current CUDA device, so a tree already there is reused, not rebuilt."""
+    def rebuild(*args: object) -> None:
+        raise AssertionError("build_mhr_tree called on a cache hit")
+
+    monkeypatch.setattr(torch.cuda, "current_device", lambda: 1)
+    monkeypatch.setattr(mhr_rig, "build_mhr_tree", rebuild)
+    cached = SimpleNamespace(joint_placements=SimpleNamespace(dtype=torch.float32, device=torch.device("cuda", 1)))
+    rig = mhr_rig.AuthoredRig(arrays={}, tree=SimpleNamespace(robot=cached))
+    assert rig.build_model(None, frames=(), dtype=torch.float32, device=torch.device("cuda")) is cached
+    assert rig.build_model(None, frames=(), dtype=torch.float32, device="cuda:1") is cached
+    with pytest.raises(AssertionError, match="cache hit"):
+        rig.build_model(None, frames=(), dtype=torch.float32, device="cuda:0")
+    assert not mhr_rig._same_device(torch.device("cpu"), torch.device("cuda"))
+    assert mhr_rig._same_device(torch.device("cpu"), torch.device("cpu"))

@@ -17,7 +17,17 @@ from better_human.core.rig import FrameSpec, RigBake
 from .mhr_tree import _TreeBinding, accumulated_scales, build_mhr_tree
 
 if TYPE_CHECKING:
+    from better_human.core.body import Tensors
     from better_human.core.spec import FamilySpec
+
+
+def _same_device(actual: torch.device, requested: torch.device) -> bool:
+    """Whether a tensor on ``actual`` already lives on ``requested``; ``cuda`` without an index means the current one."""
+    if actual.type != requested.type:
+        return False
+    if requested.index is None and requested.type == "cuda":
+        return actual.index == torch.cuda.current_device()
+    return requested.index is None or actual.index == requested.index
 
 
 @dataclass(frozen=True)
@@ -33,7 +43,7 @@ class AuthoredRig:
         if frames:
             raise ValueError("MHR does not support contact frames")
         robot = self.tree.robot
-        if robot.joint_placements.dtype != dtype or robot.joint_placements.device != torch.device(device):
+        if robot.joint_placements.dtype != dtype or not _same_device(robot.joint_placements.device, torch.device(device)):
             robot = build_mhr_tree(self.arrays, dtype, torch.device(device)).robot
         return robot
 
@@ -86,7 +96,9 @@ class AuthoredRig:
     def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return self.tree.native_pose_joint_indices
 
-    def corrective_features(self, spec: FamilySpec, model: Model, q: torch.Tensor) -> torch.Tensor:
+    def corrective_features(
+        self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None
+    ) -> torch.Tensor:
         entries = model.expand_configuration(q).index_select(-1, self.tree.corrective_full_q_indices)
         euler = entries @ self.tree.corrective_euler_transform.mT
         return pose_feature_6d_from_euler(euler.unflatten(-1, (125, 3)))

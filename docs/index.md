@@ -30,7 +30,7 @@ v = torch.zeros(4, model.nv)                    # a batch of 4 tangent offsets
 elbow = model.idx_vs[model.joint_name_to_id["left_elbow"]]
 v[:, elbow + 1] = torch.linspace(0.0, 1.5, 4)   # flex the left elbow
 state = subject.forward(model.integrate(subject.q_neutral, v))
-print("vertices", tuple(state.vertices().shape), "joints", tuple(state.joints.shape))
+print("vertices", tuple(state.vertices.shape), "joints", tuple(state.joints.shape))
 ```
 ```output
 nq=99 nv=75 joints=24 vertices=6890

@@ -41,7 +41,7 @@ def test_layers_have_one_frame_per_pose(clip) -> None:
 def test_skinned_layer_matches_exact_vertices_without_correctives(clip) -> None:
     identity, state = clip
     skinned = human_layers(state, mesh="skinned", skeleton=False)[0]
-    exact = state.vertices()[3].numpy()
+    exact = state.vertices[3].numpy()
     corrective = identity.spec.corrective.apply(state.corrective_feature)[3].abs().max().item()
     assert np.abs(skinned.skin(3) - exact).max() < corrective + 1e-3
 
@@ -54,7 +54,7 @@ def test_human_view_updates_in_place(clip) -> None:
     before = mesh.vertices.copy()
     moved = identity.forward(state.q[-1])
     view.update(moved)
-    np.testing.assert_allclose(mesh.vertices[0], moved.vertices().numpy(), atol=1e-6)
+    np.testing.assert_allclose(mesh.vertices[0], moved.vertices.numpy(), atol=1e-6)
     assert np.abs(mesh.vertices - before).max() > 0.05
     np.testing.assert_allclose(skeleton.joints[0], moved.joints.numpy(), atol=1e-6)
     assert frames.poses.shape == (1, identity.model.nframes, 7)

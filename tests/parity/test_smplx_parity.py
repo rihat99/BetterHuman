@@ -99,7 +99,7 @@ def _evaluate(
         ),
     )
     state = identity.forward(q, stream)
-    return state.vertices(), state.joints, golden
+    return state.vertices, state.joints, golden
 
 
 @pytest.mark.parametrize("golden_path", PARITY_CASES, ids=lambda path: "missing" if path is None else path.stem)

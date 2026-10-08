@@ -12,7 +12,7 @@ and design principles in [`bh-addendum.md`](bh-addendum.md).
 | BR page | rule IDs | how it applies in BetterHuman |
 |---|---|---|
 | `BetterRobot/docs/contracts/02-tensors.md` | `C-TENS-*` | trailing event axes, arbitrary leading batch axes; preserve dtype and device; no silent cast, move or squeeze; no host sync in hot paths |
-| `BetterRobot/docs/contracts/03-state-mutability.md` | `C-STATE-*` | public ops never mutate inputs; `HumanState` is created per query and never mutated (it only memoises `vertices()`) |
+| `BetterRobot/docs/contracts/03-state-mutability.md` | `C-STATE-*` | public ops never mutate inputs; `HumanState` is created per query and never mutated (it only memoises its outputs) |
 | `BetterRobot/docs/contracts/07-dependencies-layering.md` | `C-DEP-*` | imports point down the package DAG; optional dependencies stay lazy; BH uses only BR's public surface |
 | BR numerical contracts (pose `[t, qxyz, qw]`, twist `[linear, angular]`, `nq != nv`, `Model.integrate`) | `C-*` | `q` is a BR configuration; move on the manifold with `identity.model.integrate` |
 | BR naming, style, testing and packaging pages | `C-*` | same conventions; BH-specific deviations are listed as `H-*` rules |

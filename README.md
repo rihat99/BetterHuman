@@ -99,7 +99,7 @@ identity = body.bake(betas=torch.zeros(1, 10))   # bake shape once (mass, joints
 q = identity.q_neutral.expand(4, -1).clone()     # (B, nq): free-flyer root + spherical joints
 q[:, 1] = 1.0                                    # root 1 m up (y-up, metres)
 state = identity.forward(q)                      # HumanState for 4 poses
-print(state.vertices().shape, state.joints.shape)  # (4, 6890, 3) (4, 24, 3)
+print(state.vertices.shape, state.joints.shape)  # (4, 6890, 3) (4, 24, 3)
 
 view = HumanView(identity.forward(identity.q_neutral))   # viewer layers, updated in place
 # from better_robot.viewer import Viewer

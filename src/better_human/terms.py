@@ -146,7 +146,7 @@ def ground(
     normal = normal / normal.norm()
 
     def residual(human: HumanState) -> torch.Tensor:
-        positions = human.vertices() if ids is None else human.points(ids)
+        positions = human.vertices if ids is None else human.points(ids)
         clearance = positions @ normal.to(positions) - height
         return clearance.clamp_max(0.0) if hinge else clearance
 

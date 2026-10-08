@@ -62,7 +62,7 @@ def test_expression_stream_moves_vertices_and_joints(flame_path: Path) -> None:
     torch.testing.assert_close(q[3:], identity.q_neutral[3:], atol=0, rtol=0)
     neutral = identity.forward(q)
     expressive = identity.forward(q, stream)
-    assert (expressive.vertices() - neutral.vertices()).abs().max() > 1e-4
+    assert (expressive.vertices - neutral.vertices).abs().max() > 1e-4
     assert (expressive.joints - neutral.joints).abs().max() > 1e-6
 
 

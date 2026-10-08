@@ -69,16 +69,18 @@ def test_corrective_slice_is_exact_when_dropped_joint_is_at_rest() -> None:
         [[0.1, 0.2, -0.1, 0.9], [-0.2, 0.1, 0.15, 0.95], [0.0, 0.0, 0.0, 1.0]],
         dtype=torch.float32,
     )
-    full_feature = pose_feature_rotmat_minus_identity(quaternions)
-    reduced_feature = pose_feature_rotmat_minus_identity(quaternions[:2])
-    full_matrix = posedirs.reshape(-1, posedirs.shape[-1]).T
-    reduced_matrix = reduced_posedirs.reshape(-1, reduced_posedirs.shape[-1]).T
-    torch.testing.assert_close(
-        linear_corrective(full_feature, full_matrix),
-        linear_corrective(reduced_feature, reduced_matrix),
-        rtol=0,
-        atol=0,
-    )
+    # The matmul sums the dropped zero rows in another order: equal to one ulp in either dtype, not bitwise.
+    for dtype, rtol, atol in ((torch.float32, 1e-6, 1e-7), (torch.float64, 1e-15, 0.0)):
+        full_feature = pose_feature_rotmat_minus_identity(quaternions.to(dtype))
+        reduced_feature = pose_feature_rotmat_minus_identity(quaternions[:2].to(dtype))
+        full_matrix = posedirs.to(dtype).reshape(-1, posedirs.shape[-1]).T
+        reduced_matrix = reduced_posedirs.to(dtype).reshape(-1, reduced_posedirs.shape[-1]).T
+        torch.testing.assert_close(
+            linear_corrective(full_feature, full_matrix),
+            linear_corrective(reduced_feature, reduced_matrix),
+            rtol=rtol,
+            atol=atol,
+        )
 
 
 def test_parameter_basis_selects_named_ranges_in_requested_order() -> None:

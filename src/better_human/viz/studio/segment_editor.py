@@ -87,7 +87,7 @@ class SegmentEditor:
 
     def paint(self, center: np.ndarray) -> None:
         """Assign every vertex within the brush radius of ``center (3,)`` to the active part."""
-        ids = vertices_in_sphere(self.session.vertices.detach().numpy(), center, float(self.brush.value))
+        ids = vertices_in_sphere(self.session.vertices.detach().cpu().numpy(), center, float(self.brush.value))
         self.assign(ids)
 
     def assign(self, vertex_ids: np.ndarray) -> None:
@@ -96,7 +96,7 @@ class SegmentEditor:
         part_ids = self.session.part_ids.clone()
         part_ids[torch.as_tensor(np.asarray(vertex_ids), dtype=torch.long)] = label
         self.session.set_segmentation(self.session.part_names, part_ids)
-        self.studio.layers.set_edit_vertices(np.flatnonzero(part_ids.numpy() == label) if label >= 0 else [])
+        self.studio.layers.set_edit_vertices(np.flatnonzero(part_ids.cpu().numpy() == label) if label >= 0 else [])
 
     def _as_parts(self) -> dict[str, list[int]]:
         ids = self.session.part_ids

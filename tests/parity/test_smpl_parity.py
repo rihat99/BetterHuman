@@ -57,7 +57,7 @@ def _evaluate(body: bh.Body, golden_path: Path) -> tuple[torch.Tensor, torch.Ten
         ),
     )
     state = identity.forward(q, stream)
-    return state.vertices(), state.joints, golden
+    return state.vertices, state.joints, golden
 
 
 @pytest.mark.parametrize("golden_path", GOLDEN_FILES, ids=lambda path: path.stem)

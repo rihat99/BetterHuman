@@ -35,7 +35,7 @@ def _frames(value: torch.Tensor, event_ndim: int) -> np.ndarray:
 
 def mesh_layer(state: HumanState, *, name: str = "mesh", color: RGB = _SKIN, opacity: float = 1.0) -> MeshLayer:
     """Exact posed mesh per frame (correctives included): ``(T, V, 3)`` vertices written each frame."""
-    return MeshLayer(name, _frames(state.vertices(), 2), state.body.faces.cpu().numpy(), color=color, opacity=opacity)
+    return MeshLayer(name, _frames(state.vertices, 2), state.body.faces.cpu().numpy(), color=color, opacity=opacity)
 
 
 def skinned_layer(
@@ -76,7 +76,7 @@ def skeleton_layer(
 
 def frames_layer(state: HumanState, *, name: str = "frames", axes_length: float = 0.05) -> FramesLayer:
     """Every model frame (contact frames included) as axes."""
-    return FramesLayer(name, _frames(state.frame_poses(), 2), axes_length=axes_length)
+    return FramesLayer(name, _frames(state.frame_poses, 2), axes_length=axes_length)
 
 
 def forces_layer(
@@ -157,13 +157,13 @@ class HumanView:
     def update(self, state: HumanState) -> None:
         for layer in self.layers:
             if isinstance(layer, MeshLayer):
-                layer.vertices[...] = _frames(state.vertices(), 2)
+                layer.vertices[...] = _frames(state.vertices, 2)
             elif isinstance(layer, SkinnedMeshLayer):
                 layer.bone_poses[...] = _frames(state.joint_poses, 2)
             elif isinstance(layer, SkeletonLayer):
                 layer.joints[...] = _frames(state.joints, 2)
             elif isinstance(layer, FramesLayer):
-                layer.poses[...] = _frames(state.frame_poses(), 2)
+                layer.poses[...] = _frames(state.frame_poses, 2)
 
 
 def _as_clip(value: torch.Tensor) -> torch.Tensor:

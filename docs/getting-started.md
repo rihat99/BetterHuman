@@ -48,14 +48,14 @@ v = torch.zeros(4, model.nv)
 elbow = model.idx_vs[model.joint_name_to_id["left_elbow"]]
 v[:, elbow + 1] = torch.linspace(0.0, 1.5, 4)
 state = subject.forward(model.integrate(subject.q_neutral, v))
-print(type(state.kinematics).__name__, tuple(state.joints.shape), tuple(state.vertices().shape))
+print(type(state.kinematics).__name__, tuple(state.joints.shape), tuple(state.vertices.shape))
 ```
 ```output
 KinematicState (4, 24, 3) (4, 6890, 3)
 ```
 
 `state.kinematics` is the BetterRobot `KinematicState`, so frame Jacobians and dynamics work on
-it unchanged. `vertices()` skins the mesh on first call and memoises the result.
+it unchanged. `vertices` (a property) skins the mesh on first access and memoises the result.
 
 ## View the clip
 

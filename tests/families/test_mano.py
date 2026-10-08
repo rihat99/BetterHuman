@@ -49,4 +49,4 @@ def test_flat_hand_mean() -> None:
     hand_mean = mean_body.spec.meta["hand_mean"]["right"]
     full = mano_to_classic(mean_identity, mean_q)
     torch.testing.assert_close(full.hand_pose, torch.zeros_like(hand_mean), atol=1e-10, rtol=0)
-    assert not torch.allclose(mean_identity.forward(mean_q).vertices(), flat_identity.forward(flat_q).vertices())
+    assert not torch.allclose(mean_identity.forward(mean_q).vertices, flat_identity.forward(flat_q).vertices)

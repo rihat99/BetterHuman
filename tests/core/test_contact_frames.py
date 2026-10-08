@@ -28,7 +28,7 @@ def body() -> bh.Body:
 def _frame_poses(identity: bh.Identity) -> torch.Tensor:
     """World poses ``(..., 12, 7)`` of the body's contact frames at the identity's neutral pose."""
     frame_ids = torch.tensor(identity.body.contact_frames.frame_ids, dtype=torch.long)
-    return identity.forward(identity.q_neutral).frame_poses().index_select(-2, frame_ids)
+    return identity.forward(identity.q_neutral).frame_poses.index_select(-2, frame_ids)
 
 
 def test_frames_are_appended_in_authored_order(body: bh.Body) -> None:
@@ -116,3 +116,19 @@ def test_parse_frame_set_reads_the_authored_file() -> None:
     entries = parse_frame_set(CONTACTS_PATH, num_vertices=10475)
     assert entries["knee_left"] == (3673, "left_knee")
     assert entries["heel_right"] == (8712, None)
+
+
+def test_rig_corrective_features_receives_the_baked_identity(body: bh.Body, monkeypatch: pytest.MonkeyPatch) -> None:
+    rig_type = type(body.spec.rig)
+    original = rig_type.corrective_features
+    seen = []
+
+    def spy(self, spec, model, q, *, identity=None):  # noqa: ANN001, ANN202
+        seen.append(identity)
+        return original(self, spec, model, q, identity=identity)
+
+    monkeypatch.setattr(rig_type, "corrective_features", spy)
+    identity = body.bake()
+    state = identity.forward(identity.q_neutral)
+    assert state.vertices.shape[-2:] == (body.spec.num_vertices, 3)
+    assert len(seen) == 1 and seen[0] is identity.params

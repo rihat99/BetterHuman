@@ -161,7 +161,7 @@ class PartsLayer(Layer):
         joints = session.vertex_native_joints.cpu().numpy()
         colors = part_colors(len(session.part_names))
         self._handles_by_part = []
-        for part, used, vertices, faces in self.part_meshes(rest.vertices().detach().cpu()):
+        for part, used, vertices, faces in self.part_meshes(rest.vertices.detach().cpu()):
             joint = int(np.bincount(joints[used]).argmax())
             local = (vertices - rest_poses[joint, :3]) @ _quat_matrix(rest_poses[joint, 3:])
             handle = scene.add_mesh_simple(

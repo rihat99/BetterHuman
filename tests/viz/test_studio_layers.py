@@ -60,7 +60,7 @@ def test_parts_are_closed_meshes(smpl: bh.Body) -> None:
     session, layers, server = _setup(smpl)
     layers.set_mode("parts")
     assert layers.mesh.parts.closed
-    rest = session.identity.forward(session.identity.q_neutral).vertices()
+    rest = session.identity.forward(session.identity.q_neutral).vertices
     meshes = layers.mesh.parts.part_meshes(rest)
     assert len(meshes) == len(_part_nodes(server, "mesh")) == len(session.part_names)
     for _, _, vertices, faces in meshes:

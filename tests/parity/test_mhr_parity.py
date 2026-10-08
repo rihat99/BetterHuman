@@ -175,7 +175,7 @@ def test_mhr_parity_grid(
 
                 baked, q, stream = mhr_from_classic(body, MHRClassic(identity, model_parameters, expression))
                 state = baked.forward(q, stream)
-                actual_vertices = state.vertices()
+                actual_vertices = state.vertices
                 actual_poses = state.joint_poses
                 actual_scales = baked.joint_scales
 

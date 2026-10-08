@@ -47,17 +47,17 @@ def test_bake_broadcasts_leading_dims_and_pose_batches(body: bh.Body) -> None:
     q = identity.q_neutral.expand(2, 1, -1).clone()
     q[0, 0, 7:10] = 0.3
     state = identity.forward(q)
-    assert state.vertices().shape == (2, 3, body.num_vertices, 3)
-    torch.testing.assert_close(state.vertices()[0, 1], single.forward(q[0, 0]).vertices(), atol=1e-10, rtol=0)
+    assert state.vertices.shape == (2, 3, body.num_vertices, 3)
+    torch.testing.assert_close(state.vertices[0, 1], single.forward(q[0, 0]).vertices, atol=1e-10, rtol=0)
 
 
 def test_points_and_landmarks_gather_vertices(body: bh.Body) -> None:
     identity = body.bake(betas=torch.full((10,), 0.2, dtype=torch.float64))
     state = identity.forward(identity.q_neutral)
     ids = torch.tensor([0, 411, 3500, 6889])
-    torch.testing.assert_close(state.points(ids), state.vertices()[..., ids, :], atol=1e-6, rtol=0)
+    torch.testing.assert_close(state.points(ids), state.vertices[..., ids, :], atol=1e-6, rtol=0)
     keypoints = torch.as_tensor(body.spec.landmarks["keypoints"], dtype=torch.long)
-    torch.testing.assert_close(state.landmarks(), state.vertices()[..., keypoints, :], atol=1e-6, rtol=0)
+    torch.testing.assert_close(state.landmarks(), state.vertices[..., keypoints, :], atol=1e-6, rtol=0)
 
 
 def test_inertias_are_finite_with_plausible_total_mass(body: bh.Body) -> None:

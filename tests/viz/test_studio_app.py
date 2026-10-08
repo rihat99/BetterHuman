@@ -216,6 +216,16 @@ def test_model_switch_rebuilds_body_widgets(studio) -> None:
         assert key in studio.status
 
 
+def test_model_switch_clears_active_frame(studio) -> None:
+    studio.frames.set_adding(True)
+    point = studio.session.vertices[100].detach().numpy()
+    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
+    assert studio.frames.active in studio.session.frame_set
+    studio.load_model("smpl", gender="female")
+    assert studio.session.model_key == "smpl_female"
+    assert studio.frames.active is None
+
+
 def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
     """Regression: viser's tab-group remove() raised when the Model tab rebuilt the tabs."""
     viser = pytest.importorskip("viser")

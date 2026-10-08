@@ -68,7 +68,7 @@ class FramesEditor:
 
     def add_at(self, point: np.ndarray) -> str:
         """Add a frame on the vertex nearest ``point (3,)``; returns its generated name."""
-        vertices = self.session.vertices.detach().numpy()
+        vertices = self.session.vertices.detach().cpu().numpy()
         vertex = int(np.argmin(((vertices - point) ** 2).sum(-1)))
         index = len(self.session.frame_set)
         while f"frame_{index}" in self.session.frame_set:

@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 from better_robot.viewer import LIGHT, Viewer
-from better_robot.viewer.tools import CameraFrustum, ray_hit, vertices_in_rect
+from better_robot.viewer.tools import CameraFrustum, nearest_on_ray, ray_hit, vertices_in_rect
 
 import better_human as bh
 from better_human.families.assets import load_density_table
@@ -66,7 +66,7 @@ class HumanStudio:
         self.frames = FramesEditor(self)
         self.session.subscribe(self._on_change)
         self._build_sidebar()
-        self.viewer.server.scene.on_pointer_event(event_type="click")(self._locked(self.on_click))
+        self.viewer.on_pointer("click", self._locked(self.on_click))
         self.viewer.show()
         self.set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
 
@@ -186,6 +186,7 @@ class HumanStudio:
         self.density = self._uniform_density  # density tables are per family; start uniform
         body = self._load_body()
         self.session.load_body(body, self._key(), self._default_frames(body))
+        self.frames.active = None  # frame names belong to the previous model
         # viser's GuiTabGroupHandle.remove() marks the group removed before removing its tabs, and each tab
         # then writes to the removed group and raises; removing the tabs first avoids that.
         for tab in tuple(getattr(self.tabs, "_tab_handles", ())):
@@ -252,8 +253,8 @@ class HumanStudio:
 
     def pick_joint(self, origin: np.ndarray, direction: np.ndarray) -> int | None:
         """Nearest joint (along the ray) whose sphere of radius ``layers.radius`` the ray crosses."""
-        return _nearest_on_ray(
-            self.session.state.joints.detach().reshape(-1, 3).numpy(), origin, direction, self.layers.radius
+        return nearest_on_ray(
+            self.session.state.joints.detach().reshape(-1, 3).cpu().numpy(), origin, direction, self.layers.radius
         )
 
     def pick_frame(self, origin: np.ndarray, direction: np.ndarray) -> str | None:
@@ -261,8 +262,8 @@ class HumanStudio:
         names = list(self.session.frame_set)
         if not names:
             return None
-        points = self.session.vertices.detach().numpy()[[self.session.frame_set[name].vertex for name in names]]
-        index = _nearest_on_ray(points, origin, direction, self.layers.radius)
+        points = self.session.vertices.detach().cpu().numpy()[[self.session.frame_set[name].vertex for name in names]]
+        index = nearest_on_ray(points, origin, direction, self.layers.radius)
         return None if index is None else names[index]
 
     def on_click(self, event: Any) -> None:
@@ -279,7 +280,7 @@ class HumanStudio:
             if frame is not None:
                 self.frames.select_frame(frame)
                 return
-        hit = ray_hit(origin, direction, self.session.vertices.detach().numpy(), self.session.body.faces.numpy())
+        hit = ray_hit(origin, direction, self.session.vertices.detach().cpu().numpy(), self.session.body.faces.cpu().numpy())
         if hit is None:
             return
         point, face = hit
@@ -296,17 +297,16 @@ class HumanStudio:
         """Arm one rectangle selection that assigns the enclosed vertices to the active segment part."""
 
         def _on_rect(event: Any) -> None:
-            self.viewer.server.scene.remove_pointer_callback()
+            self.viewer.clear_pointer()
             camera = CameraFrustum.from_camera(event.client.camera)
             (x0, y0), (x1, y1) = event.screen_pos
             ids = vertices_in_rect(
-                self.session.vertices.detach().numpy(), camera, np.array([x0, y0]), np.array([x1, y1])
+                self.session.vertices.detach().cpu().numpy(), camera, np.array([x0, y0]), np.array([x1, y1])
             )
             self.segment.assign(ids)
-            self.viewer.server.scene.on_pointer_event(event_type="click")(self._locked(self.on_click))
+            self.viewer.on_pointer("click", self._locked(self.on_click))
 
-        self.viewer.server.scene.remove_pointer_callback()
-        self.viewer.server.scene.on_pointer_event(event_type="rect-select")(self._locked(_on_rect))
+        self.viewer.on_pointer("rect-select", self._locked(_on_rect))
         self.set_status("drag a rectangle to select vertices")
 
     def apply_shape(self, group: str) -> None:
@@ -379,15 +379,6 @@ class HumanStudio:
         """Block until interrupted."""
         while True:
             time.sleep(1.0)
-
-
-def _nearest_on_ray(points: np.ndarray, origin: np.ndarray, direction: np.ndarray, radius: float) -> int | None:
-    """Index of the point ``(N, 3)`` within ``radius`` of the ray nearest its origin, or ``None``."""
-    direction = direction / np.linalg.norm(direction)
-    along = (points - origin) @ direction
-    distance = np.linalg.norm(points - origin - along[:, None] * direction, axis=-1)
-    hits = np.flatnonzero((distance <= radius) & (along > 0))
-    return None if hits.size == 0 else int(hits[np.argmin(along[hits])])
 
 
 def launch(**kwargs: Any) -> HumanStudio:

@@ -91,16 +91,23 @@ Folded from the former `docs/contracts.md`. Parity gates are rule `H-PARITY-1` (
 | identity groups to `bake` | `(I..., n)`; omitted groups are zero |
 | pose `q` | `(B..., nq)`, usually `(B, nq)` or `(B, T, nq)` |
 | stream groups to `forward` | `(B..., n)`, same leading dims as `q` |
-| outputs | `(broadcast(I..., B...), ...)`, e.g. `vertices() (..., V, 3)` |
+| outputs | `(broadcast(I..., B...), ...)`, e.g. `vertices (..., V, 3)` |
 
 `B...` broadcasts with `I...`: one identity can drive a whole clip, or a batch of identities can
 take one pose each. Unknown group names raise `ValueError`.
+
+A clip is `(B, T, nq)`: axis `-2` is time and carries no rate of its own. Time follows BR's viewer
+model (`BetterRobot/docs/concepts/viewer.md`): the viewer timeline has integer steps played at `fps`;
+a layer with `T` samples shows sample `min(step, T - 1)` by default, or, when added with
+`Viewer.add(layer, group, times=...)`, `times` is a `(T,)` non-decreasing array of seconds and the
+layer shows the latest sample with `times[i] <= step / fps`. A clip recorded at a different rate
+therefore passes its `times` to the viewer; BH never resamples `q`.
 
 ### Differentiability
 
 - `bake`, `forward`, `vertices`, `points`, `landmarks`, mass (`Inertia.from_mesh`) and BR
   kinematics/dynamics are differentiable in the identity values, `q` and streams.
-- `HumanState` memoises `vertices()`; create a new state for new inputs, never mutate one.
+- `HumanState` memoises `vertices`, `frame_poses` and `joints`; create a new state for new inputs, never mutate one.
 
 ### Classic conversion
 
@@ -114,6 +121,21 @@ take one pose each. Unknown group names raise `ValueError`.
   `to_classic` on such a body returns `None` for that hand, so the round trip is closed.
 - Round trips are exact up to rotation equivalence: an axis-angle with norm above π comes back
   as the same rotation with norm below π (vertices match to float precision).
+
+### Rig protocol changes
+
+- `Rig.corrective_features(spec, model, q, *, identity=None)` takes the identity group values
+  `(I..., n)` that `Body.bake` used, keyword-only, so a shape-dependent corrective (STAR, SUPR) can
+  read them; `HumanState` passes `identity=state.identity.params`. **Breaking for third-party
+  `Rig` implementations**: add the keyword to the method (ignore it if the corrective is pose-only).
+
+### Scope
+
+- Families are in-tree only during alpha: a new family lands as a module under
+  `better_human/families/`; there is no public `register_family` hook.
+- Retargeting (motion transfer between skeletons) is not BH's job; it belongs in a separate package.
+- Fitting (bodies to scans, keypoints or video) is not BH's job either; BH supplies the
+  differentiable bodies and terms such a fitter uses.
 
 ### Weight-file layout
 

@@ -49,7 +49,7 @@ a `Corrective`, `Parts` (segmentation), landmarks and `meta`. Its one behavioura
 | `bake(spec, model, v_shaped, values) -> RigBake` | joint placements, rest joints, rest poses, pelvis offset |
 | `stream_joint_basis(spec, name)` | `(J, 3, n)` joint motion of a stream group, or `None` |
 | `native_joint_ids(spec, model)` | `(J,)` BR joint ids in native skin-joint order |
-| `corrective_features(spec, model, q)` | `(..., P)` features the pose corrective reads |
+| `corrective_features(spec, model, q, *, identity=None)` | `(..., P)` features the pose corrective reads |
 | `to(dtype, device)` | move the rig |
 
 Two rigs exist:
@@ -101,7 +101,7 @@ It returns an `Identity`:
 | `kinematics` | BR `KinematicState` | forward kinematics on `state.model` |
 | `joints` | `(..., J, 3)` | native joint order |
 | `joint_poses` | `(..., J, 7)` | native joint order |
-| `vertices()` | `(..., V, 3)` | computed on first call, then memoised |
+| `vertices` | `(..., V, 3)` | property, computed on first access, then memoised |
 | `points(vertex_ids)` | `(..., K, 3)` | skin a vertex subset only |
 | `landmarks(name="keypoints")` | `(..., L, 3)` | named landmark sets of the spec |
 | `model` | BR `Model` | per-frame placements when a stream moves joints |
@@ -158,3 +158,4 @@ joints and the expression group. Converting a pose that uses a dropped joint rai
 - [Segmentation](segmentation.md): how bodies split into parts.
 - [Studio](../studio.md): look at a body and edit its parts and frames.
 - [Contracts](../contracts/index.md): the rules these layers obey, parity gates and tolerances.
+- [Vision and roadmap](../reference/roadmap.md): what BetterHuman is for, what landed, and what comes next.
