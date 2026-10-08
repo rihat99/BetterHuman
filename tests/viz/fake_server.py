@@ -120,10 +120,14 @@ class FakeGui:
 
 
 class FakeServer:
-    def __init__(self) -> None:
+    def __init__(self, port: int = 8080) -> None:
         self.scene = FakeScene()
         self.gui = FakeGui()
         self.atomic_blocks = 0
+        self.port = port
+
+    def get_port(self) -> int:
+        return self.port
 
     @contextlib.contextmanager
     def atomic(self):

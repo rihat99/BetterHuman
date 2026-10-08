@@ -143,10 +143,13 @@ def test_referenced_images_exist(page: Path) -> None:
     """Every ``![...](path)`` and ``figures/*.svg`` / ``images/*`` reference resolves to a file."""
     text = page.read_text()
     paths = {m["path"] for m in IMAGE.finditer(text)} | {m["path"] for m in FIGURE.finditer(text)}
-    paths |= {m["path"] for video in re.findall(r"<video.*?</video>", text, re.DOTALL) for m in VIDEO_SRC.finditer(video)}
+    # mkdocs rewrites Markdown links but leaves raw HTML alone, and with directory URLs a page lives one level
+    # deeper in the built site than its source (``concepts/viewer.md`` -> ``concepts/viewer/index.html``).
+    built_dir = page.parent if page.name == "index.md" else page.parent / page.stem
+    video_paths = {m["path"] for video in re.findall(r"<video.*?</video>", text, re.DOTALL) for m in VIDEO_SRC.finditer(video)}
     missing = [
         path
         for path in sorted(paths)
         if "://" not in path and not (page.parent / path.split("#")[0]).resolve().exists()
-    ]
+    ] + [path for path in sorted(video_paths) if not (built_dir / path).resolve().exists()]
     assert not missing, f"{page.relative_to(REPO)} references missing files: {missing}"

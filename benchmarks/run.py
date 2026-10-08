@@ -291,7 +291,7 @@ def _bench_family(family: str, arguments: argparse.Namespace, device: torch.devi
             generator = torch.Generator().manual_seed(3)
             v = (0.1 * torch.randn(batch, model.nv, generator=generator)).to(device)
             a = (0.1 * torch.randn(batch, model.nv, generator=generator)).to(device)
-            add("rnea", "default", lambda: inverse_dynamics(model, state, v, a), None)
+            add("rnea", "default", lambda: inverse_dynamics(model, state, v=v, a=a), None)
         print(f"{family} batch {batch} done", flush=True)
         if device.type == "cuda":
             torch.cuda.empty_cache()

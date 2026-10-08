@@ -92,7 +92,16 @@ class HumanStudio:
         return {name: FrameEntry(int(vertex)) for name, vertex in zip(frames.names, frames.vertex_ids, strict=True)}
 
     def _build_sidebar(self) -> None:
-        self.status_text = self.viewer.server.gui.add_markdown("")
+        gui = self.viewer.server.gui
+        self.status_text = gui.add_markdown("")
+        # Built once above the tab group, so a model switch (which rebuilds only the tabs) keeps this row on top.
+        self.selection_text = gui.add_markdown("")
+        # Plain buttons: viser's button group never wraps and clips at the sidebar edge.
+        self.actions: dict[str, Any] = {}
+        for action in ("Reset pose", "Deselect joint", "Deselect frame"):
+            self.actions[action] = gui.add_button(action)
+            self.actions[action].on_click(self._locked(lambda _event, action=action: self.run_action(action)))
+        self._show_selection()
         self._build_tabs()
 
     def _build_tabs(self) -> None:
@@ -137,8 +146,6 @@ class HumanStudio:
             else:
                 self.density_input = gui.add_number("Density (kg/m^3)", initial_value=self.density)
             gui.add_button("Apply density").on_click(self._locked(lambda _event: self.reload(self.chosen_density())))
-            gui.add_button("Deselect joint").on_click(self._locked(lambda _event: self.select_joint(None)))
-            gui.add_button("Reset pose").on_click(self._locked(lambda _event: self.session.reset_pose()))
             self.pose_name = gui.add_text("Pose name", initial_value="pose")
             gui.add_button("Save pose").on_click(self._locked(lambda _event: self.save_pose(self.pose_name.value)))
             self.saved_poses = gui.add_dropdown("Saved poses", options=self._pose_options())
@@ -192,6 +199,32 @@ class HumanStudio:
         self.status = message
         if hasattr(self, "status_text"):
             self.status_text.content = message
+        # The frames editor reports every frame selection through this line, so the selection label follows it here.
+        self._show_selection()
+
+    def _show_selection(self) -> None:
+        if not hasattr(self, "selection_text"):
+            return
+        model = f"{self.family} {self.gender if self.family != 'mhr' else f'lod {self.lod}'}"
+        joint = self.gizmo.joint
+        joint_name = "—" if joint is None else self.session.body.joint_names[joint]
+        frame = self.frames.active if self.frames.active in self.session.frame_set else "—"
+        self.selection_text.content = f"{model} · joint: {joint_name} · frame: {frame}"
+
+    def run_action(self, action: str) -> None:
+        """Run a selection-row button: ``"Reset pose"``, ``"Deselect joint"`` or ``"Deselect frame"``."""
+        if action == "Reset pose":
+            self.session.reset_pose()
+        elif action == "Deselect joint":
+            self.select_joint(None)
+        elif action == "Deselect frame":
+            self.deselect_frame()
+
+    def deselect_frame(self) -> None:
+        """Drop the frame the Frames tab acts on and its vertex highlight (as deleting a frame does)."""
+        self.frames.active = None
+        self.layers.set_edit_vertices([])
+        self._show_selection()
 
     def set_mode(self, mode: str) -> None:
         """Switch the click mode (``"pose"``, ``"segment"``, ``"frames"``); entering an edit mode drops the gizmo."""
@@ -210,6 +243,7 @@ class HumanStudio:
         self.gizmo.select(joint)
         self.layers.set_highlight(joint)
         self.layers.set_opacity(self.opacity if joint is None else self.opacity * _DIM)
+        self._show_selection()
 
     def set_opacity(self, opacity: float) -> None:
         """Set the mesh opacity the user chose; it stays dimmed while a joint is selected."""
@@ -334,6 +368,7 @@ class HumanStudio:
             self.segment.refresh()
         if kind in ("body", "frames"):
             self.frames.refresh()
+            self._show_selection()
 
     def _update_mass(self) -> None:
         mass = self.session.total_mass

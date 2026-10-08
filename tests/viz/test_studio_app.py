@@ -117,6 +117,30 @@ def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
     np.testing.assert_allclose(studio.layers.skeleton.colors, before)
 
 
+def test_selection_row_buttons_and_label(studio) -> None:
+    gui = studio.viewer.server.gui
+    # Moved out of the Body tab: only the row's buttons remain.
+    for name in ("Reset pose", "Deselect joint"):
+        assert [c for c in gui.controls if c.name == name] == [studio.actions[name]]
+    joint_name = studio.session.body.joint_names[5]
+    studio.select_joint(5)
+    assert f"joint: {joint_name}" in studio.selection_text.content
+    studio.frames.add_at(studio.session.vertices[100].detach().numpy())  # adds and selects a frame
+    assert "frame: —" not in studio.selection_text.content
+    studio.gizmo._on_drag(studio.gizmo.handle_for(5), _rotated(studio, 5))
+    for action in ("Deselect joint", "Deselect frame", "Reset pose"):
+        studio.actions[action].fire()
+    assert studio.selection_text.content.endswith("joint: — · frame: —")
+    assert studio.frames.active is None
+    assert torch.equal(studio.session.q, studio.session.identity.q_neutral)
+
+
+def _rotated(studio, joint: int) -> np.ndarray:
+    pose = studio.session.joint_poses[joint].detach().numpy().copy()
+    pose[3:] = [np.sin(0.4), 0.0, 0.0, np.cos(0.4)]
+    return pose
+
+
 def test_gizmo_drag_rotates_session_vertices(studio) -> None:
     studio.select_joint(5)
     before = studio.session.vertices.clone()

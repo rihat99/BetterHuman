@@ -201,6 +201,8 @@ def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
     )
     weights, indices = top_k_skin(dense)
     survivor_tensor = torch.tensor(survivors, dtype=torch.long, device=spec.device)
+    if "native_joint_ids" in spec.meta:  # an earlier drop already renumbered joints; keep file numbering
+        survivor_tensor = spec.meta["native_joint_ids"].to(spec.device)[survivor_tensor]
     old_to_new = {old: new for new, old in enumerate(survivors)}
     part_joints = tuple(old_to_new[j] for j in spec.parts.joints if j in old_to_new)
     ancestor = torch.arange(spec.num_joints, device=spec.device)

@@ -44,8 +44,8 @@ layers are rebuilt for the new body; the layer checkboxes and colour mode keep t
   plus **Reset** and **Random** buttons for the group.
 - **Density**: a uniform value in kg/m^3 or a saved per-part density; **Apply density** rebuilds the
   body and the status line shows the new total mass.
-- Pose: click a joint in the 3D view (or use the drag gizmo that appears) to rotate it; **Deselect joint**,
-  **Reset pose**, **Save pose** under **Pose name**, and **Saved poses** + **Load pose**.
+- Pose: click a joint in the 3D view (or use the drag gizmo that appears) to rotate it; **Save pose** under **Pose name**,
+  and **Saved poses** + **Load pose**.
 
 ### Display
 

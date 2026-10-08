@@ -26,7 +26,7 @@ class GizmoController:
         session: StudioSession,
         *,
         on_status: Callable[[str], None] | None = None,
-        scale: float = 0.15,
+        scale: float = 0.20,
     ) -> None:
         self.viewer = viewer
         self.session = session
@@ -51,9 +51,10 @@ class GizmoController:
         if handle is None:
             self._status(f"joint {name!r} has no degree of freedom")
             return
-        options: dict[str, Any] = {}
+        # Joints sit inside the mesh, so the gizmo draws through it instead of being hidden by it.
+        options: dict[str, Any] = {"depth_test": False}
         if handle.kind != "free_flyer":
-            options = {"disable_sliders": True, "disable_axes": True}
+            options |= {"disable_sliders": True, "disable_axes": True}
         self.gizmo = PoseGizmo(
             self.viewer,
             "joint_gizmo",

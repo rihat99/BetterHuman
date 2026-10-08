@@ -10,7 +10,7 @@ export BETTERHUMAN_MODELS_DIR=$PWD/models               # licensed weights, neve
 CUDA_VISIBLE_DEVICES="" uv run pytest tests -q          # full suite
 uv run ruff check src tests examples benchmarks         # lint (line length 120)
 uv run python examples/01_smpl_shape_pose.py --check    # each example 01-04 supports --check
-uv run python benchmarks/run.py --device cpu --threads 8
+uv run python benchmarks/run.py --device cpu --threads 8 --out benchmarks/results/cpu.json
 ```
 
 ## Layering rule
