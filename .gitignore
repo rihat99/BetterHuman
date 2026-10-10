@@ -16,6 +16,7 @@ htmlcov/
 .vscode/
 
 # Local, untracked project data
+models
 models/
 references/
 temp/
