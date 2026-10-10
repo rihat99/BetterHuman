@@ -23,6 +23,5 @@ temp/
 # autoresearch
 trash/
 .claude/
-agent_notes/**/vis/
-agent_notes/**/artifacts/
 site/
+agent_notes/
