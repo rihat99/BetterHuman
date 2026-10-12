@@ -88,8 +88,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "better-robot", editable = "../BetterRobot" },
-    { name = "better-robot", extras = ["viewer"], marker = "extra == 'viewer'", editable = "../BetterRobot" },
+    { name = "better-robot", git = "https://github.com/rihat99/BetterRobot?branch=main" },
+    { name = "better-robot", extras = ["viewer"], marker = "extra == 'viewer'", git = "https://github.com/rihat99/BetterRobot?branch=main" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
@@ -110,7 +110,7 @@ dev = [
 [[package]]
 name = "better-robot"
 version = "0.2.0"
-source = { editable = "../BetterRobot" }
+source = { git = "https://github.com/rihat99/BetterRobot?branch=main#d1da22ae49f061797a52b33f952b688ebc8b7b0e" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
@@ -123,35 +123,6 @@ dependencies = [
 viewer = [
     { name = "viser" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100" },
-    { name = "jaxtyping", marker = "extra == 'dev'", specifier = ">=0.2.30" },
-    { name = "matplotlib", marker = "extra == 'dev'", specifier = ">=3.8" },
-    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6,<2" },
-    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.5" },
-    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'dev'", specifier = ">=0.26" },
-    { name = "mujoco", marker = "extra == 'io-mjcf'", specifier = ">=3.1" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "pin", marker = "extra == 'dev'", specifier = ">=2.7" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7" },
-    { name = "pyperf", marker = "extra == 'dev'", specifier = ">=2.7" },
-    { name = "pyright", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-benchmark", marker = "extra == 'dev'", specifier = ">=4" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5" },
-    { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3" },
-    { name = "robot-descriptions", marker = "extra == 'demos'", specifier = ">=1.0.0" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "scipy", marker = "extra == 'dev'", specifier = ">=1.11" },
-    { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
-    { name = "trimesh", marker = "extra == 'meshes'", specifier = ">=4.0.0" },
-    { name = "viser", marker = "extra == 'viewer'", specifier = ">=0.2.0" },
-    { name = "yourdfpy", specifier = ">=0.0.14" },
-]
-provides-extras = ["viewer", "io-mjcf", "meshes", "demos", "dev"]
 
 [[package]]
 name = "certifi"

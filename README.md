@@ -11,16 +11,9 @@ are not distributed with the library.
 
 ## Get started
 
-During alpha, BetterHuman uses an editable path dependency on BetterRobot.
-Clone both repositories as siblings so the layout matches `pyproject.toml`:
-
-```text
-workspace/
-├── BetterRobot/
-└── BetterHuman/
-```
-
-Then create the environment with [uv](https://docs.astral.sh/uv/):
+BetterHuman depends on [BetterRobot](https://github.com/rihat99/BetterRobot);
+`pyproject.toml` points at its GitHub repository, so `uv sync` fetches the commit
+pinned in `uv.lock`. Create the environment with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 cd BetterHuman

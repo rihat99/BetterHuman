@@ -5,7 +5,10 @@ batch of four frames, and shows them in the BetterRobot viewer.
 
 ## Install with uv
 
-BetterHuman lives next to BetterRobot and installs it as an editable path dependency.
+BetterHuman depends on [BetterRobot](https://github.com/rihat99/BetterRobot); `uv sync` fetches the
+commit pinned in `uv.lock` from GitHub. To develop against a local BetterRobot checkout instead, run
+`uv pip install -e ../BetterRobot --no-deps` after the sync (a later `uv sync` reverts it), and
+`uv lock --upgrade-package better-robot` when BetterHuman should follow new BetterRobot commits.
 
 ```bash
 cd BetterHuman
