@@ -1,8 +1,9 @@
 """Rigs: how identity turns into joint placements and how a configuration feeds the corrective.
 
-A rig is the one behavioural part of a :class:`~better_human.core.spec.FamilySpec`. Two exist:
+A rig is the one behavioural part of a :class:`~better_human.core.spec.FamilySpec`. Three exist:
 :class:`RegressedRig` (SMPL family: joints regressed from the shaped mesh, free-flyer root plus
-spherical joints) and the authored MHR rig in ``better_human.families.mhr``.
+spherical joints), the authored MHR rig in ``better_human.families.mhr_rig`` and the SOMA rig in
+``better_human.families.soma_rig``.
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from better_robot.io import build_model
 from .pipeline import pose_feature_rotmat_minus_identity, regress_joints
 
 if TYPE_CHECKING:
+    from better_robot.kinematics import KinematicState
+
     from .body import Tensors
     from .spec import FamilySpec
 
@@ -27,16 +30,21 @@ FrameSpec = tuple[str, str, torch.Tensor]
 
 @dataclass(frozen=True)
 class RigBake:
-    """Identity-dependent kinematic values. Leading dims are the identity batch."""
+    """Identity-dependent kinematic values. Leading dims are the identity batch.
+
+    ``inverse_bind_poses`` is ``None`` for the SMPL-style skinning rest frame: identity-oriented at ``rest_joints``.
+    """
 
     joint_placements: torch.Tensor  #: ``(..., nj, 7)`` for the BR model (joint 0 is the universe).
     rest_joints: torch.Tensor  #: ``(..., J, 3)`` native-order joint positions in the skinning rest frame.
-    rest_poses: torch.Tensor  #: ``(..., J, 7)`` native-order world poses at the neutral configuration.
+    rest_poses: torch.Tensor  #: ``(..., J, 7)`` native-order BR body poses at the neutral configuration (mass).
     pelvis: torch.Tensor  #: ``(..., 3)`` offset of the root joint from the native (uncentred) origin.
     joint_scales: torch.Tensor | None = None  #: ``(..., J)`` accumulated uniform scales (authored rigs).
     neutral_vertices: torch.Tensor | None = (
         None  #: ``(..., V, 3)`` mesh at the neutral pose when it differs from ``v_shaped``.
     )
+    inverse_bind_poses: torch.Tensor | None = None  #: ``(..., J, 7)`` native-order inverse bind poses (authored rigs).
+    v_shaped: torch.Tensor | None = None  #: ``(..., V, 3)`` skinning rest mesh when the rig re-poses the shaped mesh.
 
 
 class Rig(Protocol):
@@ -48,7 +56,11 @@ class Rig(Protocol):
     def bake(
         self, spec: FamilySpec, model: Model, v_shaped: torch.Tensor, identity: dict[str, torch.Tensor]
     ) -> RigBake:
-        """Joint placements and rest joints for shaped vertices ``v_shaped (..., V, 3)`` and identity values."""
+        """Joint placements and rest joints for shaped vertices ``v_shaped (..., V, 3)`` and identity values.
+
+        Authored rigs also return their ``inverse_bind_poses``; a rig that re-poses the shaped mesh returns the
+        re-posed mesh as ``v_shaped``, the skinning rest mesh.
+        """
 
     def placements_from_rest(self, spec: FamilySpec, model: Model, rest_joints: torch.Tensor) -> torch.Tensor | None:
         """``(..., nj, 7)`` placements for shifted rest joints, or ``None`` if streams cannot move joints."""
@@ -58,6 +70,13 @@ class Rig(Protocol):
 
     def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         """``(J,)`` BR joint ids in native skin-joint order."""
+
+    def joint_transforms(self, spec: FamilySpec, model: Model, *, kinematics: KinematicState) -> torch.Tensor:
+        """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints from a BR ``KinematicState``.
+
+        Positions are BR's joint translations (``HumanState.joints`` reads those directly); a rig may only post-process
+        rotations BR cannot model.
+        """
 
     def corrective_features(
         self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None
@@ -126,6 +145,9 @@ class RegressedRig:
 
     def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return torch.arange(1, spec.num_joints + 1, device=model.joint_placements.device)
+
+    def joint_transforms(self, spec: FamilySpec, model: Model, *, kinematics: KinematicState) -> torch.Tensor:
+        return kinematics.joint_transform.index_select(-3, self.native_joint_ids(spec, model))
 
     def corrective_features(
         self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None

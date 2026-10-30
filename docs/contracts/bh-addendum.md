@@ -81,6 +81,9 @@ Folded from the former `docs/contracts.md`. Parity gates are rule `H-PARITY-1` (
 
 - `q` = one free-flyer root `(x, y, z, qx, qy, qz, qw)` followed by one spherical
   joint (4 values) per non-root joint. `v` = 6 + 3 per spherical joint.
+- The free flyer is world-aligned in every family: `q[:3]` moves the root along the world axes (for the
+  SMPL family and SOMA it is the root joint's world position) and `q[3:7]` is the root's world rotation
+  relative to its neutral orientation. `q[..., 1] += 1` lifts any body 1 m.
 - SMPL: `nq = 99`, `nv = 75`. Read `identity.nq`, `identity.nv`, `identity.q_neutral`; do not hard-code.
 - Move on the manifold with BR: `identity.model.integrate(q, dq)`.
 
@@ -107,7 +110,8 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 
 - `bake`, `forward`, `vertices`, `points`, `landmarks`, mass (`Inertia.from_mesh`) and BR
   kinematics/dynamics are differentiable in the identity values, `q` and streams.
-- `HumanState` memoises `vertices`, `frame_poses` and `joints`; create a new state for new inputs, never mutate one.
+- `HumanState` memoises `joint_transforms`, `skin_affines`, `corrective_feature` and `vertices`; create a new state
+  for new inputs, never mutate one.
 
 ### Classic conversion
 
@@ -128,6 +132,17 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
   `(I..., n)` that `Body.bake` used, keyword-only, so a shape-dependent corrective (STAR, SUPR) can
   read them; `HumanState` passes `identity=state.identity.params`. **Breaking for third-party
   `Rig` implementations**: add the keyword to the method (ignore it if the corrective is pose-only).
+- `Rig.joint_transforms(spec, model, *, kinematics)` is new: `(..., J, 3, 4)` world `[R | p]` of the
+  native joints from the BR `KinematicState`. `HumanState.joint_transforms` memoises it, and `joint_poses`
+  and skinning derive from it, so a rig can post-process rotations BR cannot model (SOMA twist helpers
+  and world-aligned Hips). Positions must stay BR's joint translations: `HumanState.joints` reads those.
+  `RigBake.inverse_bind_poses` (copied to `Identity.inverse_bind_poses`) replaces
+  `meta["inverse_bind_poses"]` as the skinning bind. **Breaking for third-party `Rig` implementations**:
+  add `joint_transforms` (`kinematics.joint_transform.index_select(-3, self.native_joint_ids(spec, model))`
+  keeps the old behaviour) and return authored inverse bind poses in the `RigBake`.
+- `RigBake.v_shaped (..., V, 3)` is new and optional: the skinning rest mesh when the rig re-poses the
+  shaped mesh. `Body.bake` uses it in place of the blend-shape mesh, so pose correctives are added to
+  the re-posed mesh (SOMA re-poses its fitted skeleton to the template bind). `None` keeps the old behaviour.
 
 ### Scope
 
@@ -150,6 +165,7 @@ wins. Patterns are in `families/tables.py`:
 | MANO | `mano` | `MANO_{side}.npz` |
 | FLAME | `flame` | `{gender}_model.npz` |
 | MHR | `MHR/converted` | `mhr_lod{0..6}.npz` (default LOD 1) |
+| SOMA | `SOMA` | `soma_mid.npz` (mid LOD only; `tools/convert/soma`) |
 
 ### Parity gates (do not weaken)
 
@@ -160,8 +176,20 @@ wins. Patterns are in `families/tables.py`:
 | SMPL-X with `stream_joints=False` | same file | error in (1e-5, 2e-3) m | about 1.2 mm |
 | MHR, LOD 0-6, float32 / float64 | `tests/parity/test_mhr_parity.py` | f32 `(5e-6, 1e-6, 1e-6, 1e-7)`, f64 `(2e-6, 5e-7, 5e-7, 1e-7)` | pass |
 | MHR vs TorchScript `mhr_model.pt` | `tests/parity/test_mhr_torchscript.py` | vertices 2e-6 m, positions 1e-6 m, quaternions 1e-6 | pass |
+| SOMA mid vs SOMA-X v0.3.4, 14 goldens one by one and as one identity batch, float32 / float64 | `tests/parity/test_soma_parity.py` | `(6.5e-6, 9e-6, 3.5e-6)` (vertices m; positions m and rotation entries of all 110 skin joints); `reflect_00` vertices 1.1e-5 | worst f32 `(1.46e-6, 1.16e-6, 1.73e-6)`, f32 `reflect_00` `(5.36e-6, 3.58e-6, 1.13e-6)`, f32 batch `(3.13e-6, 4.35e-6, 1.73e-6)`, f64 `(2.89e-6, 4.23e-6, 1.60e-6)` |
+| SOMA bake vs the same goldens' `rest_shape`, `bind_transforms` | `tests/families/test_soma.py` | `(6e-6, 1e-5, 1.1e-6)` (rest mesh m, bind positions m, bind rotation entries; all 110 joints); `reflect_00` rest mesh 1.2e-5 | worst f32 `(9.5e-7, 1.31e-6, 5.4e-7)`, f32 `reflect_00` `(5.90e-6, 3.87e-6, 5.4e-7)`, f32 batch `(2.86e-6, 4.89e-6, 5.4e-7)`, f64 `(2.92e-6, 4.66e-6, 5.0e-7)` |
 
 Parity tests skip only when the licensed asset is absent.
+SOMA gates are twice the worst error measured over the 14 goldens, one by one and with the 13 correctives-on
+goldens as one identity batch, in float32 and float64, rounded up; one gate serves both dtypes (the bake test runs
+the goldens one by one; its batch column is measured). The oracle is float32 and its joint regression alone rounds
+by up to 5.2e-6 m, so float64 and batched float32 sit further from it than single float32, which sums in the
+oracle's order; no SOMA position gate is below that rounding. `reflect_00`, a 5-sigma identity whose skeleton fit
+takes the Kabsch reflection branch at 13 covariances (11 finger, hand and toe joints, then both hands again), run
+alone, sets its own vertex and rest mesh gates (`PARITY_ATOLS_BY_CASE`, `BAKE_ATOLS_BY_CASE`) and not the general
+ones: single float32 errs 5.4e-6 and 5.9e-6 m there (at the left pinky) because float32 joint regression rounds
+further on so large an identity (3.0e-6 and 3.2e-6 m with only the regression in float64; float64 SVDs do not help),
+and upstream's own float32 run is 7.5e-6 m (vertices) from its float64 run on that case.
 
 ### Measured baselines
 

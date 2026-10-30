@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 from better_robot import Model
 from better_robot.kinematics import KinematicState, forward_kinematics_state
+from better_robot.lie import so3
 
 from .contact_frames import ContactFrames, frame_local_placements, parse_frame_set, resolve_parents
 from .mass import PartMeshTopology, body_inertias_from_shape, build_authored_topology, build_part_topology
@@ -128,6 +129,8 @@ class Body:
         for name, coefficients in values.items():
             v_shaped = v_shaped + blend_shapes(coefficients, spec.identity[name])
         bake = spec.rig.bake(spec, self.model, v_shaped, values)
+        if bake.v_shaped is not None:
+            v_shaped = bake.v_shaped
         v_shaped = v_shaped - bake.pelvis[..., None, :]  # the skinning rest frame has the root at the origin
 
         inertias = None
@@ -165,6 +168,7 @@ class Body:
             pelvis=bake.pelvis,
             model=model,
             joint_scales=bake.joint_scales,
+            inverse_bind_poses=bake.inverse_bind_poses,
             stream_joint_basis=stream_joint_basis,
         )
 
@@ -180,6 +184,7 @@ class Identity:
     pelvis: torch.Tensor  #: ``(I..., 3)`` root offset from the native origin; ``transl + pelvis`` is the root position.
     model: Model  #: placements, inertias and contact frames baked.
     joint_scales: torch.Tensor | None  #: ``(I..., J)`` for authored rigs.
+    inverse_bind_poses: torch.Tensor | None  #: ``(I..., J, 7)`` for authored rigs; see ``RigBake``.
     stream_joint_basis: Tensors  #: stream name -> ``(J, 3, n)`` joint motion.
 
     @property
@@ -250,8 +255,9 @@ class HumanState:
 
     @property
     def joint_poses(self) -> torch.Tensor:
-        """``(..., J, 7)`` world joint poses in native order."""
-        return self.kinematics.joint_pose.index_select(-2, self.body.native_joint_ids)
+        """``(..., J, 7)`` world joint poses in native order (``joint_transforms`` as poses)."""
+        transforms = self.joint_transforms
+        return torch.cat((transforms[..., 3], so3.from_matrix(transforms[..., :3])), dim=-1)
 
     @property
     def joints(self) -> torch.Tensor:
@@ -260,14 +266,18 @@ class HumanState:
 
     @property
     def joint_transforms(self) -> torch.Tensor:
-        """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints."""
-        return self.kinematics.joint_transform.index_select(-3, self.body.native_joint_ids)
+        """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints, as the rig's ``joint_transforms`` reports them."""
+        transforms = self._memoised(
+            "joint_transforms",
+            lambda: self.spec.rig.joint_transforms(self.spec, self.model, kinematics=self.kinematics),
+        )
+        return transforms.clone()  # the memo feeds skinning: editing the result in place must not move vertices
 
     @property
     def skin_affines(self) -> torch.Tensor:
         """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world."""
         spec = self.spec
-        inverse_bind = spec.meta.get("inverse_bind_poses")
+        inverse_bind = self.identity.inverse_bind_poses
         return self._memoised(
             "skin_affines",
             lambda: skin_affines(

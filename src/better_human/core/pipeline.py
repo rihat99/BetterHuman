@@ -202,7 +202,7 @@ def skin_affines(
     """Per-joint rest-to-world affines ``(..., J, 3, 4)`` from world ``[R | p]`` joint transforms.
 
     The rest frame is either identity-oriented at ``rest_joints (..., J, 3)`` (SMPL family) or an
-    authored ``inverse_bind_poses (J, 7)`` (MHR). Optional accumulated ``joint_scales (..., J)``
+    authored ``inverse_bind_poses (..., J, 7)`` (MHR, SOMA). Optional accumulated ``joint_scales (..., J)``
     apply a similarity about ``bind_joint_positions (J, 3)``.
     """
     rotation, translation = joint_transforms[..., :3], joint_transforms[..., 3]

@@ -9,6 +9,8 @@ from .schema import (
     SMPL_SCHEMA,
     SMPLH_SCHEMA,
     SMPLX_SCHEMA,
+    SOMA_CORRECTIVE_FIELDS,
+    SOMA_SCHEMA,
     validate,
 )
 
@@ -20,6 +22,8 @@ __all__ = [
     "MHR_SCHEMA",
     "SMPL_SCHEMA",
     "SMPLX_SCHEMA",
+    "SOMA_CORRECTIVE_FIELDS",
+    "SOMA_SCHEMA",
     "load_model_npz",
     "resolve_model_path",
     "validate",

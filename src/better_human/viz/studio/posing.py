@@ -114,15 +114,20 @@ def apply_local_rotation(
     :param world_old: The joint's current world pose ``(7,)`` (scalar-last).
     :param world_new: The desired world pose ``(7,)`` from the gizmo.
 
-    Free-flyer edits touch the rotation only.  Spherical edits right-multiply
-    the local quaternion by the world-frame delta.  Channel edits recompose the
-    current euler rotation with the delta and re-decompose it, dropping any
-    missing channel (a best-effort projection onto the reachable axes) and
-    splitting a shared axis equally between its hosts.
+    Free-flyer edits touch the rotation only: the world rotation
+    ``R_new R_old^-1`` left-multiplies the free-flyer quaternion, because the
+    reported root frame can sit at a fixed rotation from it (SOMA's T-pose Hips
+    orientation).  Spherical edits right-multiply the local quaternion by the
+    world-frame delta.  Channel edits recompose the current euler rotation with
+    the delta and re-decompose it, dropping any missing channel (a best-effort
+    projection onto the reachable axes) and splitting a shared axis equally
+    between its hosts.
     """
     q = q.clone()
     if handle.kind == "free_flyer":
-        q[handle.idx_q + 3 : handle.idx_q + 7] = so3.normalize(world_new[3:7])
+        idx = handle.idx_q + 3
+        turn = so3.compose(so3.normalize(world_new[3:7]), so3.inverse(so3.normalize(world_old[3:7])))
+        q[idx : idx + 4] = so3.normalize(so3.compose(turn, q[idx : idx + 4]))
         return q
 
     delta = _local_delta(world_old, world_new)

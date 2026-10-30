@@ -1,6 +1,6 @@
 # Architecture
 
-BetterHuman turns parametric human weight files (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR) into
+BetterHuman turns parametric human weight files (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR, SOMA) into
 BetterRobot (BR) models. A family is data. One `Rig` object holds the only family-specific
 behaviour. Shape is baked once per subject; pose is a batched, differentiable BR query.
 
@@ -46,19 +46,24 @@ a `Corrective`, `Parts` (segmentation), landmarks and `meta`. Its one behavioura
 
 | Rig method | Job |
 |---|---|
-| `bake(spec, model, v_shaped, values) -> RigBake` | joint placements, rest joints, rest poses, pelvis offset |
+| `bake(spec, model, v_shaped, values) -> RigBake` | joint placements, rest joints, rest poses, pelvis offset; authored rigs add `inverse_bind_poses (..., J, 7)` (`None`: identity-oriented rest frame at the rest joints); a rig that re-poses the shaped mesh (SOMA) returns it as `v_shaped (..., V, 3)`, the skinning rest mesh |
 | `stream_joint_basis(spec, name)` | `(J, 3, n)` joint motion of a stream group, or `None` |
 | `native_joint_ids(spec, model)` | `(J,)` BR joint ids in native skin-joint order |
+| `joint_transforms(spec, model, *, kinematics)` | `(..., J, 3, 4)` world `[R \| p]` of the native joints from a BR `KinematicState`; `HumanState.joint_transforms`, `joint_poses` and skinning read them. Positions stay BR's joint translations (`HumanState.joints` reads those); a rig only post-processes rotations BR cannot model (SOMA twist helpers and world-aligned Hips) |
 | `corrective_features(spec, model, q, *, identity=None)` | `(..., P)` features the pose corrective reads |
 | `to(dtype, device)` | move the rig |
 
-Two rigs exist:
+Three rigs exist:
 
 - `RegressedRig` (`core/rig.py`, SMPL family). Joints come from a joint regressor `(J, V)`
   applied to the shaped vertices. The stream joint basis is `J_regressor @ stream_blendshapes`.
 - `AuthoredRig` (`families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton with
   per-joint scales. It also builds the BR model itself (`build_model`). Its
   `stream_joint_basis` returns `None`: MHR expression moves vertices only.
+- `SomaRig` (`families/soma_rig.py`, SOMA). Bake fits the template skeleton to the shaped mesh and
+  re-poses mesh and skeleton to the template bind, as upstream. Its `joint_transforms` turns the 32
+  twist helpers by the swing-twist of their limb segments and turns the world-aligned Hips free flyer
+  into the upstream Hips frame.
 
 ### Body (`core/body.py`)
 
@@ -88,6 +93,7 @@ It returns an `Identity`:
 | `pelvis` | `(I..., 3)` | root offset from the native origin; `transl + pelvis` is the root position |
 | `model` | BR `Model` | joint placements, body inertias, contact frames baked in |
 | `joint_scales` | `(I..., J)` or `None` | authored rigs only |
+| `inverse_bind_poses` | `(I..., J, 7)` or `None` | authored rigs only; `None` skins about an identity-oriented rest frame at `rest_joints` |
 | `stream_joint_basis` | `{name: (J, 3, n)}` | empty when `stream_joints=False` |
 
 `identity.nq`, `identity.nv` and `identity.q_neutral` come from `identity.model`.
@@ -100,7 +106,8 @@ It returns an `Identity`:
 |---|---|---|
 | `kinematics` | BR `KinematicState` | forward kinematics on `state.model` |
 | `joints` | `(..., J, 3)` | native joint order |
-| `joint_poses` | `(..., J, 7)` | native joint order |
+| `joint_transforms` | `(..., J, 3, 4)` | native joint order; the rig's `joint_transforms`, which skinning reads |
+| `joint_poses` | `(..., J, 7)` | native joint order; `joint_transforms` as poses |
 | `vertices` | `(..., V, 3)` | property, computed on first access, then memoised |
 | `points(vertex_ids)` | `(..., K, 3)` | skin a vertex subset only |
 | `landmarks(name="keypoints")` | `(..., L, 3)` | named landmark sets of the spec |

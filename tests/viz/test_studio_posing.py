@@ -1,4 +1,4 @@
-"""Joint handles and local-rotation posing for SMPL (free-flyer + spherical) and MHR (revolute channels)."""
+"""Joint handles and local-rotation posing for SMPL (free-flyer + spherical), MHR (revolute channels) and SOMA."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from better_human.viz.studio.state import StudioSession
 MODELS = Path(__file__).parents[2] / "models"
 SMPL_PATH = MODELS / "smpl" / "SMPL_NEUTRAL.npz"
 MHR_PATH = MODELS / "MHR" / "converted" / "mhr_lod1.npz"
+SOMA_PATH = MODELS / "SOMA" / "soma_mid.npz"
 
 
 @pytest.fixture(scope="module")
@@ -28,6 +29,13 @@ def mhr() -> bh.Body:
     if not MHR_PATH.is_file():
         pytest.skip(f"licensed MHR fixture is absent: {MHR_PATH}")
     return bh.load("mhr", MHR_PATH, lod=1)
+
+
+@pytest.fixture(scope="module")
+def soma() -> bh.Body:
+    if not SOMA_PATH.is_file():
+        pytest.skip(f"converted SOMA fixture is absent: {SOMA_PATH}")
+    return bh.Body(bh.families.soma(SOMA_PATH, correctives=False), mass=False)
 
 
 def _rotated(world: torch.Tensor, quat: list[float]) -> torch.Tensor:
@@ -136,3 +144,25 @@ def test_session_rotate_joint_and_move_root(smpl: bh.Body) -> None:
     session.move_root(root, old_root, moved)
     torch.testing.assert_close(session.joint_poses[0, :3], moved[:3], atol=1e-5, rtol=0)
     assert kinds == ["pose", "pose"]
+
+
+def test_session_move_root_applies_the_gizmo_delta_to_soma(soma: bh.Body) -> None:
+    """SOMA reports its Hips turned by their T-pose orientation, which ``q[3:7]`` does not hold."""
+    session = StudioSession(soma, "soma")
+    root = session.handles[0]
+    old_root = session.joint_poses[root.native_index].clone()
+    moved = old_root.clone()
+    moved[:3] += torch.tensor([0.1, 0.2, -0.3], dtype=moved.dtype)
+    session.move_root(root, old_root, moved)
+    torch.testing.assert_close(session.q[3:7], session.identity.q_neutral[3:7], atol=1e-6, rtol=0)
+    turned = _rotated(moved, [0.0, 0.3827, 0.0, 0.9239])
+    session.move_root(root, moved, turned)
+    assert _angle(turned[3:], session.joint_poses[root.native_index, 3:]) < 1e-4
+    torch.testing.assert_close(session.joint_poses[root.native_index, :3], moved[:3], atol=1e-5, rtol=0)
+
+
+def test_soma_free_flyer_rotation_reaches_the_gizmo_target(soma: bh.Body) -> None:
+    """The reported Hips rotation includes their T-pose orientation, so ``q[3:7]`` takes the world delta."""
+    target, posed, _ = _pose_with(soma, "Hips", [0.0, 0.3827, 0.0, 0.9239])
+    assert _angle(target[3:], posed[3:]) < 1e-4
+    torch.testing.assert_close(posed[:3], target[:3], atol=1e-5, rtol=0)

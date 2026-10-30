@@ -17,6 +17,8 @@ from better_human.core.rig import FrameSpec, RigBake
 from .mhr_tree import _TreeBinding, accumulated_scales, build_mhr_tree
 
 if TYPE_CHECKING:
+    from better_robot.kinematics import KinematicState
+
     from better_human.core.body import Tensors
     from better_human.core.spec import FamilySpec
 
@@ -85,6 +87,7 @@ class AuthoredRig:
             pelvis=rest_poses.new_zeros(rest_poses.shape[:-2] + (3,)),
             joint_scales=joint_scales,
             neutral_vertices=lbs_affines(v_shaped, affines, dense),
+            inverse_bind_poses=meta["inverse_bind_poses"],
         )
 
     def placements_from_rest(self, spec: FamilySpec, model: Model, rest_joints: torch.Tensor) -> None:
@@ -95,6 +98,9 @@ class AuthoredRig:
 
     def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return self.tree.native_pose_joint_indices
+
+    def joint_transforms(self, spec: FamilySpec, model: Model, *, kinematics: KinematicState) -> torch.Tensor:
+        return kinematics.joint_transform.index_select(-3, self.native_joint_ids(spec, model))
 
     def corrective_features(
         self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None

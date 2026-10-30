@@ -45,6 +45,8 @@ models/
 │   ├── SMPLX_FEMALE.npz
 │   ├── SMPLX_MALE.npz
 │   └── SMPLX_NEUTRAL.npz
+├── SOMA/
+│   └── soma_mid.npz
 └── MHR/
     ├── assets/                     # original author release
     └── converted/
@@ -79,6 +81,7 @@ directory used here contains no separate `LICENSE` or `NOTICE`. Verify the
 terms accompanying the exact release archive before redistributing its assets.
 Convert the author files with `tools/convert/mhr/convert_mhr.py`; the runtime
 does not import `pymomentum`.
+Convert SOMA-X v0.3.4 (Hugging Face `nvidia/soma-x`, Apache 2.0) with `tools/convert/soma/convert_soma.py`.
 
 ## Quick start
 
@@ -114,6 +117,7 @@ See `docs/concepts/architecture.md` for the design and `docs/contracts/bh-addend
 | MANO | `bh.load("mano")` | `betas` | |
 | FLAME | `bh.load("flame")` (no asset tested here) | `betas` | `expression` |
 | MHR | `bh.load("mhr", lod=1)` | `identity`, `proportions` | `expression` |
+| SOMA | `bh.load("soma")` (mid LOD) | `shape` | |
 
 Options `mass`, `density`, `contact_frames` and `stream_joints` go to `Body`; the rest go to the loader.
 

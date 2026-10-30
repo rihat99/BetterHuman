@@ -2,5 +2,6 @@
 
 from .mhr import mhr
 from .smpl_family import flame, mano, smpl, smplh, smplx
+from .soma import soma
 
-__all__ = ["flame", "mano", "mhr", "smpl", "smplh", "smplx"]
+__all__ = ["flame", "mano", "mhr", "smpl", "smplh", "smplx", "soma"]

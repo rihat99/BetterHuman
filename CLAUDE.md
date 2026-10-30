@@ -1,6 +1,6 @@
 # BetterHuman — Agent Guide
 
-Parametric human bodies (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR) as BetterRobot models.
+Parametric human bodies (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR, SOMA) as BetterRobot models.
 Design: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Shapes, units, gates, baselines: `docs/contracts/bh-addendum.md`.
 
 ## Commands
@@ -31,6 +31,7 @@ higher ones. Import BetterRobot through its public surface only (`better_robot.M
 | `families/smpl_family.py`, `families/tables.py` | SMPL-family loaders; file patterns and joint names |
 | `families/classic.py`, `families/mhr.py` | classic converters; MHR loader and converters |
 | `families/mhr_rig.py` | `AuthoredRig` for MHR |
+| `families/soma.py`, `families/soma_rig.py` | SOMA loader and converters; `SomaRig` |
 | `terms.py`, `viz/human_layers.py` | optimisation terms; viewer layers and `HumanView` |
 | `tests/parity/` | upstream goldens and gates |
 
@@ -45,6 +46,8 @@ higher ones. Import BetterRobot through its public surface only (`better_robot.M
 
 - SMPL-X parity 1e-6 m (float32 and float64, expression streamed); current worst 5.1e-7 m.
 - MHR parity on all 7 LODs and vs TorchScript (tolerances in `tests/parity/`).
+- SOMA parity on 14 goldens and their identity batch, all 110 skin joints, float32 and float64 (tolerances in
+  `tests/parity/`).
 - `stream_joints=False` error stays in (1e-5, 2e-3) m.
 Never skip, xfail or loosen a test to get green; report the number instead.
 

@@ -171,6 +171,49 @@ MHR_SCHEMA = ModelSchema(
 )
 
 
+SOMA_CORRECTIVE_FIELDS = frozenset({"corrective_first_layer", "corrective_output_indices", "corrective_output_values"})
+
+SOMA_SCHEMA = ModelSchema(
+    name="soma",
+    fields={
+        "format_version": FieldSpec((), "int64"),
+        "lod": FieldSpec((), "<U3"),
+        "unit": FieldSpec((), "<U1"),
+        "up_axis": FieldSpec((), "<U2"),
+        "forward_axis": FieldSpec((), "<U2"),
+        "shape_mean": FieldSpec(("V", 3), "float32"),
+        "shape_basis": FieldSpec(("V", 3, "S"), "float32"),
+        "bind_vertices": FieldSpec(("V", 3), "float32"),
+        "faces": FieldSpec(("F", 3), "int64"),
+        "joint_names": FieldSpec(("J",), "<U18"),
+        "joint_parents": FieldSpec(("J",), "int64"),
+        "bind_pose_world": FieldSpec(("J", 4, 4), "float32"),
+        "t_pose_world": FieldSpec(("J", 4, 4), "float32"),
+        "skin_indices": FieldSpec(("V", "K"), "int64"),
+        "skin_weights": FieldSpec(("V", "K"), "float32"),
+        "public_joint_ids": FieldSpec(("P",), "int64"),
+        "public_parents": FieldSpec(("P",), "int64"),
+        "public_skin_weights": FieldSpec(("V", "P"), "float32"),
+        "joint_regressor": FieldSpec(("P", "V"), "float32"),
+        "twist_joint_ids": FieldSpec(("T",), "int64"),
+        "twist_segment": FieldSpec(("T",), "int64"),
+        "twist_fraction": FieldSpec(("T",), "float32"),
+        "twist_rotation_matrix": FieldSpec(("T", "P"), "float32"),
+        "segment_start": FieldSpec((8,), "int64"),
+        "segment_end": FieldSpec((8,), "int64"),
+        "segment_parent": FieldSpec((8,), "int64"),
+        "segment_reverse": FieldSpec((8,), "bool"),
+        "corrective_bind": FieldSpec(("P", 3, 3), "float32"),
+        "corrective_first_layer": FieldSpec(("C", "H"), "float32"),
+        "corrective_output_indices": FieldSpec((2, "N"), "int64"),
+        "corrective_output_values": FieldSpec(("N",), "float32"),
+        "corrective_output_shape": FieldSpec((2,), "int64"),
+        "corrective_tanh": FieldSpec((), "bool"),
+    },
+    dimensions={"V": 18056, "S": 128, "J": 110, "P": 78, "T": 32},
+)
+
+
 def validate(
     data: Mapping[str, Any],
     schema: ModelSchema,

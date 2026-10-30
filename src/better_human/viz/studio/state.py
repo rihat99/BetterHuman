@@ -150,12 +150,12 @@ class StudioSession:
             self.set_q(apply_local_rotation(self.q, handle, world_old, world_new))
 
     def move_root(self, handle: JointHandle, world_old: torch.Tensor, world_new: torch.Tensor) -> None:
-        """Move the free-flyer root by a world delta and set its world rotation.
+        """Move the free-flyer root by the gizmo's world delta in position and rotation.
 
-        The free-flyer origin can carry a fixed offset (MHR's pelvis height), so
-        the world position is nudged by the gizmo delta rather than overwritten,
-        while the world rotation equals the free-flyer quaternion for both SMPL
-        and MHR.
+        The reported root frame can sit at a fixed offset from the free flyer
+        (MHR's pelvis height, SOMA's T-pose Hips orientation), so both parts of
+        ``q`` are nudged by the delta rather than overwritten: the world
+        rotation ``R_new R_old^-1`` left-multiplies the free-flyer quaternion.
         """
         if handle.kind != "free_flyer":
             raise ValueError(f"move_root requires a free_flyer handle, got {handle.kind!r}")
@@ -163,7 +163,8 @@ class StudioSession:
             q = self.q.clone()
             idx = handle.idx_q
             q[idx : idx + 3] = q[idx : idx + 3] + (world_new[:3] - world_old[:3])
-            q[idx + 3 : idx + 7] = so3.normalize(world_new[3:7])
+            turn = so3.compose(so3.normalize(world_new[3:7]), so3.inverse(so3.normalize(world_old[3:7])))
+            q[idx + 3 : idx + 7] = so3.normalize(so3.compose(turn, q[idx + 3 : idx + 7]))
             self.set_q(q)
 
     def reset_pose(self) -> None:
