@@ -57,8 +57,10 @@ Three rigs exist:
 
 - `RegressedRig` (`core/rig.py`, SMPL family). Joints come from a joint regressor `(J, V)`
   applied to the shaped vertices. The stream joint basis is `J_regressor @ stream_blendshapes`.
-- `AuthoredRig` (`families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton with
-  per-joint scales. It also builds the BR model itself (`build_model`). Its
+- `MhrRig` (`families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton: each native
+  joint is a chain of revolutes, one per rotation entry of the parameter transform, with mimics for
+  parameters that drive several entries. Proportions set the joint offsets and accumulated scales. It
+  builds its BR model once from the archive, in float64; `to` moves it and `build_model` casts it. Its
   `stream_joint_basis` returns `None`: MHR expression moves vertices only.
 - `SomaRig` (`families/soma_rig.py`, SOMA). Bake fits the template skeleton to the shaped mesh and
   re-poses mesh and skeleton to the template bind, as upstream. Its `joint_transforms` turns the 32

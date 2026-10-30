@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import fields
 from pathlib import Path
-from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
 
 from better_human import Body, families
-from better_human.families import mhr_rig
 from better_human.families.mhr import MHRClassic, mhr_from_classic, mhr_to_classic
 
 ROOT = Path(__file__).parents[2]
@@ -109,7 +108,7 @@ def test_classic_round_trip(body: Body) -> None:
     classic = _random_classic(torch.Generator().manual_seed(3), (4,))
     classic = MHRClassic(classic.identity_coeffs, classic.model_parameters, 0.3 * torch.randn(4, 72))
     identity, q, stream = mhr_from_classic(body, classic)
-    root_quaternion = body.spec.rig.tree.q_to_classic_permutation[3:7]
+    root_quaternion = torch.arange(3, 7)
     q = q.index_copy(-1, root_quaternion, -q.index_select(-1, root_quaternion))
     state = identity.forward(q, stream)
 
@@ -182,18 +181,29 @@ def test_spec_and_classic_validation() -> None:
         mhr_to_classic(identity, q[:-1], stream)
 
 
-def test_build_model_reuses_cached_tree_for_bare_cuda(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``device="cuda"`` means the current CUDA device, so a tree already there is reused, not rebuilt."""
-    def rebuild(*args: object) -> None:
-        raise AssertionError("build_mhr_tree called on a cache hit")
+def test_float64_body_from_float32_spec() -> None:
+    """``Body(spec, dtype=float64)`` casts the rig; its float32-rounded constants move vertices ~3e-7 m."""
+    path = _model_path(6)
+    classic = _random_classic(torch.Generator().manual_seed(7))
+    classic = MHRClassic(classic.identity_coeffs.double(), classic.model_parameters.double())
+    vertices = []
+    for body in (
+        Body(families.mhr(path, lod=6), dtype=torch.float64),
+        Body(families.mhr(path, lod=6, dtype=torch.float64)),
+    ):
+        identity, q, stream = mhr_from_classic(body, classic)
+        vertices.append(identity.forward(q, stream).vertices)
+    assert vertices[0].dtype == torch.float64
+    torch.testing.assert_close(vertices[0], vertices[1], rtol=0, atol=1e-6)
 
-    monkeypatch.setattr(torch.cuda, "current_device", lambda: 1)
-    monkeypatch.setattr(mhr_rig, "build_mhr_tree", rebuild)
-    cached = SimpleNamespace(joint_placements=SimpleNamespace(dtype=torch.float32, device=torch.device("cuda", 1)))
-    rig = mhr_rig.AuthoredRig(arrays={}, tree=SimpleNamespace(robot=cached))
-    assert rig.build_model(None, frames=(), dtype=torch.float32, device=torch.device("cuda")) is cached
-    assert rig.build_model(None, frames=(), dtype=torch.float32, device="cuda:1") is cached
-    with pytest.raises(AssertionError, match="cache hit"):
-        rig.build_model(None, frames=(), dtype=torch.float32, device="cuda:0")
-    assert not mhr_rig._same_device(torch.device("cpu"), torch.device("cuda"))
-    assert mhr_rig._same_device(torch.device("cpu"), torch.device("cpu"))
+
+def test_rig_to_moves_every_tensor(body: Body) -> None:
+    """``MhrRig.to`` moves every rig and BR model tensor; floats take the dtype, integer tables keep theirs."""
+    rig = body.spec.rig
+    moved = rig.to(torch.float64, torch.device("meta"))
+    for old, new in zip(*((each, each.model.structure, each.model.values) for each in (rig, moved))):
+        for field in fields(old):
+            before, after = getattr(old, field.name), getattr(new, field.name)
+            if torch.is_tensor(before):
+                dtype = torch.float64 if before.is_floating_point() else before.dtype
+                assert (after.device.type, after.dtype) == ("meta", dtype), field.name

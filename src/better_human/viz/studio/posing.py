@@ -8,7 +8,7 @@ Pure torch plus :mod:`better_robot.lie.so3`; no viser import.  One
 The MHR channel convention was verified empirically against
 ``HumanState.joint_poses``: each native rotation joint is a chain of revolute
 hosts added in archive channel order ``z, y, x``
-(``bodies/mhr/tree.py:88-98``), so its local rotation composes
+(``families/mhr_rig.py``), so its local rotation composes
 ``Rz(z) @ Ry(y) @ Rx(x)`` -- exactly the ``so3.from_euler`` /
 ``so3.to_euler`` extrinsic-XYZ convention.  Mimic joints carry no public
 coordinate (``robot.nqs == 0`` and ``robot.mimic_source != joint_id``) and are

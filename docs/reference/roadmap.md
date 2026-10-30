@@ -95,8 +95,11 @@ BetterRobot's roadmap.
 - Time semantics: a clip is `(B, T, nq)` with `fps`/`times` following
   BetterRobot's viewer time model ([addendum](../contracts/bh-addendum.md)).
 - The [studio](../studio.md) registers pointer tools through BetterRobot's
-  `Viewer.on_pointer` / `clear_pointer` and picking helper, resets the active
-  frame on a model switch, and caches the MHR tree per device.
+  `Viewer.on_pointer` / `clear_pointer` and picking helper, and resets the
+  active frame on a model switch.
+- The MHR runtime is a loader (`families/mhr.py`) and a rig (`families/mhr_rig.py`,
+  `MhrRig`) that builds its float64 BR model once and casts it per body; the
+  proportion-rig constants left `FamilySpec.meta` for the rig.
 
 ### Families and bodies
 

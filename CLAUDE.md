@@ -30,7 +30,7 @@ higher ones. Import BetterRobot through its public surface only (`better_robot.M
 | `core/pipeline.py`, `core/mass.py` | blend shapes and skinning; segmentation and inertias |
 | `families/smpl_family.py`, `families/tables.py` | SMPL-family loaders; file patterns and joint names |
 | `families/classic.py`, `families/mhr.py` | classic converters; MHR loader and converters |
-| `families/mhr_rig.py` | `AuthoredRig` for MHR |
+| `families/mhr_rig.py` | `MhrRig` |
 | `families/soma.py`, `families/soma_rig.py` | SOMA loader and converters; `SomaRig` |
 | `terms.py`, `viz/human_layers.py` | optimisation terms; viewer layers and `HumanView` |
 | `tests/parity/` | upstream goldens and gates |

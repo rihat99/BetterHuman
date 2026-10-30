@@ -2,7 +2,7 @@
 
 A rig is the one behavioural part of a :class:`~better_human.core.spec.FamilySpec`. Three exist:
 :class:`RegressedRig` (SMPL family: joints regressed from the shaped mesh, free-flyer root plus
-spherical joints), the authored MHR rig in ``better_human.families.mhr_rig`` and the SOMA rig in
+spherical joints), ``MhrRig`` in ``better_human.families.mhr_rig`` (the authored MHR skeleton) and ``SomaRig`` in
 ``better_human.families.soma_rig``.
 """
 

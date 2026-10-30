@@ -21,14 +21,8 @@ META_KEYS = frozenset(
         "hand_components",
         "hand_joints",
         "hand_mean",
-        "inverse_bind_poses",
-        "joint_offsets",
-        "joint_pre_rotations",
         "native_joint_ids",
-        "root_parameter_transform",
-        "scale_basis",
         "side",
-        "translation_basis",
     }
 )
 """Every ``FamilySpec.meta`` key read by ``better_human.core`` and ``better_human.families``."""
@@ -103,10 +97,7 @@ class FamilySpec:
     - ``hand_mean`` ``{side: (45,)}`` and ``hand_components`` ``{side: (C, 45)}``: hand pose PCA.
     - ``side`` ``str``: ``"left"`` or ``"right"`` (MANO).
     - ``closed_segmentation``: authored part segmentation for mass properties (MHR), or absent.
-    - ``inverse_bind_poses`` ``(J, 7)`` and ``bind_joint_positions`` ``(J, 3)``: MHR skinning bind.
-    - ``joint_offsets`` ``(J, 3)``, ``joint_pre_rotations`` ``(J, 4)`` (xyzw), ``translation_basis``
-      ``(J, 3, P)``, ``scale_basis`` ``(J, P)``: MHR proportion rig.
-    - ``root_parameter_transform`` ``(R, R)``: MHR root channels to native root parameters.
+    - ``bind_joint_positions`` ``(J, 3)``: pivots of the accumulated joint scales in skinning (MHR).
     """
 
     name: str
