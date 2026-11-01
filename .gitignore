@@ -18,7 +18,7 @@ htmlcov/
 # Local, untracked project data
 models
 models/
-references/
+references
 temp/
 
 # autoresearch
