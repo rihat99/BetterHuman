@@ -17,9 +17,6 @@ from soma import SOMALayer
 from soma.io import load_lod_rigs_from_usd
 from soma.units import Unit
 
-DEFAULT_ASSETS_DIR = Path(
-    "/tmp/claude-1003/-home-rikhat-akizhanov-better/364c020a-cd00-4ea3-ab3a-688eb158660a/scratchpad/soma_assets"
-)
 VERTEX_COUNT = 18056
 JOINT_COUNT = 110
 PUBLIC_JOINT_COUNT = 78
@@ -42,7 +39,7 @@ LOGGER = logging.getLogger(__name__)
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--assets-dir", type=Path, default=DEFAULT_ASSETS_DIR, help="Directory with SOMA-X assets")
+    parser.add_argument("--assets-dir", type=Path, required=True, help="Directory with the SOMA-X release assets")
     parser.add_argument("--output-dir", type=Path, default=Path("models/SOMA"), help="Directory for soma_mid.npz")
     return parser.parse_args()
 
