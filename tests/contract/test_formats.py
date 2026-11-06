@@ -191,8 +191,9 @@ def test_fixtures_are_the_listed_files() -> None:
 def _nodes(package: Path) -> Iterator[tuple[str, ast.AST]]:
     """``(path relative to package, node)`` for every syntax node of every module under ``package``."""
     for path in sorted(package.rglob("*.py")):
+        relative = path.relative_to(package).as_posix()
         for node in ast.walk(ast.parse(path.read_text())):
-            yield path.relative_to(package).as_posix(), node
+            yield relative, node
 
 
 def _format_version_names(package: Path) -> list[str]:
