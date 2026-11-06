@@ -121,6 +121,8 @@ See `docs/concepts/architecture.md` for the design and `docs/contracts/bh-addend
 | SOMA | `bh.load("soma")` (mid LOD) | `shape` | |
 
 Options `mass`, `density`, `contact_frames` and `stream_joints` go to `Body`; the rest go to the loader.
+`contact_frames` takes a mapping `name -> (vertex_id, joint | None)`: `bh.io.read_frame_set(path)` reads a frame-set
+file and `bh.io.shipped_frame_set("smplx_contacts")` returns the 35 SMPL-X contact points BetterHuman ships.
 
 ## Run the examples
 

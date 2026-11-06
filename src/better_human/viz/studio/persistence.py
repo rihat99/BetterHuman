@@ -16,7 +16,7 @@ from pathlib import Path
 
 import torch
 
-from better_human.core.contact_frames import parse_frame_set
+from better_human.io import read_frame_set, write_frame_set
 
 _ASSET_PACKAGE = "better_human.families.assets"
 
@@ -117,25 +117,21 @@ def save_segmentation(path: Path, parts: Mapping[str, Sequence[int]]) -> None:
 
 
 def load_frame_set(path: Path, num_vertices: int) -> dict[str, tuple[int, str | None]]:
-    """Load a frame set, accepting the legacy and ``{vertex, joint}`` entry forms.
+    """Load a frame-set file (:func:`better_human.io.read_frame_set`), range-checking every vertex id.
 
     :returns: mapping name -> ``(vertex_id, joint_name | None)``; the caller that
         knows the body resolves ``joint_name`` to a native joint index.
     """
-    return parse_frame_set(path, num_vertices)
+    frames = read_frame_set(path)
+    for name, (vertex, _) in frames.items():
+        _checked_vertex_id(vertex, num_vertices, name)
+    return frames
 
 
 def save_frame_set(path: Path, frames: Mapping[str, tuple[int, str | None]]) -> None:
-    """Save a frame set as ``{name: {"vertex": int, "joint": name | null}}`` JSON.
-
-    ``frames`` maps each name to ``(vertex_id, joint_name | None)``; entries with
-    no override are written with ``"joint": null``.
-    """
-    payload = {
-        str(name): {"vertex": int(vertex), "joint": None if joint is None else str(joint)}
-        for name, (vertex, joint) in frames.items()
-    }
-    _write_json(path, payload)
+    """Save ``frames`` (name -> ``(vertex_id, joint_name | None)``) as a frame-set file, creating its directory."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_frame_set(path, frames)
 
 
 def save_pose(path: Path, q: torch.Tensor, model_key: str) -> None:

@@ -6,17 +6,15 @@ the origin sits on the vertex and the local z axis is the outward mesh normal
 there. Posing the body then reports both a contact point and the surface
 direction straight from forward kinematics, with no mesh work per frame.
 
-The authored input is a frame-set JSON file, ``{name: {"vertex": int,
-"joint": name | null}}``. A ``null`` joint means "use the vertex's dominant
-skinning joint".
+The input is a mapping ``name -> (vertex_id, joint_name | None)``, as
+``better_human.io.read_frame_set`` returns it from a frame-set file. A ``None``
+joint means "use the vertex's dominant skinning joint".
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 
 import torch
 from better_robot.lie import so3
@@ -36,35 +34,6 @@ class ContactFrames:
     frame_ids: tuple[int, ...]
 
 
-def _parse_frame_entry(value: object, num_vertices: int, name: str) -> tuple[int, str | None]:
-    """Parse one entry — a bare vertex id, or a ``{vertex, joint}`` dict."""
-    joint = None
-    if isinstance(value, dict):
-        joint = value.get("joint")
-        if joint is not None and not isinstance(joint, str):
-            raise ValueError(f"{name!r}: frame joint {joint!r} is not a joint name or null")
-        value = value.get("vertex")
-    if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{name!r}: vertex id {value!r} is not an int")
-    if not 0 <= value < num_vertices:
-        raise ValueError(f"{name!r}: vertex id {value} out of range [0, {num_vertices})")
-    return value, joint
-
-
-def parse_frame_set(path: str | Path, num_vertices: int) -> dict[str, tuple[int, str | None]]:
-    """Load a frame-set JSON file, keeping the authored order.
-
-    :param path: JSON file mapping each frame name to a vertex id or a
-        ``{"vertex": int, "joint": name | null}`` object.
-    :param num_vertices: mesh vertex count, used to range-check every id.
-    :returns: mapping name -> ``(vertex_id, joint_name | None)``. The parent
-        joint stays a portable name here; :func:`resolve_parents` turns it into
-        an index once the body's joint names are known.
-    """
-    raw = json.loads(Path(path).read_text())
-    return {name: _parse_frame_entry(value, num_vertices, name) for name, value in raw.items()}
-
-
 def resolve_parents(
     entries: Mapping[str, tuple[int, str | None]],
     joint_names: Sequence[str],
@@ -75,14 +44,18 @@ def resolve_parents(
     An explicit joint name wins. ``None`` falls back to the vertex's dominant
     skinning joint (``BodyStructure.part_ids``), which does not depend on shape.
 
-    :param entries: parsed frame set, as returned by :func:`parse_frame_set`.
+    :param entries: name -> ``(vertex_id, joint_name | None)``, e.g. from
+        ``better_human.io.read_frame_set``.
     :param joint_names: the body's native reduced joint names.
     :param part_ids: ``(V,)`` argmax skinning joint per vertex.
     :returns: one native reduced-joint index per entry, in entry order.
+    :raises ValueError: for a vertex id outside ``[0, V)`` or an unknown joint name.
     """
     index_by_name = {name: index for index, name in enumerate(joint_names)}
     parents = []
     for name, (vertex, joint) in entries.items():
+        if isinstance(vertex, bool) or not isinstance(vertex, int) or not 0 <= vertex < len(part_ids):
+            raise ValueError(f"{name!r}: vertex id {vertex!r} is not an int in [0, {len(part_ids)})")
         if joint is None:
             parents.append(int(part_ids[vertex]))
             continue
@@ -154,7 +127,6 @@ def frame_local_placements(
 __all__ = [
     "ContactFrames",
     "frame_local_placements",
-    "parse_frame_set",
     "resolve_parents",
     "vertex_normals",
 ]

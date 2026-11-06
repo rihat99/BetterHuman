@@ -10,7 +10,7 @@ import torch
 from better_robot.lie import so3
 
 import better_human as bh
-from better_human.core.contact_frames import parse_frame_set, resolve_parents, vertex_normals
+from better_human.core.contact_frames import resolve_parents, vertex_normals
 from better_human.io import weight_path
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -22,7 +22,7 @@ def body() -> bh.Body:
     """Neutral SMPL-X with hands, no face, and the authored contact frames."""
     return bh.Body(
         bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False, num_betas=10),
-        contact_frames=CONTACTS_PATH,
+        contact_frames=bh.io.read_frame_set(CONTACTS_PATH),
     )
 
 
@@ -123,10 +123,11 @@ def test_unknown_explicit_joint_name_raises(body: bh.Body) -> None:
         )
 
 
-def test_parse_frame_set_reads_the_authored_file() -> None:
-    entries = parse_frame_set(CONTACTS_PATH, num_vertices=10475)
-    assert entries["knee_left"] == (3673, "left_knee")
-    assert entries["heel_right"] == (8712, None)
+@pytest.mark.parametrize("vertex", [-1, 4, True], ids=["negative", "past_the_mesh", "bool"])
+def test_resolve_parents_refuses_a_vertex_outside_the_mesh(vertex: int) -> None:
+    # The frame-set reader cannot know the mesh; the first place that does checks every id.
+    with pytest.raises(ValueError, match=r"'tip': vertex id .* is not an int in \[0, 4\)"):
+        resolve_parents({"tip": (vertex, None)}, ["root"], torch.zeros(4, dtype=torch.long))
 
 
 @pytest.mark.licensed

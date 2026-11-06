@@ -15,9 +15,10 @@ from better_robot.exceptions import BetterRobotError
 
 MHR = "better_human.mhr"
 SOMA = "better_human.soma"
+FRAME_SET = "better_human.frame_set"
 
-#: The version each format's readers read and its converters write.
-LATEST = {MHR: 2, SOMA: 2}
+#: The version each format's readers read and its writers write.
+LATEST = {MHR: 2, SOMA: 2, FRAME_SET: 1}
 
 
 class FormatError(BetterRobotError, ValueError):
@@ -75,8 +76,18 @@ def _soma_v1_to_v2(fields: Mapping[str, Any]) -> dict[str, Any]:
     return {**fields, "format": np.str_(SOMA), "format_version": np.int64(2), "provenance": np.str_("unknown (v1)")}
 
 
+def _frame_set_v0_to_v1(fields: Mapping[str, Any]) -> dict[str, Any]:
+    """v1 wraps the frames in a header and writes every entry as ``{vertex, joint}``; a bare vertex id gets joint null."""
+    frames = {
+        name: value if isinstance(value, Mapping) else {"vertex": value, "joint": None}
+        for name, value in fields.items()
+    }
+    return {"format": FRAME_SET, "format_version": 1, "frames": frames}
+
+
 #: ``(format, version) -> migration`` to ``version + 1``.
 MIGRATIONS: dict[tuple[str, int], Callable[[Mapping[str, Any]], dict[str, Any]]] = {
     (MHR, 1): _mhr_v1_to_v2,
     (SOMA, 1): _soma_v1_to_v2,
+    (FRAME_SET, 0): _frame_set_v0_to_v1,
 }

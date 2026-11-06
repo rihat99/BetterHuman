@@ -5,14 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from numbers import Real
-from pathlib import Path
 
 import torch
 from better_robot import Model
 from better_robot.kinematics import KinematicState, forward_kinematics_state
 from better_robot.lie import so3
 
-from .contact_frames import ContactFrames, frame_local_placements, parse_frame_set, resolve_parents
+from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
 from .mass import PartMeshTopology, body_inertias_from_shape, build_authored_topology, build_part_topology
 from .pipeline import blend_shapes, lbs_affines, skin_affines
 from .rig import RegressedRig
@@ -24,9 +23,9 @@ Tensors = Mapping[str, torch.Tensor]
 class Body:
     """A body family ready to bake subjects: BR model topology, segmentation, optional mass and contact frames.
 
-    ``density`` is kg/m³, a scalar or one value per part. ``contact_frames`` is a frame-set JSON
-    path or a mapping ``name -> (vertex_id, parent joint name | None)``; each becomes an
-    operational frame of the model, re-placed on every bake. ``stream_joints=False`` lets stream
+    ``density`` is kg/m³, a scalar or one value per part. ``contact_frames`` is a mapping
+    ``name -> (vertex_id, parent joint name | None)`` (a file: ``better_human.io.read_frame_set``);
+    each becomes an operational frame of the model, re-placed on every bake. ``stream_joints=False`` lets stream
     groups (expression) move vertices but not joints: faster, slightly off upstream.
     """
 
@@ -38,7 +37,7 @@ class Body:
         device: torch.device | str | None = None,
         mass: bool = True,
         density: float | torch.Tensor = 1000.0,
-        contact_frames: str | Path | Mapping[str, tuple[int, str | None]] | None = None,
+        contact_frames: Mapping[str, tuple[int, str | None]] | None = None,
         stream_joints: bool = True,
     ) -> None:
         self.spec = spec = spec.to(dtype=dtype, device=device)
@@ -98,11 +97,11 @@ class Body:
     def device(self) -> torch.device:
         return self.spec.device
 
-    def _attach_contact_frames(self, source: str | Path | Mapping[str, tuple[int, str | None]]) -> None:
+    def _attach_contact_frames(self, source: Mapping[str, tuple[int, str | None]]) -> None:
         if not isinstance(self.spec.rig, RegressedRig):
             raise ValueError("contact frames need a regressed rig (SMPL family)")
         spec = self.spec
-        entries = dict(source) if isinstance(source, Mapping) else parse_frame_set(source, spec.num_vertices)
+        entries = dict(source)
         parents = resolve_parents(entries, spec.joint_names, spec.parts.ids)
         vertex_ids = tuple(vertex for vertex, _ in entries.values())
         zero = self.bake()

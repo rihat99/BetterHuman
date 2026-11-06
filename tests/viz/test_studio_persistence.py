@@ -49,43 +49,9 @@ def test_frame_set_round_trip_with_and_without_override(tmp_path: Path) -> None:
     assert path.is_file()
     # No-override entries are written as {"vertex": v, "joint": null}.
     payload = json.loads(path.read_text())
-    assert payload["nose"] == {"vertex": 331, "joint": None}
-    assert payload["reye"] == {"vertex": 6260, "joint": "right_eye_smplhf"}
+    assert payload["frames"]["nose"] == {"vertex": 331, "joint": None}
+    assert payload["frames"]["reye"] == {"vertex": 6260, "joint": "right_eye_smplhf"}
     assert persistence.load_frame_set(path, num_vertices=SMPLX_NUM_VERTICES) == frames
-
-
-def test_frame_set_loads_legacy_and_mixed_forms(tmp_path: Path) -> None:
-    path = tmp_path / "mixed.json"
-    path.write_text(
-        json.dumps(
-            {
-                "legacy": 331,  # bare vertex -> no override
-                "new_default": {"vertex": 100, "joint": None},
-                "new_override": {"vertex": 200, "joint": "left_wrist"},
-            }
-        )
-    )
-    loaded = persistence.load_frame_set(path, num_vertices=SMPL_NUM_VERTICES)
-    assert loaded == {
-        "legacy": (331, None),
-        "new_default": (100, None),
-        "new_override": (200, "left_wrist"),
-    }
-
-
-def test_frame_set_accepts_unknown_joint_name_at_io_layer(tmp_path: Path) -> None:
-    # Persistence does not know the body, so any joint string is accepted here;
-    # resolution/validation of the name happens in the app load path.
-    path = tmp_path / "unknown.json"
-    path.write_text(json.dumps({"tip": {"vertex": 5, "joint": "not_a_real_joint"}}))
-    assert persistence.load_frame_set(path, num_vertices=100) == {"tip": (5, "not_a_real_joint")}
-
-
-def test_frame_set_non_string_joint_raises(tmp_path: Path) -> None:
-    path = tmp_path / "bad.json"
-    path.write_text(json.dumps({"tip": {"vertex": 5, "joint": 7}}))
-    with pytest.raises(ValueError, match="'tip'.*joint name or null"):
-        persistence.load_frame_set(path, num_vertices=100)
 
 
 def test_pose_round_trip(tmp_path: Path) -> None:

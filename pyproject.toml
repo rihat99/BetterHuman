@@ -44,7 +44,7 @@ torch = { index = "pytorch-cu129" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/better_human"]
-# Ship the authored segmentation and density tables (data, not source) in the
+# Ship the authored segmentation, density and frame-set tables (data, not source) in the
 # wheel and keep them included even if a future VCS ignore rule matches them.
 artifacts = ["*.npy", "*.json"]
 

@@ -82,7 +82,8 @@ Body(spec, *, dtype=None, device=None, mass=True, density=1000.0, contact_frames
 - Builds one BR `Model` (topology) per family at construction. `body.model`, `body.faces`,
   `body.parents`, `body.spec`, `body.dtype`, `body.device`.
 - `mass=True` builds the part topology once; inertias are integrated on every bake.
-- `contact_frames` is a frame-set JSON path or a mapping `name -> (vertex_id, parent joint | None)`.
+- `contact_frames` is a mapping `name -> (vertex_id, parent joint | None)`, from a frame-set file through
+  `io.read_frame_set(path)` or shipped as `io.shipped_frame_set("smplx_contacts")`.
   Each entry becomes a BR operational frame, re-placed on every bake.
 - `bh.load(family, path=None, **options)` calls the family loader and `Body` in one step.
   `mass`, `density`, `contact_frames` and `stream_joints` go to `Body`; the rest go to the loader.

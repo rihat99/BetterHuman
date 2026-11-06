@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import families
+from . import families, io
 from .core import Body, FamilySpec, HumanState, Identity
 
 __version__ = "0.1.0.dev0"
@@ -23,4 +23,4 @@ def load(family: str, path: str | None = None, **options: Any) -> Body:
     return Body(loader(path, **options), **body_options)
 
 
-__all__ = ["Body", "FamilySpec", "HumanState", "Identity", "__version__", "families", "load"]
+__all__ = ["Body", "FamilySpec", "HumanState", "Identity", "__version__", "families", "io", "load"]
