@@ -213,6 +213,20 @@ def test_mhr_v1_archive_loads_through_its_migration(tmp_path: Path, mhr_data: di
     assert str(loaded["provenance"]) == "unknown (v1)"
 
 
+@pytest.mark.parametrize("version", [1, 2])
+def test_an_excluded_header_is_still_read(tmp_path: Path, mhr_data: dict[str, np.ndarray], version: int) -> None:
+    # The version selects the migrations, so excluding the header leaves it out of the result only.
+    model_path = tmp_path / "mhr_lod6.npz"
+    if version == 1:
+        del mhr_data["format"], mhr_data["provenance"]
+        mhr_data["format_version"] = np.asarray(1, dtype=np.int64)
+    np.savez(model_path, **mhr_data)
+
+    loaded = load_model_npz(model_path, MHR_SCHEMA, exclude_fields=("format", "format_version"))
+
+    assert set(loaded) == set(MHR_SCHEMA.fields) - {"format", "format_version"}
+
+
 def test_model_loader_rejects_unknown_field_exclusions(
     tmp_path: Path,
     mhr_data: dict[str, np.ndarray],

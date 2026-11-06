@@ -22,7 +22,7 @@ import numpy as np
 import torch
 from better_robot.exceptions import BetterRobotError
 
-from .formats import FormatError, upgrade
+from .formats import FormatError, header, upgrade
 from .schema import ModelSchema, validate
 
 MODELS_ENV = "BETTERHUMAN_MODELS_DIR"
@@ -107,8 +107,11 @@ def load_model_npz(
         format=schema.format,
     )
 
+    names = set(selected_schema.fields)
+    if schema.format is not None:
+        names |= set(header(schema.format))  # read even when excluded: the version selects the migrations
     with np.load(model_path, allow_pickle=False) as archive:
-        arrays = _read_archive_arrays(archive, selected_schema, model_path)
+        arrays = _read_archive_arrays(archive, names, schema.name, model_path)
     if schema.format is not None:
         arrays = upgrade(arrays, format=schema.format, source=str(model_path))
     validate(arrays, selected_schema, source=str(model_path))
@@ -121,18 +124,19 @@ def _to_loaded_value(array: np.ndarray) -> torch.Tensor | np.ndarray:
 
 def _read_archive_arrays(
     archive: np.lib.npyio.NpzFile,
-    schema: ModelSchema,
+    names: Collection[str],
+    schema_name: str,
     model_path: Path,
 ) -> dict[str, Any]:
-    names = set(archive.files)
-    arrays: dict[str, Any] = {name: None for name in names - set(schema.fields)}
-    for name in names & set(schema.fields):
+    members = set(archive.files)
+    arrays: dict[str, Any] = {name: None for name in members - set(names)}
+    for name in members & set(names):
         try:
             arrays[name] = np.asarray(archive[name])
         except Exception as error:
             raise FormatError(
                 f"{model_path}: field {name!r} expected a non-pickled numeric array, "
                 f"but it could not be read ({error}). Reconvert the asset or provide a valid "
-                f"{schema.name} .npz file."
+                f"{schema_name} .npz file."
             ) from error
     return arrays
