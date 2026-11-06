@@ -4,15 +4,17 @@ For each format in ``io.formats.LATEST``: the latest version round-trips, a fixt
 ``tests/support/formats/`` reads through its migration and equals the latest fixture, a later version and another
 format are refused naming both, and ``docs/reference/formats/<name>.md`` specifies it. No module but ``io/formats.py``
 and ``io/schema.py`` names ``format_version`` (8.8), and none loads a pickle but the listed exception (record 0013).
-The fixtures are synthetic and frozen: every field a distinct constant; the v1 archives are written as the
-converters wrote them before record 0012 (no ``format``, no ``provenance``; MHR's ``coordinate_axis``, SOMA's ``lod``
-and ``source``).
+The fixtures are synthetic and frozen: ``tests/support/formats/make_fixtures.py`` wrote them (every field a distinct
+constant; the v1 archives as the converters wrote them before record 0012) and ``SHA256SUMS`` there lists them. Each
+spec page's field tables equal the reader's schema, field by field.
 """
 
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
+import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -23,7 +25,7 @@ import pytest
 from better_human.io import FormatError, check_format, read_frame_set, write_frame_set
 from better_human.io.formats import FRAME_SET, LATEST, MHR, MIGRATIONS, SOMA
 from better_human.io.load import load_model_npz
-from better_human.io.schema import MHR_SCHEMA, SOMA_SCHEMA
+from better_human.io.schema import MHR_SCHEMA, SOMA_SCHEMA, ModelSchema
 
 REPO = Path(__file__).resolve().parents[2]
 PACKAGE = REPO / "src" / "better_human"
@@ -129,10 +131,61 @@ def test_a_format_without_its_version_is_refused() -> None:
         check_format({"format": FRAME_SET, "frames": {}}, format=FRAME_SET, version=LATEST[FRAME_SET])
 
 
+def _spec_page(format: str) -> Path:
+    return REPO / "docs" / "reference" / "formats" / f"{format.removeprefix('better_human.')}.md"
+
+
 @pytest.mark.parametrize("format", LATEST)
 def test_every_format_has_a_spec_page(format: str) -> None:
-    page = REPO / "docs" / "reference" / "formats" / f"{format.removeprefix('better_human.')}.md"
+    page = _spec_page(format)
     assert page.is_file(), f"{format} has no spec page {page.relative_to(REPO)}"
+
+
+def _spec_fields(page: Path) -> dict[str, tuple[str, str]]:
+    """``name -> (dtype, shape)`` from the page's ``| field | dtype | shape | meaning |`` tables.
+
+    A row may list several fields, with one dtype and one shape each or one for all of them.
+    """
+    fields = {}
+    in_table = False
+    for line in page.read_text().splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if cells == ["field", "dtype", "shape", "meaning"]:
+            in_table = True
+            continue
+        in_table = in_table and line.startswith("|")
+        if not in_table or set(cells[0]) == {"-"}:
+            continue
+        names = re.findall(r"`([^`]+)`", cells[0])
+        dtypes = [dtype.strip().strip("`") for dtype in cells[1].split(",")]
+        shapes = [shape.replace(" ", "") for shape in re.findall(r"`([^`]+)`", cells[2])]
+        for index, name in enumerate(names):
+            fields[name] = (dtypes[index if len(dtypes) > 1 else 0], shapes[index if len(shapes) > 1 else 0])
+    return fields
+
+
+@pytest.mark.parametrize("schema", [MHR_SCHEMA, SOMA_SCHEMA], ids=[MHR, SOMA])
+def test_spec_page_fields_are_the_schema(schema: ModelSchema) -> None:
+    """Every field the reader reads has a row with its name, dtype and shape, and no row names another field."""
+    expected = {
+        name: (
+            spec.dtype,
+            "(" + ",".join(str(axis) for axis in spec.shape) + ("," if len(spec.shape) == 1 else "") + ")",
+        )
+        for name, spec in schema.fields.items()
+    }
+    assert _spec_fields(_spec_page(schema.format)) == expected
+
+
+def test_fixtures_are_the_listed_files() -> None:
+    """The fixtures are frozen: ``SHA256SUMS`` (written with them by ``make_fixtures.py``) lists each one's hash."""
+    listed = dict(reversed(line.split("  ")) for line in (FIXTURES / "SHA256SUMS").read_text().splitlines())
+    on_disk = {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in FIXTURES.iterdir()
+        if path.suffix in {".npz", ".json"}
+    }
+    assert on_disk == listed
 
 
 def _nodes(package: Path) -> Iterator[tuple[str, ast.AST]]:

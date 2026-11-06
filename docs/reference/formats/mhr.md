@@ -33,7 +33,7 @@ Lengths are metres, rotations are quaternions `[qx, qy, qz, qw]`, the up axis is
 | `segmentation_joint_group_indices` | int64 | `(127,)` | group of each joint |
 | `model_parameter_names` | `<U24` | `(204,)` | upstream model parameters |
 | `model_parameter_channel_types` | int8 | `(204,)` | `0` translation, `1` rotation, `2` scale |
-| `parameter_transform_rows`, `_columns`, `_values` | int64, int64, float32 | `(368,)` each | sparse parameter transform: row `joint * 7 + channel`, column model parameter |
+| `parameter_transform_rows`, `parameter_transform_columns`, `parameter_transform_values` | int64, int64, float32 | `(368,)` each | sparse parameter transform: row `joint * 7 + channel`, column model parameter |
 | `model_parameter_lower_limits`, `model_parameter_upper_limits` | float32 | `(204,)` each | parameter limits |
 | `template_vertices` | float32 | `(V, 3)` | rest mesh |
 | `faces` | int64 | `(F, 3)` | triangles |
