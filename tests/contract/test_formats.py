@@ -42,8 +42,13 @@ READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
 #: The provenance a v1 archive migrates to: an MHR v1 archive has none, a SOMA v1 archive carries it as ``source``.
 V1_PROVENANCE = {MHR: "unknown (v1)", SOMA: '{"package": "py-soma-x"}'}
 #: Every format; SOMA's write cases run in the full tier: rewriting its archive compresses the schema's fixed sizes
-#: (18056 vertices, 40 MB), seconds on this host. Its migration case, a read, stays in the fast tier.
+#: (18056 vertices, 40 MB), seconds on this host.
 WRITTEN_FORMATS = [pytest.param(name, marks=pytest.mark.slow) if name == SOMA else name for name in LATEST]
+#: Every migration; SOMA's is full tier: its 40 MB fixtures stall on hosts with transparent huge pages (fast: ~1 s).
+MIGRATION_CASES = [
+    pytest.param(name, version, id=f"{name}_v{version}", marks=pytest.mark.slow if name == SOMA else ())
+    for name, version in sorted(MIGRATIONS)
+]
 
 
 def _fixture(format: str, version: int) -> Path:
@@ -89,9 +94,7 @@ def test_latest_version_round_trips(format: str, tmp_path: Path) -> None:
     assert _comparable(format, _read(format, copy)) == _comparable(format, latest)
 
 
-@pytest.mark.parametrize(
-    ("format", "version"), sorted(MIGRATIONS), ids=[f"{name}_v{version}" for name, version in sorted(MIGRATIONS)]
-)
+@pytest.mark.parametrize(("format", "version"), MIGRATION_CASES)
 def test_past_version_reads_through_migration_as_the_latest(format: str, version: int) -> None:
     past = _comparable(format, _read(format, _fixture(format, version)))
     latest = _comparable(format, _read(format, _fixture(format, LATEST[format])))
