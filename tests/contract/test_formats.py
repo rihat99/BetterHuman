@@ -34,6 +34,9 @@ READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     SOMA: ("npz", lambda path: load_model_npz(path, SOMA_SCHEMA)),
     FRAME_SET: ("json", read_frame_set),
 }
+#: Every format; SOMA's write cases run in the full tier: rewriting its archive compresses the schema's fixed sizes
+#: (18056 vertices, 40 MB), seconds on this host. Its migration case, a read, stays in the fast tier.
+WRITTEN_FORMATS = [pytest.param(name, marks=pytest.mark.slow) if name == SOMA else name for name in LATEST]
 
 
 def _fixture(format: str, version: int) -> Path:
@@ -65,7 +68,7 @@ def _rewrite(source: Path, destination: Path, changes: dict[str, Any]) -> Path:
     return destination
 
 
-@pytest.mark.parametrize("format", LATEST)
+@pytest.mark.parametrize("format", WRITTEN_FORMATS)
 def test_latest_version_round_trips(format: str, tmp_path: Path) -> None:
     """What the reader returns, written back, is the file again (the archive writers are the converters)."""
     fixture = _fixture(format, LATEST[format])
@@ -92,7 +95,7 @@ def test_past_version_reads_through_migration_as_the_latest(format: str, version
     assert past == latest
 
 
-@pytest.mark.parametrize("format", LATEST)
+@pytest.mark.parametrize("format", WRITTEN_FORMATS)
 def test_later_version_is_refused_naming_both(format: str, tmp_path: Path) -> None:
     later = LATEST[format] + 1
     fixture = _fixture(format, LATEST[format])
@@ -101,7 +104,7 @@ def test_later_version_is_refused_naming_both(format: str, tmp_path: Path) -> No
         _read(format, path)
 
 
-@pytest.mark.parametrize("format", LATEST)
+@pytest.mark.parametrize("format", WRITTEN_FORMATS)
 def test_another_format_is_refused_naming_both(format: str, tmp_path: Path) -> None:
     fixture = _fixture(format, LATEST[format])
     path = _rewrite(fixture, tmp_path / fixture.name, {"format": "x.y"})
