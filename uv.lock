@@ -53,7 +53,6 @@ source = { editable = "." }
 dependencies = [
     { name = "better-robot" },
     { name = "numpy" },
-    { name = "scipy" },
     { name = "torch" },
 ]
 
@@ -75,6 +74,7 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "ruff" },
+    { name = "scipy" },
 ]
 
 [package.metadata]
@@ -83,7 +83,6 @@ requires-dist = [
     { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", editable = "../BetterRobot" },
     { name = "better-robot", extras = ["viewer"], marker = "extra == 'viewer'", editable = "../BetterRobot" },
     { name = "numpy", specifier = ">=2.0" },
-    { name = "scipy", specifier = ">=1.11" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
 ]
 provides-extras = ["viewer", "studio"]
@@ -98,6 +97,7 @@ dev = [
     { name = "pre-commit", specifier = ">=3.7" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff" },
+    { name = "scipy", specifier = ">=1.11" },
 ]
 
 [[package]]
