@@ -17,7 +17,7 @@ share a name with an exported function, and walk every import with one walker th
 ## Example
 ```python
 ALLOWED = {"io": set(), "mass": set(), "core": {"mass"}, "families": {"core", "io", "mass"}, "terms": {"core"},
-           "viz": {"core"}, "studio": {ROOT, "core", "families", "io", "mass", "viz"},
+           "viz": {"core", "io"}, "studio": {ROOT, "core", "families", "io", "mass", "viz"},
            ROOT: {"core", "families", "io", "mass", "terms", "viz"}}
 BR_ALLOWED = {"io": set(), "mass": {"better_robot.lie", "better_robot.spatial"},
               "core": {"better_robot", "better_robot.kinematics", "better_robot.lie"},
@@ -45,3 +45,8 @@ replaced by a check of `BR_ALLOWED` plus the principle 1.6 consumer import test;
 
 ## Open questions
 None.
+
+## Note (2026-11-06)
+`viz -> io` is a permanent allowed edge, not a ratchet entry: the studio persists frame sets through
+`better_human.io` (`read_frame_set`, `write_frame_set`; record 0013). The `ALLOWED` table above gained it, as did
+`tests/contract/test_layer_dependencies.py` (commit `6f0b329`).

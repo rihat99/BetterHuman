@@ -6,14 +6,14 @@ enforcement. The BetterRobot contracts in `BetterRobot/docs/contracts/` apply fi
 ## H-LAYER-1 Imports follow decision record 0011's two edge tables (MUST)
 
 Among BetterHuman's units: `io` and `mass` import no other unit; `core` imports `mass`; `families` imports `core`,
-`io` and `mass`; `terms` imports `core`; `viz` imports `core`; `studio` imports the package root, `core`,
-`families`, `io`, `mass` and `viz`; the root imports every unit but `studio`. Into BetterRobot: `io` only
-`exceptions` (its errors sit under `BetterRobotError`, BetterRobot 0031); `mass` `lie` and `spatial`; `core` the
-root, `kinematics` and `lie`; `families` the root, `io`, `kinematics` and `lie`; `terms` the root, `dynamics`,
-`kinematics` and `optim`; `viz` and `studio` `viewer`, `studio` also `lie`. Only BetterRobot's public surface is
-imported (`C-DEP-1`, `tests/contract/test_br_imports.py`). `mass` and `studio` arrive with record 0011's package
-layout; until then the studio is `viz/studio`, and each import that breaks a table today is listed with its reason in
-`tests/contract/ratchets/edges.json`.
+`io` and `mass`; `terms` imports `core`; `viz` imports `core` and `io` (the studio persists frame sets, a permanent
+edge); `studio` imports the package root, `core`, `families`, `io`, `mass` and `viz`; the root imports every unit but
+`studio`. Into BetterRobot: `io` only `exceptions` (its errors sit under `BetterRobotError`, BetterRobot 0031); `mass`
+`lie` and `spatial`; `core` the root, `kinematics` and `lie`; `families` the root, `io`, `kinematics` and `lie`;
+`terms` the root, `dynamics`, `kinematics` and `optim`; `viz` and `studio` `viewer`, `studio` also `lie`. Only
+BetterRobot's public surface is imported (`C-DEP-1`, `tests/contract/test_br_imports.py`). `mass` and `studio` arrive
+with record 0011's package layout; until then the studio is `viz/studio`, and each import that breaks a table today is
+listed with its reason in `tests/contract/ratchets/edges.json`.
 
 Rationale: the body model (`core`) and weight-file reading (`io`) stay usable without any family table or viewer.
 Example: `src/better_human/families/smpl_family.py` imports `core` and `io`; `src/better_human/terms.py`
@@ -38,12 +38,12 @@ Same rule as BetterRobot `C-API-2` (at most two positional parameters). Current 
 name in the test's allowlist; the allowlist only shrinks.
 Enforcement: `tests/contract/test_keyword_only.py`.
 
-## H-ASSET-1 Shipped assets live in `families/assets/`; licensed weights are never shipped (MUST)
+## H-ASSET-1 A shipped asset lives in an `assets/` folder beside the package that reads it; licensed weights are never shipped (MUST)
 
-Small, redistributable data (segmentations, densities) ships in `src/better_human/families/assets/` and is read
-with `importlib.resources`. Licensed weights are never downloaded, bundled or cached (principle 10).
-Example: `families/assets/smpl_vert_segmentation.json`, read by
-`src/better_human/viz/studio/persistence.py::load_builtin_segmentation`.
+Small, redistributable data ships in an `assets/` folder beside the package that reads it and is read with
+`importlib.resources`: segmentations and densities in `src/better_human/families/assets/`, frame sets in
+`src/better_human/io/assets/`. Licensed weights are never downloaded, bundled or cached (principle 10).
+Example: `io/assets/smplx_contacts.json`, read by `src/better_human/io/frame_sets.py::shipped_frame_set`.
 Enforcement: review.
 
 ## H-ASSET-2 Weights resolve from an explicit path, else `io.models_dir()` (MUST)
