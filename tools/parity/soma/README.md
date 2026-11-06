@@ -7,11 +7,14 @@ weights, they live in the models directory, not in git (decision record 0015):
 them only when the oracle or the assets change, into a new directory `$OUT`, and compare every array with the current
 files before copying them over: a regenerated number can hide a regression.
 
-It needs the reference environment with `py-soma-x` 0.3.4 (`soma`, `pxr`, `warp`, `torch`), the one the converter
-uses (`tools/convert/soma/README.md`), and the SOMA-X release assets (Hugging Face `nvidia/soma-x`, tag v0.3.4). Run
-from the repository root; warp enumerates GPUs unless CUDA is hidden:
+It needs the reference environment pinned in `tools/parity/soma/requirements.txt` (`py-soma-x` 0.3.4 with `soma`,
+`pxr`, `warp`, `torch`; the converter, `tools/convert/soma/README.md`, uses the same one) and the SOMA-X release
+assets (Hugging Face `nvidia/soma-x`, tag v0.3.4). Create the environment outside the repository, then run from the
+repository root; warp enumerates GPUs unless CUDA is hidden:
 
 ```bash
+uv venv --python 3.12 /path/to/soma_env/.venv
+uv pip sync --python /path/to/soma_env/.venv/bin/python tools/parity/soma/requirements.txt
 CUDA_VISIBLE_DEVICES="" /path/to/soma_env/.venv/bin/python tools/parity/soma/dump_soma.py \
     --assets-dir /path/to/soma_assets --output-dir "$OUT/soma_mid"
 uv run pytest tests/parity/soma -q -m licensed   # once the new files are in $BETTERHUMAN_MODELS_DIR/goldens/soma_mid
