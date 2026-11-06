@@ -105,3 +105,23 @@ nav:
   - Contracts:
       - Index: contracts/index.md
       - BetterHuman addendum: contracts/bh-addendum.md
+      - Decision records:
+          - Index: contracts/decisions/index.md
+          - 0001 HumanModel: contracts/decisions/0001-human-model.md
+          - 0002 Rig base: contracts/decisions/0002-rig-abstract-base.md
+          - 0003 One skinning path: contracts/decisions/0003-one-skinning-path.md
+          - 0004 Classic API: contracts/decisions/0004-classic-api.md
+          - 0005 dtype and device at load: contracts/decisions/0005-dtype-and-device-at-load.md
+          - 0006 bh.load signature: contracts/decisions/0006-level-one-loader.md
+          - 0007 Mass and density: contracts/decisions/0007-mass-and-density.md
+          - 0008 Typed FamilySpec: contracts/decisions/0008-typed-family-spec.md
+          - 0009 Studio placement: contracts/decisions/0009-studio-placement.md
+          - 0010 viz surface: contracts/decisions/0010-human-viz-surface.md
+          - 0011 Package layout: contracts/decisions/0011-human-package-layout.md
+          - 0012 Converted archives: contracts/decisions/0012-bh-converted-archives.md
+          - 0013 Package data and load speed: contracts/decisions/0013-bh-package-data-and-load-speed.md
+          - 0014 Golden provenance: contracts/decisions/0014-golden-provenance.md
+          - 0015 Licensed goldens out of git: contracts/decisions/0015-licensed-goldens-out-of-git.md
+          - 0016 Random-weight goldens: contracts/decisions/0016-random-weight-goldens.md
+          - 0017 Models directory: contracts/decisions/0017-models-directory.md
+          - 0018 Apache-2.0 licence: contracts/decisions/0018-bh-apache-licence.md

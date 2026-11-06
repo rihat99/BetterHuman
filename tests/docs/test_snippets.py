@@ -14,6 +14,8 @@ import pytest
 REPO = Path(__file__).parents[2]
 DOCS = REPO / "docs"
 FAKE_SERVER = REPO / "tests" / "viz" / "fake_server.py"
+# Decision records are immutable history: their examples show the API as decided, not as it is now, so they never run.
+RECORDS = DOCS / "contracts" / "decisions"
 PAGE_TIMEOUT_S = 120
 
 # Fence info string: ```python [tags...]; a ``{ .no-run }`` attribute opts the block out of execution.
@@ -65,7 +67,8 @@ def _runnable_blocks(page: Path) -> list[str]:
 
 
 def _pages_with_code() -> list[Path]:
-    return [page for page in [*_pages(), REPO / "README.md"] if _runnable_blocks(page)]
+    pages = [*_pages(), REPO / "README.md"]
+    return [page for page in pages if not page.is_relative_to(RECORDS) and _runnable_blocks(page)]
 
 
 @pytest.mark.licensed

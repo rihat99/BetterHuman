@@ -7,6 +7,9 @@ here as written there. A cross-repository link is not possible, so cite the page
 BetterHuman adds its own rules (`H-*`), its numeric conventions, weight-file layout, parity gates, baselines
 and design principles in [`bh-addendum.md`](bh-addendum.md).
 
+Decisions that shaped these rules are recorded in [`decisions/`](decisions/index.md); records that bind both
+libraries live in BetterRobot and are cited as `BetterRobot NNNN`.
+
 ## BetterRobot contract families that apply unchanged
 
 | BR page | rule IDs | how it applies in BetterHuman |
