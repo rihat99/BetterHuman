@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,7 +11,6 @@ import pytest
 import torch
 import viser
 
-from better_human.viz.studio import persistence
 from better_human.viz.studio import state as studio_state
 from better_human.viz.studio.app import HumanStudio
 from tests.viz.fake_server import FakeHandle, FakeServer
@@ -197,8 +197,11 @@ def test_density_table_and_saved_pose_dropdown(studio) -> None:
 
 
 @pytest.mark.licensed
-def test_frames_layer_follows_frame_set() -> None:
-    studio = HumanStudio(family="smplx", server=FakeServer(), data_dir=persistence.DEFAULT_ROOT)
+def test_frames_layer_follows_frame_set(tmp_path: Path) -> None:
+    frames = tmp_path / "frames" / "smplx_neutral"
+    frames.mkdir(parents=True)
+    shutil.copy(Path(__file__).parents[1] / "support" / "contacts.json", frames)
+    studio = HumanStudio(family="smplx", server=FakeServer(), data_dir=tmp_path)
     studio.frames.load("contacts")
     count = len(studio.session.frame_set)
     assert count > 0 and studio.layers.frames.poses.shape == (1, count, 7)

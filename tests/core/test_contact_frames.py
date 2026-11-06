@@ -14,7 +14,7 @@ from better_human.core.contact_frames import parse_frame_set, resolve_parents, v
 from better_human.io import weight_path
 
 REPO_ROOT = Path(__file__).parents[2]
-CONTACTS_PATH = REPO_ROOT / "studio_data" / "frames" / "smplx_neutral" / "contacts.json"
+CONTACTS_PATH = REPO_ROOT / "tests" / "support" / "contacts.json"
 
 
 @pytest.fixture(scope="module")
