@@ -39,6 +39,8 @@ higher ones. Import BetterRobot through its public surface only (`better_robot.M
 | `families/classic.py`, `families/mhr.py` | classic converters; MHR loader and converters |
 | `families/mhr_rig.py` | `MhrRig` |
 | `families/soma.py`, `families/soma_rig.py` | SOMA loader and converters; `SomaRig` |
+| `io/load.py`, `io/schema.py` | weight paths (`models_dir`, `weight_path`); internal archive reader and schemas |
+| `io/formats.py`, `io/frame_sets.py` | file formats, `check_format`, the migrations (spec: `docs/reference/formats/`); frame sets |
 | `terms.py`, `viz/human_layers.py` | optimisation terms; viewer layers and `HumanView` |
 | `tests/parity/` | parity gates; their goldens live in `$BETTERHUMAN_MODELS_DIR/goldens/` (release tier) |
 
