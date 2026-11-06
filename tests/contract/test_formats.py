@@ -3,16 +3,17 @@
 For each format in ``io.formats.LATEST``: the latest version round-trips, a fixture of every past version in
 ``tests/support/formats/`` reads through its migration and equals the latest fixture, a later version and another
 format are refused naming both, and ``docs/reference/formats/<name>.md`` specifies it. No module but ``io/formats.py``
-and ``io/schema.py`` names ``format_version`` (8.8). The fixtures are synthetic and frozen: every field a distinct
-constant; the v1 archives are written as the converters wrote them before record 0012 (no ``format``, no
-``provenance``; MHR's ``coordinate_axis``, SOMA's ``lod`` and ``source``).
+and ``io/schema.py`` names ``format_version`` (8.8), and none loads a pickle but the listed exception (record 0013).
+The fixtures are synthetic and frozen: every field a distinct constant; the v1 archives are written as the
+converters wrote them before record 0012 (no ``format``, no ``provenance``; MHR's ``coordinate_axis``, SOMA's ``lod``
+and ``source``).
 """
 
 from __future__ import annotations
 
 import ast
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,8 @@ PACKAGE = REPO / "src" / "better_human"
 FIXTURES = REPO / "tests" / "support" / "formats"
 #: The modules that may name ``format_version``: the one check with its migrations, and the archive schemas.
 FORMAT_VERSION_MODULES = ("io/formats.py", "io/schema.py")
+#: ``path -> reason`` for each module that still loads a pickle; an entry leaves with its fix (record 0013).
+ALLOW_PICKLE_EXCEPTIONS = {"families/assets/__init__.py": "segmentation becomes .npz in H2"}
 READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     MHR: ("npz", lambda path: load_model_npz(path, MHR_SCHEMA)),
     SOMA: ("npz", lambda path: load_model_npz(path, SOMA_SCHEMA)),
@@ -130,20 +133,34 @@ def test_every_format_has_a_spec_page(format: str) -> None:
     assert page.is_file(), f"{format} has no spec page {page.relative_to(REPO)}"
 
 
+def _nodes(package: Path) -> Iterator[tuple[str, ast.AST]]:
+    """``(path relative to package, node)`` for every syntax node of every module under ``package``."""
+    for path in sorted(package.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            yield path.relative_to(package).as_posix(), node
+
+
 def _format_version_names(package: Path) -> list[str]:
     """``"<path>, line <n>"`` of every ``"format_version"`` string constant outside ``FORMAT_VERSION_MODULES``.
 
     Any constant, not only a comparison: a version check can hide in a dict compared whole, a variable or a match.
     """
-    found = []
-    for path in sorted(package.rglob("*.py")):
-        relative = path.relative_to(package).as_posix()
-        if relative in FORMAT_VERSION_MODULES:
-            continue
-        for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.Constant) and node.value == "format_version":
-                found.append(f"{relative}, line {node.lineno}")
-    return found
+    return [
+        f"{path}, line {node.lineno}"
+        for path, node in _nodes(package)
+        if path not in FORMAT_VERSION_MODULES and isinstance(node, ast.Constant) and node.value == "format_version"
+    ]
+
+
+def _allow_pickle_arguments(package: Path) -> list[str]:
+    """``"<path>, line <n>"`` of every ``allow_pickle=`` argument that is not the constant ``False``."""
+    return [
+        f"{path}, line {node.value.lineno}"
+        for path, node in _nodes(package)
+        if isinstance(node, ast.keyword)
+        and node.arg == "allow_pickle"
+        and not (isinstance(node.value, ast.Constant) and node.value.value is False)
+    ]
 
 
 def test_format_version_is_named_only_in_io_formats_and_schema() -> None:
@@ -167,3 +184,19 @@ def test_a_planted_format_version_is_found(tmp_path: Path) -> None:
         (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / name).write_text(text)
     assert _format_version_names(tmp_path) == ["compare.py, line 1", "match.py, line 1", "metadata.py, line 1"]
+
+
+def test_no_module_loads_a_pickle() -> None:
+    """Record 0013: no shipped file executes pickle; ``ALLOW_PICKLE_EXCEPTIONS`` names the modules that still do."""
+    found = _allow_pickle_arguments(PACKAGE)
+    offences = [hit for hit in found if hit.split(",")[0] not in ALLOW_PICKLE_EXCEPTIONS]
+    stale = sorted(ALLOW_PICKLE_EXCEPTIONS.keys() - {hit.split(",")[0] for hit in found})
+    assert not offences, "load without allow_pickle=True (decision record 0013):\n  " + "\n  ".join(offences)
+    assert not stale, f"these modules no longer load a pickle; remove them from ALLOW_PICKLE_EXCEPTIONS: {stale}"
+
+
+def test_a_planted_allow_pickle_is_found(tmp_path: Path) -> None:
+    (tmp_path / "reader.py").write_text(
+        "np.load(path, allow_pickle=True)\nnp.load(path, allow_pickle=False)\nnp.load(path)\nnp.load(path, allow_pickle=ok)\n"
+    )
+    assert _allow_pickle_arguments(tmp_path) == ["reader.py, line 1", "reader.py, line 4"]
