@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 from better_robot.lie import so3
@@ -123,11 +124,16 @@ def test_unknown_explicit_joint_name_raises(body: bh.Body) -> None:
         )
 
 
-@pytest.mark.parametrize("vertex", [-1, 4, True], ids=["negative", "past_the_mesh", "bool"])
+@pytest.mark.parametrize("vertex", [-1, 4, True, np.int64(-1)], ids=["negative", "past_the_mesh", "bool", "numpy"])
 def test_resolve_parents_refuses_a_vertex_outside_the_mesh(vertex: int) -> None:
     # The frame-set reader cannot know the mesh; the first place that does checks every id.
     with pytest.raises(ValueError, match=r"'tip': vertex id .* is not an int in \[0, 4\)"):
         resolve_parents({"tip": (vertex, None)}, ["root"], torch.zeros(4, dtype=torch.long))
+
+
+def test_resolve_parents_takes_any_integer_vertex_id() -> None:
+    part_ids = torch.tensor([0, 1, 1, 0])
+    assert resolve_parents({"a": (np.int64(1), None), "b": (np.int32(3), "j1")}, ["j0", "j1"], part_ids) == [1, 1]
 
 
 @pytest.mark.licensed

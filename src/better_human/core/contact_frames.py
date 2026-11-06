@@ -13,6 +13,7 @@ joint means "use the vertex's dominant skinning joint".
 
 from __future__ import annotations
 
+import numbers
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -45,7 +46,7 @@ def resolve_parents(
     skinning joint (``BodyStructure.part_ids``), which does not depend on shape.
 
     :param entries: name -> ``(vertex_id, joint_name | None)``, e.g. from
-        ``better_human.io.read_frame_set``.
+        ``better_human.io.read_frame_set``; a vertex id is any integer type.
     :param joint_names: the body's native reduced joint names.
     :param part_ids: ``(V,)`` argmax skinning joint per vertex.
     :returns: one native reduced-joint index per entry, in entry order.
@@ -54,10 +55,10 @@ def resolve_parents(
     index_by_name = {name: index for index, name in enumerate(joint_names)}
     parents = []
     for name, (vertex, joint) in entries.items():
-        if isinstance(vertex, bool) or not isinstance(vertex, int) or not 0 <= vertex < len(part_ids):
+        if isinstance(vertex, bool) or not isinstance(vertex, numbers.Integral) or not 0 <= vertex < len(part_ids):
             raise ValueError(f"{name!r}: vertex id {vertex!r} is not an int in [0, {len(part_ids)})")
         if joint is None:
-            parents.append(int(part_ids[vertex]))
+            parents.append(int(part_ids[int(vertex)]))
             continue
         if joint not in index_by_name:
             raise ValueError(f"{name!r}: unknown parent joint {joint!r}")

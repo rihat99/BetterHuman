@@ -103,7 +103,7 @@ class Body:
         spec = self.spec
         entries = dict(source)
         parents = resolve_parents(entries, spec.joint_names, spec.parts.ids)
-        vertex_ids = tuple(vertex for vertex, _ in entries.values())
+        vertex_ids = tuple(int(vertex) for vertex, _ in entries.values())
         zero = self.bake()
         placements = frame_local_placements(zero.v_shaped, zero.rest_joints, spec.faces, vertex_ids, parents)
         frames = [

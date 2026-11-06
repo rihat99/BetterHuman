@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 from better_robot.exceptions import UnknownNameError
 
@@ -67,6 +68,19 @@ def test_writer_refuses_what_the_reader_refuses(tmp_path: Path) -> None:
     path = tmp_path / "bad.json"
     with pytest.raises(FormatError, match="'tip': vertex id '5' is not an int"):
         bh.io.write_frame_set(path, {"tip": ("5", None)})
+    assert not path.exists()
+
+
+def test_writer_takes_any_integer_vertex_id(tmp_path: Path) -> None:
+    path = tmp_path / "set.json"
+    bh.io.write_frame_set(path, {"tip": (np.int64(5), None)})
+    assert bh.io.read_frame_set(path) == {"tip": (5, None)}
+
+
+def test_writer_refuses_a_negative_vertex_id(tmp_path: Path) -> None:
+    path = tmp_path / "bad.json"
+    with pytest.raises(FormatError, match=r"'tip': vertex id -1 is not an int >= 0"):
+        bh.io.write_frame_set(path, {"tip": (-1, None)})
     assert not path.exists()
 
 

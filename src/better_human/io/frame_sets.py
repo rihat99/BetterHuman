@@ -14,6 +14,7 @@ range-checked where the mesh is known, when the frames are attached to a body.
 from __future__ import annotations
 
 import json
+import numbers
 from collections.abc import Mapping
 from importlib import resources
 from pathlib import Path
@@ -36,14 +37,18 @@ def read_frame_set(path: str | Path) -> dict[str, tuple[int, str | None]]:
 def write_frame_set(path: str | Path, frames: Mapping[str, tuple[int, str | None]]) -> None:
     """Write ``frames`` (name -> ``(vertex_id, joint_name | None)``) as a version-1 frame-set file.
 
-    The entries pass the reader's checks before anything is written, and the file is replaced atomically.
+    A vertex id is any integer >= 0 (``int``, ``numpy.int64``, ...). The entries pass the reader's checks before
+    anything is written, and the file is replaced atomically.
     """
     path = Path(path)
+    checked = {
+        str(name): _entry(str(name), {"vertex": vertex, "joint": joint}, str(path))
+        for name, (vertex, joint) in frames.items()
+    }
     payload = {
         **header(FRAME_SET),
-        "frames": {str(name): {"vertex": vertex, "joint": joint} for name, (vertex, joint) in frames.items()},
+        "frames": {name: {"vertex": vertex, "joint": joint} for name, (vertex, joint) in checked.items()},
     }
-    _frames(payload, source=str(path))
     temporary = path.with_name(f"{path.name}.tmp")
     temporary.write_text(json.dumps(payload, indent=2) + "\n")
     temporary.replace(path)
@@ -72,8 +77,8 @@ def _entry(name: str, value: object, source: str) -> tuple[int, str | None]:
     if not isinstance(value, Mapping):
         raise FormatError(f"{source}: frame {name!r} must be {{vertex, joint}}, got {value!r}")
     vertex, joint = value.get("vertex"), value.get("joint")
-    if isinstance(vertex, bool) or not isinstance(vertex, int):
-        raise FormatError(f"{source}: frame {name!r}: vertex id {vertex!r} is not an int")
+    if isinstance(vertex, bool) or not isinstance(vertex, numbers.Integral) or vertex < 0:
+        raise FormatError(f"{source}: frame {name!r}: vertex id {vertex!r} is not an int >= 0")
     if joint is not None and not isinstance(joint, str):
         raise FormatError(f"{source}: frame {name!r}: joint {joint!r} is not a joint name or null")
-    return vertex, joint
+    return int(vertex), joint

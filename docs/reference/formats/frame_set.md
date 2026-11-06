@@ -27,7 +27,7 @@ frames)`; BetterHuman ships the SMPL-X contact set as `better_human.io.shipped_f
 | `format` | string | `"better_human.frame_set"` |
 | `format_version` | integer | `1` |
 | `frames` | object | frame name to entry, in authored order |
-| `frames.<name>.vertex` | integer | mesh vertex carrying the frame; range-checked against the mesh when the frames are attached to a body |
+| `frames.<name>.vertex` | integer >= 0 | mesh vertex carrying the frame; range-checked against the mesh when the frames are attached to a body |
 | `frames.<name>.joint` | string or null | parent joint name; `null` takes the vertex's dominant skinning joint |
 
 The writer uses two-space indentation and a trailing newline, and replaces the file atomically.
