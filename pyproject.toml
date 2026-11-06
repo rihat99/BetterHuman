@@ -23,6 +23,7 @@ studio = ["better-robot[viewer]"]
 
 [dependency-groups]
 dev = [
+    "better-robot[viewer]",  # tests/viz/test_studio_app.py runs the studio on a real viser server
     "pytest>=8.0",
     "ruff",
     "pre-commit>=3.7",

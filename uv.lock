@@ -67,6 +67,7 @@ viewer = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "better-robot", extra = ["viewer"] },
     { name = "matplotlib" },
     { name = "mkdocs" },
     { name = "mkdocs-material" },
@@ -89,6 +90,7 @@ provides-extras = ["viewer", "studio"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "better-robot", extras = ["viewer"], editable = "../BetterRobot" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "mkdocs", specifier = ">=1.6,<2" },
     { name = "mkdocs-material", specifier = ">=9.5" },
