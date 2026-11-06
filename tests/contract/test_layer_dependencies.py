@@ -32,7 +32,7 @@ ALLOWED: dict[str, set[str]] = {
     ROOT: {"core", "families", "io", "mass", "terms", "viz"},
 }
 BR_ALLOWED: dict[str, set[str]] = {
-    "io": set(),
+    "io": {"better_robot.exceptions"},  # BetterRobot record 0031: io's errors sit under BetterRobotError
     "mass": {"better_robot.lie", "better_robot.spatial"},
     "core": {"better_robot", "better_robot.kinematics", "better_robot.lie"},
     "families": {"better_robot", "better_robot.io", "better_robot.kinematics", "better_robot.lie"},
