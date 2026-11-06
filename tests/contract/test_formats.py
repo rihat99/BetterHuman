@@ -2,10 +2,10 @@
 
 For each format in ``io.formats.LATEST``: the latest version round-trips, a fixture of every past version in
 ``tests/support/formats/`` reads through its migration and equals the latest fixture, a later version and another
-format are refused naming both, and ``docs/reference/formats/<name>.md`` specifies it. ``format_version`` is compared
-only in ``io/formats.py``. The fixtures are synthetic and frozen: every field a distinct constant; the v1 archives are
-written as the converters wrote them before record 0012 (no ``format``, no ``provenance``; MHR's ``coordinate_axis``,
-SOMA's ``lod`` and ``source``).
+format are refused naming both, and ``docs/reference/formats/<name>.md`` specifies it. No module but ``io/formats.py``
+and ``io/schema.py`` names ``format_version`` (8.8). The fixtures are synthetic and frozen: every field a distinct
+constant; the v1 archives are written as the converters wrote them before record 0012 (no ``format``, no
+``provenance``; MHR's ``coordinate_axis``, SOMA's ``lod`` and ``source``).
 """
 
 from __future__ import annotations
@@ -25,7 +25,10 @@ from better_human.io.load import load_model_npz
 from better_human.io.schema import MHR_SCHEMA, SOMA_SCHEMA
 
 REPO = Path(__file__).resolve().parents[2]
+PACKAGE = REPO / "src" / "better_human"
 FIXTURES = REPO / "tests" / "support" / "formats"
+#: The modules that may name ``format_version``: the one check with its migrations, and the archive schemas.
+FORMAT_VERSION_MODULES = ("io/formats.py", "io/schema.py")
 READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     MHR: ("npz", lambda path: load_model_npz(path, MHR_SCHEMA)),
     SOMA: ("npz", lambda path: load_model_npz(path, SOMA_SCHEMA)),
@@ -112,25 +115,40 @@ def test_every_format_has_a_spec_page(format: str) -> None:
     assert page.is_file(), f"{format} has no spec page {page.relative_to(REPO)}"
 
 
-def _version_comparisons(src: Path) -> list[str]:
-    """``"<path>, line <n>"`` of every comparison that mentions ``format_version`` outside ``io/formats.py``."""
+def _format_version_names(package: Path) -> list[str]:
+    """``"<path>, line <n>"`` of every ``"format_version"`` string constant outside ``FORMAT_VERSION_MODULES``.
+
+    Any constant, not only a comparison: a version check can hide in a dict compared whole, a variable or a match.
+    """
     found = []
-    for path in sorted(src.rglob("*.py")):
-        if path.relative_to(src).as_posix() == "better_human/io/formats.py":
+    for path in sorted(package.rglob("*.py")):
+        relative = path.relative_to(package).as_posix()
+        if relative in FORMAT_VERSION_MODULES:
             continue
         for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.Compare) and "format_version" in ast.unparse(node):
-                found.append(f"{path.relative_to(src).as_posix()}, line {node.lineno}")
+            if isinstance(node, ast.Constant) and node.value == "format_version":
+                found.append(f"{relative}, line {node.lineno}")
     return found
 
 
-def test_format_version_is_compared_only_in_io_formats() -> None:
-    offences = _version_comparisons(REPO / "src")
-    assert not offences, "compare format_version through better_human.io.check_format:\n  " + "\n  ".join(offences)
+def test_format_version_is_named_only_in_io_formats_and_schema() -> None:
+    offences = _format_version_names(PACKAGE)
+    assert not offences, (
+        "read and write format_version through better_human.io.formats (upgrade, check_format, header):\n  "
+        + "\n  ".join(offences)
+    )
 
 
-def test_a_planted_comparison_is_found(tmp_path: Path) -> None:
-    (tmp_path / "better_human" / "io").mkdir(parents=True)
-    (tmp_path / "better_human" / "io" / "formats.py").write_text("ok = data['format_version'] < 2\n")
-    (tmp_path / "better_human" / "reader.py").write_text("if int(data['format_version']) != 1:\n    pass\n")
-    assert _version_comparisons(tmp_path) == ["better_human/reader.py, line 1"]
+def test_a_planted_format_version_is_found(tmp_path: Path) -> None:
+    """A comparison, the whole-metadata equality ``families/mhr.py`` had before record 0012, and a match."""
+    planted = {
+        "io/formats.py": "ok = data['format_version'] < 2\n",
+        "io/schema.py": "FIELDS = {'format_version': ()}\n",
+        "compare.py": "found = int(data.get('format_version', 0))\nif found > 2:\n    raise ValueError\n",
+        "metadata.py": "METADATA = {'format_version': 1, 'up_axis': '+y'}\nif header != METADATA:\n    raise ValueError\n",
+        "match.py": "match data['format_version']:\n    case 1:\n        pass\n",
+    }
+    for name, text in planted.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text(text)
+    assert _format_version_names(tmp_path) == ["compare.py, line 1", "match.py, line 1", "metadata.py, line 1"]

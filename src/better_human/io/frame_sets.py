@@ -21,7 +21,7 @@ from typing import Any
 
 from better_robot.exceptions import UnknownNameError
 
-from .formats import FRAME_SET, LATEST, FormatError, upgrade
+from .formats import FRAME_SET, FormatError, header, upgrade
 
 
 def read_frame_set(path: str | Path) -> dict[str, tuple[int, str | None]]:
@@ -40,8 +40,7 @@ def write_frame_set(path: str | Path, frames: Mapping[str, tuple[int, str | None
     """
     path = Path(path)
     payload = {
-        "format": FRAME_SET,
-        "format_version": LATEST[FRAME_SET],
+        **header(FRAME_SET),
         "frames": {str(name): {"vertex": vertex, "joint": joint} for name, (vertex, joint) in frames.items()},
     }
     _frames(payload, source=str(path))

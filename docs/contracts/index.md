@@ -32,7 +32,7 @@ When a BetterHuman rule and a BetterRobot rule disagree, BetterRobot's numerical
 | `tests/contract/test_keyword_only.py` | `H-API-2` / `C-API-2`: keyword-only arguments, with an allowlist of current violations |
 | `tests/parity/` | `H-PARITY-1`: parity gates |
 | `tests/contract/test_models_dir.py` | `H-ASSET-2`, record 0017: weights paths only through `better_human.io` |
-| `tests/contract/test_formats.py` | records 0012, 0013: every file format round-trips, reads its past versions through migration (fixtures `tests/support/formats/`), refuses a later version or another format, and has a page under `docs/reference/formats/`; `format_version` is compared only in `io/formats.py` |
+| `tests/contract/test_formats.py` | records 0012, 0013: every file format round-trips, reads its past versions through migration (fixtures `tests/support/formats/`), refuses a later version or another format, and has a page under `docs/reference/formats/`; only `io/formats.py` and `io/schema.py` name `format_version` (8.8) |
 | `tests/conftest.py` | BetterRobot 0033: every skipped or xfailed outcome fails |
 | `tests/contract/test_no_skips.py` | BetterRobot 0033: no skip or xfail spelling in any test module, deselected ones included |
 | `tests/contract/test_pytest_config.py` | BetterRobot 0033: strict pytest, the tier markers |

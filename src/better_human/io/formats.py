@@ -1,9 +1,9 @@
 """File formats: the name and version every BetterHuman file carries, their one check, and the migrations.
 
 A file names its ``format`` (``"better_human.mhr"``) and its ``format_version``. A reader calls :func:`upgrade`, which
-migrates an older version in memory one step at a time, so files on disk stay valid, and then :func:`check_format`.
-This module is the one place that compares ``format_version`` (decision record 0012). Each format's spec is
-``docs/reference/formats/<name>.md``.
+migrates an older version in memory one step at a time, so files on disk stay valid, and then :func:`check_format`; a
+writer writes :func:`header`. This module is the one place that reads or writes ``format_version`` (decision record
+0012; ``io/schema.py`` lists it among the archive fields). Each format's spec is ``docs/reference/formats/<name>.md``.
 """
 
 from __future__ import annotations
@@ -20,6 +20,11 @@ FRAME_SET = "better_human.frame_set"
 
 #: The version each format's readers read and its writers write.
 LATEST = {MHR: 2, SOMA: 2, FRAME_SET: 1}
+
+
+def header(format: str) -> dict[str, Any]:
+    """The ``format`` and ``format_version`` fields a writer of ``format`` writes: its latest version."""
+    return {"format": format, "format_version": LATEST[format]}
 
 
 class FormatError(BetterRobotError, ValueError):
