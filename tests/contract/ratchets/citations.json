@@ -1,15 +1,4 @@
 {
-  "CLAUDE.md: benchmarks/results/cpu.json": "cites a path that is not tracked",
-  "docs/contracts/bh-addendum.md: core/body.py:173": "cites a line number; cite path::symbol",
-  "docs/contracts/bh-addendum.md: core/body.py:229": "cites a line number; cite path::symbol",
-  "docs/contracts/bh-addendum.md: docs/contracts.md": "cites a path that is not tracked",
-  "docs/contracts/bh-addendum.md: docs/design_principles.md": "cites a path that is not tracked",
-  "docs/contracts/bh-addendum.md: src/better_human/core/body.py:23": "cites a line number; cite path::symbol",
-  "docs/contracts/bh-addendum.md: src/better_human/families/smpl_family.py:59": "cites a line number; cite path::symbol",
-  "docs/contracts/bh-addendum.md: src/better_human/viz/studio/persistence.py:33": "cites a line number; cite path::symbol",
-  "docs/contracts/bh-addendum.md: viz/studio/app.py:12": "cites a line number; cite path::symbol",
-  "docs/contracts/bh-addendum.md: viz/studio/layers.py:10": "cites a line number; cite path::symbol",
-  "docs/contracts/bh-addendum.md: viz/studio/persistence.py:14": "cites a line number; cite path::symbol",
   "docs/contracts/decisions/0001-human-model.md: tests/contract/test_frozen.py": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0001-human-model.md: tests/contract/test_repr.py": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0002-rig-abstract-base.md: tests/contract/test_abstract_or_final.py": "the record's enforcer; the work package that implements the record creates it",
@@ -30,15 +19,5 @@
   "docs/contracts/decisions/0012-bh-converted-archives.md: tests/contract/test_formats.py": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0013-bh-package-data-and-load-speed.md: tests/contract/test_formats.py": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0015-licensed-goldens-out-of-git.md: tests/contract/test_repository_layout.py::test_no_symlinks_and_size": "the record's enforcer; the work package that implements the record creates it",
-  "docs/contracts/decisions/0016-random-weight-goldens.md: tests/parity/smplx/test_random_weights.py": "the record's enforcer; the work package that implements the record creates it",
-  "tests/contract/test_keyword_only.py: core/contact_frames.py:128": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: core/contact_frames.py:68": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: core/rig.py:108": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: core/rig.py:123": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: core/rig.py:47": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: core/rig.py:52": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: core/rig.py:61": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: core/rig.py:99": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: terms.py:182": "cites a line number; cite path::symbol",
-  "tests/contract/test_keyword_only.py: viz/human_layers.py:82": "cites a line number; cite path::symbol"
+  "docs/contracts/decisions/0016-random-weight-goldens.md: tests/parity/smplx/test_random_weights.py": "the record's enforcer; the work package that implements the record creates it"
 }

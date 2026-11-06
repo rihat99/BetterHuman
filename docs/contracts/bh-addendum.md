@@ -22,25 +22,27 @@ Enforcement: `tests/contract/test_layer_dependencies.py`.
 ## H-API-1 One body API across families (MUST)
 
 A family loader (`smpl`, `smplh`, `smplx`, `mano`, `flame`, `mhr`) returns a `Body`
-(`src/better_human/core/body.py:23`). `Body.bake(...)` gives an `Identity` (`core/body.py:173`) that owns the
-baked BetterRobot model; `identity.forward(q, ...)` gives a `HumanState` (`core/body.py:229`). Families declare
+(`src/better_human/core/body.py::Body`). `Body.bake(...)` gives an `Identity`
+(`src/better_human/core/body.py::Identity`) that owns the baked BetterRobot model; `identity.forward(q, ...)` gives a
+`HumanState` (`src/better_human/core/body.py::HumanState`). Families declare
 *what* they are through a `FamilySpec` (`core/spec.py`); the *how* (LBS, blend shapes, correctives, regressors)
 lives once in `core`. Partial models are loader parameters (`hands=False`), never subclasses.
 Rationale: one forward pass to test and keep in parity; see principles 6 and 7 below.
-Example: `src/better_human/families/smpl_family.py:59` (`load_family`) serves all five SMPL-family loaders.
+Example: `src/better_human/families/smpl_family.py::load_family` serves all five SMPL-family loaders.
 Enforcement: review; parity gates below.
 
 ## H-API-2 Arguments after the second are keyword-only (SHOULD)
 
-Same rule as BetterRobot `C-API-2` (at most two positional parameters). Current violations are listed file:line in the test's
-allowlist; the allowlist only shrinks.
+Same rule as BetterRobot `C-API-2` (at most two positional parameters). Current violations are listed by qualified
+name in the test's allowlist; the allowlist only shrinks.
 Enforcement: `tests/contract/test_keyword_only.py`.
 
 ## H-ASSET-1 Shipped assets live in `families/assets/`; licensed weights are never shipped (MUST)
 
 Small, redistributable data (segmentations, densities) ships in `src/better_human/families/assets/` and is read
 with `importlib.resources`. Licensed weights are never downloaded, bundled or cached (principle 10).
-Example: `families/assets/smpl_vert_segmentation.json`, read by `viz/studio/persistence.py:14`.
+Example: `families/assets/smpl_vert_segmentation.json`, read by
+`src/better_human/viz/studio/persistence.py::load_builtin_segmentation`.
 Enforcement: review.
 
 ## H-ASSET-2 Weights resolve from an explicit path, else `io.models_dir()` (MUST)
@@ -57,8 +59,9 @@ own location.
 
 ## H-STUDIO-1 Studio is a thin shell over the BetterRobot viewer (MUST)
 
-The studio adds no viewer machinery: `app.py` drives `better_robot.viewer.Viewer` (`viz/studio/app.py:12`) and
-`layers.py` subclasses `better_robot.viewer.Layer` (`viz/studio/layers.py:10`). Domain logic lives in
+The studio adds no viewer machinery: `app.py` drives `better_robot.viewer.Viewer`
+(`src/better_human/viz/studio/app.py::HumanStudio`) and `layers.py` subclasses `better_robot.viewer.Layer`
+(`src/better_human/viz/studio/layers.py::SegmentationLayer`). Domain logic lives in
 `state.py`, `persistence.py`, `posing.py` and `gizmo.py` and is testable without a server; UI wiring lives in
 `app.py`, `layers.py`, `segment_editor.py` and `frames_editor.py`. A generic viewer feature goes to BetterRobot.
 Rationale: principle 5 (not human-specific means it belongs in BetterRobot).
@@ -68,12 +71,12 @@ Enforcement: review; `tests/viz/` exercises the domain modules headless.
 
 Studio state is JSON under one data root (default `studio_data/`): vertex segmentations, named frame sets and
 poses each in their own directory, keyed by the mesh-topology key.
-Example: `src/better_human/viz/studio/persistence.py:33` (`segmentations`), `:37` (`frames`), `:41` (`poses`).
+Example: `src/better_human/viz/studio/persistence.py::StudioPaths` (`segmentation_dir`, `frame_dir`, `pose_dir`).
 Enforcement: `tests/viz/`.
 
 ## Numeric conventions, layout, gates and baselines
 
-Folded from the former `docs/contracts.md`. Parity gates are rule `H-PARITY-1` (MUST): never weaken them.
+Parity gates are rule `H-PARITY-1` (MUST): never weaken them.
 
 ### Units and frames
 
@@ -230,8 +233,7 @@ Caveats:
 
 ## Design principles
 
-Folded from the former `docs/design_principles.md`. They mirror BetterRobot's rules; when the two disagree,
-BetterRobot's numerical contracts win.
+They mirror BetterRobot's rules; when the two disagree, BetterRobot's numerical contracts win.
 
 ### Over-engineering is the enemy
 

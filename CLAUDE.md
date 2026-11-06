@@ -13,7 +13,7 @@ uv run pytest tests -q -m "licensed and not cuda"               # release tier o
 uv run pytest tests -q -m cuda                                  # release tier on a free GPU, 10 s
 uv run ruff check src tests examples benchmarks                 # lint (line length 120)
 uv run python examples/01_smpl_shape_pose.py --check            # each example 01-04 supports --check
-uv run python benchmarks/run.py --device cpu --threads 8 --out benchmarks/results/cpu.json
+uv run python benchmarks/run.py --device cpu --threads 8 --out temp/bench_cpu.json   # temp/ is ignored
 ```
 
 Tier times are wall times measured on 2026-11-06 (384-core host, load average about 20). The CPU release tier took

@@ -1,8 +1,8 @@
 """H-API-2 / BR C-API-2: public callables take at most two positional parameters.
 
 Every function in a public ``__all__`` and every public method of a public class is inspected; parameters after
-the second (``self`` excluded) must be keyword-only. ``KEYWORD_ONLY_ALLOWLIST`` names the current violations with
-their file:line; it only shrinks.
+the second (``self`` excluded) must be keyword-only. ``KEYWORD_ONLY_ALLOWLIST`` names the current violations by
+qualified name; it only shrinks.
 """
 
 from __future__ import annotations
@@ -23,16 +23,16 @@ MAX_POSITIONAL = 2
 
 # Current violations (qualified name -> positional count). Shrink, never grow.
 KEYWORD_ONLY_ALLOWLIST: dict[str, int] = {
-    "better_human.core.rig.Rig.bake": 4,  # core/rig.py:47
-    "better_human.core.rig.Rig.placements_from_rest": 3,  # core/rig.py:52
-    "better_human.core.rig.Rig.corrective_features": 3,  # core/rig.py:61
-    "better_human.core.rig.RegressedRig.bake": 4,  # core/rig.py:99
-    "better_human.core.rig.RegressedRig.placements_from_rest": 3,  # core/rig.py:108
-    "better_human.core.rig.RegressedRig.corrective_features": 3,  # core/rig.py:123
-    "better_human.core.contact_frames.resolve_parents": 3,  # core/contact_frames.py:68
-    "better_human.core.contact_frames.frame_local_placements": 5,  # core/contact_frames.py:128
-    "better_human.terms.contact_wrenches": 4,  # terms.py:182
-    "better_human.viz.human_layers.forces_layer": 3,  # viz/human_layers.py:82
+    "better_human.core.rig.Rig.bake": 4,
+    "better_human.core.rig.Rig.placements_from_rest": 3,
+    "better_human.core.rig.Rig.corrective_features": 3,
+    "better_human.core.rig.RegressedRig.bake": 4,
+    "better_human.core.rig.RegressedRig.placements_from_rest": 3,
+    "better_human.core.rig.RegressedRig.corrective_features": 3,
+    "better_human.core.contact_frames.resolve_parents": 3,
+    "better_human.core.contact_frames.frame_local_placements": 5,
+    "better_human.terms.contact_wrenches": 4,
+    "better_human.viz.human_layers.forces_layer": 3,
 }
 
 
