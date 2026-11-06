@@ -1,32 +1,12 @@
-"""Weight-file schemas, loading, and conversion."""
+"""Find weight files and check the formats BetterHuman files carry; the readers themselves are internal."""
 
-from .load import AssetNotFoundError, load_model_npz, models_dir, weight_path
-from .schema import (
-    FLAME_SCHEMA,
-    MANO_SCHEMA,
-    MHR_CORRECTIVE_FIELDS,
-    MHR_SCHEMA,
-    SMPL_SCHEMA,
-    SMPLH_SCHEMA,
-    SMPLX_SCHEMA,
-    SOMA_CORRECTIVE_FIELDS,
-    SOMA_SCHEMA,
-    validate,
-)
+from .formats import FormatError, check_format
+from .load import AssetNotFoundError, models_dir, weight_path
 
 __all__ = [
     "AssetNotFoundError",
-    "FLAME_SCHEMA",
-    "MANO_SCHEMA",
-    "SMPLH_SCHEMA",
-    "MHR_CORRECTIVE_FIELDS",
-    "MHR_SCHEMA",
-    "SMPL_SCHEMA",
-    "SMPLX_SCHEMA",
-    "SOMA_CORRECTIVE_FIELDS",
-    "SOMA_SCHEMA",
-    "load_model_npz",
+    "FormatError",
+    "check_format",
     "models_dir",
-    "validate",
     "weight_path",
 ]

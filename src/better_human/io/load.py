@@ -22,6 +22,7 @@ import numpy as np
 import torch
 from better_robot.exceptions import BetterRobotError
 
+from .formats import FormatError, upgrade
 from .schema import ModelSchema, validate
 
 MODELS_ENV = "BETTERHUMAN_MODELS_DIR"
@@ -84,13 +85,14 @@ def load_model_npz(
 
     Numeric arrays become dense tensors. Unicode metadata remains NumPy arrays
     because PyTorch has no string tensor dtype. Unknown vendor fields and
-    explicitly excluded schema fields are not returned.
+    explicitly excluded schema fields are not returned. A schema with a
+    ``format`` reads an older ``format_version`` through its in-memory
+    migration (:func:`~better_human.io.formats.upgrade`). Raises
+    :class:`~better_human.io.formats.FormatError` for a malformed file.
     """
     model_path = Path(path)
     if model_path.suffix.lower() != ".npz":
-        raise ValueError(f"Expected an .npz model file, got: {model_path}.")
-    if not model_path.is_file():
-        raise FileNotFoundError(f"Model file not found: {model_path}.")
+        raise FormatError(f"Expected an .npz model file, got: {model_path}.")
 
     excluded = frozenset(exclude_fields)
     unknown_exclusions = excluded - set(schema.fields)
@@ -102,18 +104,15 @@ def load_model_npz(
         name=schema.name,
         fields={name: spec for name, spec in schema.fields.items() if name not in excluded},
         dimensions=schema.dimensions,
+        format=schema.format,
     )
 
     with np.load(model_path, allow_pickle=False) as archive:
-        missing = [name for name in selected_schema.fields if name not in archive.files]
-        if missing:
-            raise ValueError(
-                f"{model_path}: field {missing[0]!r} expected a required field, got missing. "
-                f"Reconvert the asset or provide a valid {schema.name} .npz file."
-            )
         arrays = _read_archive_arrays(archive, selected_schema, model_path)
-        validate(arrays, selected_schema, source=str(model_path))
-        return {name: _to_loaded_value(arrays[name]) for name in selected_schema.fields}
+    if schema.format is not None:
+        arrays = upgrade(arrays, format=schema.format, source=str(model_path))
+    validate(arrays, selected_schema, source=str(model_path))
+    return {name: _to_loaded_value(np.asarray(arrays[name])) for name in selected_schema.fields}
 
 
 def _to_loaded_value(array: np.ndarray) -> torch.Tensor | np.ndarray:
@@ -131,7 +130,7 @@ def _read_archive_arrays(
         try:
             arrays[name] = np.asarray(archive[name])
         except Exception as error:
-            raise ValueError(
+            raise FormatError(
                 f"{model_path}: field {name!r} expected a non-pickled numeric array, "
                 f"but it could not be read ({error}). Reconvert the asset or provide a valid "
                 f"{schema.name} .npz file."

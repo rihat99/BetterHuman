@@ -11,16 +11,9 @@ from better_human.core.mass import segment_vertices
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.rig import RegressedRig
 from better_human.core.spec import Corrective, FamilySpec, Parts, drop_joints, top_k_skin
-from better_human.io import (
-    FLAME_SCHEMA,
-    MANO_SCHEMA,
-    SMPL_SCHEMA,
-    SMPLH_SCHEMA,
-    SMPLX_SCHEMA,
-    load_model_npz,
-    weight_path,
-)
-from better_human.io.schema import ModelSchema
+from better_human.io import weight_path
+from better_human.io.load import load_model_npz
+from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA, ModelSchema
 
 from . import tables
 from .assets import load_closed_segmentation

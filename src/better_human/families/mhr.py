@@ -18,7 +18,9 @@ from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.mass import segment_vertices
 from better_human.core.pipeline import dense_weight_from_sparse
 from better_human.core.spec import Corrective, FamilySpec, Parts
-from better_human.io import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA, load_model_npz, weight_path
+from better_human.io import weight_path
+from better_human.io.load import load_model_npz
+from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 
 from .mhr_rig import ROOT_COUNT, MhrRig
 
@@ -29,7 +31,6 @@ IDENTITY_COUNT = 45
 EXPRESSION_COUNT = 72
 PARAMETER_COUNT = 204
 LODS = tuple(range(7))
-METADATA = {"format_version": 1, "up_axis": "+y", "forward_axis": "+z", "coordinate_axis": "+x"}
 
 
 def mhr(
@@ -61,9 +62,8 @@ def mhr(
     arrays = load_model_npz(
         weight_path("MHR", f"converted/mhr_lod{lod}.npz", path=path), MHR_SCHEMA, exclude_fields=excluded
     )
-    metadata = {name: arrays[name].item() for name in (*METADATA, "lod")}
-    if metadata != {**METADATA, "lod": lod}:
-        raise ValueError(f"unsupported MHR archive {metadata}; expected {METADATA} and lod {lod}")
+    if int(arrays["lod"]) != lod:
+        raise ValueError(f"the MHR archive holds lod {int(arrays['lod'])}, expected lod {lod}")
 
     def floats(name: str) -> torch.Tensor:
         return arrays[name].to(device=device, dtype=dtype)
@@ -105,8 +105,8 @@ def mhr(
         rig=rig,
         parts=Parts(part_ids, tuple(joint_groups.index(group) for group in kept)),
         unit="m",
-        up_axis=METADATA["up_axis"],
-        forward_axis=METADATA["forward_axis"],
+        up_axis=str(arrays["up_axis"]),
+        forward_axis=str(arrays["forward_axis"]),
         meta={"bind_joint_positions": floats("bind_matrices")[..., :3, 3]},
     )
 

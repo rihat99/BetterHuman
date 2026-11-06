@@ -15,7 +15,9 @@ from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.spec import Corrective, FamilySpec, Parts
-from better_human.io import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA, load_model_npz, weight_path
+from better_human.io import weight_path
+from better_human.io.load import load_model_npz
+from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
 from .soma_rig import SomaRig
 
@@ -24,7 +26,6 @@ if TYPE_CHECKING:
 
 SHAPE_COUNT = 128
 POSE_JOINT_COUNT = 77  #: public joints after the virtual ``Root``; ``Hips`` first.
-METADATA = {"format_version": 1, "lod": "mid", "unit": "m", "up_axis": "+y", "forward_axis": "+z"}
 
 
 def soma(
@@ -50,9 +51,6 @@ def soma(
         SOMA_SCHEMA,
         exclude_fields=() if correctives else SOMA_CORRECTIVE_FIELDS,
     )
-    metadata = {name: arrays[name].item() for name in METADATA}
-    if metadata != METADATA:
-        raise ValueError(f"unsupported SOMA archive {metadata}; expected {METADATA}")
 
     def floats(name: str) -> torch.Tensor:
         return arrays[name].to(device=device, dtype=dtype)
@@ -81,9 +79,9 @@ def soma(
         corrective=corrective,
         rig=SomaRig.from_arrays(arrays, dtype=dtype, device=device),
         parts=Parts(part_ids, tuple(part_joints.tolist())),
-        unit=METADATA["unit"],
-        up_axis=METADATA["up_axis"],
-        forward_axis=METADATA["forward_axis"],
+        unit=str(arrays["unit"]),
+        up_axis=str(arrays["up_axis"]),
+        forward_axis=str(arrays["forward_axis"]),
     )
 
 

@@ -200,6 +200,19 @@ def test_mhr_loader_binds_dimensions_from_selected_fields(
     assert loaded["corrective_output_weights"].shape == (3000, 12)
 
 
+def test_mhr_v1_archive_loads_through_its_migration(tmp_path: Path, mhr_data: dict[str, np.ndarray]) -> None:
+    # Record 0012: a v1 archive on disk stays valid; v2's format and provenance are added in memory.
+    model_path = tmp_path / "mhr_lod6.npz"
+    del mhr_data["format"], mhr_data["provenance"]
+    mhr_data["format_version"] = np.asarray(1, dtype=np.int64)
+    np.savez(model_path, **mhr_data)
+
+    loaded = load_model_npz(model_path, MHR_SCHEMA)
+
+    assert (str(loaded["format"]), int(loaded["format_version"])) == ("better_human.mhr", 2)
+    assert str(loaded["provenance"]) == "unknown (v1)"
+
+
 def test_model_loader_rejects_unknown_field_exclusions(
     tmp_path: Path,
     mhr_data: dict[str, np.ndarray],

@@ -65,7 +65,7 @@ def test_multiple_wrong_ranks_never_leak_an_unbound_dimension_error() -> None:
         validate(data, SMPL_SCHEMA, source="broken_ranks.npz")
 
 
-def test_mhr_schema_accepts_the_complete_format_v1_mapping(mhr_data: dict[str, np.ndarray]) -> None:
+def test_mhr_schema_accepts_the_complete_format_v2_mapping(mhr_data: dict[str, np.ndarray]) -> None:
     assert set(mhr_data) == set(MHR_SCHEMA.fields)
     validate(mhr_data, MHR_SCHEMA, source="mhr_lod6.npz")
 
