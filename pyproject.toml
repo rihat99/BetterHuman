@@ -9,7 +9,7 @@ description = "Parametric human body models on a robotics core."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "better-robot",
     "numpy>=2.0",
@@ -19,13 +19,14 @@ dependencies = [
 
 [project.optional-dependencies]
 viewer = ["better-robot[viewer]"]
-studio = ["viser>=1.0"]
+studio = ["better-robot[viewer]"]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0",
     "ruff",
-    "matplotlib>=3.8",
+    "pre-commit>=3.7",
+    "matplotlib>=3.8",  # docs/render_segmentation.py draws the segmentation figures
     "mkdocs>=1.6,<2",
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.26",
@@ -51,7 +52,7 @@ addopts = "--import-mode=importlib"
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "PLC", "PLE", "PLR", "PLW"]
