@@ -10,6 +10,9 @@ carries a marker that the tier commands select on, and a selected test whose wei
 | full | `uv run pytest tests -q -m "not cuda and not licensed"` | every test that needs neither weights nor a GPU | a test fails |
 | release | `uv run pytest tests -q -m "licensed and not cuda"`, then `uv run pytest tests -q -m cuda` with a free GPU visible | the tests that read licensed weights on the CPU, then the GPU tests | a test fails, or the weights or the device is missing |
 
+Tip: on a host with transparent huge pages, exporting `NUMPY_MADVISE_HUGEPAGE=0` cuts the CPU release tier from about
+16 min to about 2.5 min ([Timing on a busy host](#timing-on-a-busy-host)); the tier commands stay as written.
+
 `.pre-commit-config.yaml` defines the hooks: lint, the format check and the fast tier before a commit, the full tier
 before a push.
 
