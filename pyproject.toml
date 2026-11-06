@@ -7,7 +7,7 @@ name = "better-human"
 version = "0.1.0.dev0"
 description = "Parametric human body models on a robotics core."
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [

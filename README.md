@@ -141,3 +141,7 @@ uv run python benchmarks/run.py --device cpu --threads 8 --batches 1 64 1024 819
 ```
 
 Measured numbers are in `docs/contracts/bh-addendum.md`.
+
+## License
+
+Code: Apache-2.0 ([LICENSE](LICENSE)). Body-model weights and data derived from them keep their own licences.
