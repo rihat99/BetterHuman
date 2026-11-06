@@ -17,7 +17,7 @@ from collections.abc import Generator
 
 import pytest
 
-from better_human.io import models_dir
+from better_human.io import AssetNotFoundError, models_dir
 
 
 def _fail_if_skipped(report: pytest.CollectReport | pytest.TestReport) -> None:
@@ -58,7 +58,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         return
     try:
         models_dir()
-    except FileNotFoundError as error:
+    except AssetNotFoundError as error:
         raise pytest.UsageError(
             f"{error}\nThe selected tests include `licensed` ones; set the variable, or deselect them with "
             "-m 'not licensed'."

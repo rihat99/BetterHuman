@@ -5,7 +5,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from better_robot.exceptions import BetterRobotError
 
+from better_human.io import AssetNotFoundError
 from better_human.io.load import load_model_npz, models_dir, weight_path
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA, SMPL_SCHEMA
 
@@ -57,7 +59,7 @@ def test_unset_models_dir_names_the_variable_and_the_fix(monkeypatch: pytest.Mon
     monkeypatch.delenv("BETTERHUMAN_MODELS_DIR", raising=False)
 
     with pytest.raises(
-        FileNotFoundError, match=r"BETTERHUMAN_MODELS_DIR is unset\. Set it to the directory.* or pass path="
+        AssetNotFoundError, match=r"BETTERHUMAN_MODELS_DIR is unset\. Set it to the directory.* or pass path="
     ):
         weight_path("smpl", "SMPL_NEUTRAL.npz")
 
@@ -65,7 +67,7 @@ def test_unset_models_dir_names_the_variable_and_the_fix(monkeypatch: pytest.Mon
 def test_models_dir_that_is_not_a_directory_is_an_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path / "absent"))
 
-    with pytest.raises(FileNotFoundError, match=r"BETTERHUMAN_MODELS_DIR=.*absent is not a directory"):
+    with pytest.raises(AssetNotFoundError, match=r"BETTERHUMAN_MODELS_DIR=.*absent is not a directory"):
         models_dir()
 
 
@@ -75,8 +77,21 @@ def test_missing_weight_file_names_the_file_and_both_remedies(
 ) -> None:
     monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path))
 
-    with pytest.raises(FileNotFoundError, match=r"smpl/SMPL_NEUTRAL\.npz.*BETTERHUMAN_MODELS_DIR.*path="):
+    with pytest.raises(AssetNotFoundError, match=r"smpl/SMPL_NEUTRAL\.npz.*BETTERHUMAN_MODELS_DIR.*path="):
         weight_path("smpl", "SMPL_NEUTRAL.npz")
+
+
+def test_missing_explicit_path_names_the_path_and_the_variable(tmp_path: Path) -> None:
+    with pytest.raises(
+        AssetNotFoundError, match=r"absent\.npz\. Pass path=.*smpl/SMPL_NEUTRAL\.npz under \$BETTERHUMAN"
+    ):
+        weight_path("smpl", "SMPL_NEUTRAL.npz", path=tmp_path / "absent.npz")
+
+
+def test_asset_not_found_sits_under_better_robot_error() -> None:
+    # One `except BetterRobotError` catches the stack (BetterRobot record 0031); `except FileNotFoundError` still works.
+    assert issubclass(AssetNotFoundError, BetterRobotError)
+    assert issubclass(AssetNotFoundError, FileNotFoundError)
 
 
 def test_dense_regressor_loads_without_dtype_conversion(tmp_path: Path) -> None:

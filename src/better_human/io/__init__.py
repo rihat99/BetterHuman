@@ -1,6 +1,6 @@
 """Weight-file schemas, loading, and conversion."""
 
-from .load import load_model_npz, models_dir, weight_path
+from .load import AssetNotFoundError, load_model_npz, models_dir, weight_path
 from .schema import (
     FLAME_SCHEMA,
     MANO_SCHEMA,
@@ -15,6 +15,7 @@ from .schema import (
 )
 
 __all__ = [
+    "AssetNotFoundError",
     "FLAME_SCHEMA",
     "MANO_SCHEMA",
     "SMPLH_SCHEMA",

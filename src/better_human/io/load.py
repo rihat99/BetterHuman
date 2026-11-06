@@ -20,28 +20,33 @@ from typing import Any
 
 import numpy as np
 import torch
+from better_robot.exceptions import BetterRobotError
 
 from .schema import ModelSchema, validate
 
 MODELS_ENV = "BETTERHUMAN_MODELS_DIR"
 
 
+class AssetNotFoundError(BetterRobotError, FileNotFoundError):
+    """The weights directory or a weight file is missing; the message names ``$BETTERHUMAN_MODELS_DIR`` and the fix."""
+
+
 def models_dir() -> Path:
     """The weights directory that ``$BETTERHUMAN_MODELS_DIR`` names.
 
-    Raises ``FileNotFoundError`` with the fix when the variable is unset or names no directory; nothing guesses a
-    default location.
+    Raises :class:`AssetNotFoundError` with the fix when the variable is unset or names no directory; nothing guesses
+    a default location.
     """
     value = os.environ.get(MODELS_ENV)
     if not value:
-        raise FileNotFoundError(
+        raise AssetNotFoundError(
             f"${MODELS_ENV} is unset. Set it to the directory that holds the licensed weights, "
             f"for example: export {MODELS_ENV}=/data/better_human/models, or pass path=... to the loader to name "
             "the weight file directly."
         )
     directory = Path(value).expanduser()
     if not directory.is_dir():
-        raise FileNotFoundError(
+        raise AssetNotFoundError(
             f"${MODELS_ENV}={value} is not a directory. Set it to the directory that holds the licensed weights."
         )
     return directory
@@ -50,16 +55,19 @@ def models_dir() -> Path:
 def weight_path(folder: str, filename: str, *, path: str | Path | None = None) -> Path:
     """The weight file ``models_dir() / folder / filename``, or ``path`` when it is given.
 
-    Raises ``FileNotFoundError`` naming the missing file and the fix.
+    Raises :class:`AssetNotFoundError` naming the missing file and the fix.
     """
     if path is not None:
         resolved = Path(path).expanduser()
         if not resolved.is_file():
-            raise FileNotFoundError(f"Model file not found: {resolved}. Pass path=... to an existing file.")
+            raise AssetNotFoundError(
+                f"Model file not found: {resolved}. Pass path=... to an existing file, or leave path unset to read "
+                f"{folder}/{filename} under ${MODELS_ENV}."
+            )
         return resolved
     resolved = models_dir() / folder / filename
     if not resolved.is_file():
-        raise FileNotFoundError(
+        raise AssetNotFoundError(
             f"Model file not found: {resolved}. Place {folder}/{filename} under ${MODELS_ENV} "
             f"or pass path=... to an existing file."
         )
