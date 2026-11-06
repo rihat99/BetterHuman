@@ -26,6 +26,11 @@ MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
 SMPLX_MODEL_PATH = Path(__file__).parents[2] / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
 SEGMENTATION_PATH = Path(bh.__file__).parent / "families" / "assets" / "smpl_3d_segmentation.npy"
 DENSITY_TABLE_PATH = Path(bh.__file__).parent / "families" / "assets" / "body_densities.json"
+# float32 is the runtime dtype these gradchecks test on purpose, with a float32 step and tolerances; torch warns that
+# gradcheck expects float64.
+FLOAT32_GRADCHECK = pytest.mark.filterwarnings(
+    "ignore:Input #\\d+ requires gradient and is not a double precision:UserWarning"
+)
 CONSERVATION_RTOL = 2e-2
 AUTHORED_VOLUME_RTOL = 1e-4
 COM_ATOL = 3e-3
@@ -297,6 +302,7 @@ def test_argmax_fallback_integrates_smplx_parts() -> None:
         assert Inertia.from_mesh(vertices, faces, density=1000.0).mass > 0
 
 
+@FLOAT32_GRADCHECK
 def test_float32_gradcheck_betas_to_total_mass(mass_body: bh.Body) -> None:
     betas = (torch.randn(GRADCHECK_BETAS, dtype=torch.float32) * 0.03).requires_grad_()
 

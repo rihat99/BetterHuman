@@ -226,6 +226,9 @@ def test_model_switch_clears_active_frame(studio) -> None:
     assert studio.frames.active is None
 
 
+# BetterRobot's `Viewer.on_pointer` (better_robot.viewer.viewer) registers clicks through viser's deprecated
+# `scene.on_pointer_event`; only that call site is excused, not BetterHuman's own code.
+@pytest.mark.filterwarnings("ignore:Use on_click:DeprecationWarning:better_robot.viewer.viewer")
 def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
     """Regression: viser's tab-group remove() raised when the Model tab rebuilt the tabs."""
     viser = pytest.importorskip("viser")

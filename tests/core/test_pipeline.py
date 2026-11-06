@@ -24,6 +24,13 @@ from better_human.core.pipeline import (
 )
 
 
+# float32 is the runtime dtype these gradchecks test on purpose, with a float32 step and tolerances; torch warns that
+# gradcheck expects float64.
+FLOAT32_GRADCHECK = pytest.mark.filterwarnings(
+    "ignore:Input #\\d+ requires gradient and is not a double precision:UserWarning"
+)
+
+
 def _reference_euler_matrix(angles: torch.Tensor) -> torch.Tensor:
     cosine = torch.cos(angles)
     sine = torch.sin(angles)
@@ -203,6 +210,7 @@ def test_scaled_lbs_requires_bind_joint_positions() -> None:
         lbs(vertices, transforms, weights, joint_scales=torch.ones(1))
 
 
+@FLOAT32_GRADCHECK
 def test_float32_gradcheck_6d_pose_feature() -> None:
     angles = torch.tensor(
         [[[0.2, -0.3, 0.4], [-0.4, 0.1, 0.3]]],
@@ -219,6 +227,7 @@ def test_float32_gradcheck_6d_pose_feature() -> None:
     )
 
 
+@FLOAT32_GRADCHECK
 def test_float32_gradcheck_mlp_corrective() -> None:
     feature = torch.tensor([[0.2, -0.1, 0.3]], dtype=torch.float32, requires_grad=True)
     first_weight = torch.tensor(
@@ -241,6 +250,7 @@ def test_float32_gradcheck_mlp_corrective() -> None:
     )
 
 
+@FLOAT32_GRADCHECK
 def test_float32_gradcheck_inverse_bind_transforms_and_scaled_lbs() -> None:
     world_poses = torch.tensor(
         [[0.2, -0.1, 0.3, 0.05, -0.02, 0.04, 0.9975]],

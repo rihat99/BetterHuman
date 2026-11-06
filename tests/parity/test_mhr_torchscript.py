@@ -28,6 +28,8 @@ def _sign_invariant_quaternion_error(
     return torch.minimum(direct, sign_flipped).amax().item()
 
 
+# The oracle ships as TorchScript (`assets/mhr_model.pt`); torch 2.13 deprecates torch.jit.load yet still loads it.
+@pytest.mark.filterwarnings("ignore:`torch.jit.load` is deprecated:DeprecationWarning")
 def test_released_torchscript_agrees_with_pymomentum_goldens() -> None:
     if not MODEL_PATH.is_file():
         pytest.skip(f"released MHR TorchScript oracle is absent: {MODEL_PATH}")

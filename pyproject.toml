@@ -48,7 +48,18 @@ packages = ["src/better_human"]
 artifacts = ["*.npy", "*.json"]
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+testpaths = ["tests"]
+xfail_strict = true
+empty_parameter_set_mark = "fail_at_collect"
+filterwarnings = [
+    "error",
+]
+markers = [
+    "licensed: reads licensed weights from $BETTERHUMAN_MODELS_DIR; deselected in the fast and full tiers, run in the release tier",
+    "cuda: needs a CUDA device; deselected in the fast and full tiers, run in the release tier",
+    "slow: takes seconds; deselected in the fast tier, run in the full tier",
+]
 
 [tool.ruff]
 line-length = 120
