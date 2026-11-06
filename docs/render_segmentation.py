@@ -10,8 +10,9 @@ Regenerate with::
 
     uv run python docs/render_segmentation.py
 
-Weights resolve through the normal loader: pass ``--models-dir`` or set
-``$BETTERHUMAN_MODELS_DIR``. Any model whose weights are absent is skipped.
+Weights come from ``better_human.io.models_dir()``, that is ``$BETTERHUMAN_MODELS_DIR`` (``--models-dir``
+sets it for this run); nothing is guessed. A body whose weights are missing fails to load with the
+loader's error naming the file; the script prints that error and renders the other bodies.
 """
 
 from __future__ import annotations

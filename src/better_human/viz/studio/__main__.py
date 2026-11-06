@@ -14,7 +14,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--lod", type=int, default=1, help="MHR level of detail")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--data-dir", default=None, help="Root for authored data (default: the repo's studio_data)")
-    parser.add_argument("--models-dir", default=None, help="Weight root; else $BETTERHUMAN_MODELS_DIR or repo models/")
+    parser.add_argument(
+        "--models-dir",
+        default=None,
+        help="Weights directory; default $BETTERHUMAN_MODELS_DIR, read by io.models_dir(); neither set is an error",
+    )
     parser.add_argument("--host", default="127.0.0.1")
     return parser.parse_args()
 

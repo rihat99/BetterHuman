@@ -20,7 +20,7 @@ BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.viz.studio --fa
 | `--gender` | `neutral` | `neutral`, `male`, `female` |
 | `--lod` | `1` | MHR level of detail |
 | `--port` / `--host` | `8080` / `127.0.0.1` | where viser listens; keep the host local |
-| `--models-dir` | `$BETTERHUMAN_MODELS_DIR` or `models/` | weight root |
+| `--models-dir` | `$BETTERHUMAN_MODELS_DIR` | weights directory, read through `better_human.io.models_dir()`; with neither set the load fails naming the variable, nothing is guessed |
 | `--data-dir` | `<repo>/studio_data` | root for everything the studio saves |
 
 From Python, `better_human.viz.studio.launch(family="smplx", port=8080)` does the same and blocks;
