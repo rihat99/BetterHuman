@@ -69,7 +69,7 @@ Legacy Chumpy-backed SMPL pickles can be converted without installing Chumpy:
 
 ```bash
 mkdir -p models/smpl
-uv run python tools/convert/smpl/convert_chumpy.py \
+uv run tools/convert/smpl/convert_chumpy.py \
   /path/to/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl \
   models/smpl/SMPL_NEUTRAL.npz \
   --model smpl

@@ -1,4 +1,13 @@
-"""Convert legacy Chumpy-backed SMPL-family pickles into validated NPZ files."""
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["numpy>=2.0", "scipy>=1.11"]
+# ///
+"""Convert a legacy Chumpy-backed SMPL pickle into the NPZ file ``better_human.families.smpl`` reads.
+
+Self-contained (run it with ``uv run tools/convert/smpl/convert_chumpy.py IN.pkl OUT.npz --model smpl``): it stubs
+Chumpy and the NumPy and ``inspect`` names old pickles need, which the library never does. The loader validates the
+written file.
+"""
 
 from __future__ import annotations
 
@@ -15,8 +24,8 @@ from typing import Any
 import numpy as np
 from scipy import sparse
 
-from better_human.io.schema import SMPL_SCHEMA, ModelSchema, validate
-
+#: The fields the SMPL loader reads, in file order.
+SMPL_FIELDS = ("v_template", "shapedirs", "posedirs", "J_regressor", "weights", "kintree_table", "f")
 FIELD_ALIASES: Mapping[str, tuple[str, ...]] = {
     "f": ("f", "faces"),
     "weights": ("weights", "lbs_weights"),
@@ -124,22 +133,16 @@ def convert_model(
     if destination.exists() and not force:
         raise FileExistsError(f"Refusing to overwrite existing file: {destination}. Pass --force to replace it.")
 
-    schema = SMPL_SCHEMA
     raw = load_chumpy_pickle(source)
-    payload = _conversion_payload(raw, schema, source)
-    validate(payload, schema, source=str(destination))
+    payload = _conversion_payload(raw, source)
     with destination.open("wb") as handle:
         np.savez(handle, **payload)
     return destination
 
 
-def _conversion_payload(
-    raw: Mapping[str, Any],
-    schema: ModelSchema,
-    source: Path,
-) -> dict[str, np.ndarray]:
+def _conversion_payload(raw: Mapping[str, Any], source: Path) -> dict[str, np.ndarray]:
     payload: dict[str, np.ndarray] = {}
-    for field_name in schema.fields:
+    for field_name in SMPL_FIELDS:
         value = _required_value(raw, field_name, source)
         if field_name == "J_regressor" and sparse.issparse(value):
             value = value.todense()
@@ -151,7 +154,7 @@ def _required_value(raw: Mapping[str, Any], field_name: str, source: Path) -> An
     for candidate in FIELD_ALIASES.get(field_name, (field_name,)):
         if candidate in raw:
             return raw[candidate]
-    raise KeyError(f"{source}: missing required field {field_name!r}; cannot create a schema-valid NPZ file.")
+    raise KeyError(f"{source}: missing required field {field_name!r}; cannot create an SMPL NPZ file.")
 
 
 def _parser() -> argparse.ArgumentParser:
