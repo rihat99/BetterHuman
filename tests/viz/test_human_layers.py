@@ -2,24 +2,22 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 import torch
 
 import better_human as bh
+from better_human.io import weight_path
 from better_human.viz import HumanView, human_layers
 
-ROOT = Path(__file__).parents[2]
-SMPL_PATH = ROOT / "models" / "smpl" / "SMPL_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def clip():
-    if not SMPL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {SMPL_PATH}")
-    body = bh.load("smpl", SMPL_PATH, num_betas=10, mass=False, contact_frames={"heel": (3387, None)})
+    body = bh.load(
+        "smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"), num_betas=10, mass=False, contact_frames={"heel": (3387, None)}
+    )
     identity = body.bake()
     frames = 5
     tangent = torch.zeros(frames, identity.nv)

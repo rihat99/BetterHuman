@@ -10,9 +10,9 @@ import torch
 
 import better_human as bh
 from better_human.families.classic import SMPLXClassic, smplx_from_classic
+from better_human.io import weight_path
 
-ROOT = Path(__file__).parents[2]
-MODEL_PATH = ROOT / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 GOLDEN_DIR = Path(__file__).parent / "goldens" / "smplx_neutral"
 GOLDEN_FILES = tuple(sorted(GOLDEN_DIR.glob("*.npz")))
 EXPECTED_GOLDENS = {
@@ -39,9 +39,7 @@ EXPECTED_GOLDENS = {
     "zero_pca_flat",
     "zero_pca_mean",
 }
-if GOLDEN_FILES:
-    assert {path.stem for path in GOLDEN_FILES} == EXPECTED_GOLDENS, "SMPL-X parity grid is incomplete"
-PARITY_CASES: tuple[Path | None, ...] = GOLDEN_FILES if GOLDEN_FILES else (None,)
+assert {path.stem for path in GOLDEN_FILES} == EXPECTED_GOLDENS, "SMPL-X parity grid is incomplete"
 FLOAT64_ATOL = 1e-6
 FLOAT32_ATOL = 1e-6
 _BODY_CACHE: dict[tuple[torch.dtype, int, int, bool, bool], bh.Body] = {}
@@ -53,7 +51,7 @@ def _body(
     key = (dtype, num_betas, num_expression, flat_hand_mean, stream_joints)
     if key not in _BODY_CACHE:
         spec = bh.families.smplx(
-            MODEL_PATH,
+            weight_path("smplx", "SMPLX_NEUTRAL.npz"),
             num_betas=num_betas,
             num_expression=num_expression,
             flat_hand_mean=flat_hand_mean,
@@ -65,13 +63,9 @@ def _body(
 
 def _evaluate(
     dtype: torch.dtype,
-    golden_path: Path | None,
+    golden_path: Path,
     stream_joints: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, np.lib.npyio.NpzFile]:
-    if golden_path is None:
-        pytest.skip("SMPL-X goldens are absent; regenerate with the command in tools/parity/smplx/README.md")
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL-X fixture is absent: {MODEL_PATH}")
     golden = np.load(golden_path, allow_pickle=False)
     num_betas = int(golden["num_betas"].item())
     num_expression = int(golden["num_expression"].item())
@@ -100,8 +94,8 @@ def _evaluate(
     return state.vertices, state.joints, golden
 
 
-@pytest.mark.parametrize("golden_path", PARITY_CASES, ids=lambda path: "missing" if path is None else path.stem)
-def test_smplx_float64_parity(golden_path: Path | None) -> None:
+@pytest.mark.parametrize("golden_path", GOLDEN_FILES, ids=lambda path: path.stem)
+def test_smplx_float64_parity(golden_path: Path) -> None:
     vertices, joints, golden = _evaluate(torch.float64, golden_path)
     vertex_error = (vertices - torch.from_numpy(golden["vertices"])).abs().max().item()
     joint_error = (joints - torch.from_numpy(golden["joints"])).abs().max().item()
@@ -110,8 +104,8 @@ def test_smplx_float64_parity(golden_path: Path | None) -> None:
     assert joint_error <= FLOAT64_ATOL, f"{golden_path.stem}: joint max error {joint_error:.3e}"
 
 
-@pytest.mark.parametrize("golden_path", PARITY_CASES, ids=lambda path: "missing" if path is None else path.stem)
-def test_smplx_float32_parity(golden_path: Path | None) -> None:
+@pytest.mark.parametrize("golden_path", GOLDEN_FILES, ids=lambda path: path.stem)
+def test_smplx_float32_parity(golden_path: Path) -> None:
     vertices, joints, golden = _evaluate(torch.float32, golden_path)
     expected_vertices = torch.from_numpy(golden["vertices"]).float()
     expected_joints = torch.from_numpy(golden["joints"]).float()
@@ -125,10 +119,7 @@ def test_smplx_float32_parity(golden_path: Path | None) -> None:
 def test_smplx_static_joints_are_approximate() -> None:
     """``stream_joints=False`` keeps the expression-free joints: measured on ``expression_plus_two`` (float64) the
     joint error is 1.17e-3 m and the vertex error 5.8e-10 m."""
-    golden_path = GOLDEN_DIR / "expression_plus_two.npz"
-    if not golden_path.is_file():
-        pytest.skip("SMPL-X goldens are absent; regenerate with the command in tools/parity/smplx/README.md")
-    vertices, joints, golden = _evaluate(torch.float64, golden_path, stream_joints=False)
+    vertices, joints, golden = _evaluate(torch.float64, GOLDEN_DIR / "expression_plus_two.npz", stream_joints=False)
     vertex_error = (vertices - torch.from_numpy(golden["vertices"])).abs().max().item()
     joint_error = (joints - torch.from_numpy(golden["joints"])).abs().max().item()
     golden.close()

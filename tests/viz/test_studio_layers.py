@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections import Counter
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -11,20 +10,19 @@ import torch
 from better_robot.viewer import Viewer
 
 import better_human as bh
+from better_human.io import weight_path
 from better_human.viz.studio import layers as studio_layers
 from better_human.viz.studio.layers import StudioLayers
 from better_human.viz.studio.state import StudioSession
 
 from .fake_server import FakeServer
 
-SMPL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def smpl() -> bh.Body:
-    if not SMPL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {SMPL_PATH}")
-    return bh.load("smpl", SMPL_PATH)
+    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
 
 
 def _setup(body: bh.Body) -> tuple[StudioSession, StudioLayers, FakeServer]:

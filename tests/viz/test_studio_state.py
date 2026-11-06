@@ -2,28 +2,25 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 import torch
 from better_robot.viewer import Viewer
 
 import better_human as bh
+from better_human.io import weight_path
 from better_human.viz.studio.gizmo import GizmoController
 from better_human.viz.studio.layers import StudioLayers
 from better_human.viz.studio.state import FrameEntry, StudioSession
 
 from .fake_server import FakeServer
 
-MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def body() -> bh.Body:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    return bh.load("smpl", MODEL_PATH)
+    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
 
 
 def test_session_pose_shape_and_notify(body: bh.Body) -> None:

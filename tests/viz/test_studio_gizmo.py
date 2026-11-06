@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 import torch
@@ -11,28 +9,23 @@ from better_robot.viewer import Viewer
 
 import better_human as bh
 from better_human.viz.studio.gizmo import GizmoController
+from better_human.io import weight_path
 from better_human.viz.studio.state import StudioSession
 
 from .fake_server import FakeServer
 
-MODELS = Path(__file__).parents[2] / "models"
-SMPL_PATH = MODELS / "smpl" / "SMPL_NEUTRAL.npz"
-MHR_PATH = MODELS / "MHR" / "converted" / "mhr_lod1.npz"
+pytestmark = pytest.mark.licensed
 _TURN = [0.0, 0.3827, 0.0, 0.9239]
 
 
 @pytest.fixture(scope="module")
 def smpl() -> bh.Body:
-    if not SMPL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {SMPL_PATH}")
-    return bh.load("smpl", SMPL_PATH)
+    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
 
 
 @pytest.fixture(scope="module")
 def mhr() -> bh.Body:
-    if not MHR_PATH.is_file():
-        pytest.skip(f"licensed MHR fixture is absent: {MHR_PATH}")
-    return bh.load("mhr", MHR_PATH, lod=1)
+    return bh.load("mhr", weight_path("MHR", "converted/mhr_lod1.npz"), lod=1)
 
 
 def _setup(body: bh.Body, key: str) -> tuple[StudioSession, GizmoController, list[str]]:

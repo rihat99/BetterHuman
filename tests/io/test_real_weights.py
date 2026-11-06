@@ -8,17 +8,14 @@ import torch
 from scipy import sparse
 
 from better_human.io.convert_chumpy import convert_model, load_chumpy_pickle
-from better_human.io.load import load_model_npz
+from better_human.io.load import load_model_npz, models_dir
 from better_human.io.schema import SMPL_SCHEMA, SMPLX_SCHEMA
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-MODELS_ROOT = REPOSITORY_ROOT / "models"
 
-
+@pytest.mark.licensed
 def test_all_local_smpl_npz_files_validate_and_load() -> None:
-    paths = sorted((MODELS_ROOT / "smpl").glob("*.npz"))
-    if not paths:
-        pytest.skip("No license-gated SMPL NPZ files found under models/smpl/.")
+    paths = sorted((models_dir() / "smpl").glob("*.npz"))
+    assert paths, f"no licensed SMPL .npz file under {models_dir() / 'smpl'}"
 
     for path in paths:
         loaded = load_model_npz(path, SMPL_SCHEMA)
@@ -26,10 +23,10 @@ def test_all_local_smpl_npz_files_validate_and_load() -> None:
         assert loaded["J_regressor"].layout == torch.strided
 
 
+@pytest.mark.licensed
 def test_all_local_smplx_npz_files_ignore_vendor_extras_and_load() -> None:
-    paths = sorted((MODELS_ROOT / "smplx").glob("*.npz"))
-    if not paths:
-        pytest.skip("No license-gated SMPL-X NPZ files found under models/smplx/.")
+    paths = sorted((models_dir() / "smplx").glob("*.npz"))
+    assert paths, f"no licensed SMPL-X .npz file under {models_dir() / 'smplx'}"
 
     for path in paths:
         loaded = load_model_npz(path, SMPLX_SCHEMA)
@@ -37,10 +34,13 @@ def test_all_local_smplx_npz_files_ignore_vendor_extras_and_load() -> None:
         assert loaded["shapedirs"].dtype == torch.float64
 
 
+@pytest.mark.licensed
 def test_real_smpl_pickle_converts_losslessly_with_stub(tmp_path: Path) -> None:
-    candidates = sorted((MODELS_ROOT / "smpl" / "models").glob("*neutral*.pkl"))
-    if not candidates:
-        pytest.skip("No original license-gated neutral SMPL pickle found under models/smpl/models/.")
+    candidates = sorted((models_dir() / "smpl" / "models").glob("*neutral*.pkl"))
+    assert candidates, (
+        f"the original neutral SMPL pickle (*neutral*.pkl, from the licensed SMPL download) is absent: "
+        f"place it under {models_dir() / 'smpl' / 'models'}"
+    )
 
     source = candidates[0]
     destination = tmp_path / "SMPL_NEUTRAL.npz"

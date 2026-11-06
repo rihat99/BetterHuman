@@ -14,7 +14,6 @@ import pytest
 REPO = Path(__file__).parents[2]
 DOCS = REPO / "docs"
 FAKE_SERVER = REPO / "tests" / "viz" / "fake_server.py"
-MODELS_ENV = "BETTERHUMAN_MODELS_DIR"
 PAGE_TIMEOUT_S = 120
 
 # Fence info string: ```python [tags...]; a ``{ .no-run }`` attribute opts the block out of execution.
@@ -69,11 +68,10 @@ def _pages_with_code() -> list[Path]:
     return [page for page in [*_pages(), REPO / "README.md"] if _runnable_blocks(page)]
 
 
+@pytest.mark.licensed
 @pytest.mark.parametrize("page", _pages_with_code(), ids=lambda p: p.relative_to(REPO).as_posix())
 def test_page_snippets_execute(page: Path) -> None:
     """Run a page's Python blocks in order in one namespace, CPU only, with a fake viser server."""
-    if not os.environ.get(MODELS_ENV):
-        pytest.skip(f"{MODELS_ENV} is unset: the snippets load licensed body weights")
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": "", "OMP_NUM_THREADS": "2", "MPLBACKEND": "Agg"}
     completed = subprocess.run(
         [sys.executable, "-c", RUNNER, str(FAKE_SERVER), *_runnable_blocks(page)],
@@ -112,15 +110,13 @@ def test_output_fences_follow_python(page: Path) -> None:
         )
 
 
+@pytest.mark.licensed
 @pytest.mark.parametrize("page", [DOCS / "index.md", DOCS / "getting-started.md"], ids=lambda p: p.name)
 def test_getting_started_outputs_fresh(page: Path) -> None:
     """The first line of each output pane matches what the preceding block really prints (cheap staleness guard)."""
-    if not os.environ.get(MODELS_ENV):
-        pytest.skip(f"{MODELS_ENV} is unset: the snippets load licensed body weights")
     text = page.read_text()
     fences = [(m.start(), m["body"]) for m in OUTPUT_FENCE.finditer(text)]
-    if not fences:
-        pytest.skip("no output fences")
+    assert fences, f"{page.name} has no output fence to check"
     blocks = [(m.end(), m["body"], "no-run" in m["info"]) for m in FENCE.finditer(text)]
     runnable = [body for _, body, skip in blocks if not skip]
     env = {

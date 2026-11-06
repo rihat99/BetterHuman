@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
+import better_human as bh
 from better_human.families import tables
 from better_human.families.assets import densities
-
-MODELS_DIR = Path(__file__).parents[2] / "models"
-SMPLX_PATH = MODELS_DIR / "smplx" / "SMPLX_NEUTRAL.npz"
-MHR_PATH = MODELS_DIR / "MHR" / "converted" / "mhr_lod1.npz"
+from better_human.io import weight_path
 
 
 def test_categories_match_smpl_config() -> None:
@@ -68,16 +64,13 @@ def test_unmapped_part_falls_back_to_mean() -> None:
     assert densities.part_categories(["totally_unknown_gadget"]) == [None]
 
 
-@pytest.mark.parametrize("path", [SMPLX_PATH, MHR_PATH], ids=["smplx", "mhr"])
-def test_full_coverage_on_real_joint_names(path: Path) -> None:
-    if not path.is_file():
-        pytest.skip(f"licensed fixture is absent: {path}")
-    import better_human as bh  # noqa: PLC0415 - only needed with weights present
-
-    if "smplx" in path.name.lower():
-        body = bh.Body(bh.families.smplx(path), mass=False)
+@pytest.mark.licensed
+@pytest.mark.parametrize("family", ["smplx", "mhr"])
+def test_full_coverage_on_real_joint_names(family: str) -> None:
+    if family == "smplx":
+        body = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")), mass=False)
     else:
-        body = bh.load("mhr", str(path), lod=1, mass=False)
+        body = bh.load("mhr", str(weight_path("MHR", "converted/mhr_lod1.npz")), lod=1, mass=False)
     names = list(body.joint_names)
     categories = densities.part_categories(names)
     unmapped = [name for name, category in zip(names, categories, strict=True) if category is None]

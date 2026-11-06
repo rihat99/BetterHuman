@@ -2,23 +2,18 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
+import viser
 
 from better_human.viz.studio import persistence
 from better_human.viz.studio import state as studio_state
 from better_human.viz.studio.app import HumanStudio
 from tests.viz.fake_server import FakeHandle, FakeServer
-
-pytestmark = pytest.mark.skipif(
-    not Path(os.environ.get("BETTERHUMAN_MODELS_DIR", "models"), "smpl", "SMPL_NEUTRAL.npz").exists(),
-    reason="licensed SMPL weights absent",
-)
 
 
 @pytest.fixture
@@ -36,6 +31,7 @@ def test_imports_without_running_server() -> None:
     assert callable(HumanStudio) and hasattr(studio_state, "StudioSession")
 
 
+@pytest.mark.licensed
 def test_layers_session_and_tabs_built(studio) -> None:
     assert studio.session.model_key == "smpl_neutral"
     assert "click" in studio.viewer.server.scene.pointer_callbacks
@@ -43,6 +39,7 @@ def test_layers_session_and_tabs_built(studio) -> None:
     assert studio.status.startswith("smpl_neutral loaded")
 
 
+@pytest.mark.licensed
 def test_shape_slider_changes_vertices(studio) -> None:
     before = studio.session.vertices.clone()
     slider = (
@@ -55,12 +52,14 @@ def test_shape_slider_changes_vertices(studio) -> None:
     assert not torch.allclose(before, studio.session.vertices)
 
 
+@pytest.mark.licensed
 def test_click_on_joint_selects_and_highlights(studio) -> None:
     joint = studio.session.state.joints.detach().reshape(-1, 3)[5].numpy()
     _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
     assert studio.gizmo.joint == 5
 
 
+@pytest.mark.licensed
 def test_pose_save_and_load_roundtrip(studio) -> None:
     q = studio.session.q.clone()
     q[..., -1] += 0.3
@@ -71,6 +70,7 @@ def test_pose_save_and_load_roundtrip(studio) -> None:
     assert torch.allclose(studio.session.q, q)
 
 
+@pytest.mark.licensed
 def test_segment_paint_and_build_bodies(studio) -> None:
     studio.segment.load_builtin()
     studio.segment.add_part("blob")
@@ -83,6 +83,7 @@ def test_segment_paint_and_build_bodies(studio) -> None:
     assert "blob" in dict(rows)
 
 
+@pytest.mark.licensed
 def test_frame_add_rename_delete_export(studio) -> None:
     studio.frames.set_adding(True)
     point = studio.session.vertices[100].detach().numpy()
@@ -102,6 +103,7 @@ def test_frame_add_rename_delete_export(studio) -> None:
     assert "toe" in studio.session.frame_set
 
 
+@pytest.mark.licensed
 def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
     opacities: list[float] = []
     studio.layers.set_opacity = opacities.append
@@ -117,6 +119,7 @@ def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
     np.testing.assert_allclose(studio.layers.skeleton.colors, before)
 
 
+@pytest.mark.licensed
 def test_selection_row_buttons_and_label(studio) -> None:
     gui = studio.viewer.server.gui
     # Moved out of the Body tab: only the row's buttons remain.
@@ -141,6 +144,7 @@ def _rotated(studio, joint: int) -> np.ndarray:
     return pose
 
 
+@pytest.mark.licensed
 def test_gizmo_drag_rotates_session_vertices(studio) -> None:
     studio.select_joint(5)
     before = studio.session.vertices.clone()
@@ -150,6 +154,7 @@ def test_gizmo_drag_rotates_session_vertices(studio) -> None:
     assert (studio.session.vertices - before).abs().max() > 1e-3
 
 
+@pytest.mark.licensed
 def test_frame_click_selects_and_syncs_editor(studio) -> None:
     studio.frames.set_adding(True)
     point = studio.session.vertices[100].detach().numpy()
@@ -163,6 +168,7 @@ def test_frame_click_selects_and_syncs_editor(studio) -> None:
     assert studio.frames.frame_dropdown.value == name
 
 
+@pytest.mark.licensed
 def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
     studio.segment.add_part("blob")
     blob = studio.session.part_names.index("blob")
@@ -174,11 +180,13 @@ def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
     assert set(studio.viewer.server.scene.pointer_callbacks) == {"click"}
 
 
+@pytest.mark.licensed
 def test_build_bodies_total_matches_session_mass(studio) -> None:
     rows = studio.segment.build_bodies()
     assert rows[-1][1] == pytest.approx(float(studio.session.total_mass), rel=0.01)
 
 
+@pytest.mark.licensed
 def test_density_table_and_saved_pose_dropdown(studio) -> None:
     studio.density_input.value = "Dempster"
     assert studio.chosen_density() == "Dempster"
@@ -188,10 +196,7 @@ def test_density_table_and_saved_pose_dropdown(studio) -> None:
     assert studio.saved_poses.options == ("first",) and studio.saved_poses.value == "first"
 
 
-@pytest.mark.skipif(
-    not Path(os.environ.get("BETTERHUMAN_MODELS_DIR", "models"), "smplx", "SMPLX_NEUTRAL.npz").exists(),
-    reason="licensed SMPL-X weights absent",
-)
+@pytest.mark.licensed
 def test_frames_layer_follows_frame_set() -> None:
     studio = HumanStudio(family="smplx", server=FakeServer(), data_dir=persistence.DEFAULT_ROOT)
     studio.frames.load("contacts")
@@ -201,10 +206,9 @@ def test_frames_layer_follows_frame_set() -> None:
     assert studio.layers.frames.poses.shape == (1, count + 1, 7)
 
 
+@pytest.mark.licensed
 def test_model_switch_rebuilds_body_widgets(studio) -> None:
     for family, key in (("smplx", "smplx_neutral"), ("mhr", "mhr_lod1")):
-        if family == "mhr" and not Path(os.environ.get("BETTERHUMAN_MODELS_DIR", "models"), "MHR").exists():
-            continue
         studio.load_model(family, gender="neutral", lod=1)
         body = studio.session.body
         assert studio.session.model_key == key and body.spec.name == family
@@ -216,6 +220,7 @@ def test_model_switch_rebuilds_body_widgets(studio) -> None:
         assert key in studio.status
 
 
+@pytest.mark.licensed
 def test_model_switch_clears_active_frame(studio) -> None:
     studio.frames.set_adding(True)
     point = studio.session.vertices[100].detach().numpy()
@@ -229,9 +234,9 @@ def test_model_switch_clears_active_frame(studio) -> None:
 # BetterRobot's `Viewer.on_pointer` (better_robot.viewer.viewer) registers clicks through viser's deprecated
 # `scene.on_pointer_event`; only that call site is excused, not BetterHuman's own code.
 @pytest.mark.filterwarnings("ignore:Use on_click:DeprecationWarning:better_robot.viewer.viewer")
+@pytest.mark.licensed
 def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
     """Regression: viser's tab-group remove() raised when the Model tab rebuilt the tabs."""
-    viser = pytest.importorskip("viser")
     server = viser.ViserServer(host="127.0.0.1", port=8097, verbose=False)
     try:
         studio = HumanStudio(server=server, data_dir=tmp_path)

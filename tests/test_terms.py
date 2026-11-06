@@ -2,22 +2,19 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 import better_human as bh
 from better_human import terms
+from better_human.io import weight_path
 
-MODEL_PATH = Path(__file__).parents[1] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def identity() -> bh.Identity:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    body = bh.Body(bh.families.smpl(MODEL_PATH, dtype=torch.float64), contact_frames=None)
+    body = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float64), contact_frames=None)
     return body.bake()
 
 

@@ -2,40 +2,30 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 import better_human as bh
+from better_human.io import weight_path
 from better_human.viz.studio.posing import apply_local_rotation, joint_handles
 from better_human.viz.studio.state import StudioSession
 
-MODELS = Path(__file__).parents[2] / "models"
-SMPL_PATH = MODELS / "smpl" / "SMPL_NEUTRAL.npz"
-MHR_PATH = MODELS / "MHR" / "converted" / "mhr_lod1.npz"
-SOMA_PATH = MODELS / "SOMA" / "soma_mid.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def smpl() -> bh.Body:
-    if not SMPL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {SMPL_PATH}")
-    return bh.load("smpl", SMPL_PATH)
+    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
 
 
 @pytest.fixture(scope="module")
 def mhr() -> bh.Body:
-    if not MHR_PATH.is_file():
-        pytest.skip(f"licensed MHR fixture is absent: {MHR_PATH}")
-    return bh.load("mhr", MHR_PATH, lod=1)
+    return bh.load("mhr", weight_path("MHR", "converted/mhr_lod1.npz"), lod=1)
 
 
 @pytest.fixture(scope="module")
 def soma() -> bh.Body:
-    if not SOMA_PATH.is_file():
-        pytest.skip(f"converted SOMA fixture is absent: {SOMA_PATH}")
-    return bh.Body(bh.families.soma(SOMA_PATH, correctives=False), mass=False)
+    return bh.Body(bh.families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False), mass=False)
 
 
 def _rotated(world: torch.Tensor, quat: list[float]) -> torch.Tensor:

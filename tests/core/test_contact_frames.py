@@ -11,18 +11,19 @@ from better_robot.lie import so3
 
 import better_human as bh
 from better_human.core.contact_frames import parse_frame_set, resolve_parents, vertex_normals
+from better_human.io import weight_path
 
 REPO_ROOT = Path(__file__).parents[2]
-MODEL_PATH = REPO_ROOT / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
 CONTACTS_PATH = REPO_ROOT / "studio_data" / "frames" / "smplx_neutral" / "contacts.json"
 
 
 @pytest.fixture(scope="module")
 def body() -> bh.Body:
     """Neutral SMPL-X with hands, no face, and the authored contact frames."""
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL-X fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smplx(MODEL_PATH, face=False, num_betas=10), contact_frames=CONTACTS_PATH)
+    return bh.Body(
+        bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False, num_betas=10),
+        contact_frames=CONTACTS_PATH,
+    )
 
 
 def _frame_poses(identity: bh.Identity) -> torch.Tensor:
@@ -31,6 +32,7 @@ def _frame_poses(identity: bh.Identity) -> torch.Tensor:
     return identity.forward(identity.q_neutral).frame_poses.index_select(-2, frame_ids)
 
 
+@pytest.mark.licensed
 def test_frames_are_appended_in_authored_order(body: bh.Body) -> None:
     authored = list(json.loads(CONTACTS_PATH.read_text()))
     contact_frames = body.contact_frames
@@ -42,6 +44,7 @@ def test_frames_are_appended_in_authored_order(body: bh.Body) -> None:
     assert contact_frames.frame_ids == tuple(body.model.frame_id(name) for name in authored)
 
 
+@pytest.mark.licensed
 def test_explicit_joint_name_wins_over_argmax_skinning(body: bh.Body) -> None:
     joint_names = body.joint_names
     parents = dict(zip(body.contact_frames.names, body.contact_frames.parent_joints))
@@ -51,6 +54,7 @@ def test_explicit_joint_name_wins_over_argmax_skinning(body: bh.Body) -> None:
     assert joint_names[int(body.spec.parts.ids[vertices["knee_left"]])] == "left_hip"
 
 
+@pytest.mark.licensed
 @pytest.mark.parametrize("name", ["toe_under_left", "heel_right", "palm_left", "finger_left"])
 def test_null_joint_falls_back_to_argmax_skinning(body: bh.Body, name: str) -> None:
     parents = dict(zip(body.contact_frames.names, body.contact_frames.parent_joints))
@@ -58,6 +62,7 @@ def test_null_joint_falls_back_to_argmax_skinning(body: bh.Body, name: str) -> N
     assert parents[name] == int(body.spec.parts.ids[vertices[name]])
 
 
+@pytest.mark.licensed
 def test_rest_pose_frames_sit_on_their_vertex_with_the_normal_as_z(body: bh.Body) -> None:
     identity = body.bake()
     poses = _frame_poses(identity)
@@ -68,6 +73,7 @@ def test_rest_pose_frames_sit_on_their_vertex_with_the_normal_as_z(body: bh.Body
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
+@pytest.mark.licensed
 def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.Body) -> None:
     torch.manual_seed(0)
     shaped = body.bake(betas=torch.randn(10) * 0.5)
@@ -82,6 +88,7 @@ def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.Body) -> None:
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
+@pytest.mark.licensed
 def test_shape_rebake_is_batched(body: bh.Body) -> None:
     torch.manual_seed(1)
     shaped = body.bake(betas=torch.randn(3, 10) * 0.5)
@@ -92,15 +99,15 @@ def test_shape_rebake_is_batched(body: bh.Body) -> None:
     assert torch.allclose(poses[..., :3], shaped.v_shaped[:, vertices], atol=1e-5)
 
 
+@pytest.mark.licensed
 def test_body_without_contact_frames_keeps_only_body_frames() -> None:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL-X fixture is absent: {MODEL_PATH}")
-    plain = bh.Body(bh.families.smplx(MODEL_PATH, face=False, num_betas=10), mass=False)
+    plain = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False, num_betas=10), mass=False)
     assert plain.contact_frames is None
     assert plain.model.nframes == plain.model.nbodies
     assert plain.bake(betas=torch.zeros(10)).model.nframes == plain.model.nbodies
 
 
+@pytest.mark.licensed
 def test_unknown_explicit_joint_name_raises(body: bh.Body) -> None:
     with pytest.raises(ValueError, match="'tip'.*unknown parent joint 'not_a_joint'"):
         resolve_parents(
@@ -109,7 +116,11 @@ def test_unknown_explicit_joint_name_raises(body: bh.Body) -> None:
             body.spec.parts.ids,
         )
     with pytest.raises(ValueError, match="unknown parent joint"):
-        bh.Body(bh.families.smplx(MODEL_PATH, face=False), mass=False, contact_frames={"tip": (0, "not_a_joint")})
+        bh.Body(
+            bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False),
+            mass=False,
+            contact_frames={"tip": (0, "not_a_joint")},
+        )
 
 
 def test_parse_frame_set_reads_the_authored_file() -> None:
@@ -118,6 +129,7 @@ def test_parse_frame_set_reads_the_authored_file() -> None:
     assert entries["heel_right"] == (8712, None)
 
 
+@pytest.mark.licensed
 def test_rig_corrective_features_receives_the_baked_identity(body: bh.Body, monkeypatch: pytest.MonkeyPatch) -> None:
     rig_type = type(body.spec.rig)
     original = rig_type.corrective_features

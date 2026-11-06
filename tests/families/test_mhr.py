@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import fields
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -11,15 +10,9 @@ import torch
 
 from better_human import Body, families
 from better_human.families.mhr import MHRClassic, mhr_from_classic, mhr_to_classic
+from better_human.io import weight_path
 
-ROOT = Path(__file__).parents[2]
-
-
-def _model_path(lod: int) -> Path:
-    path = ROOT / "models" / "MHR" / "converted" / f"mhr_lod{lod}.npz"
-    if not path.is_file():
-        pytest.skip(f"converted MHR LOD{lod} fixture is absent: {path}")
-    return path
+pytestmark = pytest.mark.licensed
 
 
 def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> MHRClassic:
@@ -31,7 +24,7 @@ def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> 
 
 @pytest.fixture(scope="module")
 def body() -> Body:
-    return Body(families.mhr(_model_path(1), lod=1))
+    return Body(families.mhr(weight_path("MHR", "converted/mhr_lod1.npz"), lod=1))
 
 
 def test_configuration_sizes(body: Body) -> None:
@@ -44,7 +37,7 @@ def test_configuration_sizes(body: Body) -> None:
 
 
 def test_mimic_expansion_matches_all_spine_twist_weights(body: Body) -> None:
-    with np.load(_model_path(1), allow_pickle=False) as arrays:
+    with np.load(weight_path("MHR", "converted/mhr_lod1.npz"), allow_pickle=False) as arrays:
         parameter_index = arrays["model_parameter_names"].tolist().index("spine_twist0")
         rows = torch.from_numpy(arrays["parameter_transform_rows"])
         columns = torch.from_numpy(arrays["parameter_transform_columns"])
@@ -65,7 +58,7 @@ def test_mimic_expansion_matches_all_spine_twist_weights(body: Body) -> None:
 
 
 def test_expression_toggle() -> None:
-    path = _model_path(6)
+    path = weight_path("MHR", "converted/mhr_lod6.npz")
     with_expression = Body(families.mhr(path, lod=6, correctives=False))
     without_expression = Body(families.mhr(path, lod=6, expression=False, correctives=False))
     classic = _random_classic(torch.Generator().manual_seed(0))
@@ -91,7 +84,7 @@ def test_expression_toggle() -> None:
 
 
 def test_correctives_toggle() -> None:
-    path = _model_path(6)
+    path = weight_path("MHR", "converted/mhr_lod6.npz")
     classic = _random_classic(torch.Generator().manual_seed(2))
     zero_pose = MHRClassic(classic.identity_coeffs, torch.zeros(204))
     vertices = {}
@@ -160,7 +153,7 @@ def test_mass_lives_on_part_bodies_only(body: Body) -> None:
 
 
 def test_spec_and_classic_validation() -> None:
-    path = _model_path(6)
+    path = weight_path("MHR", "converted/mhr_lod6.npz")
     with pytest.raises(TypeError, match="torch.float32 or torch.float64"):
         families.mhr(path, lod=6, dtype=torch.float16)
     for lod in (-1, 7, 1.0, True):
@@ -183,7 +176,7 @@ def test_spec_and_classic_validation() -> None:
 
 def test_float64_body_from_float32_spec() -> None:
     """``Body(spec, dtype=float64)`` casts the rig; its float32-rounded constants move vertices ~3e-7 m."""
-    path = _model_path(6)
+    path = weight_path("MHR", "converted/mhr_lod6.npz")
     classic = _random_classic(torch.Generator().manual_seed(7))
     classic = MHRClassic(classic.identity_coeffs.double(), classic.model_parameters.double())
     vertices = []

@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 import better_human as bh
 from better_human.families.classic import MANOClassic, mano_from_classic, mano_to_classic
+from better_human.io import weight_path
 
-MODEL_PATH = Path(__file__).parents[2] / "models" / "mano" / "MANO_RIGHT.npz"
+pytestmark = pytest.mark.licensed
 
 
 def _body(flat_hand_mean: bool = False) -> bh.Body:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed MANO fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.mano(MODEL_PATH, flat_hand_mean=flat_hand_mean, dtype=torch.float64), mass=False)
+    return bh.Body(
+        bh.families.mano(weight_path("mano", "MANO_RIGHT.npz"), flat_hand_mean=flat_hand_mean, dtype=torch.float64),
+        mass=False,
+    )
 
 
 def test_joint_count() -> None:

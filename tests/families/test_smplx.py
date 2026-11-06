@@ -2,22 +2,19 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 import better_human as bh
 from better_human.families.classic import SMPLXClassic, smplx_from_classic, smplx_to_classic
+from better_human.io import weight_path
 
-MODEL_PATH = Path(__file__).parents[2] / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 F64 = torch.float64
 
 
 def _body(**options: bool) -> bh.Body:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL-X fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smplx(MODEL_PATH, dtype=F64, **options), mass=False)
+    return bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), dtype=F64, **options), mass=False)
 
 
 @pytest.mark.parametrize(("hands", "face", "count"), [(True, True, 55), (False, True, 25), (True, False, 52)])
@@ -65,7 +62,7 @@ def test_expression_width_is_validated() -> None:
     with pytest.raises(ValueError):
         identity.forward(identity.q_neutral, {"expression": torch.zeros(11, dtype=F64)})
     with pytest.raises(ValueError):
-        bh.families.smplx(MODEL_PATH, num_expression=1000)
+        bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), num_expression=1000)
 
 
 def test_body_without_hands_round_trips_classic() -> None:

@@ -2,27 +2,26 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 import better_human as bh
 from better_human.families.classic import SMPLHClassic, smplh_from_classic, smplh_to_classic
+from better_human.io import weight_path
 
-MODEL_PATH = Path(__file__).parents[2] / "models" / "smplh" / "smplh" / "neutral" / "model.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def body() -> bh.Body:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL+H fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smplh(MODEL_PATH, dtype=torch.float64), mass=False)
+    return bh.Body(bh.families.smplh(weight_path("smplh", "smplh/neutral/model.npz"), dtype=torch.float64), mass=False)
 
 
 def test_joint_counts(body: bh.Body) -> None:
     assert len(body.joint_names) == 52
-    reduced = bh.Body(bh.families.smplh(MODEL_PATH, hands=False, dtype=torch.float64), mass=False)
+    reduced = bh.Body(
+        bh.families.smplh(weight_path("smplh", "smplh/neutral/model.npz"), hands=False, dtype=torch.float64), mass=False
+    )
     assert len(reduced.joint_names) == 22
 
 

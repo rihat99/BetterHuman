@@ -11,9 +11,9 @@ import torch
 
 from better_human import Body, HumanState, families
 from better_human.families.soma import SOMAClassic, soma_from_classic
+from better_human.io import weight_path
 
-ROOT = Path(__file__).parents[2]
-MODEL_PATH = ROOT / "models" / "SOMA" / "soma_mid.npz"
+pytestmark = pytest.mark.licensed
 GOLDEN_FILES = tuple(sorted((Path(__file__).parent / "goldens" / "soma_mid").glob("*.npz")))
 EXPECTED_CASES = {
     "big_shape",
@@ -41,9 +41,7 @@ PARITY_CASES = tuple((dtype, path) for dtype in (torch.float32, torch.float64) f
 
 @lru_cache(maxsize=2)
 def _body(dtype: torch.dtype, correctives: bool) -> Body:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"converted SOMA fixture is absent: {MODEL_PATH}")
-    return Body(families.soma(MODEL_PATH, correctives=correctives, dtype=dtype), mass=False)
+    return Body(families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=correctives, dtype=dtype), mass=False)
 
 
 def _golden(path: Path) -> tuple[bool, dict[str, torch.Tensor]]:

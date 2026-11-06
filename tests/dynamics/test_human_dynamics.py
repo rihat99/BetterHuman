@@ -2,24 +2,21 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 from better_robot.dynamics import inverse_dynamics, mass_matrix
 from better_robot.kinematics import forward_kinematics_state
 
 import better_human as bh
+from better_human.io import weight_path
 
-MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def mass_body() -> bh.Body:
     """Load the licensed neutral fixture with mass properties."""
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smpl(MODEL_PATH))
+    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")))
 
 
 def test_gravity_inverse_dynamics_zero_velocity_and_mass_matrix_spd(mass_body: bh.Body) -> None:
@@ -64,11 +61,9 @@ def test_betas_to_inverse_dynamics_backward_is_finite_and_nonzero(mass_body: bh.
     assert torch.count_nonzero(betas.grad) > 0
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is unavailable")
+@pytest.mark.cuda
 def test_cuda_mass_inverse_dynamics_and_mass_matrix_smoke() -> None:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    model = bh.Body(bh.families.smpl(MODEL_PATH), device="cuda").bake().model
+    model = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), device="cuda").bake().model
     q = model.q_neutral
     velocity = torch.zeros(model.nv, dtype=q.dtype, device=q.device)
     state = forward_kinematics_state(model, q)

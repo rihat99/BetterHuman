@@ -10,9 +10,9 @@ import torch
 
 import better_human as bh
 from better_human.families.classic import SMPLClassic, smpl_from_classic
+from better_human.io import weight_path
 
-ROOT = Path(__file__).parents[2]
-MODEL_PATH = ROOT / "models" / "smpl" / "SMPL_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 GOLDEN_DIR = Path(__file__).parent / "goldens" / "smpl_neutral"
 GOLDEN_FILES = tuple(sorted(GOLDEN_DIR.glob("*.npz")))
 EXPECTED_GOLDENS = {
@@ -31,17 +31,13 @@ FLOAT32_ATOL = 1e-6
 @pytest.fixture(scope="module")
 def body_float64() -> bh.Body:
     """Load the licensed local neutral weights in oracle precision."""
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smpl(MODEL_PATH, dtype=torch.float64), mass=False)
+    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float64), mass=False)
 
 
 @pytest.fixture(scope="module")
 def body_float32() -> bh.Body:
     """Load the licensed local neutral weights in runtime precision."""
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smpl(MODEL_PATH, dtype=torch.float32), mass=False)
+    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float32), mass=False)
 
 
 def _evaluate(body: bh.Body, golden_path: Path) -> tuple[torch.Tensor, torch.Tensor, np.lib.npyio.NpzFile]:

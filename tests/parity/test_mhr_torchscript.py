@@ -9,8 +9,9 @@ import numpy as np
 import pytest
 import torch
 
-ROOT = Path(__file__).parents[2]
-MODEL_PATH = ROOT / "models" / "MHR" / "assets" / "mhr_model.pt"
+from better_human.io import weight_path
+
+pytestmark = pytest.mark.licensed
 GOLDEN_DIR = Path(__file__).parent / "goldens" / "mhr_lod1"
 CASES = ("identity_00", "combined_00", "zero_correctives_off", "expression_none")
 VERTEX_ATOL_METERS = 2e-6
@@ -31,10 +32,7 @@ def _sign_invariant_quaternion_error(
 # The oracle ships as TorchScript (`assets/mhr_model.pt`); torch 2.13 deprecates torch.jit.load yet still loads it.
 @pytest.mark.filterwarnings("ignore:`torch.jit.load` is deprecated:DeprecationWarning")
 def test_released_torchscript_agrees_with_pymomentum_goldens() -> None:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"released MHR TorchScript oracle is absent: {MODEL_PATH}")
-
-    model = torch.jit.load(MODEL_PATH, map_location="cpu")
+    model = torch.jit.load(weight_path("MHR", "assets/mhr_model.pt"), map_location="cpu")
     model.eval()
     try:
         with torch.inference_mode():

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from pathlib import Path
+from importlib.resources import files
 
 import numpy as np
 import pytest
@@ -21,11 +21,10 @@ from better_human.core.mass import (
     meshes_from_topology,
     segment_vertices,
 )
+from better_human.io import weight_path
 
-MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
-SMPLX_MODEL_PATH = Path(__file__).parents[2] / "models" / "smplx" / "SMPLX_NEUTRAL.npz"
-SEGMENTATION_PATH = Path(bh.__file__).parent / "families" / "assets" / "smpl_3d_segmentation.npy"
-DENSITY_TABLE_PATH = Path(bh.__file__).parent / "families" / "assets" / "body_densities.json"
+SEGMENTATION_PATH = files("better_human.families.assets") / "smpl_3d_segmentation.npy"
+DENSITY_TABLE_PATH = files("better_human.families.assets") / "body_densities.json"
 # float32 is the runtime dtype these gradchecks test on purpose, with a float32 step and tolerances; torch warns that
 # gradcheck expects float64.
 FLOAT32_GRADCHECK = pytest.mark.filterwarnings(
@@ -46,9 +45,7 @@ def _native(identity: bh.Identity) -> torch.Tensor:
 @pytest.fixture(scope="module")
 def mass_body() -> bh.Body:
     """Load the neutral SMPL fixture with default mass computation."""
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smpl(MODEL_PATH))
+    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")))
 
 
 def _box_mesh() -> tuple[torch.Tensor, torch.Tensor]:
@@ -142,13 +139,14 @@ def test_authored_caps_accept_rotated_se3_part_frames() -> None:
     torch.testing.assert_close(actual, expected)
 
 
+@pytest.mark.licensed
 def test_default_mass_opt_out_and_per_part_density(mass_body: bh.Body) -> None:
     assert mass_body.topology is not None
     assert _native(mass_body.bake()) is not None
     assert mass_body.topology.num_parts == len(mass_body.joint_names)
     torch.testing.assert_close(mass_body.density, torch.full_like(mass_body.density, 1000.0))
 
-    opt_out = bh.Body(bh.families.smpl(MODEL_PATH), mass=False)
+    opt_out = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), mass=False)
     assert opt_out.topology is None
 
     densities = torch.linspace(900.0, 1100.0, len(mass_body.joint_names))
@@ -167,9 +165,10 @@ def test_default_mass_opt_out_and_per_part_density(mass_body: bh.Body) -> None:
     )
 
     with pytest.raises(ValueError, match="density must be scalar or"):
-        bh.Body(bh.families.smpl(MODEL_PATH), density=torch.ones(23), mass=False)
+        bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=torch.ones(23), mass=False)
 
 
+@pytest.mark.licensed
 @pytest.mark.parametrize(
     ("use_hands", "use_face", "expected_bodies"),
     [(True, True, 56), (False, True, 26), (True, False, 53), (False, False, 23)],
@@ -179,15 +178,14 @@ def test_smplx_full_and_partial_spawns_receive_mass(
     use_face: bool,
     expected_bodies: int,
 ) -> None:
-    if not SMPLX_MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL-X fixture is absent: {SMPLX_MODEL_PATH}")
-    body = bh.Body(bh.families.smplx(SMPLX_MODEL_PATH, hands=use_hands, face=use_face))
+    body = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), hands=use_hands, face=use_face))
     assert _native(body.bake()) is not None
     assert _native(body.bake()).shape == (expected_bodies, 10)
     assert torch.isfinite(_native(body.bake())).all()
     assert _native(body.bake())[1:, 0].min() > 0
 
 
+@pytest.mark.licensed
 def test_neutral_mass_conservation_and_com_plausibility(mass_body: bh.Body) -> None:
     assert _native(mass_body.bake()) is not None
     packed = _native(mass_body.bake())[1:]
@@ -210,9 +208,8 @@ def test_neutral_mass_conservation_and_com_plausibility(mass_body: bh.Body) -> N
     assert aggregate_com.norm() < 0.1
 
 
+@pytest.mark.licensed
 def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body: bh.Body) -> None:
-    if not SEGMENTATION_PATH.is_file():
-        pytest.skip(f"canonical SMPL segmentation is absent: {SEGMENTATION_PATH}")
     segmentation = np.load(SEGMENTATION_PATH, allow_pickle=True).item()
     memberships = {
         part: {int(vertex) for vertex in vertices if int(vertex) < mass_body.num_vertices}
@@ -226,6 +223,7 @@ def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body:
     assert sum(count > 1 for count in overlap_counts.values()) == 582
 
 
+@pytest.mark.licensed
 def test_authored_segmentation_volume_matches_whole_mesh(mass_body: bh.Body) -> None:
     packed = _native(mass_body.bake())[1:]
     part_volume = (packed[:, 0] / mass_body.density).sum()
@@ -237,6 +235,7 @@ def test_authored_segmentation_volume_matches_whole_mesh(mass_body: bh.Body) -> 
     assert 74.0 <= total_mass <= 75.5
 
 
+@pytest.mark.licensed
 def test_authored_segmentation_is_batched_and_finite(mass_body: bh.Body) -> None:
     betas = torch.stack((torch.zeros(GRADCHECK_BETAS), torch.linspace(-0.4, 0.4, GRADCHECK_BETAS)))
     inertias = _native(mass_body.bake(betas=betas))
@@ -246,6 +245,7 @@ def test_authored_segmentation_is_batched_and_finite(mass_body: bh.Body) -> None
     assert inertias[:, 1:, 0].min() > 0
 
 
+@pytest.mark.licensed
 def test_named_density_table_feeds_per_part_density(mass_body: bh.Body) -> None:
     exemplar = mass_body.bake().v_shaped
     num_parts = len(mass_body.joint_names)
@@ -254,7 +254,7 @@ def test_named_density_table_feeds_per_part_density(mass_body: bh.Body) -> None:
     torch.testing.assert_close(chandler[0], exemplar.new_tensor(853.0))
     torch.testing.assert_close(chandler[16], exemplar.new_tensor(1005.0))
 
-    body = bh.Body(bh.families.smpl(MODEL_PATH), density=chandler)
+    body = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=chandler)
     torch.testing.assert_close(body.density, chandler)
     part_volumes = _native(body.bake())[1:, 0] / chandler
     reference_volumes = _native(mass_body.bake())[1:, 0] / mass_body.density
@@ -264,14 +264,13 @@ def test_named_density_table_feeds_per_part_density(mass_body: bh.Body) -> None:
         load_density_table("body_densities.json", "Nonexistent", mass_body.joint_names, exemplar)
 
 
+@pytest.mark.licensed
 def test_named_density_table_maps_smplx_parts_by_name() -> None:
-    if not SMPLX_MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL-X fixture is absent: {SMPLX_MODEL_PATH}")
     table = json.loads(DENSITY_TABLE_PATH.read_text())["Dempster"]
-    smpl_names = list(bh.Body(bh.families.smpl(MODEL_PATH), mass=False).joint_names)
-    uniform = bh.Body(bh.families.smplx(SMPLX_MODEL_PATH, face=False))
+    smpl_names = list(bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), mass=False).joint_names)
+    uniform = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False))
     body = bh.Body(
-        bh.families.smplx(SMPLX_MODEL_PATH, face=False),
+        bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False),
         density=load_density_table("body_densities.json", "Dempster", uniform.joint_names, uniform.spec.vertices),
     )
     names = list(body.joint_names)
@@ -292,10 +291,9 @@ def test_named_density_table_maps_smplx_parts_by_name() -> None:
         torch.testing.assert_close(dempster[1:] / density[:, None], plain[1:] / uniform.density, rtol=2e-5, atol=2e-5)
 
 
+@pytest.mark.licensed
 def test_argmax_fallback_integrates_smplx_parts() -> None:
-    if not SMPLX_MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL-X fixture is absent: {SMPLX_MODEL_PATH}")
-    body = bh.Body(bh.families.smplx(SMPLX_MODEL_PATH))
+    body = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")))
     topology = body.topology
     assert topology is not None
     for vertices, faces in meshes_from_topology(body.bake().v_shaped, topology):
@@ -303,6 +301,7 @@ def test_argmax_fallback_integrates_smplx_parts() -> None:
 
 
 @FLOAT32_GRADCHECK
+@pytest.mark.licensed
 def test_float32_gradcheck_betas_to_total_mass(mass_body: bh.Body) -> None:
     betas = (torch.randn(GRADCHECK_BETAS, dtype=torch.float32) * 0.03).requires_grad_()
 

@@ -12,9 +12,9 @@ import torch
 from better_human import families
 from better_human.core.body import Body
 from better_human.families.mhr import MHRClassic, mhr_from_classic
+from better_human.io import weight_path
 
-ROOT = Path(__file__).parents[2]
-MODEL_DIR = ROOT / "models" / "MHR" / "converted"
+pytestmark = pytest.mark.licensed
 GOLDEN_ROOT = Path(__file__).parent / "goldens"
 EXPECTED_GOLDEN_COUNTS = (3, 30, 3, 3, 3, 3, 3)
 SMOKE_CASES = {"fully_random", "proportions_hand_scale", "zero"}
@@ -84,13 +84,6 @@ assert all({path.stem for path in GOLDEN_FILES[lod]} == EXPECTED_CASES[lod] for 
 )
 
 
-def _model_path(lod: int) -> Path:
-    path = MODEL_DIR / f"mhr_lod{lod}.npz"
-    if not path.is_file():
-        pytest.skip(f"converted MHR LOD{lod} fixture is absent: {path}")
-    return path
-
-
 def _selected_goldens(
     lod: int,
     use_correctives: bool,
@@ -131,7 +124,13 @@ def test_mhr_parity_grid(
     paths = _selected_goldens(lod, use_correctives, use_expression)
     assert paths, "parity configuration selected no golden cases"
     body = Body(
-        families.mhr(_model_path(lod), lod=lod, correctives=use_correctives, expression=use_expression, dtype=dtype)
+        families.mhr(
+            weight_path("MHR", f"converted/mhr_lod{lod}.npz"),
+            lod=lod,
+            correctives=use_correctives,
+            expression=use_expression,
+            dtype=dtype,
+        )
     )
     vertex_atol, position_atol, quaternion_atol, scale_atol = PARITY_ATOLS[dtype][lod]
     baked = q = state = actual_vertices = actual_poses = actual_scales = None

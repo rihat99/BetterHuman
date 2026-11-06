@@ -11,9 +11,10 @@ from better_robot.lie import se3, so3
 
 from better_human import Body, families, load
 from better_human.families.soma import SOMAClassic, soma_from_classic, soma_to_classic
+from better_human.io import weight_path
 
+pytestmark = pytest.mark.licensed
 ROOT = Path(__file__).parents[2]
-MODEL_PATH = ROOT / "models" / "SOMA" / "soma_mid.npz"
 GOLDEN_FILES = tuple(sorted((ROOT / "tests" / "parity" / "goldens" / "soma_mid").glob("*.npz")))
 # Rest mesh [m], bind positions [m], bind rotation entries, float32 and float64: 2x the worst error over the 14
 # goldens and their identity batch, rounded up; never below the float32 oracle's 5.2e-6 m joint regression rounding.
@@ -22,12 +23,6 @@ GOLDEN_FILES = tuple(sorted((ROOT / "tests" / "parity" / "goldens" / "soma_mid")
 # its float64).
 BAKE_ATOLS = (6e-6, 1e-5, 1.1e-6)
 BAKE_ATOLS_BY_CASE = {"reflect_00": (1.2e-5, 1e-5, 1.1e-6)}
-
-
-def _model_path() -> Path:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"converted SOMA fixture is absent: {MODEL_PATH}")
-    return MODEL_PATH
 
 
 def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> SOMAClassic:
@@ -41,7 +36,7 @@ def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> 
 
 @pytest.fixture(scope="module")
 def body() -> Body:
-    return load("soma", str(_model_path()))
+    return load("soma", str(weight_path("SOMA", "soma_mid.npz")))
 
 
 def test_sizes_parts_and_mass(body: Body) -> None:
@@ -59,7 +54,7 @@ def test_sizes_parts_and_mass(body: Body) -> None:
 def test_bake_matches_upstream_rest_shape_and_bind(dtype: torch.dtype) -> None:
     """Skeleton fit and repose for every golden identity: the skinning rest mesh and the bind poses."""
     assert GOLDEN_FILES, "SOMA goldens are missing"
-    body = Body(families.soma(_model_path(), correctives=False, dtype=dtype), mass=False)
+    body = Body(families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), mass=False)
     for path in GOLDEN_FILES:
         rest_atol, position_atol, rotation_atol = BAKE_ATOLS_BY_CASE.get(path.stem, BAKE_ATOLS)
         with np.load(path, allow_pickle=False) as golden:
@@ -78,7 +73,7 @@ def test_bake_matches_upstream_rest_shape_and_bind(dtype: torch.dtype) -> None:
 
 @pytest.mark.parametrize(("dtype", "atol"), ((torch.float32, 1e-6), (torch.float64, 1e-12)), ids=("float32", "float64"))
 def test_classic_round_trip(dtype: torch.dtype, atol: float) -> None:
-    body = Body(families.soma(_model_path(), correctives=False, dtype=dtype), mass=False)
+    body = Body(families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), mass=False)
     random = _random_classic(torch.Generator().manual_seed(0), (4,))
     classic = SOMAClassic(random.identity_coeffs.to(dtype), random.poses.to(dtype), random.transl.to(dtype))
     identity, q, stream = soma_from_classic(body, classic)
@@ -126,7 +121,7 @@ def test_identity_batch_broadcasts_against_pose_batch(body: Body) -> None:
 
 def test_gradients_match_finite_differences() -> None:
     """Shape, pose and root gradients of a vertex and joint loss are finite and match central differences."""
-    body = Body(families.soma(_model_path(), dtype=torch.float64), mass=False)
+    body = Body(families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=torch.float64), mass=False)
     generator = torch.Generator().manual_seed(2)
     classic = _random_classic(generator)
     weights = torch.randn(18056, 3, generator=generator, dtype=torch.float64)
@@ -155,9 +150,9 @@ def test_gradients_match_finite_differences() -> None:
 
 def test_spec_and_classic_validation(body: Body) -> None:
     with pytest.raises(TypeError, match="torch.float32 or torch.float64"):
-        families.soma(_model_path(), dtype=torch.float16)
+        families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=torch.float16)
     with pytest.raises(TypeError, match="must be bool"):
-        families.soma(_model_path(), correctives=1)
+        families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=1)
     zero = SOMAClassic(torch.zeros(128), torch.zeros(77, 3), torch.zeros(3))
     with pytest.raises(ValueError, match=r"\(\.\.\., 77, 3\)"):
         soma_from_classic(body, SOMAClassic(zero.identity_coeffs, torch.zeros(78, 3), zero.transl))

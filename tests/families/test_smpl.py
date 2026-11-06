@@ -2,25 +2,22 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 import torch
 
 import better_human as bh
+from better_human.io import weight_path
 
-MODEL_PATH = Path(__file__).parents[2] / "models" / "smpl" / "SMPL_NEUTRAL.npz"
+pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
 def body() -> bh.Body:
-    if not MODEL_PATH.is_file():
-        pytest.skip(f"licensed SMPL fixture is absent: {MODEL_PATH}")
-    return bh.Body(bh.families.smpl(MODEL_PATH, dtype=torch.float64))
+    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float64))
 
 
 def test_load_without_mass(body: bh.Body) -> None:
-    plain = bh.load("smpl", str(MODEL_PATH), num_betas=10, mass=False)
+    plain = bh.load("smpl", str(weight_path("smpl", "SMPL_NEUTRAL.npz")), num_betas=10, mass=False)
     assert len(plain.joint_names) == 24 and plain.topology is None
 
 
@@ -36,7 +33,7 @@ def test_bake_and_forward_validate_inputs(body: bh.Body) -> None:
             torch.zeros(3, 7, dtype=torch.float64), {"expression": torch.zeros(10, dtype=torch.float64)}
         )
     with pytest.raises(ValueError):
-        bh.families.smpl(MODEL_PATH, num_betas=301)
+        bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), num_betas=301)
 
 
 def test_bake_broadcasts_leading_dims_and_pose_batches(body: bh.Body) -> None:
