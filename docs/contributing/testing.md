@@ -38,6 +38,13 @@ export BETTERHUMAN_MODELS_DIR=/path/to/models
 uv run pytest tests -q -m "licensed and not cuda"
 ```
 
+The parity goldens are computed from licensed weights, so they live in the same directory, in
+`$BETTERHUMAN_MODELS_DIR/goldens/<family>/` (decision record 0015), never in git. Tests reach them through
+`tests/support/goldens.py::golden_dir`, called inside fixtures only, so collecting the fast and full tiers never needs
+the directory, and `tests/contract/test_golden_provenance.py` checks that every golden stamps what produced it
+(decision record 0014). `tools/parity/smplx/README.md`, `tools/parity/mhr/README.md` and
+`tools/parity/soma/README.md` give the commands that regenerate them.
+
 ## Timing on a busy host
 
 Load times of the weights depend on the host's memory state through transparent huge pages. NumPy advises the kernel

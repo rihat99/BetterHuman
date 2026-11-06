@@ -36,7 +36,7 @@ higher ones. Import BetterRobot through its public surface only (`better_robot.M
 | `families/mhr_rig.py` | `MhrRig` |
 | `families/soma.py`, `families/soma_rig.py` | SOMA loader and converters; `SomaRig` |
 | `terms.py`, `viz/human_layers.py` | optimisation terms; viewer layers and `HumanView` |
-| `tests/parity/` | upstream goldens and gates |
+| `tests/parity/` | parity gates; their goldens live in `$BETTERHUMAN_MODELS_DIR/goldens/` (release tier) |
 
 ## Numerical contracts
 
