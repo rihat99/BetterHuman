@@ -32,7 +32,9 @@ def test_bake_and_forward_validate_inputs(body: bh.Body) -> None:
     with pytest.raises(ValueError):
         body.bake(betas=torch.zeros(10, dtype=torch.float32))
     with pytest.raises(ValueError):
-        body.bake().forward(torch.zeros(3, 7, dtype=torch.float64), {"expression": torch.zeros(10, dtype=torch.float64)})
+        body.bake().forward(
+            torch.zeros(3, 7, dtype=torch.float64), {"expression": torch.zeros(10, dtype=torch.float64)}
+        )
     with pytest.raises(ValueError):
         bh.families.smpl(MODEL_PATH, num_betas=301)
 

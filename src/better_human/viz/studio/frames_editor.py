@@ -35,10 +35,14 @@ class FramesEditor:
         self.frame_dropdown = gui.add_dropdown("Frame", options=self._names(), initial_value=self._names()[0])
         self.frame_dropdown.on_update(self.studio._locked(lambda _event: self.select_frame(self.frame_dropdown.value)))
         self.rename_text = gui.add_text("Name", initial_value="")
-        gui.add_button("Rename").on_click(self.studio._locked(lambda _event: self.rename(self.active, self.rename_text.value)))
+        gui.add_button("Rename").on_click(
+            self.studio._locked(lambda _event: self.rename(self.active, self.rename_text.value))
+        )
         joints = (_DEFAULT_JOINT, *self.session.body.joint_names)
         self.joint_dropdown = gui.add_dropdown("Parent joint", options=joints, initial_value=_DEFAULT_JOINT)
-        self.joint_dropdown.on_update(self.studio._locked(lambda _event: self.set_joint(self.active, self.joint_dropdown.value)))
+        self.joint_dropdown.on_update(
+            self.studio._locked(lambda _event: self.set_joint(self.active, self.joint_dropdown.value))
+        )
         gui.add_button("Delete").on_click(self.studio._locked(lambda _event: self.delete(self.active)))
         self.saved = gui.add_dropdown("Saved", options=self._saved_options(), initial_value=self._saved_options()[0])
         gui.add_button("Load frames").on_click(self.studio._locked(lambda _event: self.load(self.saved.value)))

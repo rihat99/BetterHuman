@@ -166,8 +166,11 @@ def _render_body(family: str, body) -> None:
     _render(*argmax_surface, _OUT_DIR / f"{family}_argmax_surface.png", wide=False)
     argmax_topology = build_part_topology(body.structure.faces, body.structure.part_ids, argmax_parts)
     argmax_meshes = _topology_meshes(body.values.v_shaped, argmax_topology, body.values.rest_joints)
-    _render(*_split_triangles(argmax_meshes, argmax_colors, body_centroid),
-            _OUT_DIR / f"{family}_argmax_split.png", wide=True)
+    _render(
+        *_split_triangles(argmax_meshes, argmax_colors, body_centroid),
+        _OUT_DIR / f"{family}_argmax_split.png",
+        wide=True,
+    )
 
     vertseg_name = {"smpl": "smpl_vert_segmentation.json", "smplx": "smplx_vert_segmentation.json"}.get(family)
     if vertseg_name is None:
@@ -180,12 +183,18 @@ def _render_body(family: str, body) -> None:
     if body.structure.part_topology is not None and family == "smpl":
         closed_meshes = _topology_meshes(body.values.v_shaped, body.structure.part_topology, body.values.rest_joints)
         closed_colors = _colors(len(closed_meshes))
-        _render(*_split_triangles(closed_meshes, closed_colors, body_centroid),
-                _OUT_DIR / f"{family}_authored_split.png", wide=True)
+        _render(
+            *_split_triangles(closed_meshes, closed_colors, body_centroid),
+            _OUT_DIR / f"{family}_authored_split.png",
+            wide=True,
+        )
     else:
         open_meshes = _vertseg_meshes(vertices, faces, vertex_labels, authored_parts)
-        _render(*_split_triangles(open_meshes, authored_colors, body_centroid),
-                _OUT_DIR / f"{family}_authored_split.png", wide=True)
+        _render(
+            *_split_triangles(open_meshes, authored_colors, body_centroid),
+            _OUT_DIR / f"{family}_authored_split.png",
+            wide=True,
+        )
 
 
 def _arguments() -> argparse.Namespace:

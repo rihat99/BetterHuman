@@ -1,7 +1,7 @@
 """SMPL shape and pose sliders on the BetterRobot viewer.
 
-    uv run python examples/01_smpl_shape_pose.py            # open the printed URL
-    uv run python examples/01_smpl_shape_pose.py --check    # build the scene, move sliders once, exit
+uv run python examples/01_smpl_shape_pose.py            # open the printed URL
+uv run python examples/01_smpl_shape_pose.py --check    # build the scene, move sliders once, exit
 """
 
 from __future__ import annotations
@@ -16,7 +16,11 @@ import better_human as bh
 from better_human.viz import HumanView
 from better_robot.viewer import LIGHT, GroundLayer, Viewer
 
-POSE_SLIDERS = (("left shoulder", "left_shoulder", 0), ("left elbow", "left_elbow", 1), ("right shoulder", "right_shoulder", 0))
+POSE_SLIDERS = (
+    ("left shoulder", "left_shoulder", 0),
+    ("left elbow", "left_elbow", 1),
+    ("right shoulder", "right_shoulder", 0),
+)
 
 
 def main() -> None:

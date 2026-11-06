@@ -206,7 +206,14 @@ class BodyMeshLayer(Layer):
     """
 
     def __init__(
-        self, name: str, session: StudioSession, *, color: Any, opacity: float = 1.0, explode: float = 0.0, mode: MeshMode = "skin"
+        self,
+        name: str,
+        session: StudioSession,
+        *,
+        color: Any,
+        opacity: float = 1.0,
+        explode: float = 0.0,
+        mode: MeshMode = "skin",
     ) -> None:
         super().__init__(name, 1)
         self.mode = mode
@@ -291,7 +298,11 @@ class StudioLayers:
         ids = self.edit_vertices if len(self.edit_vertices) else np.zeros(1, dtype=np.int64)
         joints = session.state.joints.detach().cpu().numpy()[None]
         return {
-            "mesh": (BodyMeshLayer, (session,), dict(color=self.theme.human, opacity=self.opacity, explode=self.explode, mode=mode)),
+            "mesh": (
+                BodyMeshLayer,
+                (session,),
+                dict(color=self.theme.human, opacity=self.opacity, explode=self.explode, mode=mode),
+            ),
             # The authored frame set replaces HumanView's model-frames layer (it starts from body.contact_frames).
             "frames": (FramesLayer, (frame_poses(session),), dict(axes_length=0.04)),
             "skeleton": (
@@ -384,7 +395,9 @@ class StudioLayers:
             if kind == "shape":
                 self._refresh(self.mesh.parts)
             self.skeleton.joints[...] = session.state.joints.detach().cpu().numpy()[None]
-            self.mesh.skin.vertices[...] = self.mesh.segmentation.vertices[...] = session.vertices.detach().cpu().numpy()[None]
+            self.mesh.skin.vertices[...] = self.mesh.segmentation.vertices[...] = (
+                session.vertices.detach().cpu().numpy()[None]
+            )
             if len(self.edit_vertices):
                 self.edit.points[...] = session.vertices.detach().cpu().numpy()[self.edit_vertices][None]
             self.frames.poses[...] = frame_poses(session)
@@ -401,4 +414,13 @@ class StudioLayers:
             self.set_highlight(None)
 
 
-__all__ = ["GROUP", "BodyMeshLayer", "MeshMode", "PartsLayer", "frame_poses", "SegmentationLayer", "StudioLayers", "part_colors"]
+__all__ = [
+    "GROUP",
+    "BodyMeshLayer",
+    "MeshMode",
+    "PartsLayer",
+    "frame_poses",
+    "SegmentationLayer",
+    "StudioLayers",
+    "part_colors",
+]

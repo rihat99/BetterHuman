@@ -1,6 +1,6 @@
 """Drag a target, the SMPL left wrist follows (LM on ``better_human.terms`` + ``better_robot.terms``).
 
-    uv run python examples/03_ik_reach.py [--check]
+uv run python examples/03_ik_reach.py [--check]
 """
 
 from __future__ import annotations

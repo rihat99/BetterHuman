@@ -116,18 +116,30 @@ def test_list_saved_sorted_and_missing(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("payload", "match", "load"),
     [
-        pytest.param({"head": [0, 999]}, "'head'.*out of range",
-                     lambda path: persistence.load_segmentation(path, num_vertices=100),
-                     id="segmentation_out_of_range_id"),
-        pytest.param({"torso": [0, 1.5]}, "'torso'.*not an int",
-                     lambda path: persistence.load_segmentation(path, num_vertices=100),
-                     id="segmentation_non_int_id"),
-        pytest.param({"left_arm": []}, "'left_arm'.*empty",
-                     lambda path: persistence.load_segmentation(path, num_vertices=100),
-                     id="segmentation_empty_part"),
-        pytest.param({"nose": 10000}, "'nose'.*out of range",
-                     lambda path: persistence.load_frame_set(path, num_vertices=SMPL_NUM_VERTICES),
-                     id="frame_set_out_of_range"),
+        pytest.param(
+            {"head": [0, 999]},
+            "'head'.*out of range",
+            lambda path: persistence.load_segmentation(path, num_vertices=100),
+            id="segmentation_out_of_range_id",
+        ),
+        pytest.param(
+            {"torso": [0, 1.5]},
+            "'torso'.*not an int",
+            lambda path: persistence.load_segmentation(path, num_vertices=100),
+            id="segmentation_non_int_id",
+        ),
+        pytest.param(
+            {"left_arm": []},
+            "'left_arm'.*empty",
+            lambda path: persistence.load_segmentation(path, num_vertices=100),
+            id="segmentation_empty_part",
+        ),
+        pytest.param(
+            {"nose": 10000},
+            "'nose'.*out of range",
+            lambda path: persistence.load_frame_set(path, num_vertices=SMPL_NUM_VERTICES),
+            id="frame_set_out_of_range",
+        ),
     ],
 )
 def test_invalid_vertex_file_raises(tmp_path: Path, payload: dict, match: str, load) -> None:

@@ -131,9 +131,7 @@ def test_mhr_parity_grid(
     paths = _selected_goldens(lod, use_correctives, use_expression)
     assert paths, "parity configuration selected no golden cases"
     body = Body(
-        families.mhr(
-            _model_path(lod), lod=lod, correctives=use_correctives, expression=use_expression, dtype=dtype
-        )
+        families.mhr(_model_path(lod), lod=lod, correctives=use_correctives, expression=use_expression, dtype=dtype)
     )
     vertex_atol, position_atol, quaternion_atol, scale_atol = PARITY_ATOLS[dtype][lod]
     baked = q = state = actual_vertices = actual_poses = actual_scales = None

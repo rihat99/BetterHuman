@@ -294,7 +294,8 @@ class HumanState:
         if self.spec.corrective.kind == "none":
             return None
         return self._memoised(
-            "feature", lambda: self.spec.rig.corrective_features(self.spec, self.model, self.q, identity=self.identity.params)
+            "feature",
+            lambda: self.spec.rig.corrective_features(self.spec, self.model, self.q, identity=self.identity.params),
         )
 
     def rest_vertices(self, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:

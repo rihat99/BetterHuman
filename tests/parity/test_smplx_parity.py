@@ -69,9 +69,7 @@ def _evaluate(
     stream_joints: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, np.lib.npyio.NpzFile]:
     if golden_path is None:
-        pytest.skip(
-            "SMPL-X goldens are absent; regenerate with the command in tools/parity/smplx/README.md"
-        )
+        pytest.skip("SMPL-X goldens are absent; regenerate with the command in tools/parity/smplx/README.md")
     if not MODEL_PATH.is_file():
         pytest.skip(f"licensed SMPL-X fixture is absent: {MODEL_PATH}")
     golden = np.load(golden_path, allow_pickle=False)

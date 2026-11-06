@@ -20,7 +20,9 @@ PAGE_TIMEOUT_S = 120
 # Fence info string: ```python [tags...]; a ``{ .no-run }`` attribute opts the block out of execution.
 FENCE = re.compile(r"^```[ \t]*python(?P<info>[^\n]*)\n(?P<body>.*?)^```[ \t]*$", re.MULTILINE | re.DOTALL)
 IMAGE = re.compile(r"!\[[^\]]*\]\((?P<path>[^)\s]+)")
-OUTPUT_FENCE = re.compile(r"^(?P<indent>[ \t]*)```[ \t]*output[^\n]*\n(?P<body>.*?)^[ \t]*```[ \t]*$", re.MULTILINE | re.DOTALL)
+OUTPUT_FENCE = re.compile(
+    r"^(?P<indent>[ \t]*)```[ \t]*output[^\n]*\n(?P<body>.*?)^[ \t]*```[ \t]*$", re.MULTILINE | re.DOTALL
+)
 VIDEO_SRC = re.compile(r"""(?:src|poster)=["'](?P<path>[^"']+)["']""")
 # ``BR_DOCS_CAPTURE=1`` writes each page's per-block stdout to ``$BR_DOCS_CAPTURE_DIR/<page>.outputs.json``.
 CAPTURE = os.environ.get("BR_DOCS_CAPTURE") == "1"
@@ -101,9 +103,13 @@ def test_output_fences_follow_python(page: Path) -> None:
     """Every ```output pane docks directly under a ```python fence that closed on the previous line."""
     lines = page.read_text().splitlines()
     for line, indent, _ in _output_fences(page):
-        assert line > 0 and lines[line - 1] == indent + "```", f"{page.relative_to(REPO)}:{line + 1} output fence is not docked"
+        assert line > 0 and lines[line - 1] == indent + "```", (
+            f"{page.relative_to(REPO)}:{line + 1} output fence is not docked"
+        )
         start = next(i for i in range(line - 2, -1, -1) if lines[i].startswith(indent + "```"))
-        assert lines[start].startswith(indent + "```python"), f"{page.relative_to(REPO)}:{line + 1} output follows a non-python fence"
+        assert lines[start].startswith(indent + "```python"), (
+            f"{page.relative_to(REPO)}:{line + 1} output follows a non-python fence"
+        )
 
 
 @pytest.mark.parametrize("page", [DOCS / "index.md", DOCS / "getting-started.md"], ids=lambda p: p.name)
@@ -117,10 +123,21 @@ def test_getting_started_outputs_fresh(page: Path) -> None:
         pytest.skip("no output fences")
     blocks = [(m.end(), m["body"], "no-run" in m["info"]) for m in FENCE.finditer(text)]
     runnable = [body for _, body, skip in blocks if not skip]
-    env = {**os.environ, "CUDA_VISIBLE_DEVICES": "", "OMP_NUM_THREADS": "2", "MPLBACKEND": "Agg", "BR_DOCS_CAPTURE": "1"}
+    env = {
+        **os.environ,
+        "CUDA_VISIBLE_DEVICES": "",
+        "OMP_NUM_THREADS": "2",
+        "MPLBACKEND": "Agg",
+        "BR_DOCS_CAPTURE": "1",
+    }
     completed = subprocess.run(
         [sys.executable, "-c", RUNNER, str(FAKE_SERVER), *runnable],
-        cwd=REPO, env=env, capture_output=True, text=True, timeout=PAGE_TIMEOUT_S, check=False,
+        cwd=REPO,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=PAGE_TIMEOUT_S,
+        check=False,
     )
     assert completed.returncode == 0, completed.stderr[-4000:]
     outputs = json.loads(completed.stderr.rsplit("__BR_DOCS_OUTPUTS__", 1)[1])
@@ -130,7 +147,9 @@ def test_getting_started_outputs_fresh(page: Path) -> None:
             continue
         actual = outputs[[b for b in blocks if not b[2]].index((end, _, skip))]
         first = body.splitlines()[0]
-        assert actual.startswith(first), f"{page.name}: stale output pane, expected to start with {first!r}, got {actual[:120]!r}"
+        assert actual.startswith(first), (
+            f"{page.name}: stale output pane, expected to start with {first!r}, got {actual[:120]!r}"
+        )
 
 
 def test_index_has_runnable_snippet() -> None:
@@ -146,7 +165,9 @@ def test_referenced_images_exist(page: Path) -> None:
     # mkdocs rewrites Markdown links but leaves raw HTML alone, and with directory URLs a page lives one level
     # deeper in the built site than its source (``concepts/viewer.md`` -> ``concepts/viewer/index.html``).
     built_dir = page.parent if page.name == "index.md" else page.parent / page.stem
-    video_paths = {m["path"] for video in re.findall(r"<video.*?</video>", text, re.DOTALL) for m in VIDEO_SRC.finditer(video)}
+    video_paths = {
+        m["path"] for video in re.findall(r"<video.*?</video>", text, re.DOTALL) for m in VIDEO_SRC.finditer(video)
+    }
     missing = [
         path
         for path in sorted(paths)

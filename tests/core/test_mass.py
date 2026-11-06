@@ -265,7 +265,10 @@ def test_named_density_table_maps_smplx_parts_by_name() -> None:
     table = json.loads(DENSITY_TABLE_PATH.read_text())["Dempster"]
     smpl_names = list(bh.Body(bh.families.smpl(MODEL_PATH), mass=False).joint_names)
     uniform = bh.Body(bh.families.smplx(SMPLX_MODEL_PATH, face=False))
-    body = bh.Body(bh.families.smplx(SMPLX_MODEL_PATH, face=False), density=load_density_table("body_densities.json", "Dempster", uniform.joint_names, uniform.spec.vertices))
+    body = bh.Body(
+        bh.families.smplx(SMPLX_MODEL_PATH, face=False),
+        density=load_density_table("body_densities.json", "Dempster", uniform.joint_names, uniform.spec.vertices),
+    )
     names = list(body.joint_names)
     density = body.density
     assert density.shape == (len(names),)
@@ -281,9 +284,7 @@ def test_named_density_table_maps_smplx_parts_by_name() -> None:
         (_native(body.bake()), _native(uniform.bake())),
         (_native(body.bake(betas=betas)), _native(uniform.bake(betas=betas))),
     ):
-        torch.testing.assert_close(
-            dempster[1:] / density[:, None], plain[1:] / uniform.density, rtol=2e-5, atol=2e-5
-        )
+        torch.testing.assert_close(dempster[1:] / density[:, None], plain[1:] / uniform.density, rtol=2e-5, atol=2e-5)
 
 
 def test_argmax_fallback_integrates_smplx_parts() -> None:

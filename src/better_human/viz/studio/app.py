@@ -28,6 +28,7 @@ _FAMILIES = ("smpl", "smplx", "mhr")  #: Model-tab choices
 _GENDERS = ("neutral", "male", "female")
 _MHR_LODS = 7
 
+
 class HumanStudio:
     """Pose, shape, segment and frame-edit one body family in the browser.
 
@@ -136,8 +137,12 @@ class HumanStudio:
                 for slider in sliders:
                     slider.on_update(self._locked(lambda _event, group=group: self.apply_shape(group)))
                 self.shape_sliders[group] = sliders
-                gui.add_button(f"Reset {group}").on_click(self._locked(lambda _event, group=group: self.reset_shape(group)))
-                gui.add_button(f"Random {group}").on_click(self._locked(lambda _event, group=group: self.random_shape(group)))
+                gui.add_button(f"Reset {group}").on_click(
+                    self._locked(lambda _event, group=group: self.reset_shape(group))
+                )
+                gui.add_button(f"Random {group}").on_click(
+                    self._locked(lambda _event, group=group: self.random_shape(group))
+                )
             if self.family in _TABLE_FAMILIES:
                 self._uniform = f"uniform {self.density:g} kg/m^3"
                 self.density_input = gui.add_dropdown(
@@ -280,7 +285,9 @@ class HumanStudio:
             if frame is not None:
                 self.frames.select_frame(frame)
                 return
-        hit = ray_hit(origin, direction, self.session.vertices.detach().cpu().numpy(), self.session.body.faces.cpu().numpy())
+        hit = ray_hit(
+            origin, direction, self.session.vertices.detach().cpu().numpy(), self.session.body.faces.cpu().numpy()
+        )
         if hit is None:
             return
         point, face = hit

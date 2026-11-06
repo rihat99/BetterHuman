@@ -1,6 +1,6 @@
 """Full SMPL-X next to a body-only SMPL-X (hands and face dropped), same pose, one metre apart.
 
-    uv run python examples/02_smplx_partial.py [--check]
+uv run python examples/02_smplx_partial.py [--check]
 """
 
 from __future__ import annotations
@@ -38,7 +38,14 @@ def main() -> None:
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
     viewer.add(GroundLayer(plane="xz"), group="scene")
     for body, name, classic, offset in (
-        (full, "full", SMPLXClassic(body_pose=body_pose, left_hand_pose=hands, right_hand_pose=hands, expression=expression, num_pca_comps=6), (-0.5, 0.0, 0.0)),
+        (
+            full,
+            "full",
+            SMPLXClassic(
+                body_pose=body_pose, left_hand_pose=hands, right_hand_pose=hands, expression=expression, num_pca_comps=6
+            ),
+            (-0.5, 0.0, 0.0),
+        ),
         (partial, "body only", SMPLXClassic(body_pose=body_pose), (0.5, 0.0, 0.0)),
     ):
         identity = body.bake()

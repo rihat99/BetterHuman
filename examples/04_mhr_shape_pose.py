@@ -1,6 +1,6 @@
 """MHR LOD1: identity sliders and an arm swing on the BetterRobot viewer.
 
-    uv run python examples/04_mhr_shape_pose.py [--check]
+uv run python examples/04_mhr_shape_pose.py [--check]
 """
 
 from __future__ import annotations

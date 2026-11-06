@@ -36,7 +36,7 @@ def test_frames_are_appended_in_authored_order(body: bh.Body) -> None:
     contact_frames = body.contact_frames
     assert body.model.nframes == body.model.nbodies + len(authored)
     assert contact_frames.names == tuple(authored)
-    assert body.model.frame_names[body.model.nbodies:] == tuple(authored)
+    assert body.model.frame_names[body.model.nbodies :] == tuple(authored)
     assert contact_frames.frame_ids == tuple(range(body.model.nbodies, body.model.nbodies + len(authored)))
     # The ids are assigned by formula at build time; they must match the robot's own table.
     assert contact_frames.frame_ids == tuple(body.model.frame_id(name) for name in authored)

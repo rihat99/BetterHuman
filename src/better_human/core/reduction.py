@@ -61,8 +61,7 @@ def _validate_terminal_drop(parents: Sequence[int], dropped: set[int]) -> None:
     for child, parent in enumerate(parents):
         if parent in dropped and child not in dropped:
             raise ValueError(
-                f"Dropped joints must form terminal subtrees; joint {parent} is dropped "
-                f"but child {child} survives"
+                f"Dropped joints must form terminal subtrees; joint {parent} is dropped but child {child} survives"
             )
 
 
@@ -140,14 +139,10 @@ def reduce_joint_data(
     reduced_weights = reduced_weights / reduced_weights.sum(dim=-1, keepdim=True)
 
     feature_blocks = [
-        torch.arange((joint - 1) * 9, joint * 9, device=posedirs.device)
-        for joint in survivors
-        if joint != 0
+        torch.arange((joint - 1) * 9, joint * 9, device=posedirs.device) for joint in survivors if joint != 0
     ]
     feature_indices = (
-        torch.cat(feature_blocks)
-        if feature_blocks
-        else torch.empty(0, dtype=torch.long, device=posedirs.device)
+        torch.cat(feature_blocks) if feature_blocks else torch.empty(0, dtype=torch.long, device=posedirs.device)
     )
     reduced_posedirs = posedirs.index_select(-1, feature_indices)
     return (
