@@ -56,7 +56,9 @@ def test_weight_path_resolves_under_models_dir(
 def test_unset_models_dir_names_the_variable_and_the_fix(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BETTERHUMAN_MODELS_DIR", raising=False)
 
-    with pytest.raises(FileNotFoundError, match=r"BETTERHUMAN_MODELS_DIR is unset\. Set it to the directory"):
+    with pytest.raises(
+        FileNotFoundError, match=r"BETTERHUMAN_MODELS_DIR is unset\. Set it to the directory.* or pass path="
+    ):
         weight_path("smpl", "SMPL_NEUTRAL.npz")
 
 

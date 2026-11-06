@@ -36,7 +36,8 @@ def models_dir() -> Path:
     if not value:
         raise FileNotFoundError(
             f"${MODELS_ENV} is unset. Set it to the directory that holds the licensed weights, "
-            f"for example: export {MODELS_ENV}=/data/better_human/models"
+            f"for example: export {MODELS_ENV}=/data/better_human/models, or pass path=... to the loader to name "
+            "the weight file directly."
         )
     directory = Path(value).expanduser()
     if not directory.is_dir():
