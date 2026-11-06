@@ -17,9 +17,9 @@ export BETTERHUMAN_MODELS_DIR=$PWD/models
 ```
 
 !!! note "Weights are not shipped"
-    Licensed weights stay outside git. Loaders read
-    `$BETTERHUMAN_MODELS_DIR/<family>/` (`smpl/`, `smplx/`, `MHR/`, ...); the `README` lists the
-    expected file names and the chumpy-to-npz converter.
+    Licensed weights stay outside git. Loaders read `<family>/` (`smpl/`, `smplx/`, `MHR/`, ...) under
+    `better_human.io.models_dir()`, which reads `$BETTERHUMAN_MODELS_DIR` and raises with the fix when it
+    is unset; the `README` lists the expected file names and the chumpy-to-npz converter.
 
 ## Load a body and bake a subject
 

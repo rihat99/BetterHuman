@@ -38,13 +38,15 @@ with `importlib.resources`. Licensed weights are never downloaded, bundled or ca
 Example: `families/assets/smpl_vert_segmentation.json`, read by `viz/studio/persistence.py:14`.
 Enforcement: review.
 
-## H-ASSET-2 Weights resolve from an explicit path, else `$BETTERHUMAN_MODELS_DIR` (MUST)
+## H-ASSET-2 Weights resolve from an explicit path, else `io.models_dir()` (MUST)
 
-An explicit `path` argument wins; otherwise the file is `$BETTERHUMAN_MODELS_DIR/<folder>/<file_pattern>` with
-the patterns of `families/tables.py` (table under "Weight-file layout"). A missing or malformed file raises a
-clear error naming the path; there is no silent fallback.
-Example: `src/better_human/io/load.py:26` (`MODELS_ENV`), `io/load.py:34` (resolution).
-Enforcement: `tests/io/`.
+An explicit `path` argument wins; otherwise the file is `io.weight_path(folder, filename)`, that is
+`io.models_dir() / <folder> / <file_pattern>` with the patterns of `families/tables.py` (table under "Weight-file
+layout"). `io.models_dir()` is the one reader of `$BETTERHUMAN_MODELS_DIR` and raises with the fix when it is unset
+or names no directory; a missing or malformed file raises a clear error naming the path; nothing guesses a default.
+Example: `src/better_human/io/load.py::models_dir`, `src/better_human/io/load.py::weight_path`.
+Enforcement: `tests/io/test_load.py`; `tests/contract/test_models_dir.py` (no test, example or tool builds a
+weights path of its own).
 
 ## H-STUDIO-1 Studio is a thin shell over the BetterRobot viewer (MUST)
 
@@ -154,8 +156,8 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 
 ### Weight-file layout
 
-Files live under `$BETTERHUMAN_MODELS_DIR/<folder>/<file_pattern>`; an explicit `path` argument
-wins. Patterns are in `families/tables.py`:
+Files live under `io.models_dir() / <folder> / <file_pattern>` (`$BETTERHUMAN_MODELS_DIR`); an explicit `path`
+argument wins. Patterns are in `families/tables.py`:
 
 | family | folder | file pattern |
 |---|---|---|
@@ -179,7 +181,8 @@ wins. Patterns are in `families/tables.py`:
 | SOMA mid vs SOMA-X v0.3.4, 14 goldens one by one and as one identity batch, float32 / float64 | `tests/parity/test_soma_parity.py` | `(6.5e-6, 9e-6, 3.5e-6)` (vertices m; positions m and rotation entries of all 110 skin joints); `reflect_00` vertices 1.1e-5 | worst f32 `(1.46e-6, 1.16e-6, 1.73e-6)`, f32 `reflect_00` `(5.36e-6, 3.58e-6, 1.13e-6)`, f32 batch `(3.13e-6, 4.35e-6, 1.73e-6)`, f64 `(2.89e-6, 4.23e-6, 1.60e-6)` |
 | SOMA bake vs the same goldens' `rest_shape`, `bind_transforms` | `tests/families/test_soma.py` | `(6e-6, 1e-5, 1.1e-6)` (rest mesh m, bind positions m, bind rotation entries; all 110 joints); `reflect_00` rest mesh 1.2e-5 | worst f32 `(9.5e-7, 1.31e-6, 5.4e-7)`, f32 `reflect_00` `(5.90e-6, 3.87e-6, 5.4e-7)`, f32 batch `(2.86e-6, 4.89e-6, 5.4e-7)`, f64 `(2.92e-6, 4.66e-6, 5.0e-7)` |
 
-Parity tests skip only when the licensed asset is absent.
+Parity tests are marked `licensed`: the full tier deselects them, and a run that selects them fails when the
+models directory or an asset is missing (`tests/conftest.py`).
 SOMA gates are twice the worst error measured over the 14 goldens, one by one and with the 13 correctives-on
 goldens as one identity batch, in float32 and float64, rounded up; one gate serves both dtypes (the bake test runs
 the goldens one by one; its batch column is measured). The oracle is float32 and its joint regression alone rounds
@@ -275,8 +278,8 @@ BetterRobot's numerical contracts win.
     silently cast, move, or squeeze. Batched by default, trailing event
     axes, arbitrary leading batch axes — identical to BetterRobot contracts.
 13. **GPU is a first-class target.** Device-conditional behavior is validated
-    on CPU and on pinned CUDA hardware when it is available; an unavailable
-    device produces a visible skip and is never reported as a pass.
+    on CPU and on pinned CUDA hardware: such tests are marked `cuda`, and a run
+    that selects them without a device fails; nothing is reported as a pass.
 
 ### Process
 

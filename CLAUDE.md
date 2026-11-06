@@ -7,7 +7,10 @@ Design: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Shapes, u
 
 ```bash
 export BETTERHUMAN_MODELS_DIR=$PWD/models               # licensed weights, never committed
-CUDA_VISIBLE_DEVICES="" uv run pytest tests -q          # full suite
+uv run pytest tests/contract -q -m "not slow"           # fast tier
+uv run pytest tests -q -m "not cuda and not licensed"   # full tier, no weights needed
+uv run pytest tests -q -m "licensed and not cuda"       # release tier on CPU; fails without the weights
+uv run pytest tests -q -m cuda                          # release tier on a free GPU (docs/contributing/testing.md)
 uv run ruff check src tests examples benchmarks         # lint (line length 120)
 uv run python examples/01_smpl_shape_pose.py --check    # each example 01-04 supports --check
 uv run python benchmarks/run.py --device cpu --threads 8 --out benchmarks/results/cpu.json
@@ -54,4 +57,5 @@ Never skip, xfail or loosen a test to get green; report the number instead.
 ## Housekeeping
 
 - Never `rm`. Move files with `trash <paths>` (goes to `<repo>/trash/`).
-- No new dependencies without asking. Parity tests skip only when a licensed asset is absent.
+- No new dependencies without asking. Tests that read licensed weights are marked `licensed` and fail, never
+  skip, when the weights are missing.

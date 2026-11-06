@@ -61,8 +61,9 @@ Point BetterHuman at the containing directory:
 export BETTERHUMAN_MODELS_DIR="$PWD/models"
 ```
 
-An explicit `path` argument (`bh.load("smpl", path)`) always takes precedence over the environment
-variable.
+`better_human.io.models_dir()` reads this variable and raises with the fix when it is unset; loaders find
+a file as `io.weight_path(folder, filename)` under it. An explicit `path` argument
+(`bh.load("smpl", path)`) always takes precedence.
 
 Legacy Chumpy-backed SMPL pickles can be converted without installing Chumpy:
 
