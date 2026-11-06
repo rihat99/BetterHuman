@@ -1,11 +1,12 @@
-"""No test skips itself, is skipped, or expects to fail.
+"""No test module spells a skip or an xfail, including the tests the running tier deselects.
 
-Decision record: ``BetterRobot/docs/contracts/decisions/0033-test-tiers.md``. A test whose weights, oracle or
-device is missing fails; a test that cannot run on every machine carries a marker that the tier commands deselect
-(``licensed``, ``cuda``). The scan covers every module under ``tests/`` and every spelling pytest offers: the
-``pytest.skip``, ``pytest.importorskip`` and ``pytest.xfail`` calls, the ``pytest.mark.skip``, ``pytest.mark.skipif``
-and ``pytest.mark.xfail`` markers, and ``from pytest import`` of any of them. There are no exceptions, so there is no
-ratchet.
+Decision record: ``BetterRobot/docs/contracts/decisions/0033-test-tiers.md``. The rule itself holds at run time:
+``tests/conftest.py`` fails every skipped or xfailed outcome however it was produced, but it sees only the tests a run
+selects, so a skip in a ``licensed`` or ``cuda`` test would surface only in the release tier. This static scan reads
+every module under ``tests/`` in the fast tier and finds the usual spellings: the ``pytest.skip``,
+``pytest.importorskip`` and ``pytest.xfail`` calls, the ``pytest.mark.skip``, ``pytest.mark.skipif`` and
+``pytest.mark.xfail`` markers, and ``from pytest import`` of the three calls. Other routes (``unittest.SkipTest``, a
+renamed ``pytest`` import, a skip raised by a plugin) are left to the run-time hook.
 """
 
 from __future__ import annotations

@@ -23,8 +23,10 @@ before a push.
 
 pytest runs strictly (`[tool.pytest.ini_options]` in `pyproject.toml`): an unknown marker or config key is an error,
 a passing `xfail` fails, an empty parameter set fails at collection, and every warning is an error unless a named
-filter with its reason lets it through. `tests/contract/test_pytest_config.py` and `tests/contract/test_no_skips.py`
-hold these rules.
+filter with its reason lets it through. `tests/contract/test_pytest_config.py` holds these settings. `tests/conftest.py`
+turns every skipped or xfailed outcome into a failure, however it was produced, and
+`tests/contract/test_no_skips.py` finds the usual skip spellings in every test module in the fast tier, including
+the tests only the release tier runs.
 
 ## Weights
 
