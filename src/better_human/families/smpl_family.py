@@ -177,7 +177,9 @@ def smplx(
     gender = _gender(gender)
     table = tables.SMPLX
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
-    arrays = load_model_npz(path, SMPLX_SCHEMA)
+    # Only the hand arrays: load_family reads the whole archive, and its large members should decompress once.
+    hand_fields = {"hands_componentsl", "hands_componentsr", "hands_meanl", "hands_meanr"}
+    arrays = load_model_npz(path, SMPLX_SCHEMA, exclude_fields=SMPLX_SCHEMA.fields.keys() - hand_fields)
     hand_meta = {
         "hand_components": {"left": arrays["hands_componentsl"], "right": arrays["hands_componentsr"]},
         "hand_mean": {
