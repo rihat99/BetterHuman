@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
+import json
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +25,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("model_path", type=Path, help="Neutral SMPL-X .npz")
     parser.add_argument("output_dir", type=Path, help="Directory for per-case .npz files")
     return parser.parse_args()
+
+
+def _asset_sha256(directory: Path, names: tuple[str, ...]) -> str:
+    """Provenance ``asset_sha256``: sha256 of the ``sha256sum`` listing of the oracle's asset files, names sorted.
+
+    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum`` (decision record 0014).
+    """
+    lines = []
+    for name in sorted(names):
+        digest = hashlib.sha256()
+        with (directory / name).open("rb") as stream:
+            for block in iter(lambda: stream.read(1 << 24), b""):
+                digest.update(block)
+        lines.append(f"{digest.hexdigest()}  {name}\n")
+    return hashlib.sha256("".join(lines).encode()).hexdigest()
 
 
 def _axis_angles(generator: torch.Generator, count: int, maximum: float = 1.5) -> torch.Tensor:
@@ -154,6 +172,13 @@ def main() -> None:
     args = _parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     models: dict[tuple[int, int, bool, int | None], SMPLX] = {}
+    provenance = {
+        "oracle": f"smplx=={importlib.metadata.version('smplx')}",
+        "generator": "tools/parity/smplx/dump_smplx.py",
+        "asset_sha256": _asset_sha256(args.model_path.parent, (args.model_path.name,)),
+        "dtype": "float64",
+        "seed": SEED,
+    }
     for name, case in _case_grid().items():
         key = (
             case["num_betas"],
@@ -195,6 +220,7 @@ def main() -> None:
             transl=case["transl"].numpy(),
             vertices=output.vertices[0].numpy(),
             joints=output.joints[0, :55].numpy(),
+            provenance=np.asarray(json.dumps(provenance, sort_keys=True)),
         )
 
 

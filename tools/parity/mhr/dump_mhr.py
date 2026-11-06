@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import importlib
+import importlib.metadata
+import json
 import logging
 import sys
 from pathlib import Path
@@ -61,7 +64,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--assets-dir",
         type=Path,
-        default=Path("models/MHR/assets"),
+        required=True,
         help="Directory containing the original MHR release assets",
     )
     parser.add_argument(
@@ -73,14 +76,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--converted-dir",
         type=Path,
-        default=Path("models/MHR/converted"),
+        required=True,
         help="Directory containing converter archives; LOD1 supplies parameter metadata",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("tests/parity/goldens"),
-        help="Parent directory for mhr_lodN golden directories",
+        required=True,
+        help="Parent directory for mhr_lodN golden directories: $BETTERHUMAN_MODELS_DIR/goldens",
     )
     parser.add_argument(
         "--lod",
@@ -90,6 +93,21 @@ def _parse_args() -> argparse.Namespace:
         help="Dump one LOD; repeat for several. Defaults to all seven.",
     )
     return parser.parse_args()
+
+
+def _asset_sha256(directory: Path, names: tuple[str, ...]) -> str:
+    """Provenance ``asset_sha256``: sha256 of the ``sha256sum`` listing of the oracle's asset files, names sorted.
+
+    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum`` (decision record 0014).
+    """
+    lines = []
+    for name in sorted(names):
+        digest = hashlib.sha256()
+        with (directory / name).open("rb") as stream:
+            for block in iter(lambda: stream.read(1 << 24), b""):
+                digest.update(block)
+        lines.append(f"{digest.hexdigest()}  {name}\n")
+    return hashlib.sha256("".join(lines).encode()).hexdigest()
 
 
 def _load_parameter_metadata(converted_dir: Path) -> _ParameterMetadata:
@@ -358,7 +376,9 @@ def _write_case(
     metadata: _ParameterMetadata,
     vertices: np.ndarray,
     skel_state: np.ndarray,
+    provenance: dict[str, Any],
 ) -> None:
+    """Write one case; ``provenance`` lacks only the case's ``seed``."""
     face_expression = (
         np.zeros(EXPRESSION_COUNT, dtype=np.float32) if case.face_expression is None else case.face_expression
     )
@@ -382,6 +402,7 @@ def _write_case(
         apply_correctives=np.asarray(case.apply_correctives, dtype=np.bool_),
         vertices=vertices,
         skel_state=skel_state,
+        provenance=np.asarray(json.dumps(provenance | {"seed": case.seed}, sort_keys=True)),
     )
     temporary_path.replace(output_path)
 
@@ -421,10 +442,23 @@ def main() -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         LOGGER.info("Loading the float32 CPU MHR reference for LOD%d", lod)
         model = _load_reference_model(args.reference_dir, args.assets_dir, lod)
+        # The files MHR.from_files reads for this LOD.
+        asset_files = (
+            "compact_v6_1.model",
+            "corrective_activation.npz",
+            f"corrective_blendshapes_lod{lod}.npz",
+            f"lod{lod}.fbx",
+        )
+        provenance = {
+            "oracle": f"pymomentum=={importlib.metadata.version('pymomentum')}",
+            "generator": "tools/parity/mhr/dump_mhr.py",
+            "asset_sha256": _asset_sha256(args.assets_dir, asset_files),
+            "dtype": "float32",
+        }
         with torch.no_grad():
             for name, case in cases.items():
                 vertices, skel_state = _evaluate(model, case, lod)
-                _write_case(output_dir / f"{name}.npz", name, lod, case, metadata, vertices, skel_state)
+                _write_case(output_dir / f"{name}.npz", name, lod, case, metadata, vertices, skel_state, provenance)
             if lod == self_check_lod:
                 check_name = "combined_00" if lod == 1 else "fully_random"
                 _self_check(model, output_dir / f"{check_name}.npz", lod)

@@ -12,11 +12,15 @@ Writes one ``np.savez`` archive per case: float32 unless noted, metres, y-up, co
   linear blend skinning (new in version 2).
 - ``rest_shape`` (V, 3), ``bind_transforms`` (J, 4, 4): reposed rest mesh and bind transforms cached by
   ``SOMALayer.prepare_identity``.
+- ``provenance`` () str: JSON ``{oracle, generator, asset_sha256, dtype, seed}`` (decision record 0014).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
+import json
 import logging
 import time
 from pathlib import Path
@@ -28,6 +32,13 @@ from soma import SOMALayer
 from soma.units import Unit
 
 FORMAT_VERSION = 2
+# The release files SOMALayer reads for the SOMA identity model.
+ASSET_FILES = (
+    "SOMA_neutral.npz",
+    "SOMA_procedural_transforms.json",
+    "SOMA_template_rig.usda",
+    "correctives_model.pt",
+)
 BASE_SEED = 20261030
 SHAPE_COUNT = 128
 POSE_JOINT_COUNT = 77
@@ -59,10 +70,25 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("tests/parity/goldens/soma_mid"),
-        help="Directory for the golden archives",
+        required=True,
+        help="Directory for the golden archives: $BETTERHUMAN_MODELS_DIR/goldens/soma_mid",
     )
     return parser.parse_args()
+
+
+def _asset_sha256(directory: Path, names: tuple[str, ...]) -> str:
+    """Provenance ``asset_sha256``: sha256 of the ``sha256sum`` listing of the oracle's asset files, names sorted.
+
+    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum`` (decision record 0014).
+    """
+    lines = []
+    for name in sorted(names):
+        digest = hashlib.sha256()
+        with (directory / name).open("rb") as stream:
+            for block in iter(lambda: stream.read(1 << 24), b""):
+                digest.update(block)
+        lines.append(f"{digest.hexdigest()}  {name}\n")
+    return hashlib.sha256("".join(lines).encode()).hexdigest()
 
 
 def _random_case(
@@ -208,6 +234,12 @@ def main() -> None:
     record = _record_skin_transforms(layer)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     cases = _cases(layer.public_joint_names)
+    provenance = {
+        "oracle": f"py-soma-x=={importlib.metadata.version('py-soma-x')}",
+        "generator": "tools/parity/soma/dump_soma.py",
+        "asset_sha256": _asset_sha256(args.assets_dir, ASSET_FILES),
+        "dtype": "float32",
+    }
     with torch.no_grad():
         for name, case in cases.items():
             arrays, prepare_seconds, pose_seconds = _evaluate(layer, case, record)
@@ -221,6 +253,7 @@ def main() -> None:
                 transl=case.transl,
                 apply_correctives=np.asarray(case.apply_correctives),
                 **arrays,
+                provenance=np.asarray(json.dumps(provenance | {"seed": case.seed}, sort_keys=True)),
             )
             LOGGER.info("%-16s prepare_identity %.3f s, pose %.3f s", name, prepare_seconds, pose_seconds)
     LOGGER.info("Wrote %d SOMA goldens to %s", len(cases), args.output_dir)

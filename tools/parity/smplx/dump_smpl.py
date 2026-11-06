@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
+import json
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +24,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("model_path", type=Path, help="Converted neutral SMPL .npz")
     parser.add_argument("output_dir", type=Path, help="Directory for per-case .npz files")
     return parser.parse_args()
+
+
+def _asset_sha256(directory: Path, names: tuple[str, ...]) -> str:
+    """Provenance ``asset_sha256``: sha256 of the ``sha256sum`` listing of the oracle's asset files, names sorted.
+
+    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum`` (decision record 0014).
+    """
+    lines = []
+    for name in sorted(names):
+        digest = hashlib.sha256()
+        with (directory / name).open("rb") as stream:
+            for block in iter(lambda: stream.read(1 << 24), b""):
+                digest.update(block)
+        lines.append(f"{digest.hexdigest()}  {name}\n")
+    return hashlib.sha256("".join(lines).encode()).hexdigest()
 
 
 def _load_data_struct(model_path: Path) -> Struct:
@@ -93,6 +111,13 @@ def main() -> None:
         create_transl=False,
     )
     joint_count = int(data_struct.weights.shape[-1])
+    provenance = {
+        "oracle": f"smplx=={importlib.metadata.version('smplx')}",
+        "generator": "tools/parity/smplx/dump_smpl.py",
+        "asset_sha256": _asset_sha256(args.model_path.parent, (args.model_path.name,)),
+        "dtype": "float64",
+        "seed": SEED,
+    }
 
     for name, (betas, global_orient, body_pose, transl) in _case_grid().items():
         with torch.no_grad():
@@ -110,6 +135,7 @@ def main() -> None:
             transl=transl.numpy(),
             vertices=output.vertices[0].numpy(),
             joints=output.joints[0, :joint_count].numpy(),
+            provenance=np.asarray(json.dumps(provenance, sort_keys=True)),
         )
 
 
