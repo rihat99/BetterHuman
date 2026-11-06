@@ -1,8 +1,11 @@
-"""Convert MHR release assets into self-contained BetterHuman NPZ archives."""
+"""Convert MHR release assets into self-contained BetterHuman NPZ archives (format ``better_human.mhr`` version 2)."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
+import json
 import logging
 import re
 import struct
@@ -61,6 +64,38 @@ def _parse_args() -> argparse.Namespace:
         help="Convert one LOD; repeat for several. Defaults to all seven.",
     )
     return parser.parse_args()
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _provenance(asset_paths: Sequence[Path]) -> str:
+    """JSON provenance: this converter, the pymomentum distribution and version, and the sha256 of every asset read.
+
+    conda-forge ships pymomentum as ``pymomentum``, PyPI's CPU build as ``pymomentum-cpu``.
+    """
+    for package in ("pymomentum", "pymomentum-cpu"):
+        try:
+            package_version = importlib.metadata.version(package)
+            break
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    else:
+        raise ModuleNotFoundError("neither pymomentum nor pymomentum-cpu is installed (tools/parity/mhr/README.md)")
+    return json.dumps(
+        {
+            "converter": "tools/convert/mhr/convert_mhr.py",
+            "package": package,
+            "package_version": package_version,
+            "sha256": {path.name: _sha256(path) for path in asset_paths},
+        },
+        sort_keys=True,
+    )
 
 
 def _read_exact(stream: BinaryIO, size: int) -> bytes:
@@ -692,8 +727,11 @@ def _convert_lod(
         if not path.is_file():
             raise FileNotFoundError(f"Required MHR asset not found: {path}")
     raw_character, character = _load_character(fbx_path, model_path)
+    activation_path = assets_dir / "corrective_activation.npz"
     data = {
-        "format_version": np.asarray(1, dtype=np.int64),
+        "format": np.asarray("better_human.mhr"),
+        "format_version": np.asarray(2, dtype=np.int64),
+        "provenance": np.asarray(_provenance((fbx_path, model_path, corrective_path, activation_path))),
         "lod": np.asarray(lod, dtype=np.int64),
         **_skeleton_data(character),
         **_parameter_transform_data(raw_character, character, model_path),

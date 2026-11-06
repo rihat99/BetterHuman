@@ -1,4 +1,4 @@
-"""Convert SOMA-X release assets into one self-contained BetterHuman NPZ archive (mid LOD, metres)."""
+"""Convert SOMA-X release assets into one BetterHuman NPZ archive (format ``better_human.soma`` v2, mid LOD, metres)."""
 
 from __future__ import annotations
 
@@ -60,8 +60,8 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _source_metadata(assets_dir: Path) -> str:
-    """Return a JSON string with the upstream version, asset tag and checked file hashes."""
+def _provenance(assets_dir: Path) -> str:
+    """JSON provenance: this converter, the upstream version, the asset tag and commit, and the checked file hashes."""
     hashes = {name: _sha256(assets_dir / name) for name in ASSET_FILES}
     manifest_path = assets_dir / MANIFEST_FILE
     manifest: dict[str, Any] = {}
@@ -73,6 +73,7 @@ def _source_metadata(assets_dir: Path) -> str:
             raise ValueError(f"Asset hashes differ from {MANIFEST_FILE}: {mismatched}")
     return json.dumps(
         {
+            "converter": "tools/convert/soma/convert_soma.py",
             "package": "py-soma-x",
             "package_version": importlib.metadata.version("py-soma-x"),
             "asset_release_tag": manifest.get("release_tag", "unknown"),
@@ -318,12 +319,13 @@ def main() -> None:
             raise ValueError("Layer rig differs from the USD mid rig")
         with np.load(args.assets_dir / "SOMA_neutral.npz", allow_pickle=False) as neutral:
             data = {
-                "format_version": np.asarray(1, dtype=np.int64),
+                "format": np.asarray("better_human.soma"),
+                "format_version": np.asarray(2, dtype=np.int64),
+                "provenance": np.asarray(_provenance(args.assets_dir)),
                 "lod": np.asarray("mid"),
                 "unit": np.asarray("m"),
                 "up_axis": np.asarray("+y"),
                 "forward_axis": np.asarray("+z"),
-                "source": np.asarray(_source_metadata(args.assets_dir)),
                 **_shape_data(neutral),
                 **_rig_data(usd_rig, neutral["triangles"]),
             }
