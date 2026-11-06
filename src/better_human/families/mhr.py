@@ -18,7 +18,7 @@ from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.mass import segment_vertices
 from better_human.core.pipeline import dense_weight_from_sparse
 from better_human.core.spec import Corrective, FamilySpec, Parts
-from better_human.io import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA, load_model_npz, resolve_model_path
+from better_human.io import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA, load_model_npz, weight_path
 
 from .mhr_rig import ROOT_COUNT, MhrRig
 
@@ -59,7 +59,7 @@ def mhr(
     if not expression:
         excluded.add("expression_basis")
     arrays = load_model_npz(
-        resolve_model_path("MHR", f"converted/mhr_lod{lod}.npz", path), MHR_SCHEMA, exclude_fields=excluded
+        weight_path("MHR", f"converted/mhr_lod{lod}.npz", path=path), MHR_SCHEMA, exclude_fields=excluded
     )
     metadata = {name: arrays[name].item() for name in (*METADATA, "lod")}
     if metadata != {**METADATA, "lod": lod}:

@@ -31,7 +31,6 @@ KEYWORD_ONLY_ALLOWLIST: dict[str, int] = {
     "better_human.core.rig.RegressedRig.corrective_features": 3,  # core/rig.py:123
     "better_human.core.contact_frames.resolve_parents": 3,  # core/contact_frames.py:68
     "better_human.core.contact_frames.frame_local_placements": 5,  # core/contact_frames.py:128
-    "better_human.io.load.resolve_model_path": 3,  # io/load.py:29
     "better_human.terms.contact_wrenches": 4,  # terms.py:182
     "better_human.viz.human_layers.forces_layer": 3,  # viz/human_layers.py:82
 }

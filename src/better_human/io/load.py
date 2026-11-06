@@ -1,14 +1,14 @@
-"""Resolve and load validated model weights.
+"""Find and load validated model weights.
 
-The conventional local layout is::
+Every weight file lives under one directory, named by ``$BETTERHUMAN_MODELS_DIR``::
 
     $BETTERHUMAN_MODELS_DIR/
     ├── smpl/SMPL_NEUTRAL.npz
     ├── smplx/SMPLX_NEUTRAL.npz
     └── MHR/converted/mhr_lod1.npz
 
-An explicit ``model_path`` always takes precedence. Licensed weights are never
-downloaded or cached by BetterHuman.
+:func:`models_dir` is the one reader of that variable, and an explicit ``path`` always takes precedence over it.
+Licensed weights are never downloaded or cached by BetterHuman.
 """
 
 from __future__ import annotations
@@ -26,29 +26,43 @@ from .schema import ModelSchema, validate
 MODELS_ENV = "BETTERHUMAN_MODELS_DIR"
 
 
-def resolve_model_path(
-    family: str,
-    filename: str,
-    model_path: str | Path | None = None,
-) -> Path:
-    """Resolve a licensed model file from an explicit path or environment root."""
-    if model_path is not None:
-        path = Path(model_path).expanduser()
-    else:
-        models_root = os.environ.get(MODELS_ENV)
-        if models_root is None:
-            raise FileNotFoundError(
-                f"No {family} model path was provided. Pass model_path=... or set "
-                f"${MODELS_ENV} so {family}/{filename} exists."
-            )
-        path = Path(models_root).expanduser() / family / filename
+def models_dir() -> Path:
+    """The weights directory that ``$BETTERHUMAN_MODELS_DIR`` names.
 
-    if not path.is_file():
+    Raises ``FileNotFoundError`` with the fix when the variable is unset or names no directory; nothing guesses a
+    default location.
+    """
+    value = os.environ.get(MODELS_ENV)
+    if not value:
         raise FileNotFoundError(
-            f"Model file not found: {path}. Pass model_path=... to an existing file or set "
-            f"${MODELS_ENV} so {family}/{filename} exists."
+            f"${MODELS_ENV} is unset. Set it to the directory that holds the licensed weights, "
+            f"for example: export {MODELS_ENV}=/data/better_human/models"
         )
-    return path
+    directory = Path(value).expanduser()
+    if not directory.is_dir():
+        raise FileNotFoundError(
+            f"${MODELS_ENV}={value} is not a directory. Set it to the directory that holds the licensed weights."
+        )
+    return directory
+
+
+def weight_path(folder: str, filename: str, *, path: str | Path | None = None) -> Path:
+    """The weight file ``models_dir() / folder / filename``, or ``path`` when it is given.
+
+    Raises ``FileNotFoundError`` naming the missing file and the fix.
+    """
+    if path is not None:
+        resolved = Path(path).expanduser()
+        if not resolved.is_file():
+            raise FileNotFoundError(f"Model file not found: {resolved}. Pass path=... to an existing file.")
+        return resolved
+    resolved = models_dir() / folder / filename
+    if not resolved.is_file():
+        raise FileNotFoundError(
+            f"Model file not found: {resolved}. Place {folder}/{filename} under ${MODELS_ENV} "
+            f"or pass path=... to an existing file."
+        )
+    return resolved
 
 
 def load_model_npz(

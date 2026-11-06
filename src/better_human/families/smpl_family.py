@@ -18,7 +18,7 @@ from better_human.io import (
     SMPLH_SCHEMA,
     SMPLX_SCHEMA,
     load_model_npz,
-    resolve_model_path,
+    weight_path,
 )
 from better_human.io.schema import ModelSchema
 
@@ -125,7 +125,7 @@ def smpl(
 ) -> FamilySpec:
     """SMPL (24 joints, 6890 vertices)."""
     gender = _gender(gender)
-    path = resolve_model_path(tables.SMPL.folder, tables.SMPL.file_pattern.format(gender=gender.upper()), path)
+    path = weight_path(tables.SMPL.folder, tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
     return load_family(
         tables.SMPL,
         SMPL_SCHEMA,
@@ -148,7 +148,7 @@ def smplh(
     """SMPL+H (52 joints; the hand pose is given per joint, the file ships no hand PCA)."""
     gender = _gender(gender)
     table = tables.SMPLH
-    path = resolve_model_path(table.folder, table.file_pattern.format(gender_lower=gender), path)
+    path = weight_path(table.folder, table.file_pattern.format(gender_lower=gender), path=path)
     drop = () if hands else tuple(table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints))
     return load_family(
         table,
@@ -176,7 +176,7 @@ def smplx(
     """SMPL-X (55 joints, 10475 vertices). Expression is a stream group; ``face=False`` drops it and the face joints."""
     gender = _gender(gender)
     table = tables.SMPLX
-    path = resolve_model_path(table.folder, table.file_pattern.format(gender=gender.upper()), path)
+    path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
     arrays = load_model_npz(path, SMPLX_SCHEMA)
     hand_meta = {
         "hand_components": {"left": arrays["hands_componentsl"], "right": arrays["hands_componentsr"]},
@@ -222,7 +222,7 @@ def mano(
     if side not in {"left", "right"}:
         raise ValueError("side must be 'left' or 'right'")
     table = tables.MANO
-    path = resolve_model_path(table.folder, table.file_pattern.format(side=side.upper()), path)
+    path = weight_path(table.folder, table.file_pattern.format(side=side.upper()), path=path)
     arrays = load_model_npz(path, MANO_SCHEMA)
     mean = arrays["hands_mean"]
     meta = {
@@ -252,7 +252,7 @@ def flame(
 ) -> FamilySpec:
     """FLAME head (5 joints, 5023 vertices); expression is a stream group like SMPL-X."""
     table = tables.FLAME
-    path = resolve_model_path(table.folder, table.file_pattern.format(gender=gender.lower()), path)
+    path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
     return load_family(
         table,
         FLAME_SCHEMA,

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from better_human.io.load import load_model_npz, resolve_model_path
+from better_human.io.load import load_model_npz, models_dir, weight_path
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA, SMPL_SCHEMA
 
 
@@ -29,7 +29,7 @@ def _write_dense_fixture(path: Path, *, object_template: bool = False) -> None:
     )
 
 
-def test_explicit_model_path_takes_precedence(
+def test_explicit_path_takes_precedence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -37,10 +37,10 @@ def test_explicit_model_path_takes_precedence(
     explicit.touch()
     monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path / "unused"))
 
-    assert resolve_model_path("smpl", "SMPL_NEUTRAL.npz", explicit) == explicit
+    assert weight_path("smpl", "SMPL_NEUTRAL.npz", path=explicit) == explicit
 
 
-def test_model_path_falls_back_to_environment_root(
+def test_weight_path_resolves_under_models_dir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -49,14 +49,32 @@ def test_model_path_falls_back_to_environment_root(
     expected.touch()
     monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path))
 
-    assert resolve_model_path("smpl", "SMPL_NEUTRAL.npz") == expected
+    assert models_dir() == tmp_path
+    assert weight_path("smpl", "SMPL_NEUTRAL.npz") == expected
 
 
-def test_missing_model_path_names_both_remedies(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unset_models_dir_names_the_variable_and_the_fix(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BETTERHUMAN_MODELS_DIR", raising=False)
 
-    with pytest.raises(FileNotFoundError, match=r"model_path=.*BETTERHUMAN_MODELS_DIR"):
-        resolve_model_path("smpl", "SMPL_NEUTRAL.npz")
+    with pytest.raises(FileNotFoundError, match=r"BETTERHUMAN_MODELS_DIR is unset\. Set it to the directory"):
+        weight_path("smpl", "SMPL_NEUTRAL.npz")
+
+
+def test_models_dir_that_is_not_a_directory_is_an_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path / "absent"))
+
+    with pytest.raises(FileNotFoundError, match=r"BETTERHUMAN_MODELS_DIR=.*absent is not a directory"):
+        models_dir()
+
+
+def test_missing_weight_file_names_the_file_and_both_remedies(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path))
+
+    with pytest.raises(FileNotFoundError, match=r"smpl/SMPL_NEUTRAL\.npz.*BETTERHUMAN_MODELS_DIR.*path="):
+        weight_path("smpl", "SMPL_NEUTRAL.npz")
 
 
 def test_dense_regressor_loads_without_dtype_conversion(tmp_path: Path) -> None:
@@ -92,7 +110,7 @@ def test_mhr_resolution_uses_nested_canonical_layout(
     expected.touch()
     monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path))
 
-    assert resolve_model_path("MHR", "converted/mhr_lod6.npz") == expected
+    assert weight_path("MHR", "converted/mhr_lod6.npz") == expected
 
 
 def test_mhr_loader_keeps_unicode_metadata_and_tensorizes_numeric_fields(

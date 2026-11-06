@@ -1,6 +1,6 @@
 """Weight-file schemas, loading, and conversion."""
 
-from .load import load_model_npz, resolve_model_path
+from .load import load_model_npz, models_dir, weight_path
 from .schema import (
     FLAME_SCHEMA,
     MANO_SCHEMA,
@@ -25,6 +25,7 @@ __all__ = [
     "SOMA_CORRECTIVE_FIELDS",
     "SOMA_SCHEMA",
     "load_model_npz",
-    "resolve_model_path",
+    "models_dir",
     "validate",
+    "weight_path",
 ]

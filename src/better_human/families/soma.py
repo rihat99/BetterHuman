@@ -15,7 +15,7 @@ from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.spec import Corrective, FamilySpec, Parts
-from better_human.io import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA, load_model_npz, resolve_model_path
+from better_human.io import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA, load_model_npz, weight_path
 
 from .soma_rig import SomaRig
 
@@ -46,7 +46,7 @@ def soma(
         raise TypeError(f"dtype must be torch.float32 or torch.float64, got {dtype}")
     device = torch.device("cpu" if device is None else device)
     arrays = load_model_npz(
-        resolve_model_path("SOMA", "soma_mid.npz", path),
+        weight_path("SOMA", "soma_mid.npz", path=path),
         SOMA_SCHEMA,
         exclude_fields=() if correctives else SOMA_CORRECTIVE_FIELDS,
     )
