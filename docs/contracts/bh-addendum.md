@@ -45,8 +45,10 @@ An explicit `path` argument wins; otherwise the file is `io.weight_path(folder, 
 layout"). `io.models_dir()` is the one reader of `$BETTERHUMAN_MODELS_DIR` and raises with the fix when it is unset
 or names no directory; a missing or malformed file raises a clear error naming the path; nothing guesses a default.
 Example: `src/better_human/io/load.py::models_dir`, `src/better_human/io/load.py::weight_path`.
-Enforcement: `tests/io/test_load.py`; `tests/contract/test_models_dir.py` (no test, example or tool builds a
-weights path of its own).
+Enforcement: `tests/io/test_load.py`; `tests/contract/test_models_dir.py` scans `tests/`, `examples/` and `tools/`
+for a `models` path joined onto `__file__` or the working directory, a relative `models` path and
+`better_human.__file__`. `benchmarks/` is outside the scan: `benchmarks/run.py` still builds `models/` paths from its
+own location.
 
 ## H-STUDIO-1 Studio is a thin shell over the BetterRobot viewer (MUST)
 
