@@ -8,8 +8,8 @@ import torch
 from better_robot.viewer import Viewer
 
 import better_human as bh
-from better_human.viz.studio.gizmo import GizmoController
 from better_human.io import weight_path
+from better_human.viz.studio.gizmo import GizmoController
 from better_human.viz.studio.state import StudioSession
 
 from .fake_server import FakeServer
