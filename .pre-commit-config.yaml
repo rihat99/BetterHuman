@@ -17,8 +17,8 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
       - id: fast-tier
-        name: fast tier (tests/contract, not slow)
-        entry: uv run pytest tests/contract -q -m "not slow"
+        name: fast tier (tests/contract, not slow, not licensed)
+        entry: uv run pytest tests/contract -q -m "not slow and not licensed"
         language: system
         pass_filenames: false
         stages: [pre-commit]

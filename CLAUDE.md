@@ -7,7 +7,7 @@ Design: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Shapes, u
 
 ```bash
 export BETTERHUMAN_MODELS_DIR=$PWD/models               # licensed weights, never committed
-uv run pytest tests/contract -q -m "not slow"           # fast tier
+uv run pytest tests/contract -q -m "not slow and not licensed"  # fast tier
 uv run pytest tests -q -m "not cuda and not licensed"   # full tier, no weights needed
 uv run pytest tests -q -m "licensed and not cuda"       # release tier on CPU; fails without the weights
 uv run pytest tests -q -m cuda                          # release tier on a free GPU (docs/contributing/testing.md)

@@ -6,7 +6,7 @@ carries a marker that the tier commands select on, and a selected test whose wei
 
 | tier | command | runs | fails when |
 |---|---|---|---|
-| fast | `uv run pytest tests/contract -q -m "not slow"` | the contract tests | a test fails |
+| fast | `uv run pytest tests/contract -q -m "not slow and not licensed"` | the contract tests that need no weights | a test fails |
 | full | `uv run pytest tests -q -m "not cuda and not licensed"` | every test that needs neither weights nor a GPU | a test fails |
 | release | `uv run pytest tests -q -m "licensed and not cuda"`, then `uv run pytest tests -q -m cuda` with a free GPU visible | the tests that read licensed weights on the CPU, then the GPU tests | a test fails, or the weights or the device is missing |
 
