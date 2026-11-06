@@ -102,6 +102,10 @@ nav:
       - Testing: contributing/testing.md
   - Reference:
       - reference/roadmap.md
+      - File formats:
+          - MHR archive: reference/formats/mhr.md
+          - SOMA archive: reference/formats/soma.md
+          - Frame set: reference/formats/frame_set.md
   - Contracts:
       - Index: contracts/index.md
       - BetterHuman addendum: contracts/bh-addendum.md

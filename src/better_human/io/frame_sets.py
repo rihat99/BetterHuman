@@ -1,6 +1,6 @@
 """Frame sets: named mesh points, each a vertex id and an optional parent joint, stored as versioned JSON.
 
-A frame-set file (format ``better_human.frame_set``, version 1)::
+A frame-set file (format ``better_human.frame_set``, version 1; spec ``docs/reference/formats/frame_set.md``)::
 
     {"format": "better_human.frame_set", "format_version": 1,
      "frames": {"heel_left": {"vertex": 8924, "joint": null}, "knee_left": {"vertex": 3673, "joint": "left_knee"}}}
