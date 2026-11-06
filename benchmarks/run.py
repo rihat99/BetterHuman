@@ -275,12 +275,12 @@ def _bench_family(family: str, arguments: argparse.Namespace, device: torch.devi
             stream = _stream_inputs(body, batch, device) if with_stream else None
             if not skip("vertices", variant, FORWARD_BYTES_PER_VERTEX):
                 with torch.no_grad():
-                    add("vertices", variant, lambda i=vertex_identity, s=stream: i.forward(q, s).vertices(), "forward")
+                    add("vertices", variant, lambda i=vertex_identity, s=stream: i.forward(q, s).vertices, "forward")
             if not skip("vertices_backward", variant, BACKWARD_BYTES_PER_VERTEX):
                 leaf = q.clone().requires_grad_(True)
 
                 def backward(i: Any = vertex_identity, s: Any = stream) -> Any:
-                    return torch.autograd.grad(i.forward(leaf, s).vertices().sum(), leaf)
+                    return torch.autograd.grad(i.forward(leaf, s).vertices.sum(), leaf)
 
                 add("vertices_backward", variant, backward, "backward")
 
