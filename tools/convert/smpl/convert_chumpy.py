@@ -15,7 +15,7 @@ from typing import Any
 import numpy as np
 from scipy import sparse
 
-from .schema import SMPL_SCHEMA, ModelSchema, validate
+from better_human.io.schema import SMPL_SCHEMA, ModelSchema, validate
 
 FIELD_ALIASES: Mapping[str, tuple[str, ...]] = {
     "f": ("f", "faces"),

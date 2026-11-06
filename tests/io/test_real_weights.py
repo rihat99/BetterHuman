@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import numpy as np
@@ -7,9 +8,16 @@ import pytest
 import torch
 from scipy import sparse
 
-from better_human.io.convert_chumpy import convert_model, load_chumpy_pickle
 from better_human.io.load import load_model_npz, models_dir
 from better_human.io.schema import SMPL_SCHEMA, SMPLX_SCHEMA
+
+# A tool, not a module of the package: load it from its file.
+_SPEC = importlib.util.spec_from_file_location(
+    "convert_chumpy", Path(__file__).parents[2] / "tools" / "convert" / "smpl" / "convert_chumpy.py"
+)
+convert_chumpy = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(convert_chumpy)
+convert_model, load_chumpy_pickle = convert_chumpy.convert_model, convert_chumpy.load_chumpy_pickle
 
 
 @pytest.mark.licensed
