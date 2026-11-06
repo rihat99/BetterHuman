@@ -33,7 +33,11 @@ requested 4.9.0 release was not available from conda-forge when verified.
 
 4. Dump the deterministic oracle grid (`--reference-dir`, default
    `references/parametric_body/MHR`, is the read-only checkout of the reference
-   `mhr` package):
+   `mhr` package, https://github.com/facebookresearch/MHR at commit
+   `aaa8507aa0c2c660c8085c3a454650ebcb04e6ed` (`v1.0.1-5-gaaa8507`). The
+   checkout was cloned on 2026-07-16 and has not moved since (its reflog), so
+   the goldens of 2026-07-21 come from this commit; the provenance field names
+   only the pymomentum version, so the oracle's source is recorded here):
 
    ```bash
    conda run --name betterhuman-mhr-parity python \
@@ -57,7 +61,8 @@ changes, into a new directory `$OUT`; inspect every binary delta and remeasure a
 document parity before accepting the refresh.
 
 Every archive carries `provenance` (decision record 0014), a JSON string with
-`oracle` (the installed `pymomentum` version), `generator` (the dump script's
+`oracle` (the installed pymomentum distribution and version: `pymomentum` from
+conda-forge or `pymomentum-cpu` from PyPI), `generator` (the dump script's
 repository path), `asset_sha256`, `dtype` (`float32`) and `seed` (the case seed).
 `asset_sha256` is the sha256 of the `sha256sum` listing of the four files the
 oracle reads for the LOD, for example LOD1:

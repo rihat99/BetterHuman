@@ -95,6 +95,21 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _oracle() -> str:
+    """Provenance ``oracle``: ``<distribution>==<version>`` of the installed pymomentum.
+
+    conda-forge ships it as ``pymomentum``, PyPI's CPU build as ``pymomentum-cpu``; both are the same oracle.
+    """
+    for distribution in ("pymomentum", "pymomentum-cpu"):
+        try:
+            return f"{distribution}=={importlib.metadata.version(distribution)}"
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    raise ModuleNotFoundError(
+        "neither pymomentum nor pymomentum-cpu is installed; create the environment in tools/parity/mhr/README.md"
+    )
+
+
 def _asset_sha256(directory: Path, names: tuple[str, ...]) -> str:
     """Provenance ``asset_sha256``: sha256 of the ``sha256sum`` listing of the oracle's asset files, names sorted.
 
@@ -435,6 +450,7 @@ def main() -> None:
     torch.manual_seed(BASE_SEED)
     torch.use_deterministic_algorithms(True)
     self_check_lod = max(lods)
+    oracle = _oracle()
 
     for lod in lods:
         cases = _lod1_cases(metadata, masks) if lod == 1 else _smoke_cases(lod, metadata, masks)
@@ -450,7 +466,7 @@ def main() -> None:
             f"lod{lod}.fbx",
         )
         provenance = {
-            "oracle": f"pymomentum=={importlib.metadata.version('pymomentum')}",
+            "oracle": oracle,
             "generator": "tools/parity/mhr/dump_mhr.py",
             "asset_sha256": _asset_sha256(args.assets_dir, asset_files),
             "dtype": "float32",
