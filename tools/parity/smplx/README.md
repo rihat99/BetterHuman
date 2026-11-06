@@ -32,3 +32,6 @@ SMPL-X:
 ```bash
 cd "$BETTERHUMAN_MODELS_DIR/smplx" && sha256sum SMPLX_NEUTRAL.npz | sha256sum
 ```
+
+For the goldens stamped on 2026-11-06, `asset_sha256` hashes the asset files present at stamp time, not at dump time
+(decision record 0014, note); a golden written by the dump script hashes the files that dump read.

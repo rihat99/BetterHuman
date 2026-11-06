@@ -28,3 +28,6 @@ seed). `asset_sha256` is the sha256 of the `sha256sum` listing of the four asset
 cd /path/to/soma_assets && sha256sum SOMA_neutral.npz SOMA_procedural_transforms.json SOMA_template_rig.usda \
     correctives_model.pt | sha256sum
 ```
+
+For the goldens stamped on 2026-11-06, `asset_sha256` hashes the asset files present at stamp time, not at dump time
+(decision record 0014, note); a golden written by the dump script hashes the files that dump read.
