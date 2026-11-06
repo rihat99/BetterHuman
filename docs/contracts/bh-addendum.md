@@ -173,13 +173,13 @@ argument wins. Patterns are in `families/tables.py`:
 
 | gate | test | tolerance | status |
 |---|---|---|---|
-| SMPL vs upstream goldens | `tests/parity/test_smpl_parity.py` | see test | pass |
-| SMPL-X, 29 goldens, float32 and float64, expression streamed | `tests/parity/test_smplx_parity.py` | 1e-6 m vertices and joints | worst 5.1e-7 m |
+| SMPL vs upstream goldens | `tests/parity/smplx/test_smpl_parity.py` | see test | pass |
+| SMPL-X, 29 goldens, float32 and float64, expression streamed | `tests/parity/smplx/test_smplx_parity.py` | 1e-6 m vertices and joints | worst 5.1e-7 m |
 | SMPL-X with `stream_joints=False` | same file | error in (1e-5, 2e-3) m | about 1.2 mm |
-| MHR, LOD 0-6, float32 / float64 | `tests/parity/test_mhr_parity.py` | f32 `(5e-6, 1e-6, 1e-6, 1e-7)`, f64 `(2e-6, 5e-7, 5e-7, 1e-7)` | pass |
-| MHR vs TorchScript `mhr_model.pt` | `tests/parity/test_mhr_torchscript.py` | vertices 2e-6 m, positions 1e-6 m, quaternions 1e-6 | pass |
-| SOMA mid vs SOMA-X v0.3.4, 14 goldens one by one and as one identity batch, float32 / float64 | `tests/parity/test_soma_parity.py` | `(6.5e-6, 9e-6, 3.5e-6)` (vertices m; positions m and rotation entries of all 110 skin joints); `reflect_00` vertices 1.1e-5 | worst f32 `(1.46e-6, 1.16e-6, 1.73e-6)`, f32 `reflect_00` `(5.36e-6, 3.58e-6, 1.13e-6)`, f32 batch `(3.13e-6, 4.35e-6, 1.73e-6)`, f64 `(2.89e-6, 4.23e-6, 1.60e-6)` |
-| SOMA bake vs the same goldens' `rest_shape`, `bind_transforms` | `tests/families/test_soma.py` | `(6e-6, 1e-5, 1.1e-6)` (rest mesh m, bind positions m, bind rotation entries; all 110 joints); `reflect_00` rest mesh 1.2e-5 | worst f32 `(9.5e-7, 1.31e-6, 5.4e-7)`, f32 `reflect_00` `(5.90e-6, 3.87e-6, 5.4e-7)`, f32 batch `(2.86e-6, 4.89e-6, 5.4e-7)`, f64 `(2.92e-6, 4.66e-6, 5.0e-7)` |
+| MHR, LOD 0-6, float32 / float64 | `tests/parity/mhr/test_mhr_parity.py` | f32 `(5e-6, 1e-6, 1e-6, 1e-7)`, f64 `(2e-6, 5e-7, 5e-7, 1e-7)` | pass |
+| MHR vs TorchScript `mhr_model.pt` | `tests/parity/mhr/test_mhr_torchscript.py` | vertices 2e-6 m, positions 1e-6 m, quaternions 1e-6 | pass |
+| SOMA mid vs SOMA-X v0.3.4, 14 goldens one by one and as one identity batch, float32 / float64 | `tests/parity/soma/test_soma_parity.py` | `(6.5e-6, 9e-6, 3.5e-6)` (vertices m; positions m and rotation entries of all 110 skin joints); `reflect_00` vertices 1.1e-5 | worst f32 `(1.46e-6, 1.16e-6, 1.73e-6)`, f32 `reflect_00` `(5.36e-6, 3.58e-6, 1.13e-6)`, f32 batch `(3.13e-6, 4.35e-6, 1.73e-6)`, f64 `(2.89e-6, 4.23e-6, 1.60e-6)` |
+| SOMA bake vs the same goldens' `rest_shape`, `bind_transforms` | `tests/parity/soma/test_soma_parity.py::test_bake_matches_upstream_rest_shape_and_bind` | `(6e-6, 1e-5, 1.1e-6)` (rest mesh m, bind positions m, bind rotation entries; all 110 joints); `reflect_00` rest mesh 1.2e-5 | worst f32 `(9.5e-7, 1.31e-6, 5.4e-7)`, f32 `reflect_00` `(5.90e-6, 3.87e-6, 5.4e-7)`, f32 batch `(2.86e-6, 4.89e-6, 5.4e-7)`, f64 `(2.92e-6, 4.66e-6, 5.0e-7)` |
 
 Parity tests are marked `licensed`: the full tier deselects them, and a run that selects them fails when the
 models directory or an asset is missing (`tests/conftest.py`).
