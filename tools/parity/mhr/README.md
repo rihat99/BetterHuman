@@ -17,8 +17,8 @@ requested 4.9.0 release was not available from conda-forge when verified.
    ```bash
    conda run --name betterhuman-mhr-parity python \
      tools/convert/mhr/convert_mhr.py \
-     --assets-dir models/MHR/assets \
-     --output-dir models/MHR/converted \
+     --assets-dir "$BETTERHUMAN_MODELS_DIR/MHR/assets" \
+     --output-dir "$BETTERHUMAN_MODELS_DIR/MHR/converted" \
      --lod 6
    ```
 
@@ -27,24 +27,42 @@ requested 4.9.0 release was not available from conda-forge when verified.
    ```bash
    conda run --name betterhuman-mhr-parity python \
      tools/convert/mhr/convert_mhr.py \
-     --assets-dir models/MHR/assets \
-     --output-dir models/MHR/converted
+     --assets-dir "$BETTERHUMAN_MODELS_DIR/MHR/assets" \
+     --output-dir "$BETTERHUMAN_MODELS_DIR/MHR/converted"
    ```
 
-4. Dump the deterministic oracle grid:
+4. Dump the deterministic oracle grid (`--reference-dir`, default
+   `references/parametric_body/MHR`, is the read-only checkout of the reference
+   `mhr` package):
 
    ```bash
    conda run --name betterhuman-mhr-parity python \
      tools/parity/mhr/dump_mhr.py \
-     --assets-dir models/MHR/assets \
-     --output-dir tests/parity/goldens
+     --assets-dir "$BETTERHUMAN_MODELS_DIR/MHR/assets" \
+     --converted-dir "$BETTERHUMAN_MODELS_DIR/MHR/converted" \
+     --output-dir "$OUT"
    ```
 
-The source assets remain unchanged. Converted archives are local-only under
-the gitignored `models/MHR/converted/` directory. The float32 golden grid under
-`tests/parity/goldens/mhr_lod{0..6}/` is committed test data: 48 archives,
-comprising 30 LOD1 cases and three cases for each other LOD. Do not regenerate
-it for a BetterHuman implementation change. Regenerate only when the upstream
-MHR release, converter semantics, or intentionally reviewed oracle grid
-changes; inspect every binary delta and remeasure and document parity before
-accepting the refresh.
+5. Once the new files in `$OUT/mhr_lod{0..6}/` are accepted and copied into
+   `$BETTERHUMAN_MODELS_DIR/goldens/`, run the gates from the repository root:
+   `uv run pytest tests/parity/mhr -q -m licensed`.
+
+The source assets remain unchanged. Converted archives and the float32 golden
+grid are outputs of the licensed assets, so they live in the models directory,
+not in git (decision record 0015): `$BETTERHUMAN_MODELS_DIR/goldens/mhr_lod{0..6}/`
+holds 48 archives, 30 LOD1 cases and three cases for each other LOD. Do not
+regenerate it for a BetterHuman implementation change. Regenerate only when the
+upstream MHR release, converter semantics, or intentionally reviewed oracle grid
+changes, into a new directory `$OUT`; inspect every binary delta and remeasure and
+document parity before accepting the refresh.
+
+Every archive carries `provenance` (decision record 0014), a JSON string with
+`oracle` (the installed `pymomentum` version), `generator` (the dump script's
+repository path), `asset_sha256`, `dtype` (`float32`) and `seed` (the case seed).
+`asset_sha256` is the sha256 of the `sha256sum` listing of the four files the
+oracle reads for the LOD, for example LOD1:
+
+```bash
+cd "$BETTERHUMAN_MODELS_DIR/MHR/assets" && sha256sum compact_v6_1.model \
+  corrective_activation.npz corrective_blendshapes_lod1.npz lod1.fbx | sha256sum
+```
