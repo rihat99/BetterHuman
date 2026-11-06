@@ -10,9 +10,9 @@ import pytest
 import torch
 
 from better_human.io import weight_path
+from tests.support.goldens import golden_dir
 
 pytestmark = pytest.mark.licensed
-GOLDEN_DIR = Path(__file__).parent / "goldens" / "mhr_lod1"
 CASES = ("identity_00", "combined_00", "zero_correctives_off", "expression_none")
 VERTEX_ATOL_METERS = 2e-6
 POSITION_ATOL_METERS = 1e-6
@@ -29,16 +29,22 @@ def _sign_invariant_quaternion_error(
     return torch.minimum(direct, sign_flipped).amax().item()
 
 
+@pytest.fixture(scope="module")
+def mhr_lod1_goldens() -> Path:
+    """The LOD1 pymomentum golden directory in the models directory."""
+    return golden_dir("mhr_lod1")
+
+
 # The oracle ships as TorchScript (`assets/mhr_model.pt`); torch 2.13 deprecates torch.jit.load yet still loads it.
 @pytest.mark.filterwarnings("ignore:`torch.jit.load` is deprecated:DeprecationWarning")
-def test_released_torchscript_agrees_with_pymomentum_goldens() -> None:
+def test_released_torchscript_agrees_with_pymomentum_goldens(mhr_lod1_goldens: Path) -> None:
     model = torch.jit.load(weight_path("MHR", "assets/mhr_model.pt"), map_location="cpu")
     model.eval()
     try:
         with torch.inference_mode():
             for case in CASES:
-                golden_path = GOLDEN_DIR / f"{case}.npz"
-                assert golden_path.is_file(), f"committed MHR golden is absent: {golden_path}"
+                golden_path = mhr_lod1_goldens / f"{case}.npz"
+                assert golden_path.is_file(), f"MHR golden is absent: {golden_path}"
                 with np.load(golden_path, allow_pickle=False) as golden:
                     length_scale = float(golden["length_scale_to_meters"])
                     identity = torch.from_numpy(golden["identity_coeffs"])[None]

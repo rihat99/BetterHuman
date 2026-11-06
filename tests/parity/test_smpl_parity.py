@@ -1,4 +1,4 @@
-"""Golden parity against the pinned upstream smplx SMPL implementation."""
+"""Golden parity against the pinned upstream smplx SMPL (``tools/parity/smplx/dump_smpl.py``)."""
 
 from __future__ import annotations
 
@@ -11,10 +11,9 @@ import torch
 import better_human as bh
 from better_human.families.classic import SMPLClassic, smpl_from_classic
 from better_human.io import weight_path
+from tests.support.goldens import golden_dir
 
 pytestmark = pytest.mark.licensed
-GOLDEN_DIR = Path(__file__).parent / "goldens" / "smpl_neutral"
-GOLDEN_FILES = tuple(sorted(GOLDEN_DIR.glob("*.npz")))
 EXPECTED_GOLDENS = {
     "beta_minus_two",
     "beta_plus_two",
@@ -23,9 +22,17 @@ EXPECTED_GOLDENS = {
     "root_wart",
     "zero",
 }
-assert {path.stem for path in GOLDEN_FILES} == EXPECTED_GOLDENS, "SMPL parity goldens are missing or unexpected"
 FLOAT64_ATOL = 1e-6
 FLOAT32_ATOL = 1e-6
+
+
+@pytest.fixture(scope="module")
+def smpl_goldens() -> Path:
+    """The SMPL golden directory in the models directory, holding exactly the expected cases."""
+    directory = golden_dir("smpl_neutral")
+    found = {path.stem for path in directory.glob("*.npz")}
+    assert found == EXPECTED_GOLDENS, f"SMPL parity goldens in {directory} are missing or unexpected"
+    return directory
 
 
 @pytest.fixture(scope="module")
@@ -56,8 +63,9 @@ def _evaluate(body: bh.Body, golden_path: Path) -> tuple[torch.Tensor, torch.Ten
     return state.vertices, state.joints, golden
 
 
-@pytest.mark.parametrize("golden_path", GOLDEN_FILES, ids=lambda path: path.stem)
-def test_smpl_float64_parity(body_float64: bh.Body, golden_path: Path) -> None:
+@pytest.mark.parametrize("case", sorted(EXPECTED_GOLDENS))
+def test_smpl_float64_parity(body_float64: bh.Body, smpl_goldens: Path, case: str) -> None:
+    golden_path = smpl_goldens / f"{case}.npz"
     vertices, joints, golden = _evaluate(body_float64, golden_path)
     vertex_error = (vertices - torch.from_numpy(golden["vertices"])).abs().max().item()
     joint_error = (joints - torch.from_numpy(golden["joints"])).abs().max().item()
@@ -66,8 +74,9 @@ def test_smpl_float64_parity(body_float64: bh.Body, golden_path: Path) -> None:
     assert joint_error <= FLOAT64_ATOL, f"{golden_path.stem}: joint max error {joint_error:.3e}"
 
 
-@pytest.mark.parametrize("golden_path", GOLDEN_FILES, ids=lambda path: path.stem)
-def test_smpl_float32_parity(body_float32: bh.Body, golden_path: Path) -> None:
+@pytest.mark.parametrize("case", sorted(EXPECTED_GOLDENS))
+def test_smpl_float32_parity(body_float32: bh.Body, smpl_goldens: Path, case: str) -> None:
+    golden_path = smpl_goldens / f"{case}.npz"
     vertices, joints, golden = _evaluate(body_float32, golden_path)
     expected_vertices = torch.from_numpy(golden["vertices"]).float()
     expected_joints = torch.from_numpy(golden["joints"]).float()

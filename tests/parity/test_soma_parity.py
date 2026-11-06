@@ -1,4 +1,4 @@
-"""Golden parity against the pinned float32 SOMA-X v0.3.4 oracle (``tools/parity/soma``, mid LOD)."""
+"""Golden parity against the pinned float32 SOMA-X v0.3.4 oracle, mid LOD (``tools/parity/soma/dump_soma.py``)."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ import torch
 from better_human import Body, HumanState, families
 from better_human.families.soma import SOMAClassic, soma_from_classic
 from better_human.io import weight_path
+from tests.support.goldens import golden_dir
 
 pytestmark = pytest.mark.licensed
-GOLDEN_FILES = tuple(sorted((Path(__file__).parent / "goldens" / "soma_mid").glob("*.npz")))
 EXPECTED_CASES = {
     "big_shape",
     "correctives_off",
@@ -25,7 +25,6 @@ EXPECTED_CASES = {
     "twist_01",
     "zero",
 }
-assert {path.stem for path in GOLDEN_FILES} == EXPECTED_CASES, "The committed SOMA parity grid is missing or unexpected"
 KEYS = ("identity_coeffs", "poses", "transl", "vertices", "skin_transforms")
 LABELS = ("vertex", "joint position", "rotation entry")
 
@@ -36,7 +35,16 @@ LABELS = ("vertex", "joint position", "rotation entry")
 # rounds further (5.4e-6 m; 3.0e-6 m with that regression in float64), as upstream's does (7.5e-6 m from its float64).
 PARITY_ATOLS = (6.5e-6, 9e-6, 3.5e-6)
 PARITY_ATOLS_BY_CASE = {"reflect_00": (1.1e-5, 9e-6, 3.5e-6)}
-PARITY_CASES = tuple((dtype, path) for dtype in (torch.float32, torch.float64) for path in GOLDEN_FILES)
+PARITY_CASES = tuple((dtype, case) for dtype in (torch.float32, torch.float64) for case in sorted(EXPECTED_CASES))
+
+
+@pytest.fixture(scope="module")
+def soma_goldens() -> Path:
+    """The SOMA golden directory in the models directory, holding exactly the expected cases."""
+    directory = golden_dir("soma_mid")
+    found = {path.stem for path in directory.glob("*.npz")}
+    assert found == EXPECTED_CASES, f"The SOMA parity grid in {directory} is missing or unexpected"
+    return directory
 
 
 @lru_cache(maxsize=2)
@@ -66,12 +74,13 @@ def _errors(state: HumanState, expected: dict[str, torch.Tensor]) -> tuple[torch
 
 
 @pytest.mark.parametrize(
-    ("dtype", "golden_path"),
+    ("dtype", "case"),
     PARITY_CASES,
-    ids=[f"{str(dtype).removeprefix('torch.')}-{path.stem}" for dtype, path in PARITY_CASES],
+    ids=[f"{str(dtype).removeprefix('torch.')}-{case}" for dtype, case in PARITY_CASES],
 )
-def test_soma_parity(dtype: torch.dtype, golden_path: Path) -> None:
+def test_soma_parity(soma_goldens: Path, dtype: torch.dtype, case: str) -> None:
     """Vertices and the world transforms of every skin joint against one upstream case."""
+    golden_path = soma_goldens / f"{case}.npz"
     correctives, golden = _golden(golden_path)
     expected = {name: value.to(dtype) for name, value in golden.items()}
     with torch.inference_mode():
@@ -84,9 +93,9 @@ def test_soma_parity(dtype: torch.dtype, golden_path: Path) -> None:
 
 
 @pytest.mark.parametrize("dtype", (torch.float32, torch.float64), ids=("float32", "float64"))
-def test_soma_parity_identity_batch(dtype: torch.dtype) -> None:
+def test_soma_parity_identity_batch(soma_goldens: Path, dtype: torch.dtype) -> None:
     """Every correctives-on golden in one identity batch, one pose each: batched sums round in another order."""
-    goldens = {path.stem: _golden(path) for path in GOLDEN_FILES}
+    goldens = {case: _golden(soma_goldens / f"{case}.npz") for case in sorted(EXPECTED_CASES)}
     names = [name for name, (correctives, _) in goldens.items() if correctives]
     expected = {key: torch.stack([goldens[name][1][key] for name in names]).to(dtype) for key in KEYS}
     with torch.inference_mode():

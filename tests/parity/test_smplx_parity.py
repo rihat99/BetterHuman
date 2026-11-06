@@ -1,4 +1,4 @@
-"""Regenerate-on-demand parity against upstream smplx SMPL-X."""
+"""Golden parity against the pinned upstream smplx SMPL-X (``tools/parity/smplx/dump_smplx.py``)."""
 
 from __future__ import annotations
 
@@ -11,10 +11,9 @@ import torch
 import better_human as bh
 from better_human.families.classic import SMPLXClassic, smplx_from_classic
 from better_human.io import weight_path
+from tests.support.goldens import golden_dir
 
 pytestmark = pytest.mark.licensed
-GOLDEN_DIR = Path(__file__).parent / "goldens" / "smplx_neutral"
-GOLDEN_FILES = tuple(sorted(GOLDEN_DIR.glob("*.npz")))
 EXPECTED_GOLDENS = {
     "beta_minus_two",
     "beta_plus_two",
@@ -39,10 +38,18 @@ EXPECTED_GOLDENS = {
     "zero_pca_flat",
     "zero_pca_mean",
 }
-assert {path.stem for path in GOLDEN_FILES} == EXPECTED_GOLDENS, "SMPL-X parity grid is incomplete"
 FLOAT64_ATOL = 1e-6
 FLOAT32_ATOL = 1e-6
 _BODY_CACHE: dict[tuple[torch.dtype, int, int, bool, bool], bh.Body] = {}
+
+
+@pytest.fixture(scope="module")
+def smplx_goldens() -> Path:
+    """The SMPL-X golden directory in the models directory, holding exactly the expected grid."""
+    directory = golden_dir("smplx_neutral")
+    found = {path.stem for path in directory.glob("*.npz")}
+    assert found == EXPECTED_GOLDENS, f"SMPL-X parity grid in {directory} is incomplete"
+    return directory
 
 
 def _body(
@@ -94,8 +101,9 @@ def _evaluate(
     return state.vertices, state.joints, golden
 
 
-@pytest.mark.parametrize("golden_path", GOLDEN_FILES, ids=lambda path: path.stem)
-def test_smplx_float64_parity(golden_path: Path) -> None:
+@pytest.mark.parametrize("case", sorted(EXPECTED_GOLDENS))
+def test_smplx_float64_parity(smplx_goldens: Path, case: str) -> None:
+    golden_path = smplx_goldens / f"{case}.npz"
     vertices, joints, golden = _evaluate(torch.float64, golden_path)
     vertex_error = (vertices - torch.from_numpy(golden["vertices"])).abs().max().item()
     joint_error = (joints - torch.from_numpy(golden["joints"])).abs().max().item()
@@ -104,8 +112,9 @@ def test_smplx_float64_parity(golden_path: Path) -> None:
     assert joint_error <= FLOAT64_ATOL, f"{golden_path.stem}: joint max error {joint_error:.3e}"
 
 
-@pytest.mark.parametrize("golden_path", GOLDEN_FILES, ids=lambda path: path.stem)
-def test_smplx_float32_parity(golden_path: Path) -> None:
+@pytest.mark.parametrize("case", sorted(EXPECTED_GOLDENS))
+def test_smplx_float32_parity(smplx_goldens: Path, case: str) -> None:
+    golden_path = smplx_goldens / f"{case}.npz"
     vertices, joints, golden = _evaluate(torch.float32, golden_path)
     expected_vertices = torch.from_numpy(golden["vertices"]).float()
     expected_joints = torch.from_numpy(golden["joints"]).float()
@@ -116,10 +125,10 @@ def test_smplx_float32_parity(golden_path: Path) -> None:
     assert joint_error <= FLOAT32_ATOL, f"{golden_path.stem}: joint max error {joint_error:.3e}"
 
 
-def test_smplx_static_joints_are_approximate() -> None:
+def test_smplx_static_joints_are_approximate(smplx_goldens: Path) -> None:
     """``stream_joints=False`` keeps the expression-free joints: measured on ``expression_plus_two`` (float64) the
     joint error is 1.17e-3 m and the vertex error 5.8e-10 m."""
-    vertices, joints, golden = _evaluate(torch.float64, GOLDEN_DIR / "expression_plus_two.npz", stream_joints=False)
+    vertices, joints, golden = _evaluate(torch.float64, smplx_goldens / "expression_plus_two.npz", stream_joints=False)
     vertex_error = (vertices - torch.from_numpy(golden["vertices"])).abs().max().item()
     joint_error = (joints - torch.from_numpy(golden["joints"])).abs().max().item()
     golden.close()

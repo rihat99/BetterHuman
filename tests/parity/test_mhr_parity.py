@@ -1,4 +1,4 @@
-"""Golden parity against the pinned float32 pymomentum MHR oracle."""
+"""Golden parity against the pinned float32 pymomentum MHR oracle (``tools/parity/mhr/dump_mhr.py``)."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from better_human import families
 from better_human.core.body import Body
 from better_human.families.mhr import MHRClassic, mhr_from_classic
 from better_human.io import weight_path
+from tests.support.goldens import golden_dir
 
 pytestmark = pytest.mark.licensed
-GOLDEN_ROOT = Path(__file__).parent / "goldens"
 EXPECTED_GOLDEN_COUNTS = (3, 30, 3, 3, 3, 3, 3)
 SMOKE_CASES = {"fully_random", "proportions_hand_scale", "zero"}
 EXPECTED_CASES = {
@@ -75,22 +75,27 @@ PARITY_IDS = tuple(
     for lod, dtype, use_correctives, use_expression in PARITY_CONFIGS
 )
 
-GOLDEN_FILES = {lod: tuple(sorted((GOLDEN_ROOT / f"mhr_lod{lod}").glob("*.npz"))) for lod in range(7)}
-assert tuple(len(GOLDEN_FILES[lod]) for lod in range(7)) == EXPECTED_GOLDEN_COUNTS, (
-    "The committed MHR parity grid is missing or unexpected"
-)
-assert all({path.stem for path in GOLDEN_FILES[lod]} == EXPECTED_CASES[lod] for lod in range(7)), (
-    "The committed MHR parity case names are missing or unexpected"
-)
+
+@pytest.fixture(scope="module")
+def mhr_goldens() -> dict[int, tuple[Path, ...]]:
+    """The golden files of every LOD in the models directory, checked against the expected grid."""
+    files = {lod: tuple(sorted(golden_dir(f"mhr_lod{lod}").glob("*.npz"))) for lod in range(7)}
+    assert tuple(len(files[lod]) for lod in range(7)) == EXPECTED_GOLDEN_COUNTS, (
+        "The MHR parity grid in the models directory is missing or unexpected"
+    )
+    assert all({path.stem for path in files[lod]} == EXPECTED_CASES[lod] for lod in range(7)), (
+        "The MHR parity case names in the models directory are missing or unexpected"
+    )
+    return files
 
 
 def _selected_goldens(
-    lod: int,
+    files: tuple[Path, ...],
     use_correctives: bool,
     use_expression: bool,
 ) -> tuple[Path, ...]:
     selected: list[Path] = []
-    for path in GOLDEN_FILES[lod]:
+    for path in files:
         with np.load(path, allow_pickle=False) as golden:
             if bool(golden["apply_correctives"]) != use_correctives:
                 continue
@@ -115,13 +120,14 @@ def _sign_invariant_quaternion_error(
     ids=PARITY_IDS,
 )
 def test_mhr_parity_grid(
+    mhr_goldens: dict[int, tuple[Path, ...]],
     lod: int,
     dtype: torch.dtype,
     use_correctives: bool,
     use_expression: bool,
 ) -> None:
     """Stream one oracle group through one body to bound peak memory."""
-    paths = _selected_goldens(lod, use_correctives, use_expression)
+    paths = _selected_goldens(mhr_goldens[lod], use_correctives, use_expression)
     assert paths, "parity configuration selected no golden cases"
     body = Body(
         families.mhr(
