@@ -27,7 +27,7 @@ ALLOWED: dict[str, set[str]] = {
     "core": {"mass"},
     "families": {"core", "io", "mass"},
     "terms": {"core"},
-    "viz": {"core"},
+    "viz": {"core", "io"},  # the studio persists frame sets (io/frame_sets.py) while it still lives in viz
     "studio": {ROOT, "core", "families", "io", "mass", "viz"},
     ROOT: {"core", "families", "io", "mass", "terms", "viz"},
 }
