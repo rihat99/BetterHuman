@@ -82,13 +82,14 @@ Named frames (for example foot contact points) are attached to a parent joint wi
 ```text
 <repo>/studio_data/
   segmentations/<key>/<name>.json   # part name -> vertex ids
-  frames/<key>/<name>.json          # frame-set file: frame name -> {vertex, joint}
+  frames/<key>/<name>.json          # frame set: {format, format_version, frames: {name: {vertex, joint}}}
   poses/<key>/<name>.npz            # joint rotations and root
 ```
 
 `<key>` names the model, for example `smplx_neutral` or `mhr_neutral_lod1`, so sets saved for one body
 never load onto another. The SMPL-X contact set ships as package data,
-`better_human.io.shipped_frame_set("smplx_contacts")`, not as a file under the data root.
+`better_human.io.shipped_frame_set("smplx_contacts")`, not as a file under the data root. A frame-set file is the
+versioned format `better_human.frame_set` ([spec](reference/formats/frame_set.md)).
 
 ## Known limitations
 
