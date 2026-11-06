@@ -1,0 +1,11 @@
+{
+  "legacy": 331,
+  "default": {
+    "vertex": 100,
+    "joint": null
+  },
+  "named": {
+    "vertex": 200,
+    "joint": "left_wrist"
+  }
+}

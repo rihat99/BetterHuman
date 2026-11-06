@@ -16,8 +16,6 @@
   "docs/contracts/decisions/0010-human-viz-surface.md: tests/contract/test_public_surface.py": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0010-human-viz-surface.md: tests/viz/test_layers.py::test_skinned_layer_matches_state_vertices": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0011-human-package-layout.md: tests/contract/test_public_surface.py": "the record's enforcer; the work package that implements the record creates it",
-  "docs/contracts/decisions/0012-bh-converted-archives.md: tests/contract/test_formats.py": "the record's enforcer; the work package that implements the record creates it",
-  "docs/contracts/decisions/0013-bh-package-data-and-load-speed.md: tests/contract/test_formats.py": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0015-licensed-goldens-out-of-git.md: tests/contract/test_repository_layout.py::test_no_symlinks_and_size": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0016-random-weight-goldens.md: tests/parity/smplx/test_random_weights.py": "the record's enforcer; the work package that implements the record creates it"
 }
