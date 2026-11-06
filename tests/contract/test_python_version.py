@@ -19,7 +19,10 @@ def test_floor_lint_target_and_pin_agree() -> None:
     target = pyproject["tool"]["ruff"]["target-version"]
     pin = (REPO / ".python-version").read_text().strip()
     running = f"{sys.version_info.major}.{sys.version_info.minor}"
-    assert pin == "3.12"
-    assert floor == f">={pin}"
-    assert target == "py312"
-    assert running == pin
+    rule = "one Python version, 3.12 (BetterRobot decision record 0034)"
+    assert pin == "3.12", f".python-version is {pin!r}; write 3.12 there ({rule})"
+    assert floor == f">={pin}", f"requires-python is {floor!r}; set it to '>={pin}' in pyproject.toml ({rule})"
+    assert target == "py312", f"ruff target-version is {target!r}; set it to 'py312' in pyproject.toml ({rule})"
+    assert running == pin, (
+        f"the tests run on Python {running}; run them through uv, which reads .python-version ({rule})"
+    )

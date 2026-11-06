@@ -21,11 +21,16 @@ def ini() -> dict:
 
 
 def test_strict_options(ini: dict) -> None:
-    assert {"--strict-markers", "--strict-config"} <= set(ini["addopts"])
-    assert ini["xfail_strict"] is True
-    assert ini["empty_parameter_set_mark"] == "fail_at_collect"
-    assert ini["filterwarnings"][0] == "error"
+    fix = "restore it in pyproject.toml's [tool.pytest.ini_options] (BetterRobot decision record 0033: strict pytest)"
+    assert {"--strict-markers", "--strict-config"} <= set(ini["addopts"]), f"addopts lacks a --strict-* flag; {fix}"
+    assert ini["xfail_strict"] is True, f"xfail_strict is not true; {fix}"
+    assert ini["empty_parameter_set_mark"] == "fail_at_collect", f"empty parameter sets do not fail; {fix}"
+    assert ini["filterwarnings"][0] == "error", f'filterwarnings does not start with "error"; {fix}'
 
 
 def test_markers_are_the_tier_selectors(ini: dict) -> None:
-    assert {marker.split(":")[0] for marker in ini["markers"]} == {"licensed", "cuda", "slow"}
+    markers = {marker.split(":")[0] for marker in ini["markers"]}
+    assert markers == {"licensed", "cuda", "slow"}, (
+        f"markers are {sorted(markers)}; the tier commands select on exactly licensed, cuda and slow (BetterRobot "
+        "decision record 0033), so a new marker comes with a record and the tier commands that select on it"
+    )
