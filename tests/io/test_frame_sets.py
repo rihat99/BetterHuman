@@ -64,6 +64,34 @@ def test_malformed_entries_are_refused(tmp_path: Path, frames: dict, match: str)
         bh.io.read_frame_set(path)
 
 
+FIX = r"Write frame sets with better_human\.io\.write_frame_set"
+
+
+@pytest.mark.parametrize(
+    ("payload", "match"),
+    [
+        pytest.param([1, 2], rf"a frame set is a JSON object, got list\. {FIX}", id="list"),
+        pytest.param({"tip": "5"}, rf"names no format and is not a version-0 frame set .*\. {FIX}", id="v0_string"),
+        pytest.param({"tip": 5, "note": None}, rf"is not a version-0 frame set .*\. {FIX}", id="v0_null"),
+        pytest.param(
+            {"format": "better_human.frame_set", "frames": {"tip": {"vertex": 5, "joint": None}}},
+            r"a better_human\.frame_set file without format_version",
+            id="no_version",
+        ),
+        pytest.param(
+            {"format": "better_human.frame_set", "format_version": 1, "frames": [5]},
+            rf"'frames' must map .*{FIX}",
+            id="frames",
+        ),
+    ],
+)
+def test_a_file_that_is_not_frame_shaped_is_refused(tmp_path: Path, payload: object, match: str) -> None:
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(FormatError, match=match):
+        bh.io.read_frame_set(path)
+
+
 def test_writer_refuses_what_the_reader_refuses(tmp_path: Path) -> None:
     path = tmp_path / "bad.json"
     with pytest.raises(FormatError, match="'tip': vertex id '5' is not an int"):

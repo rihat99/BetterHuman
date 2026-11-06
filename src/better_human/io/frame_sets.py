@@ -6,9 +6,10 @@ A frame-set file (format ``better_human.frame_set``, version 1; spec ``docs/refe
      "frames": {"heel_left": {"vertex": 8924, "joint": null}, "knee_left": {"vertex": 3673, "joint": "left_knee"}}}
 
 A ``null`` joint means the vertex's dominant skinning joint. An unversioned file (version 0, ``{name: vertex |
-{"vertex", "joint"}}``) migrates on read. The functions here return and take the mapping
-``Body(contact_frames=...)`` accepts: name -> ``(vertex_id, joint_name | None)``, in authored order. Vertex ids are
-range-checked where the mesh is known, when the frames are attached to a body.
+{"vertex", "joint"}}``) migrates on read; a file without ``format`` is version 0 only when every value is such an
+entry. The functions here return and take the mapping ``Body(contact_frames=...)`` accepts: name -> ``(vertex_id,
+joint_name | None)``, in authored order. Vertex ids are range-checked where the mesh is known, when the frames are
+attached to a body.
 """
 
 from __future__ import annotations
@@ -18,17 +19,20 @@ import numbers
 from collections.abc import Mapping
 from importlib import resources
 from pathlib import Path
-from typing import Any
 
 from better_robot.exceptions import UnknownNameError
 
 from .formats import FRAME_SET, FormatError, header, upgrade
 
+#: How to fix a file that is not frame-shaped; the end of each such message.
+FIX = "Write frame sets with better_human.io.write_frame_set (spec: docs/reference/formats/frame_set.md)."
+
 
 def read_frame_set(path: str | Path) -> dict[str, tuple[int, str | None]]:
     """The frames of a frame-set file: name -> ``(vertex_id, joint_name | None)``, in authored order.
 
-    Raises :class:`~better_human.io.FormatError` for another format, a later version or a malformed entry.
+    Raises :class:`~better_human.io.FormatError` for another format, a later version, or a file or entry that is not
+    frame-shaped.
     """
     path = Path(path)
     return _frames(json.loads(path.read_text()), source=str(path))
@@ -66,16 +70,29 @@ def shipped_frame_set(name: str) -> dict[str, tuple[int, str | None]]:
     return _frames(json.loads((assets / f"{name}.json").read_text()), source=f"shipped frame set {name!r}")
 
 
-def _frames(data: Mapping[str, Any], *, source: str) -> dict[str, tuple[int, str | None]]:
+def _frames(data: object, *, source: str) -> dict[str, tuple[int, str | None]]:
+    if not isinstance(data, Mapping):
+        raise FormatError(f"{source}: a frame set is a JSON object, got {type(data).__name__}. {FIX}")
+    if "format" not in data and not all(_is_v0_entry(value) for value in data.values()):
+        raise FormatError(
+            f"{source}: names no format and is not a version-0 frame set ({{name: vertex | {{vertex, joint}}}}). {FIX}"
+        )
     frames = upgrade(data, format=FRAME_SET, source=source).get("frames")
     if not isinstance(frames, Mapping):
-        raise FormatError(f"{source}: 'frames' must map each frame name to {{vertex, joint}}, got {frames!r}")
+        raise FormatError(f"{source}: 'frames' must map each frame name to {{vertex, joint}}, got {frames!r}. {FIX}")
     return {name: _entry(name, value, source) for name, value in frames.items()}
+
+
+def _is_v0_entry(value: object) -> bool:
+    """A version-0 entry: a bare vertex id or ``{"vertex", "joint"}``."""
+    return (isinstance(value, int) and not isinstance(value, bool)) or (
+        isinstance(value, Mapping) and "vertex" in value
+    )
 
 
 def _entry(name: str, value: object, source: str) -> tuple[int, str | None]:
     if not isinstance(value, Mapping):
-        raise FormatError(f"{source}: frame {name!r} must be {{vertex, joint}}, got {value!r}")
+        raise FormatError(f"{source}: frame {name!r} must be {{vertex, joint}}, got {value!r}. {FIX}")
     vertex, joint = value.get("vertex"), value.get("joint")
     if isinstance(vertex, bool) or not isinstance(vertex, numbers.Integral) or vertex < 0:
         raise FormatError(f"{source}: frame {name!r}: vertex id {vertex!r} is not an int >= 0")
