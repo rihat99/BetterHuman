@@ -22,13 +22,7 @@ from better_human.core.pipeline import (
     skinning_transforms,
     skinning_transforms_from_inverse,
 )
-
-
-# float32 is the runtime dtype these gradchecks test on purpose, with a float32 step and tolerances; torch warns that
-# gradcheck expects float64.
-FLOAT32_GRADCHECK = pytest.mark.filterwarnings(
-    "ignore:Input #\\d+ requires gradient and is not a double precision:UserWarning"
-)
+from tests.support.marks import FLOAT32_GRADCHECK
 
 
 def _reference_euler_matrix(angles: torch.Tensor) -> torch.Tensor:

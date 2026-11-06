@@ -22,14 +22,10 @@ from better_human.core.mass import (
     segment_vertices,
 )
 from better_human.io import weight_path
+from tests.support.marks import FLOAT32_GRADCHECK
 
 SEGMENTATION_PATH = files("better_human.families.assets") / "smpl_3d_segmentation.npy"
 DENSITY_TABLE_PATH = files("better_human.families.assets") / "body_densities.json"
-# float32 is the runtime dtype these gradchecks test on purpose, with a float32 step and tolerances; torch warns that
-# gradcheck expects float64.
-FLOAT32_GRADCHECK = pytest.mark.filterwarnings(
-    "ignore:Input #\\d+ requires gradient and is not a double precision:UserWarning"
-)
 CONSERVATION_RTOL = 2e-2
 AUTHORED_VOLUME_RTOL = 1e-4
 COM_ATOL = 3e-3
