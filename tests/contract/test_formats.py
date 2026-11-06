@@ -37,6 +37,8 @@ READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     SOMA: ("npz", lambda path: load_model_npz(path, SOMA_SCHEMA)),
     FRAME_SET: ("json", read_frame_set),
 }
+#: The provenance a v1 archive migrates to: an MHR v1 archive has none, a SOMA v1 archive carries it as ``source``.
+V1_PROVENANCE = {MHR: "unknown (v1)", SOMA: '{"package": "py-soma-x"}'}
 #: Every format; SOMA's write cases run in the full tier: rewriting its archive compresses the schema's fixed sizes
 #: (18056 vertices, 40 MB), seconds on this host. Its migration case, a read, stays in the fast tier.
 WRITTEN_FORMATS = [pytest.param(name, marks=pytest.mark.slow) if name == SOMA else name for name in LATEST]
@@ -92,8 +94,8 @@ def test_past_version_reads_through_migration_as_the_latest(format: str, version
     past = _comparable(format, _read(format, _fixture(format, version)))
     latest = _comparable(format, _read(format, _fixture(format, LATEST[format])))
     if format != FRAME_SET:
-        # A v1 archive's provenance is unknown; everything else is the v2 archive's.
-        assert past.pop("provenance")[2] == np.asarray("unknown (v1)").tobytes()
+        # A v1 archive's provenance is its own; everything else is the v2 archive's.
+        assert past.pop("provenance")[2] == np.asarray(V1_PROVENANCE[format]).tobytes()
         latest.pop("provenance")
     assert past == latest
 

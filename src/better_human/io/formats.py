@@ -86,8 +86,9 @@ def _mhr_v1_to_v2(fields: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _soma_v1_to_v2(fields: Mapping[str, Any]) -> dict[str, Any]:
-    """v2 adds ``format`` and ``provenance``; a v1 archive keeps its arrays and gains provenance ``"unknown (v1)"``."""
-    return {**fields, "format": np.str_(SOMA), "format_version": np.int64(2), "provenance": np.str_("unknown (v1)")}
+    """v2 adds ``format``, and v1's provenance JSON ``source`` (asset commit, tag, sha256) becomes ``provenance``."""
+    kept = {name: value for name, value in fields.items() if name != "source"}
+    return {**kept, "format": np.str_(SOMA), "format_version": np.int64(2), "provenance": np.str_(fields["source"])}
 
 
 def _frame_set_v0_to_v1(fields: Mapping[str, Any]) -> dict[str, Any]:
@@ -105,3 +106,11 @@ MIGRATIONS: dict[tuple[str, int], Callable[[Mapping[str, Any]], dict[str, Any]]]
     (SOMA, 1): _soma_v1_to_v2,
     (FRAME_SET, 0): _frame_set_v0_to_v1,
 }
+
+#: ``(format, version) -> fields`` that only that version carries and its migration reads.
+PAST_FIELDS: dict[tuple[str, int], tuple[str, ...]] = {(SOMA, 1): ("source",)}
+
+
+def past_fields(fields: Mapping[str, Any], *, format: str) -> tuple[str, ...]:
+    """The fields a reader reads besides the latest schema's, for the version ``fields`` names: v1 SOMA's ``source``."""
+    return PAST_FIELDS.get((format, int(fields.get("format_version", 0))), ())

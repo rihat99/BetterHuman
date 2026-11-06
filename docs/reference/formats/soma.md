@@ -52,6 +52,6 @@ skips `corrective_first_layer` and the output layer.
 
 ## Migration
 
-`better_human.io.formats` migrates a v1 archive in memory: it adds `format`, `provenance = "unknown (v1)"` and
-`format_version = 2`, so v1 files on disk stay valid (a v1 `source` field is ignored). A later version is refused with
-both versions named.
+`better_human.io.formats` migrates a v1 archive in memory: it adds `format`, turns the v1 provenance JSON `source`
+(package, asset tag and commit, asset sha256) into `provenance`, and sets `format_version = 2`, so v1 files on disk
+stay valid. The reader reads `source` from v1 archives only. A later version is refused with both versions named.

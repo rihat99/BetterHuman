@@ -22,7 +22,7 @@ import numpy as np
 import torch
 from better_robot.exceptions import BetterRobotError
 
-from .formats import FormatError, header, upgrade
+from .formats import FormatError, header, past_fields, upgrade
 from .schema import ModelSchema, validate
 
 MODELS_ENV = "BETTERHUMAN_MODELS_DIR"
@@ -87,8 +87,9 @@ def load_model_npz(
     because PyTorch has no string tensor dtype. Unknown vendor fields and
     explicitly excluded schema fields are not returned. A schema with a
     ``format`` reads an older ``format_version`` through its in-memory
-    migration (:func:`~better_human.io.formats.upgrade`). Raises
-    :class:`~better_human.io.formats.FormatError` for a malformed file.
+    migration (:func:`~better_human.io.formats.upgrade`), reading the fields
+    only that version carries for it (:func:`~better_human.io.formats.past_fields`).
+    Raises :class:`~better_human.io.formats.FormatError` for a malformed file.
     """
     model_path = Path(path)
     if model_path.suffix.lower() != ".npz":
@@ -112,6 +113,9 @@ def load_model_npz(
         names |= set(header(schema.format))  # read even when excluded: the version selects the migrations
     with np.load(model_path, allow_pickle=False) as archive:
         arrays = _read_archive_arrays(archive, names, schema.name, model_path)
+        if schema.format is not None:
+            for name in past_fields(arrays, format=schema.format):
+                arrays[name] = np.asarray(archive[name])
     if schema.format is not None:
         arrays = upgrade(arrays, format=schema.format, source=str(model_path))
     validate(arrays, selected_schema, source=str(model_path))
