@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from better_robot.lie import se3
 
 from better_human import Body, HumanState, families
 from better_human.families.soma import SOMAClassic, soma_from_classic
@@ -35,6 +36,13 @@ LABELS = ("vertex", "joint position", "rotation entry")
 # rounds further (5.4e-6 m; 3.0e-6 m with that regression in float64), as upstream's does (7.5e-6 m from its float64).
 PARITY_ATOLS = (6.5e-6, 9e-6, 3.5e-6)
 PARITY_ATOLS_BY_CASE = {"reflect_00": (1.1e-5, 9e-6, 3.5e-6)}
+# Rest mesh [m], bind positions [m], bind rotation entries, float32 and float64: 2x the worst error over the 14
+# goldens and their identity batch, rounded up; never below the float32 oracle's 5.2e-6 m joint regression rounding.
+# Single reflect_00, a 5-sigma identity, sets its own rest mesh gate and not the general one: its float32 joint
+# regression rounds further (5.9e-6 m; 3.2e-6 m with that regression in float64), as upstream's does (7.3e-6 m from
+# its float64).
+BAKE_ATOLS = (6e-6, 1e-5, 1.1e-6)
+BAKE_ATOLS_BY_CASE = {"reflect_00": (1.2e-5, 1e-5, 1.1e-6)}
 PARITY_CASES = tuple((dtype, case) for dtype in (torch.float32, torch.float64) for case in sorted(EXPECTED_CASES))
 
 
@@ -106,3 +114,24 @@ def test_soma_parity_identity_batch(soma_goldens: Path, dtype: torch.dtype) -> N
     for label, error, atol in zip(LABELS, errors, PARITY_ATOLS, strict=True):
         worst = int(error.argmax())
         assert error[worst] <= atol, f"{dtype} {names[worst]} in a batch: {label} max error {error[worst].item():.3e}"
+
+
+@pytest.mark.parametrize("dtype", (torch.float32, torch.float64), ids=("float32", "float64"))
+def test_bake_matches_upstream_rest_shape_and_bind(soma_goldens: Path, dtype: torch.dtype) -> None:
+    """Skeleton fit and repose for every golden identity: the skinning rest mesh and the bind poses."""
+    body = Body(families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), mass=False)
+    for case in sorted(EXPECTED_CASES):
+        path = soma_goldens / f"{case}.npz"
+        rest_atol, position_atol, rotation_atol = BAKE_ATOLS_BY_CASE.get(case, BAKE_ATOLS)
+        with np.load(path, allow_pickle=False) as golden:
+            names = ("identity_coeffs", "rest_shape", "bind_transforms")
+            coefficients, rest_shape, expected = (torch.from_numpy(golden[name]).to(dtype) for name in names)
+        identity = body.bake(shape=coefficients)
+        bind = se3.to_matrix(se3.inverse(identity.inverse_bind_poses))
+        rest_error = (identity.v_shaped - rest_shape).abs().amax().item()
+        positions = torch.stack((identity.rest_joints, bind[:, :3, 3]))
+        position_error = (positions - expected[:, :3, 3]).abs().amax().item()
+        rotation_error = (bind[:, :3, :3] - expected[:, :3, :3]).abs().amax().item()
+        assert rest_error <= rest_atol, f"{path.stem}: rest mesh max error {rest_error:.3e}"
+        assert position_error <= position_atol, f"{path.stem}: bind position max error {position_error:.3e}"
+        assert rotation_error <= rotation_atol, f"{path.stem}: bind rotation max error {rotation_error:.3e}"
