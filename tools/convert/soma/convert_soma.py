@@ -40,7 +40,9 @@ LOGGER = logging.getLogger(__name__)
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--assets-dir", type=Path, required=True, help="Directory with the SOMA-X release assets")
-    parser.add_argument("--output-dir", type=Path, default=Path("models/SOMA"), help="Directory for soma_mid.npz")
+    parser.add_argument(
+        "--output-dir", type=Path, required=True, help="Directory for soma_mid.npz: $BETTERHUMAN_MODELS_DIR/SOMA"
+    )
     return parser.parse_args()
 
 
