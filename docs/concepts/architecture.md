@@ -20,16 +20,22 @@ BetterHuman builds a BetterRobot `Model` per subject and reuses BetterRobot for 
 
 ## The package DAG is a test
 
-`tests/contract/test_layer_dependencies.py` (rule `H-LAYER-1`) fails on any import that points
-the wrong way inside `better_human`:
+`tests/contract/test_layer_dependencies.py` (rule `H-LAYER-1`, decision record 0011) fails on any import that
+points the wrong way between the units of `better_human`, and on any import of a BetterRobot unit that the second
+table of the same record does not list for the importer:
 
 ```text
-viz  ->  better_human (root), core, families, io, terms
+better_human (root) ->  core, families, io, mass, terms, viz
+studio   ->  better_human (root), core, families, io, mass, viz
+viz      ->  core
 terms    ->  core
-families ->  core, io
-core          (nothing)
-io            (nothing)
+families ->  core, io, mass
+core     ->  mass
+io, mass      (nothing)
 ```
+
+`mass` and `studio` arrive with the record's package layout; until then the studio is `viz/studio`, and the imports
+that break the table today are listed with their reasons in `tests/contract/ratchets/edges.json`.
 
 ## The four objects
 

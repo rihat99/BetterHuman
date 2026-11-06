@@ -3,11 +3,16 @@
 BetterHuman-specific rules, in BetterRobot's format: ID, level (MUST / SHOULD), rule, rationale, example,
 enforcement. The BetterRobot contracts in `BetterRobot/docs/contracts/` apply first (see [index](index.md)).
 
-## H-LAYER-1 Imports follow the BetterHuman package DAG (MUST)
+## H-LAYER-1 Imports follow decision record 0011's two edge tables (MUST)
 
-`core` and `io` import nothing from `better_human`. `families` imports `core` and `io`. `terms` imports `core`.
-`viz` (including `viz/studio`) imports anything below it and the package root. Nothing below `viz` imports `viz`.
-Every package may import BetterRobot's public surface (`C-DEP-1`, `tests/contract/test_br_imports.py`).
+Among BetterHuman's units: `io` and `mass` import no other unit; `core` imports `mass`; `families` imports `core`,
+`io` and `mass`; `terms` imports `core`; `viz` imports `core`; `studio` imports the package root, `core`,
+`families`, `io`, `mass` and `viz`; the root imports every unit but `studio`. Into BetterRobot: `io` nothing; `mass`
+`lie` and `spatial`; `core` the root, `kinematics` and `lie`; `families` the root, `io`, `kinematics` and `lie`;
+`terms` the root, `dynamics`, `kinematics` and `optim`; `viz` and `studio` `viewer`, `studio` also `lie`. Only
+BetterRobot's public surface is imported (`C-DEP-1`, `tests/contract/test_br_imports.py`). `mass` and `studio` arrive
+with record 0011's package layout; until then the studio is `viz/studio`, and each import that breaks a table today
+is listed with its reason in `tests/contract/ratchets/edges.json`.
 
 Rationale: the body model (`core`) and weight-file reading (`io`) stay usable without any family table or viewer.
 Example: `src/better_human/families/smpl_family.py` imports `core` and `io`; `src/better_human/terms.py`
