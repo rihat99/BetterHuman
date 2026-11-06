@@ -45,7 +45,11 @@ def check_format(data: Mapping[str, Any], *, format: str, version: int, source: 
             f"{source}: expected a {format} file, got format {None if found is None else str(found)!r}. "
             f"Pass a {format} file, or reconvert it with this version's converter."
         )
-    found_version = int(data.get("format_version", 0))
+    if "format_version" not in data:
+        raise FormatError(
+            f"{source}: a {format} file without format_version. Write it with this version's writer or converter."
+        )
+    found_version = int(data["format_version"])
     if found_version > version:
         raise FormatError(
             f"{source}: {format} format_version {found_version} is later than {version}, the latest this BetterHuman "
@@ -56,9 +60,13 @@ def check_format(data: Mapping[str, Any], *, format: str, version: int, source: 
 def upgrade(fields: Mapping[str, Any], *, format: str, source: str = "<mapping>") -> dict[str, Any]:
     """``fields`` migrated in memory to the latest version of ``format``, then checked by :func:`check_format`.
 
-    A missing ``format_version`` counts as 0. Raises :class:`FormatError` for a version no migration starts from.
+    A file that names its ``format`` is checked before any migration, so a file of another format is refused rather
+    than migrated into this one; a file without ``format`` or ``format_version`` is version 0. Raises
+    :class:`FormatError` for another format, a later version, or a version no migration starts from.
     """
     latest = LATEST[format]
+    if "format" in fields:
+        check_format(fields, format=format, version=latest, source=source)
     upgraded = dict(fields)
     while (version := int(upgraded.get("format_version", 0))) < latest:
         migrate = MIGRATIONS.get((format, version))

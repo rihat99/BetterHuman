@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from better_human.io import FormatError, read_frame_set, write_frame_set
+from better_human.io import FormatError, check_format, read_frame_set, write_frame_set
 from better_human.io.formats import FRAME_SET, LATEST, MHR, MIGRATIONS, SOMA
 from better_human.io.load import load_model_npz
 from better_human.io.schema import MHR_SCHEMA, SOMA_SCHEMA
@@ -110,6 +110,18 @@ def test_another_format_is_refused_naming_both(format: str, tmp_path: Path) -> N
     path = _rewrite(fixture, tmp_path / fixture.name, {"format": "x.y"})
     with pytest.raises(FormatError, match=rf"expected a {format} file, got format 'x.y'"):
         _read(format, path)
+
+
+def test_another_format_is_refused_before_any_migration(tmp_path: Path) -> None:
+    """A v1 archive that names another format is refused, not migrated into an MHR archive."""
+    path = _rewrite(_fixture(MHR, 1), tmp_path / "mhr_v1.npz", {"format": SOMA})
+    with pytest.raises(FormatError, match=rf"expected a {MHR} file, got format '{SOMA}'"):
+        _read(MHR, path)
+
+
+def test_a_format_without_its_version_is_refused() -> None:
+    with pytest.raises(FormatError, match=rf"a {FRAME_SET} file without format_version"):
+        check_format({"format": FRAME_SET, "frames": {}}, format=FRAME_SET, version=LATEST[FRAME_SET])
 
 
 @pytest.mark.parametrize("format", LATEST)
