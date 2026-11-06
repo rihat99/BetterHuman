@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+from importlib.metadata import distribution
 from pathlib import Path
+from urllib.parse import urlparse
 
 import torch
 
@@ -27,11 +30,12 @@ def _free_flyer_spherical_tree() -> Model:
 
 
 def test_foundation_imports_from_editable_checkouts() -> None:
+    """``better_robot`` comes from the checkout its installed distribution records, whichever checkout runs the test."""
     assert better_human.__version__ == "0.1.0.dev0"
-    assert better_robot.__file__ is not None
-
-    sibling_source = Path(__file__).resolve().parents[2] / "BetterRobot" / "src"
-    assert Path(better_robot.__file__).resolve().is_relative_to(sibling_source.resolve())
+    record = json.loads(distribution("better-robot").read_text("direct_url.json"))
+    assert record["dir_info"]["editable"], f"better-robot is not an editable install: {record}"
+    source = Path(urlparse(record["url"]).path) / "src"
+    assert Path(better_robot.__file__).resolve().is_relative_to(source.resolve())
 
 
 def test_free_flyer_spherical_forward_kinematics_is_batched() -> None:
