@@ -13,7 +13,7 @@ from better_human.core.rig import RegressedRig
 from better_human.core.spec import Corrective, FamilySpec, Parts, drop_joints, top_k_skin
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz
-from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA, ModelSchema
+from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA
 
 from . import tables
 from .assets import load_closed_segmentation
@@ -51,8 +51,7 @@ def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
 
 def load_family(
     table: tables.FamilyTable,
-    schema: ModelSchema,
-    path: str | Path,
+    arrays: Mapping[str, torch.Tensor],
     *,
     identity: Mapping[str, int],
     streams: Mapping[str, int] = {},
@@ -62,13 +61,12 @@ def load_family(
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """Build a :class:`FamilySpec` from an SMPL-family ``.npz``.
+    """Build a :class:`FamilySpec` from the ``arrays`` of an SMPL-family ``.npz`` (``io.load.load_model_npz``).
 
     ``identity`` and ``streams`` give the requested width of each blend group; ``columns`` says
     where each group lives in ``shapedirs`` (default: one group ``betas`` spanning the file).
     ``drop`` names terminal joints to remove (hands, face).
     """
-    arrays = load_model_npz(path, schema)
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
         raise ValueError(f"{table.name} weights hold {joint_count} joints; expected {len(table.joint_names)}")
@@ -121,8 +119,7 @@ def smpl(
     path = weight_path(tables.SMPL.folder, tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
     return load_family(
         tables.SMPL,
-        SMPL_SCHEMA,
-        path,
+        load_model_npz(path, SMPL_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         dtype=dtype,
         device=device,
@@ -145,8 +142,7 @@ def smplh(
     drop = () if hands else tuple(table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints))
     return load_family(
         table,
-        SMPLH_SCHEMA,
-        path,
+        load_model_npz(path, SMPLH_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         drop=drop,
         dtype=dtype,
@@ -170,9 +166,7 @@ def smplx(
     gender = _gender(gender)
     table = tables.SMPLX
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
-    # Only the hand arrays: load_family reads the whole archive, and its large members should decompress once.
-    hand_fields = {"hands_componentsl", "hands_componentsr", "hands_meanl", "hands_meanr"}
-    arrays = load_model_npz(path, SMPLX_SCHEMA, exclude_fields=SMPLX_SCHEMA.fields.keys() - hand_fields)
+    arrays = load_model_npz(path, SMPLX_SCHEMA)
     hand_meta = {
         "hand_components": {"left": arrays["hands_componentsl"], "right": arrays["hands_componentsr"]},
         "hand_mean": {
@@ -189,8 +183,7 @@ def smplx(
     streams = {"expression": _check_width("num_expression", num_expression, SMPLX_EXPRESSION_DIM)} if face else {}
     return load_family(
         table,
-        SMPLX_SCHEMA,
-        path,
+        arrays,
         identity={"betas": _check_width("num_betas", num_betas, SMPLX_SHAPE_DIM)},
         streams=streams,
         columns={
@@ -227,8 +220,7 @@ def mano(
     }
     return load_family(
         table,
-        MANO_SCHEMA,
-        path,
+        arrays,
         identity={"betas": _check_width("num_betas", num_betas, 10)},
         meta=meta,
         dtype=dtype,
@@ -250,8 +242,7 @@ def flame(
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
     return load_family(
         table,
-        FLAME_SCHEMA,
-        path,
+        load_model_npz(path, FLAME_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, FLAME_SHAPE_DIM)},
         streams={"expression": _check_width("num_expression", num_expression, FLAME_EXPRESSION_DIM)},
         columns={
