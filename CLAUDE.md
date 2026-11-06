@@ -7,8 +7,8 @@ Design: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Shapes, u
 
 ```bash
 export BETTERHUMAN_MODELS_DIR=$PWD/models                       # licensed weights, never committed
-uv run pytest tests/contract -q -m "not slow and not licensed"  # fast tier, 1 s (2 to 3 s when huge pages stall)
-uv run pytest tests -q -m "not cuda and not licensed"           # full tier, no weights needed, 4 to 8 s
+uv run pytest tests/contract -q -m "not slow and not licensed"  # fast tier, 1.2 s (up to 6 s when huge pages stall)
+uv run pytest tests -q -m "not cuda and not licensed"           # full tier, no weights needed, 5 to 8 s
 uv run pytest tests -q -m "licensed and not cuda"               # release tier on CPU, 2.5 min; fails without weights
 uv run pytest tests -q -m cuda                                  # release tier on a free GPU, 10 s
 uv run ruff check src tests examples benchmarks                 # lint (line length 120)
@@ -18,7 +18,7 @@ uv run python benchmarks/run.py --device cpu --threads 8 --out temp/bench_cpu.js
 
 Tier times are wall times measured on 2026-11-06 (384-core host, load average about 20). The CPU release tier took
 15 to 17 min while the host's transparent huge pages stalled and 2.5 min with `NUMPY_MADVISE_HUGEPAGE=0`; the fast
-tier stalls in its SOMA migration case (two archives, 40 MB each decompressed) and takes 1.0 to 1.2 s with
+tier stalls in its SOMA migration case (two archives, 40 MB each decompressed) and takes 1.1 to 1.2 s with
 `NUMPY_MADVISE_HUGEPAGE=0`. `docs/contributing/testing.md` has the tiers in full and the huge-page story.
 
 ## Layering rule
