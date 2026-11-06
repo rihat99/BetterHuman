@@ -1,9 +1,9 @@
 """Session rules shared by every test: nothing skips or expects to fail, and a selected ``licensed`` test needs the
 weights directory.
 
-A skipped or xfailed outcome, at collection or at run time and however it was produced, fails instead, unless its
-test id is in ``contract/ratchets/skips.json`` (BetterRobot decision record 0033; the ratchet only shrinks). A test
-that cannot run on every machine carries a marker the tier commands deselect: ``licensed`` or ``cuda``.
+A skipped or xfailed outcome, at collection or at run time and however it was produced, fails instead (BetterRobot
+decision record 0033). A test that cannot run on every machine carries a marker the tier commands deselect:
+``licensed`` or ``cuda``.
 
 A test marked ``licensed`` reads licensed weights through ``better_human.io.weight_path``. When any such test is
 selected and ``$BETTERHUMAN_MODELS_DIR`` is unset or names no directory, collection stops with the fix, so a run
@@ -13,19 +13,15 @@ directory fails only the test that reads it.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 
 from better_human.io import models_dir
 
-SKIP_RATCHET: dict[str, str] = json.loads((Path(__file__).parent / "contract" / "ratchets" / "skips.json").read_text())
-
 
 def _fail_if_skipped(report: pytest.CollectReport | pytest.TestReport) -> None:
-    if not report.skipped or report.nodeid in SKIP_RATCHET:
+    if not report.skipped:
         return
     if hasattr(report, "wasxfail"):
         what, reason = "xfailed", report.wasxfail
