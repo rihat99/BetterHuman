@@ -98,6 +98,8 @@ nav:
       - concepts/architecture.md
       - concepts/segmentation.md
   - Studio: studio.md
+  - Contributing:
+      - Testing: contributing/testing.md
   - Reference:
       - reference/roadmap.md
   - Contracts:
