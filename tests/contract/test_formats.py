@@ -23,13 +23,14 @@ import numpy as np
 import pytest
 
 from better_human.io import FormatError, check_format, read_frame_set, write_frame_set
-from better_human.io.formats import FRAME_SET, LATEST, MHR, MIGRATIONS, SOMA
+from better_human.io.formats import FRAME_SET, LATEST, MHR, MIGRATIONS, SOMA, header
 from better_human.io.load import load_model_npz
 from better_human.io.schema import MHR_SCHEMA, SOMA_SCHEMA, ModelSchema
 
 REPO = Path(__file__).resolve().parents[2]
 PACKAGE = REPO / "src" / "better_human"
 FIXTURES = REPO / "tests" / "support" / "formats"
+CONVERTERS = REPO / "tools" / "convert"
 #: The modules that may name ``format_version``: the one check with its migrations, and the archive schemas.
 FORMAT_VERSION_MODULES = ("io/formats.py", "io/schema.py")
 #: ``path -> reason`` for each module that still loads a pickle; an entry leaves with its fix (record 0013).
@@ -220,6 +221,34 @@ def _allow_pickle_arguments(package: Path) -> list[str]:
         and node.arg == "allow_pickle"
         and not (isinstance(node.value, ast.Constant) and node.value.value is False)
     ]
+
+
+def _converter_headers() -> dict[str, dict[str, Any]]:
+    """``path -> {format, format_version}`` of each dict literal under ``tools/convert`` that holds both header keys.
+
+    A value is a literal or ``np.asarray(<literal>, ...)``; anything else fails ``ast.literal_eval``.
+    """
+    found = {}
+    for path in sorted(CONVERTERS.rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not isinstance(node, ast.Dict):
+                continue
+            fields = {
+                key.value: ast.literal_eval(value.args[0] if isinstance(value, ast.Call) else value)
+                for key, value in zip(node.keys, node.values)
+                if isinstance(key, ast.Constant) and key.value in ("format", "format_version")
+            }
+            if len(fields) == 2:
+                found[str(path.relative_to(REPO))] = fields
+    return found
+
+
+def test_each_converter_writes_the_header_of_its_format() -> None:
+    """The converters run without BetterHuman installed, so each spells the header out; it equals ``header(format)``."""
+    found = _converter_headers()
+    assert {fields["format"] for fields in found.values()} == {MHR, SOMA}, found
+    for path, fields in found.items():
+        assert fields == header(fields["format"]), f"{path} writes {fields}; header() gives {header(fields['format'])}"
 
 
 def test_format_version_is_named_only_in_io_formats_and_schema() -> None:

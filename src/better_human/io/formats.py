@@ -2,9 +2,10 @@
 
 A file names its ``format`` (``"better_human.mhr"``) and its ``format_version``. A reader calls :func:`upgrade`, which
 migrates an older version in memory one step at a time, so files on disk stay valid, and then :func:`check_format`; a
-writer writes :func:`header`. This module is the one place that reads or writes ``format_version`` (decision record
-0012; ``src/better_human/io/schema.py`` lists it among the archive fields). Each format's spec is
-``docs/reference/formats/<name>.md``.
+writer writes :func:`header`. Inside the package, this module is the one place that reads or writes
+``format_version`` (decision record 0012; ``src/better_human/io/schema.py`` lists it among the archive fields). The
+converters under ``tools/convert`` run without BetterHuman and spell the header out; ``tests/contract/test_formats.py``
+checks it against :func:`header`. Each format's spec is ``docs/reference/formats/<name>.md``.
 """
 
 from __future__ import annotations
