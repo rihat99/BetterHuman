@@ -28,8 +28,8 @@ When a BetterHuman rule and a BetterRobot rule disagree, BetterRobot's numerical
 |---|---|
 | `tests/contract/test_br_imports.py` | `C-DEP-*`: only BetterRobot's public surface is imported |
 | `tests/contract/test_layer_dependencies.py` | `H-LAYER-1`, record 0011: the unit and BetterRobot edge tables; ratchet `tests/contract/ratchets/edges.json` |
-| `tests/contract/test_citations.py` | principle 7.8: cited paths and `path::symbol`s resolve, no line numbers; ratchet `tests/contract/ratchets/citations.json` |
-| `tests/contract/test_keyword_only.py` | `H-API-2` / `C-API-2`: keyword-only arguments, with an allowlist of current violations |
+| `tests/contract/test_citations.py` | principle 7.8: cited paths and `path::symbol`s resolve, no line numbers; ratchet `tests/contract/ratchets/dead_citations.json` |
+| `tests/contract/test_keyword_only.py` | `H-API-2` / `C-API-2`: keyword-only arguments; ratchet `tests/contract/ratchets/keyword_only.json` |
 | `tests/parity/` | `H-PARITY-1`: parity gates |
 | `tests/contract/test_models_dir.py` | `H-ASSET-2`, record 0017: weights paths only through `better_human.io` |
 | `tests/contract/test_formats.py` | records 0012, 0013: every file format round-trips, reads its past versions through migration (fixtures `tests/support/formats/`), refuses a later version or another format, and has a page under `docs/reference/formats/`; only `src/better_human/io/formats.py` and `src/better_human/io/schema.py` name `format_version` (8.8); no `allow_pickle=True` in `src` but its listed exception; the fixtures match `tests/support/formats/SHA256SUMS` (written by `make_fixtures.py` there) and each spec page's field tables equal the reader's schema |
