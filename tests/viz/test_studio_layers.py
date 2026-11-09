@@ -21,11 +21,11 @@ pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
-def smpl() -> bh.Body:
+def smpl() -> bh.HumanModel:
     return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
 
 
-def _setup(body: bh.Body) -> tuple[StudioSession, StudioLayers, FakeServer]:
+def _setup(body: bh.HumanModel) -> tuple[StudioSession, StudioLayers, FakeServer]:
     server = FakeServer()
     session = StudioSession(body, "smpl")
     return session, StudioLayers(Viewer(server=server), session), server
@@ -35,15 +35,15 @@ def _part_nodes(server: FakeServer, layer: str) -> list[str]:
     return [name for name, node in server.scene.nodes.items() if f"/{layer}/part_" in name and not node.removed]
 
 
-def test_segmentation_face_groups_cover_every_face(smpl: bh.Body) -> None:
+def test_segmentation_face_groups_cover_every_face(smpl: bh.HumanModel) -> None:
     _, layers, server = _setup(smpl)
     layers.set_mode("segmentation")
     groups = layers.mesh.segmentation.face_groups()
-    assert sum(len(faces) for faces, _ in groups) == smpl.faces.shape[0]
+    assert sum(len(faces) for faces, _ in groups) == smpl.spec.faces.shape[0]
     assert len(_part_nodes(server, "mesh")) == len(groups)
 
 
-def test_segmentation_rebuild_on_edit(smpl: bh.Body) -> None:
+def test_segmentation_rebuild_on_edit(smpl: bh.HumanModel) -> None:
     session, layers, server = _setup(smpl)
     layers.set_mode("segmentation")
     ids = (session.vertices[:, 0] > 0).to(torch.long)
@@ -54,11 +54,11 @@ def test_segmentation_rebuild_on_edit(smpl: bh.Body) -> None:
     assert len(layers.mesh.segmentation.face_groups()) >= len(session.part_names)
 
 
-def test_parts_are_closed_meshes(smpl: bh.Body) -> None:
+def test_parts_are_closed_meshes(smpl: bh.HumanModel) -> None:
     session, layers, server = _setup(smpl)
     layers.set_mode("parts")
     assert layers.mesh.parts.closed
-    rest = session.identity.forward(session.identity.q_neutral).vertices
+    rest = session.identity.forward(session.identity.model.q_neutral).vertices
     meshes = layers.mesh.parts.part_meshes(rest)
     assert len(meshes) == len(_part_nodes(server, "mesh")) == len(session.part_names)
     for _, _, vertices, faces in meshes:
@@ -67,7 +67,7 @@ def test_parts_are_closed_meshes(smpl: bh.Body) -> None:
         assert faces.max() < len(vertices)
 
 
-def test_parts_fall_back_to_open_submeshes(smpl: bh.Body, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_parts_fall_back_to_open_submeshes(smpl: bh.HumanModel, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*_args: object) -> None:
         raise ValueError("no closed topology")
 
@@ -78,7 +78,7 @@ def test_parts_fall_back_to_open_submeshes(smpl: bh.Body, monkeypatch: pytest.Mo
     assert len(_part_nodes(server, "mesh")) == len(session.part_names)
 
 
-def test_parts_explode_moves_parts_apart(smpl: bh.Body) -> None:
+def test_parts_explode_moves_parts_apart(smpl: bh.HumanModel) -> None:
     _, layers, _ = _setup(smpl)
     layers.set_mode("parts")
     layers.mesh.parts.set_step(0)
@@ -90,7 +90,7 @@ def test_parts_explode_moves_parts_apart(smpl: bh.Body) -> None:
     assert np.linalg.norm(exploded - assembled, axis=1).max() > 0.05
 
 
-def test_opacity_radius_highlight_and_edit_overlay(smpl: bh.Body) -> None:
+def test_opacity_radius_highlight_and_edit_overlay(smpl: bh.HumanModel) -> None:
     session, layers, _ = _setup(smpl)
     layers.set_opacity(0.4)
     layers.set_radius(0.03)
@@ -103,7 +103,7 @@ def test_opacity_radius_highlight_and_edit_overlay(smpl: bh.Body) -> None:
     np.testing.assert_allclose(layers.edit.points[0], session.vertices[[0, 1, 2]].numpy(), atol=1e-6)
 
 
-def test_pose_change_updates_arrays_in_place(smpl: bh.Body) -> None:
+def test_pose_change_updates_arrays_in_place(smpl: bh.HumanModel) -> None:
     session, layers, _ = _setup(smpl)
     vertices = layers.mesh.segmentation.vertices
     elbow = next(h for h in session.handles if h.name == "left_elbow")
@@ -113,10 +113,10 @@ def test_pose_change_updates_arrays_in_place(smpl: bh.Body) -> None:
     session.rotate_joint(elbow, old, new)
     assert layers.mesh.segmentation.vertices is vertices
     np.testing.assert_allclose(vertices[0], session.vertices.numpy(), atol=1e-5)
-    np.testing.assert_allclose(layers.skeleton.joints[0], session.state.joints.numpy(), atol=1e-5)
+    np.testing.assert_allclose(layers.skeleton.joints[0], session.state.joint_translations.numpy(), atol=1e-5)
 
 
-def test_visibility_defaults_and_body_reload(smpl: bh.Body) -> None:
+def test_visibility_defaults_and_body_reload(smpl: bh.HumanModel) -> None:
     session, layers, _ = _setup(smpl)
     assert layers.visible == {"mesh": True, "frames": True, "skeleton": True, "edit": False}
     layers.set_visible("mesh", False)
@@ -136,7 +136,7 @@ def _visible_parts(server: FakeServer) -> int:
     return sum(bool(server.scene.nodes[name].visible) for name in _part_nodes(server, "mesh"))
 
 
-def test_mode_switch_keeps_one_mesh_layer_and_visibility(smpl: bh.Body) -> None:
+def test_mode_switch_keeps_one_mesh_layer_and_visibility(smpl: bh.HumanModel) -> None:
     session, layers, server = _setup(smpl)
     mesh = layers.mesh
     for mode in ("segmentation", "parts", "skin"):
@@ -149,11 +149,11 @@ def test_mode_switch_keeps_one_mesh_layer_and_visibility(smpl: bh.Body) -> None:
     assert not mesh.visible and _visible_parts(server) == 0 and len(_part_nodes(server, "mesh")) > 0
 
 
-def test_hidden_parts_stay_hidden_after_shape_and_segmentation_change(smpl: bh.Body) -> None:
+def test_hidden_parts_stay_hidden_after_shape_and_segmentation_change(smpl: bh.HumanModel) -> None:
     session, layers, server = _setup(smpl)
     layers.set_mode("parts")
     layers.set_visible("mesh", False)
-    betas = session.shape_tensor("betas", [2.0] + [0.0] * (smpl.identity_groups["betas"] - 1))
+    betas = session.shape_tensor("betas", [2.0] + [0.0] * (smpl.spec.identity_groups["betas"] - 1))
     session.set_shape(betas=betas)
     session.set_segmentation(("right", "left"), (session.vertices[:, 0] > 0).to(torch.long))
     assert _visible_parts(server) == 0
@@ -163,16 +163,16 @@ def test_hidden_parts_stay_hidden_after_shape_and_segmentation_change(smpl: bh.B
     assert _visible_parts(server) == len(_part_nodes(server, "mesh")) == 2
 
 
-def test_visible_parts_keep_visibility_through_viewer_rebuild(smpl: bh.Body) -> None:
+def test_visible_parts_keep_visibility_through_viewer_rebuild(smpl: bh.HumanModel) -> None:
     session, layers, server = _setup(smpl)
     layers.set_mode("parts")
     count = len(_part_nodes(server, "mesh"))
-    session.set_shape(betas=session.shape_tensor("betas", [1.0] + [0.0] * (smpl.identity_groups["betas"] - 1)))
+    session.set_shape(betas=session.shape_tensor("betas", [1.0] + [0.0] * (smpl.spec.identity_groups["betas"] - 1)))
     assert _visible_parts(server) == len(_part_nodes(server, "mesh")) == count
     assert layers.visible["mesh"] is True
 
 
-def test_opacity_radius_and_edit_keep_layer_objects(smpl: bh.Body) -> None:
+def test_opacity_radius_and_edit_keep_layer_objects(smpl: bh.HumanModel) -> None:
     _, layers, server = _setup(smpl)
     before = {name: layer for name, layer in layers.layers.items()}
     layers.set_opacity(0.4)

@@ -6,7 +6,7 @@ forward kinematics, Jacobians, dynamics, optimisers and viewer apply to it.
 
 ## A body is a BetterRobot model
 
-- **Load once.** `better_human.load(family)` reads converted weights and builds one `Body` per family.
+- **Load once.** `better_human.load(family)` reads converted weights and builds one `HumanModel` per family.
 - **Bake a subject.** `body.bake(betas=...)` shapes the mesh and returns an `Identity` whose
   `model` is a plain BetterRobot `Model` with the subject's joint placements and mass.
 - **Pose in batches.** `identity.forward(q)` runs BetterRobot forward kinematics and skins the
@@ -21,17 +21,17 @@ import torch
 import better_human as bh
 from better_robot.kinematics import integrate
 
-body = bh.load("smpl")                          # $BETTERHUMAN_MODELS_DIR/smpl/
-subject = body.bake(betas=torch.zeros(10))      # shape once
+human = bh.load("smpl")                         # $BETTERHUMAN_MODELS_DIR/smpl/
+subject = human.bake(betas=torch.zeros(10))      # shape once
 model = subject.model                           # a BetterRobot Model
-joints, vertices = len(body.joint_names), body.num_vertices
+joints, vertices = len(human.spec.joint_names), human.spec.num_vertices
 print(f"nq={model.nq} nv={model.nv} joints={joints} vertices={vertices}")
 
 v = torch.zeros(4, model.nv)                    # a batch of 4 tangent offsets
 elbow = model.idx_vs[model.joint_id("left_elbow")]
 v[:, elbow + 1] = torch.linspace(0.0, 1.5, 4)   # flex the left elbow
-state = subject.forward(integrate(model, subject.q_neutral, v))
-print("vertices", tuple(state.vertices.shape), "joints", tuple(state.joints.shape))
+state = subject.forward(integrate(model, model.q_neutral, v))
+print("vertices", tuple(state.vertices.shape), "joints", tuple(state.joint_translations.shape))
 ```
 ```output
 nq=99 nv=75 joints=24 vertices=6890

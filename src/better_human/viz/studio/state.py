@@ -17,7 +17,7 @@ from typing import NamedTuple
 import torch
 from better_robot.lie import so3
 
-from better_human.core.human_model import Body, HumanState, Identity
+from better_human.core.human_model import HumanModel, HumanState, Identity
 from better_human.core.mass import _majority_face_parts, segment_vertices
 
 from .posing import JointHandle, apply_local_rotation, joint_handles
@@ -38,7 +38,7 @@ class FrameEntry(NamedTuple):
     joint: int | None = None
 
 
-def _vertex_native_joints(body: Body) -> torch.Tensor:
+def _vertex_native_joints(body: HumanModel) -> torch.Tensor:
     """Return the strongest-weighted native skin joint per vertex ``(V,)``."""
     return segment_vertices(body.spec.skin_weights, body.spec.skin_indices)
 
@@ -86,7 +86,7 @@ def compact_segmentation(
 class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
-    def __init__(self, body: Body, model_key: str, frame_set: dict[str, int] | None = None) -> None:
+    def __init__(self, body: HumanModel, model_key: str, frame_set: dict[str, int] | None = None) -> None:
         # The one studio lock: every GUI callback, the gizmo worker and each mutation run under it (re-entrant: nested calls).
         self.lock = threading.RLock()
         self._subscribers: list[Callable[[ChangeKind], None]] = []
@@ -96,7 +96,7 @@ class StudioSession:
 
     def load_body(
         self,
-        body: Body,
+        body: HumanModel,
         model_key: str,
         frame_set: dict[str, FrameEntry] | None = None,
         *,
@@ -107,12 +107,12 @@ class StudioSession:
             self.body = body
             self.model_key = model_key
             self.shape = {
-                name: torch.zeros(width, dtype=body.dtype, device=body.device)
-                for name, width in body.identity_groups.items()
+                name: torch.zeros(width, dtype=body.spec.dtype, device=body.spec.device)
+                for name, width in body.spec.identity_groups.items()
             }
             self.identity: Identity = body.bake(**self.shape)
             self.handles = joint_handles(self.identity)
-            self.q = self.identity.q_neutral.clone()
+            self.q = self.identity.model.q_neutral.clone()
             self.vertex_native_joints = _vertex_native_joints(body)
             self._reset_default_segmentation()
             self.frame_set = dict(frame_set) if frame_set else {}
@@ -125,7 +125,7 @@ class StudioSession:
         part_ids = self.body.spec.parts.ids.clone().to(torch.long)
         num_parts = int(part_ids.max()) + 1
         representatives = _part_representatives(part_ids, num_parts, self.vertex_native_joints)
-        joint_names = self.body.joint_names
+        joint_names = self.body.spec.joint_names
         self.part_ids = part_ids
         self.part_names = tuple(joint_names[rep] for rep in representatives)
 
@@ -169,7 +169,7 @@ class StudioSession:
 
     def reset_pose(self) -> None:
         """Return the configuration to the model neutral pose."""
-        self.set_q(self.identity.q_neutral.clone())
+        self.set_q(self.identity.model.q_neutral.clone())
 
     # -- shape ---------------------------------------------------------------
 
@@ -188,15 +188,15 @@ class StudioSession:
         :param values: one coefficient per group slider.
         :returns: a ``(width,)`` tensor matching the body dtype and device.
         """
-        width = self.body.identity_groups[group]
+        width = self.body.spec.identity_groups[group]
         if len(values) != width:
             raise ValueError(f"shape group {group!r} expects {width} values, got {len(values)}")
-        return torch.tensor(values, dtype=self.body.dtype, device=self.body.device)
+        return torch.tensor(values, dtype=self.body.spec.dtype, device=self.body.spec.device)
 
     @property
     def total_mass(self) -> float | None:
         """Return the baked identity's total mass in kilograms, or ``None`` when loaded without mass."""
-        if getattr(self.body, "topology", None) is None:
+        if self.body.part_topology is None:
             return None
         return float(self.identity.model.body_inertias[..., 0].sum())
 

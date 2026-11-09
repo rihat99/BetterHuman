@@ -3,7 +3,7 @@
 Register the state once per problem (``problem.cached(human_state(identity), name="state")``);
 every term below reads it, so one forward pass serves all terms. Pose variables are ``q (B, nq)``
 or trajectories ``q (B, T, nq)``; residuals keep the leading batch axes and flatten their event
-axes. Identity groups may be variables too (``problem.cached(shaped(body), name="identity")``)
+axes. Identity groups may be variables too (``problem.cached(shaped(human), name="identity")``)
 for shape fitting.
 """
 
@@ -17,13 +17,13 @@ from better_robot.dynamics import inverse_dynamics
 from better_robot.kinematics import KinematicState, difference, forward_kinematics
 from better_robot.optim import TermFn
 
-from .core.human_model import Body, HumanState, Identity
+from .core.human_model import HumanModel, HumanState, Identity
 
 
-def shaped(body: Body, *groups: str) -> TermFn:
-    """Cached value: ``body.bake(**groups)`` from variables named after the identity groups (default: all)."""
-    names = groups or tuple(body.identity_groups)
-    return TermFn(fn=lambda *values: body.bake(**dict(zip(names, values))), reads=names)
+def shaped(human: HumanModel, *groups: str) -> TermFn:
+    """Cached value: ``human.bake(**groups)`` from variables named after the identity groups (default: all)."""
+    names = groups or tuple(human.spec.identity_groups)
+    return TermFn(fn=lambda *values: human.bake(**dict(zip(names, values))), reads=names)
 
 
 def human_state(
@@ -54,7 +54,7 @@ def joints(*, target: str, state: str = "state", joint_ids: Sequence[int] | None
     ids = None if joint_ids is None else torch.as_tensor(joint_ids, dtype=torch.long)
 
     def residual(human: HumanState, goal: torch.Tensor) -> torch.Tensor:
-        positions = human.joints if ids is None else human.joints[..., ids.to(goal.device), :]
+        positions = human.joint_translations if ids is None else human.joint_translations[..., ids.to(goal.device), :]
         return (positions - goal).flatten(-2)
 
     return TermFn(fn=residual, reads=(state, target))
@@ -115,7 +115,7 @@ def reprojection(
     def positions(human: HumanState) -> torch.Tensor:
         if ids is not None:
             return human.points(ids)
-        return human.landmarks(landmark_set) if landmark_set is not None else human.joints
+        return human.landmarks(landmark_set) if landmark_set is not None else human.joint_translations
 
     def residual(
         human: HumanState, goal: torch.Tensor, projection: torch.Tensor, *weight: torch.Tensor

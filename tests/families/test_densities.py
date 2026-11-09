@@ -68,10 +68,10 @@ def test_unmapped_part_falls_back_to_mean() -> None:
 @pytest.mark.parametrize("family", ["smplx", "mhr"])
 def test_full_coverage_on_real_joint_names(family: str) -> None:
     if family == "smplx":
-        body = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")), mass=False)
+        body = bh.HumanModel.from_spec(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")), density=None)
     else:
-        body = bh.load("mhr", str(weight_path("MHR", "converted/mhr_lod1.npz")), lod=1, mass=False)
-    names = list(body.joint_names)
+        body = bh.load("mhr", str(weight_path("MHR", "converted/mhr_lod1.npz")), lod=1, density=None)
+    names = list(body.spec.joint_names)
     categories = densities.part_categories(names)
     unmapped = [name for name, category in zip(names, categories, strict=True) if category is None]
     assert unmapped == []

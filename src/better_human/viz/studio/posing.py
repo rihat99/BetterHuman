@@ -50,14 +50,14 @@ def joint_handles(identity: Identity) -> tuple[JointHandle, ...]:
 
     SMPL/SMPLX map native joint ``j`` to BetterRobot joint ``j + 1``: the root
     is a free-flyer, every other joint a spherical joint.  MHR walks the tree
-    upward from ``body.native_joint_ids[j]`` to the parent native joint,
+    upward from ``human.joint_ids[j]`` to the parent native joint,
     collecting revolute host joints and skipping fixed and mimic joints; native
     joint 0 (the world anchor) and joints without any host are not returned.
     """
-    body = identity.body
+    human = identity.human
     robot = identity.model
-    joint_names = body.joint_names
-    native_leaves = [int(value) for value in body.native_joint_ids.tolist()]
+    joint_names = human.spec.joint_names
+    native_leaves = [int(value) for value in human.joint_ids.tolist()]
 
     if native_leaves == list(range(1, len(joint_names) + 1)):
         handles = [JointHandle(0, joint_names[0], "free_flyer", robot.idx_qs[1], ())]

@@ -89,14 +89,14 @@ def load_family(
         extra["closed_segmentation"] = load_closed_segmentation(table.closed_segmentation_file)
     spec = FamilySpec(
         name=table.name,
-        vertices=arrays["v_template"].to(torch.float64),
+        template_vertices=arrays["v_template"].to(torch.float64),
         faces=arrays["f"].to(torch.long),
         joint_names=table.joint_names,
         parents=parents_from_kintree(arrays["kintree_table"]),
         skin_weights=weights,
         skin_indices=indices,
-        identity={name: bases[name] for name in identity},
-        streams={name: bases[name] for name in streams},
+        identity_bases={name: bases[name] for name in identity},
+        stream_bases={name: bases[name] for name in streams},
         corrective=Corrective("linear", posedirs=posedirs.reshape(-1, posedirs.shape[-1]).T.contiguous()),
         rig=RegressedRig(arrays["J_regressor"].to(torch.float64)),
         parts=Parts(segment_vertices(weights, indices), tuple(range(num_joints))),

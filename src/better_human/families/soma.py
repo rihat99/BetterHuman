@@ -22,7 +22,7 @@ from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 from .soma_rig import SomaRig
 
 if TYPE_CHECKING:
-    from better_human.core.human_model import Body, Identity
+    from better_human.core.human_model import HumanModel, Identity
 
 SHAPE_COUNT = 128
 POSE_JOINT_COUNT = 77  #: public joints after the virtual ``Root``; ``Hips`` first.
@@ -39,7 +39,7 @@ def soma(
 
     The 78 public joints are posable; the 32 twist helpers follow their limb segments. ``correctives=False`` drops
     the pose-corrective MLP. ``dtype=torch.float64`` here (or in ``load``) derives the rig constants in float64;
-    ``Body(spec, dtype=torch.float64)`` upcasts a float32 spec's rounded ones (classic round trip 6e-8, not 1e-15).
+    the dtype and device are chosen here only (decision record 0005).
     """
     if not isinstance(correctives, bool):
         raise TypeError("correctives must be bool")
@@ -68,14 +68,14 @@ def soma(
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)
     return FamilySpec(
         name="soma",
-        vertices=floats("shape_mean"),
+        template_vertices=floats("shape_mean"),
         faces=arrays["faces"].to(device),
         joint_names=tuple(str(name) for name in arrays["joint_names"]),
         parents=tuple(arrays["joint_parents"].tolist()),
         skin_weights=floats("skin_weights"),
         skin_indices=arrays["skin_indices"].to(device),
-        identity={"shape": floats("shape_basis")},
-        streams={},
+        identity_bases={"shape": floats("shape_basis")},
+        stream_bases={},
         corrective=corrective,
         rig=SomaRig.from_arrays(arrays, dtype=dtype, device=device),
         parts=Parts(part_ids, tuple(part_joints.tolist())),
@@ -98,14 +98,16 @@ class SOMAClassic:
     transl: torch.Tensor
 
 
-def soma_from_classic(body: Body, classic: SOMAClassic) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
-    """``(Identity, q (..., 311), {})`` for ``body`` (a :class:`~better_human.core.human_model.Body` of ``soma``).
+def soma_from_classic(
+    human: HumanModel, classic: SOMAClassic
+) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
+    """``(Identity, q (..., 311), {})`` for ``human`` (a :class:`~better_human.core.human_model.HumanModel` of ``soma``).
 
     The identity bakes over ``identity_coeffs``' own batch and ``q`` broadcasts with it. ``q`` holds the world-aligned
     Hips free flyer ``(transl, exp(a_Hips))`` then ``exp(orient_j^T a_j)`` per public joint, ``orient_j`` its T-pose
     world rotation, so ``q_neutral`` is the T-pose.
     """
-    exemplar = body.spec.vertices
+    exemplar = human.spec.template_vertices
     identity = classic_tensor("identity_coeffs", classic.identity_coeffs, SHAPE_COUNT, exemplar)
     poses = classic_tensor("poses", classic.poses, 3, exemplar)
     transl = classic_tensor("transl", classic.transl, 3, exemplar)
@@ -113,18 +115,18 @@ def soma_from_classic(body: Body, classic: SOMAClassic) -> tuple[Identity, torch
         raise TypeError("identity_coeffs, poses and transl must be floating torch.Tensors")
     if poses.shape[-2:] != (POSE_JOINT_COUNT, 3):
         raise ValueError(f"poses must have shape (..., {POSE_JOINT_COUNT}, 3); got {tuple(poses.shape)}")
-    orient = body.spec.rig.t_pose_rotations[2:]
+    orient = human.spec.rig.t_pose_rotations[2:]
     rotations = so3.exp(torch.cat((poses[..., :1, :], (orient.mT @ poses[..., 1:, :, None]).squeeze(-1)), dim=-2))
     batch = torch.broadcast_shapes(transl.shape[:-1], rotations.shape[:-2])
     q = torch.cat((transl.expand(*batch, 3), rotations.expand(*batch, POSE_JOINT_COUNT, 4).flatten(-2)), dim=-1)
-    return body.bake(shape=identity), q, {}
+    return human.bake(shape=identity), q, {}
 
 
 def soma_to_classic(identity: Identity, q: torch.Tensor) -> SOMAClassic:
     """Classic parameters for a baked SOMA ``identity`` and ``q (..., 311)``; angles on the principal branch."""
-    shape = identity.params["shape"]
+    shape = identity.values["shape"]
     q, batch = broadcast_configuration(q, identity.model, shape)
-    orient = identity.spec.rig.t_pose_rotations[2:]
+    orient = identity.human.spec.rig.t_pose_rotations[2:]
     rotations = so3.log(so3.normalize(q[..., 3:].unflatten(-1, (POSE_JOINT_COUNT, 4))))
     poses = torch.cat((rotations[..., :1, :], (orient @ rotations[..., 1:, :, None]).squeeze(-1)), dim=-2)
     return SOMAClassic(shape.expand(*batch, SHAPE_COUNT), poses, q[..., :3].clone())

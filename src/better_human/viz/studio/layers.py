@@ -60,14 +60,14 @@ class SegmentationLayer(Layer):
         self.session = session
         self.opacity = opacity
         self.vertices = session.vertices.detach().cpu().numpy().astype(np.float32)[None]
-        self.faces = session.body.faces.cpu().numpy().astype(np.uint32)
+        self.faces = session.body.spec.faces.cpu().numpy().astype(np.uint32)
         self._scene: Any = None
         self._root = ""
         self._meshes: list[Any] = []
 
     def face_groups(self) -> list[tuple[np.ndarray, tuple[float, float, float]]]:
         """Return ``(faces (F_p, 3), rgb)`` per part, then the unassigned faces; empty groups are omitted."""
-        face_parts = _majority_face_parts(self.session.body.faces, self.session.part_ids).cpu().numpy()
+        face_parts = _majority_face_parts(self.session.body.spec.faces, self.session.part_ids).cpu().numpy()
         colors = part_colors(len(self.session.part_names))
         groups = [(self.faces[face_parts == p], tuple(colors[p])) for p in range(len(self.session.part_names))]
         groups.append((self.faces[(face_parts < 0) | (face_parts >= len(colors))], _UNASSIGNED))
@@ -129,7 +129,7 @@ class PartsLayer(Layer):
         ``part`` indexes ``session.part_names``; closed meshes append cap vertices after the ``n0`` mesh vertices.
         """
         session = self.session
-        faces = session.body.faces
+        faces = session.body.spec.faces
         ids, names = compact_segmentation(faces, session.part_ids, session.part_names)
         kept = [session.part_names.index(name) for name in names]
         try:
@@ -156,7 +156,7 @@ class PartsLayer(Layer):
     def build(self, scene: Any, root: str) -> None:
         self._scene, self._root = scene, root
         session = self.session
-        rest = session.identity.forward(session.identity.q_neutral)
+        rest = session.identity.forward(session.identity.model.q_neutral)
         rest_poses = rest.joint_poses.detach().cpu().numpy()
         joints = session.vertex_native_joints.cpu().numpy()
         colors = part_colors(len(session.part_names))
@@ -292,11 +292,11 @@ class StudioLayers:
     def _specs(self) -> dict[str, tuple[type, tuple, dict]]:
         # Constructor arguments of every layer from the session; a body switch re-runs them on the same objects.
         session = self.session
-        num_joints = len(session.body.joint_names)
+        num_joints = len(session.body.spec.joint_names)
         self._base_colors = np.broadcast_to(np.asarray(self.theme.joint, np.float32), (1, num_joints, 3)).copy()
         mode = self.layers["mesh"].mode if "mesh" in self.layers else "skin"
         ids = self.edit_vertices if len(self.edit_vertices) else np.zeros(1, dtype=np.int64)
-        joints = session.state.joints.detach().cpu().numpy()[None]
+        joints = session.state.joint_translations.detach().cpu().numpy()[None]
         return {
             "mesh": (
                 BodyMeshLayer,
@@ -307,7 +307,7 @@ class StudioLayers:
             "frames": (FramesLayer, (frame_poses(session),), dict(axes_length=0.04)),
             "skeleton": (
                 SkeletonLayer,
-                (joints, session.body.parents),
+                (joints, session.body.spec.parents),
                 dict(radius=self.radius, colors=self._base_colors, bone_color=self.theme.link),
             ),
             "edit": (
@@ -394,7 +394,7 @@ class StudioLayers:
             session = self.session
             if kind == "shape":
                 self._refresh(self.mesh.parts)
-            self.skeleton.joints[...] = session.state.joints.detach().cpu().numpy()[None]
+            self.skeleton.joints[...] = session.state.joint_translations.detach().cpu().numpy()[None]
             self.mesh.skin.vertices[...] = self.mesh.segmentation.vertices[...] = (
                 session.vertices.detach().cpu().numpy()[None]
             )

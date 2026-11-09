@@ -46,9 +46,9 @@ from this repo.
 
 | path | what |
 |---|---|
-| `src/better_human/__init__.py` | `load`, `Body`, `FamilySpec`, `Identity`, `HumanState` |
+| `src/better_human/__init__.py` | `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState` |
 | `src/better_human/core/spec.py`, `src/better_human/core/rig.py` | `FamilySpec` data, `Rig` protocol, `RegressedRig`, `drop_joints` |
-| `src/better_human/core/human_model.py` | `Body` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
+| `src/better_human/core/human_model.py` | `HumanModel.from_spec` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
 | `src/better_human/core/pipeline.py`, `src/better_human/core/mass.py` | blend shapes and skinning; segmentation and inertias |
 | `src/better_human/families/smpl_family.py`, `src/better_human/families/tables.py` | SMPL-family loaders; file patterns and joint names |
 | `src/better_human/families/classic.py`, `src/better_human/families/mhr.py` | classic converters; MHR loader and converters |
@@ -61,9 +61,9 @@ from this repo.
 
 ## Numerical contracts
 
-- Metres, y-up, BR pose order in `q`; native joint order in `HumanState.joints`.
+- Metres, y-up, BR pose order in `q`; native joint order in `HumanState.joint_translations`.
 - `q (B..., nq)` broadcasts with identity dims `I...`; never hard-code `nq`.
-- Family behaviour goes in the `Rig` or the loader, never in `Body` branches.
+- Family behaviour goes in the `Rig` or the loader, never in `HumanModel` branches.
 - Native parameters enter and leave only through `*_from_classic` / `*_to_classic`.
 
 ## Gates that must not be weakened

@@ -35,7 +35,9 @@ def _frames(value: torch.Tensor, event_ndim: int) -> np.ndarray:
 
 def mesh_layer(state: HumanState, *, name: str = "mesh", color: RGB = _SKIN, opacity: float = 1.0) -> MeshLayer:
     """Exact posed mesh per frame (correctives included): ``(T, V, 3)`` vertices written each frame."""
-    return MeshLayer(name, _frames(state.vertices, 2), state.body.faces.cpu().numpy(), color=color, opacity=opacity)
+    return MeshLayer(
+        name, _frames(state.vertices, 2), state.identity.human.spec.faces.cpu().numpy(), color=color, opacity=opacity
+    )
 
 
 def skinned_layer(
@@ -47,17 +49,17 @@ def skinned_layer(
     """
     if identity.joint_scales is not None:
         raise ValueError("skinned_layer needs a rig without joint scales; use mesh_layer")
-    if identity.rest_joints.ndim != 2:
+    if identity.rest_joint_translations.ndim != 2:
         raise ValueError("skinned_layer needs a single identity (no identity batch)")
-    rest = identity.rest_joints
+    rest = identity.rest_joint_translations
     quaternion = torch.zeros_like(rest[:, :1]).repeat(1, 4)
     quaternion[:, 3] = 1.0
     bind = torch.cat((rest, quaternion), dim=-1)
     return SkinnedMeshLayer(
         name,
-        identity.v_shaped.detach().cpu().numpy(),
-        identity.body.faces.cpu().numpy(),
-        identity.body.skin_matrix.detach().cpu().numpy(),
+        identity.rest_vertices.detach().cpu().numpy(),
+        identity.human.spec.faces.cpu().numpy(),
+        identity.human.skin_matrix.detach().cpu().numpy(),
         bind.detach().cpu().numpy(),
         _frames(state.joint_poses, 2),
         color=color,
@@ -70,7 +72,12 @@ def skeleton_layer(
 ) -> SkeletonLayer:
     """Joints and bones of the native skeleton."""
     return SkeletonLayer(
-        name, _frames(state.joints, 2), state.body.parents, radius=radius, colors=theme.joint, bone_color=theme.link
+        name,
+        _frames(state.joint_translations, 2),
+        state.identity.human.spec.parents,
+        radius=radius,
+        colors=theme.joint,
+        bone_color=theme.link,
     )
 
 
@@ -161,7 +168,7 @@ class HumanView:
             elif isinstance(layer, SkinnedMeshLayer):
                 layer.bone_poses[...] = _frames(state.joint_poses, 2)
             elif isinstance(layer, SkeletonLayer):
-                layer.joints[...] = _frames(state.joints, 2)
+                layer.joints[...] = _frames(state.joint_translations, 2)
             elif isinstance(layer, FramesLayer):
                 layer.poses[...] = _frames(state.frame_poses, 2)
 

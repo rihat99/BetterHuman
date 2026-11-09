@@ -39,15 +39,15 @@ def _zeros(value: torch.Tensor | None, batch: tuple[int, ...], width: int, exemp
 
 
 def _batch(identity: Identity, *values: torch.Tensor | None) -> tuple[int, ...]:
-    return torch.broadcast_shapes(identity.pelvis.shape[:-1], *(v.shape[:-1] for v in values if v is not None))
+    return torch.broadcast_shapes(identity.root_offset.shape[:-1], *(v.shape[:-1] for v in values if v is not None))
 
 
 def _hand_axes(
     identity: Identity, side: str, pose: torch.Tensor | None, num_pca_comps: int | None, batch: tuple[int, ...]
 ) -> torch.Tensor:
     """``(..., 15, 3)`` finger axis-angles from a full or PCA hand pose plus the hand mean."""
-    meta = identity.spec.meta
-    exemplar = identity.pelvis
+    meta = identity.human.spec.meta
+    exemplar = identity.root_offset
     width = _pca_width(num_pca_comps)
     if side not in meta.get("hand_joints", {side}):  # hands dropped at load: no mean, no pose
         if pose is not None:
@@ -61,7 +61,7 @@ def _hand_axes(
 
 def _hand_pose(identity: Identity, side: str, axes: torch.Tensor, num_pca_comps: int | None) -> torch.Tensor | None:
     """Inverse of :func:`_hand_axes`; raises when ``axes`` leave the requested PCA subspace."""
-    meta = identity.spec.meta
+    meta = identity.human.spec.meta
     if side not in meta.get("hand_joints", {side}):  # hands dropped at load: the axes are zero, no pose
         return None
     delta = axes.flatten(-2) - meta["hand_mean"][side]
@@ -82,16 +82,16 @@ def _assemble(
     stream: Stream,
 ) -> tuple[torch.Tensor, Stream]:
     """``q`` from the root and native non-root axis-angles ``axes (..., J_native - 1, 3)``."""
-    exemplar = identity.pelvis
+    exemplar = identity.root_offset
     batch = axes.shape[:-2]
     global_orient = _zeros(global_orient, batch, 3, exemplar)
     transl = _zeros(transl, batch, 3, exemplar)
-    pelvis = identity.pelvis
+    pelvis = identity.root_offset
     for name, value in stream.items():
-        basis = identity.stream_joint_basis.get(name)
+        basis = identity.human.stream_joint_bases.get(name)
         if basis is not None:
             pelvis = pelvis + torch.einsum("...n,cn->...c", value, basis[0])
-    native_ids = identity.spec.meta["native_joint_ids"]
+    native_ids = identity.human.spec.meta["native_joint_ids"]
     reduced = axes.index_select(-2, native_ids[1:] - 1)
     if reduced.shape[-2] < axes.shape[-2]:
         keep = torch.zeros(axes.shape[-2], dtype=torch.bool, device=axes.device)
@@ -106,30 +106,30 @@ def _disassemble(
     identity: Identity, q: torch.Tensor, stream: Stream, num_native: int
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """``(global_orient, axes (..., J_native - 1, 3), transl)`` from ``q``; dropped joints read zero."""
-    if q.shape[-1:] != (identity.nq,):
-        raise ValueError(f"q must have shape (..., {identity.nq}); got {tuple(q.shape)}")
-    batch = torch.broadcast_shapes(q.shape[:-1], identity.pelvis.shape[:-1])
-    q = q.expand(*batch, identity.nq)
-    pelvis = identity.pelvis
+    if q.shape[-1:] != (identity.model.nq,):
+        raise ValueError(f"q must have shape (..., {identity.model.nq}); got {tuple(q.shape)}")
+    batch = torch.broadcast_shapes(q.shape[:-1], identity.root_offset.shape[:-1])
+    q = q.expand(*batch, identity.model.nq)
+    pelvis = identity.root_offset
     for name, value in stream.items():
-        basis = identity.stream_joint_basis.get(name)
+        basis = identity.human.stream_joint_bases.get(name)
         if basis is not None:
             pelvis = pelvis + torch.einsum("...n,cn->...c", value, basis[0])
     global_orient, transl = free_flyer_to_classic_root(q[..., :7], pelvis.expand(*batch, 3))
     reduced = quaternion_to_axis_angle(q[..., 7:].unflatten(-1, (-1, 4)))
     axes = q.new_zeros((*batch, num_native - 1, 3))
-    native_ids = identity.spec.meta["native_joint_ids"]
+    native_ids = identity.human.spec.meta["native_joint_ids"]
     axes = axes.index_copy(-2, native_ids[1:] - 1, reduced)
     return global_orient, axes, transl
 
 
 def _stream(identity: Identity, name: str, value: torch.Tensor | None, batch: tuple[int, ...]) -> Stream:
-    width = identity.spec.stream_groups.get(name)
+    width = identity.human.spec.stream_groups.get(name)
     if width is None:
         if value is not None:
             raise ValueError(f"{name} requires a body loaded with that stream group")
         return {}
-    return {name: _zeros(classic_tensor(name, value, width, identity.pelvis), batch, width, identity.pelvis)}
+    return {name: _zeros(classic_tensor(name, value, width, identity.root_offset), batch, width, identity.root_offset)}
 
 
 # ----------------------------------------------------------------------------------------- SMPL
@@ -145,7 +145,7 @@ class SMPLClassic:
 
 
 def smpl_from_classic(identity: Identity, classic: SMPLClassic) -> tuple[torch.Tensor, Stream]:
-    exemplar = identity.pelvis
+    exemplar = identity.root_offset
     body_pose = classic_tensor("body_pose", classic.body_pose, 69, exemplar)
     batch = _batch(identity, classic.global_orient, body_pose, classic.transl)
     axes = _zeros(body_pose, batch, 69, exemplar).unflatten(-1, (23, 3))
@@ -172,7 +172,7 @@ class SMPLHClassic:
 
 
 def smplh_from_classic(identity: Identity, classic: SMPLHClassic) -> tuple[torch.Tensor, Stream]:
-    exemplar = identity.pelvis
+    exemplar = identity.root_offset
     body_pose = classic_tensor("body_pose", classic.body_pose, 63, exemplar)
     left = classic_tensor("left_hand_pose", classic.left_hand_pose, HAND_DIM, exemplar)
     right = classic_tensor("right_hand_pose", classic.right_hand_pose, HAND_DIM, exemplar)
@@ -220,7 +220,7 @@ class SMPLXClassic:
 
 
 def smplx_from_classic(identity: Identity, classic: SMPLXClassic) -> tuple[torch.Tensor, Stream]:
-    exemplar = identity.pelvis
+    exemplar = identity.root_offset
     table = tables.SMPLX
     hand_width = _pca_width(classic.num_pca_comps)
     fields = {
@@ -283,8 +283,8 @@ class MANOClassic:
 
 
 def mano_from_classic(identity: Identity, classic: MANOClassic) -> tuple[torch.Tensor, Stream]:
-    side = identity.spec.meta["side"]
-    hand_pose = classic_tensor("hand_pose", classic.hand_pose, _pca_width(classic.num_pca_comps), identity.pelvis)
+    side = identity.human.spec.meta["side"]
+    hand_pose = classic_tensor("hand_pose", classic.hand_pose, _pca_width(classic.num_pca_comps), identity.root_offset)
     batch = _batch(identity, classic.global_orient, hand_pose, classic.transl)
     axes = _hand_axes(identity, side, hand_pose, classic.num_pca_comps, batch)
     return _assemble(identity, classic.global_orient, axes, classic.transl, {})
@@ -294,7 +294,7 @@ def mano_to_classic(
     identity: Identity, q: torch.Tensor, stream: Stream | None = None, *, num_pca_comps: int | None = None
 ) -> MANOClassic:
     global_orient, axes, transl = _disassemble(identity, q, {}, 16)
-    hand_pose = _hand_pose(identity, identity.spec.meta["side"], axes, num_pca_comps)
+    hand_pose = _hand_pose(identity, identity.human.spec.meta["side"], axes, num_pca_comps)
     return MANOClassic(global_orient=global_orient, hand_pose=hand_pose, transl=transl, num_pca_comps=num_pca_comps)
 
 
@@ -315,7 +315,7 @@ class FLAMEClassic:
 
 
 def flame_from_classic(identity: Identity, classic: FLAMEClassic) -> tuple[torch.Tensor, Stream]:
-    exemplar = identity.pelvis
+    exemplar = identity.root_offset
     names = ("neck_pose", "jaw_pose", "leye_pose", "reye_pose")
     checked = [classic_tensor(name, getattr(classic, name), 3, exemplar) for name in names]
     batch = _batch(identity, classic.global_orient, classic.transl, classic.expression, *checked)

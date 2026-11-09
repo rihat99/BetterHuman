@@ -85,9 +85,9 @@ class Parts:
 class FamilySpec:
     """One body family on one dtype and device. Pure data except for ``rig``.
 
-    Shapes: ``vertices (V, 3)``, ``faces (F, 3)``, ``skin_weights``/``skin_indices (V, K)``
-    (top-K influences, rows sum to one), blend groups ``(V, 3, n)``. ``identity`` groups are baked
-    once per subject (``Body.bake``); ``streams`` change per frame (``Identity.forward``).
+    Shapes: ``template_vertices (V, 3)``, ``faces (F, 3)``, ``skin_weights``/``skin_indices (V, K)``
+    (top-K influences, rows sum to one), blend groups ``(V, 3, n)``. ``identity_bases`` groups are baked
+    once per subject (``HumanModel.bake``); ``stream_bases`` groups change per frame (``Identity.forward``).
     ``landmarks`` maps a set name to ``(L,)`` vertex ids. ``meta`` carries family extras that the
     loader and its classic converters own; every key core and the families read
     (:data:`META_KEYS`):
@@ -101,14 +101,14 @@ class FamilySpec:
     """
 
     name: str
-    vertices: torch.Tensor
+    template_vertices: torch.Tensor
     faces: torch.Tensor
     joint_names: tuple[str, ...]
     parents: tuple[int, ...]
     skin_weights: torch.Tensor
     skin_indices: torch.Tensor
-    identity: Mapping[str, torch.Tensor]
-    streams: Mapping[str, torch.Tensor]
+    identity_bases: Mapping[str, torch.Tensor]
+    stream_bases: Mapping[str, torch.Tensor]
     corrective: Corrective
     rig: Rig
     parts: Parts
@@ -119,14 +119,14 @@ class FamilySpec:
     meta: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        num_vertices, num_joints = self.vertices.shape[0], len(self.joint_names)
-        if self.vertices.shape != (num_vertices, 3) or self.faces.ndim != 2 or self.faces.shape[1] != 3:
-            raise ValueError("vertices must be (V, 3) and faces (F, 3)")
+        num_vertices, num_joints = self.template_vertices.shape[0], len(self.joint_names)
+        if self.template_vertices.shape != (num_vertices, 3) or self.faces.ndim != 2 or self.faces.shape[1] != 3:
+            raise ValueError("template_vertices must be (V, 3) and faces (F, 3)")
         if len(self.parents) != num_joints or self.parents[0] != -1:
             raise ValueError("parents must have one entry per joint and start with the root (-1)")
         if self.skin_weights.shape != self.skin_indices.shape or self.skin_weights.shape[0] != num_vertices:
             raise ValueError("skin_weights and skin_indices must both be (V, K)")
-        for group, basis in (*self.identity.items(), *self.streams.items()):
+        for group, basis in (*self.identity_bases.items(), *self.stream_bases.items()):
             if basis.shape[:2] != (num_vertices, 3):
                 raise ValueError(f"blend group {group!r} must be (V, 3, n); got {tuple(basis.shape)}")
         if self.parts.ids.shape != (num_vertices,):
@@ -134,7 +134,7 @@ class FamilySpec:
 
     @property
     def num_vertices(self) -> int:
-        return self.vertices.shape[0]
+        return self.template_vertices.shape[0]
 
     @property
     def num_joints(self) -> int:
@@ -142,19 +142,19 @@ class FamilySpec:
 
     @property
     def dtype(self) -> torch.dtype:
-        return self.vertices.dtype
+        return self.template_vertices.dtype
 
     @property
     def device(self) -> torch.device:
-        return self.vertices.device
+        return self.template_vertices.device
 
     @property
     def identity_groups(self) -> dict[str, int]:
-        return {name: basis.shape[-1] for name, basis in self.identity.items()}
+        return {name: basis.shape[-1] for name, basis in self.identity_bases.items()}
 
     @property
     def stream_groups(self) -> dict[str, int]:
-        return {name: basis.shape[-1] for name, basis in self.streams.items()}
+        return {name: basis.shape[-1] for name, basis in self.stream_bases.items()}
 
     def joint_id(self, name: str) -> int:
         return self.joint_names.index(name)
@@ -178,12 +178,12 @@ class FamilySpec:
 
         return replace(
             self,
-            vertices=cast(self.vertices),
+            template_vertices=cast(self.template_vertices),
             faces=cast(self.faces),
             skin_weights=cast(self.skin_weights),
             skin_indices=cast(self.skin_indices),
-            identity=cast(self.identity),
-            streams=cast(self.streams),
+            identity_bases=cast(self.identity_bases),
+            stream_bases=cast(self.stream_bases),
             corrective=self.corrective.to(dtype, device),
             rig=self.rig.to(dtype, device),
             parts=Parts(cast(self.parts.ids), self.parts.joints),

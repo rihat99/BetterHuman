@@ -54,7 +54,7 @@ def test_shape_slider_changes_vertices(studio) -> None:
 
 @pytest.mark.licensed
 def test_click_on_joint_selects_and_highlights(studio) -> None:
-    joint = studio.session.state.joints.detach().reshape(-1, 3)[5].numpy()
+    joint = studio.session.state.joint_translations.detach().reshape(-1, 3)[5].numpy()
     _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
     assert studio.gizmo.joint == 5
 
@@ -91,11 +91,11 @@ def test_frame_add_rename_delete_export(studio) -> None:
     name = studio.frames.active
     assert name in studio.session.frame_set
     studio.frames.rename(name, "toe")
-    studio.frames.set_joint("toe", studio.session.body.joint_names[1])
+    studio.frames.set_joint("toe", studio.session.body.spec.joint_names[1])
     snippet = studio.frames.export()
     namespace: dict[str, object] = {}
     exec(snippet, {}, namespace)  # noqa: S102
-    assert namespace["contact_frames"]["toe"][1] == studio.session.body.joint_names[1]
+    assert namespace["contact_frames"]["toe"][1] == studio.session.body.spec.joint_names[1]
     studio.frames.save("set")
     studio.frames.delete("toe")
     assert "toe" not in studio.session.frame_set
@@ -125,7 +125,7 @@ def test_selection_row_buttons_and_label(studio) -> None:
     # Moved out of the Body tab: only the row's buttons remain.
     for name in ("Reset pose", "Deselect joint"):
         assert [c for c in gui.controls if c.name == name] == [studio.actions[name]]
-    joint_name = studio.session.body.joint_names[5]
+    joint_name = studio.session.body.spec.joint_names[5]
     studio.select_joint(5)
     assert f"joint: {joint_name}" in studio.selection_text.content
     studio.frames.add_at(studio.session.vertices[100].detach().numpy())  # adds and selects a frame
@@ -135,7 +135,7 @@ def test_selection_row_buttons_and_label(studio) -> None:
         studio.actions[action].fire()
     assert studio.selection_text.content.endswith("joint: — · frame: —")
     assert studio.frames.active is None
-    assert torch.equal(studio.session.q, studio.session.identity.q_neutral)
+    assert torch.equal(studio.session.q, studio.session.identity.model.q_neutral)
 
 
 def _rotated(studio, joint: int) -> np.ndarray:
@@ -215,7 +215,7 @@ def test_model_switch_rebuilds_body_widgets(studio) -> None:
         studio.load_model(family, gender="neutral", lod=1)
         body = studio.session.body
         assert studio.session.model_key == key and body.spec.name == family
-        groups = body.identity_groups
+        groups = body.spec.identity_groups
         assert set(studio.shape_sliders) == set(groups)
         assert all(len(studio.shape_sliders[g]) == min(w, 10) for g, w in groups.items())
         names = [layer.name for layer in studio.layers.layers.values()]

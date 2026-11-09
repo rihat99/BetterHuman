@@ -14,18 +14,20 @@ pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
-def smpl() -> bh.Body:
+def smpl() -> bh.HumanModel:
     return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
 
 
 @pytest.fixture(scope="module")
-def mhr() -> bh.Body:
+def mhr() -> bh.HumanModel:
     return bh.load("mhr", weight_path("MHR", "converted/mhr_lod1.npz"), lod=1)
 
 
 @pytest.fixture(scope="module")
-def soma() -> bh.Body:
-    return bh.Body(bh.families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False), mass=False)
+def soma() -> bh.HumanModel:
+    return bh.HumanModel.from_spec(
+        bh.families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False), density=None
+    )
 
 
 def _rotated(world: torch.Tensor, quat: list[float]) -> torch.Tensor:
@@ -49,32 +51,32 @@ def _angle(quat_a: torch.Tensor, quat_b: torch.Tensor) -> float:
     return float(2 * torch.acos(torch.clamp((quat_a * quat_b).sum().abs(), max=1.0)))
 
 
-def _pose_with(body: bh.Body, handle_name: str, quat: list[float]) -> tuple[torch.Tensor, torch.Tensor, int]:
+def _pose_with(body: bh.HumanModel, handle_name: str, quat: list[float]) -> tuple[torch.Tensor, torch.Tensor, int]:
     """Rotate one joint by ``quat`` in the world; return ``(target (7,), posed (7,), native index)``."""
     identity = body.bake()
     handle = next(h for h in joint_handles(identity) if h.name == handle_name)
-    q = identity.q_neutral.clone()
+    q = identity.model.q_neutral.clone()
     world_old = identity.forward(q).joint_poses[handle.native_index]
     world_new = _rotated(world_old, quat)
     q_new = apply_local_rotation(q, handle, world_old, world_new)
     return world_new, identity.forward(q_new).joint_poses[handle.native_index], handle.native_index
 
 
-def test_smpl_handle_table(smpl: bh.Body) -> None:
+def test_smpl_handle_table(smpl: bh.HumanModel) -> None:
     identity = smpl.bake()
     handles = joint_handles(identity)
-    assert len(handles) == len(smpl.joint_names)
+    assert len(handles) == len(smpl.spec.joint_names)
     root, *rest = handles
     assert (root.kind, root.idx_q, root.native_index) == ("free_flyer", 0, 0)
     assert all(h.kind == "spherical" and not h.channels for h in rest)
     starts = [h.idx_q for h in rest]
     assert starts == list(range(7, 7 + 4 * len(rest), 4))
-    assert 7 + 4 * len(rest) == identity.q_neutral.shape[-1]
+    assert 7 + 4 * len(rest) == identity.model.q_neutral.shape[-1]
 
 
-def test_mhr_handle_table(mhr: bh.Body) -> None:
+def test_mhr_handle_table(mhr: bh.HumanModel) -> None:
     handles = joint_handles(mhr.bake())
-    assert 0 < len(handles) < len(mhr.joint_names), "fixed MHR joints must have no handle"
+    assert 0 < len(handles) < len(mhr.spec.joint_names), "fixed MHR joints must have no handle"
     assert [h.kind for h in handles].count("free_flyer") == 1
     channels = [h for h in handles if h.kind == "channels"]
     assert channels and all(h.idx_q == -1 and h.channels for h in channels)
@@ -84,16 +86,16 @@ def test_mhr_handle_table(mhr: bh.Body) -> None:
     assert len({h.native_index for h in handles}) == len(handles)
 
 
-def test_smpl_spherical_round_trip(smpl: bh.Body) -> None:
+def test_smpl_spherical_round_trip(smpl: bh.HumanModel) -> None:
     target, posed, _ = _pose_with(smpl, "left_elbow", [0.0, 0.0, 0.3827, 0.9239])
     assert _angle(target[3:], posed[3:]) < 1e-4
     torch.testing.assert_close(posed[:3], target[:3], atol=1e-5, rtol=0)
 
 
-def test_smpl_free_flyer_rotation_only(smpl: bh.Body) -> None:
+def test_smpl_free_flyer_rotation_only(smpl: bh.HumanModel) -> None:
     identity = smpl.bake()
     root = joint_handles(identity)[0]
-    q = identity.q_neutral.clone()
+    q = identity.model.q_neutral.clone()
     world_old = identity.forward(q).joint_poses[0]
     world_new = _rotated(world_old, [0.0, 0.3827, 0.0, 0.9239])
     world_new[:3] += 0.5
@@ -103,23 +105,23 @@ def test_smpl_free_flyer_rotation_only(smpl: bh.Body) -> None:
     torch.testing.assert_close(posed[:3], world_old[:3], atol=1e-5, rtol=0)
 
 
-def test_mhr_three_channel_round_trip(mhr: bh.Body) -> None:
+def test_mhr_three_channel_round_trip(mhr: bh.HumanModel) -> None:
     handle = next(h for h in joint_handles(mhr.bake()) if h.kind == "channels" and len(h.channels) == 3)
     target, posed, _ = _pose_with(mhr, handle.name, [0.1, -0.2, 0.15, 0.9618])
     assert _angle(target[3:], posed[3:]) < 1e-3
 
 
-def test_mhr_missing_channels_touch_only_their_slots(mhr: bh.Body) -> None:
+def test_mhr_missing_channels_touch_only_their_slots(mhr: bh.HumanModel) -> None:
     identity = mhr.bake()
     handle = next(h for h in joint_handles(identity) if h.kind == "channels" and len(h.channels) < 3)
-    q = identity.q_neutral.clone()
+    q = identity.model.q_neutral.clone()
     world_old = identity.forward(q).joint_poses[handle.native_index]
     q_new = apply_local_rotation(q, handle, world_old, _rotated(world_old, [0.2, 0.2, 0.2, 0.9381]))
     changed = set(torch.nonzero(q_new != q).flatten().tolist())
     assert changed and changed <= {idx for _, idx in handle.channels}
 
 
-def test_session_rotate_joint_and_move_root(smpl: bh.Body) -> None:
+def test_session_rotate_joint_and_move_root(smpl: bh.HumanModel) -> None:
     session = StudioSession(smpl, "smpl")
     kinds: list[str] = []
     session.subscribe(kinds.append)
@@ -136,7 +138,7 @@ def test_session_rotate_joint_and_move_root(smpl: bh.Body) -> None:
     assert kinds == ["pose", "pose"]
 
 
-def test_session_move_root_applies_the_gizmo_delta_to_soma(soma: bh.Body) -> None:
+def test_session_move_root_applies_the_gizmo_delta_to_soma(soma: bh.HumanModel) -> None:
     """SOMA reports its Hips turned by their T-pose orientation, which ``q[3:7]`` does not hold."""
     session = StudioSession(soma, "soma")
     root = session.handles[0]
@@ -144,14 +146,14 @@ def test_session_move_root_applies_the_gizmo_delta_to_soma(soma: bh.Body) -> Non
     moved = old_root.clone()
     moved[:3] += torch.tensor([0.1, 0.2, -0.3], dtype=moved.dtype)
     session.move_root(root, old_root, moved)
-    torch.testing.assert_close(session.q[3:7], session.identity.q_neutral[3:7], atol=1e-6, rtol=0)
+    torch.testing.assert_close(session.q[3:7], session.identity.model.q_neutral[3:7], atol=1e-6, rtol=0)
     turned = _rotated(moved, [0.0, 0.3827, 0.0, 0.9239])
     session.move_root(root, moved, turned)
     assert _angle(turned[3:], session.joint_poses[root.native_index, 3:]) < 1e-4
     torch.testing.assert_close(session.joint_poses[root.native_index, :3], moved[:3], atol=1e-5, rtol=0)
 
 
-def test_soma_free_flyer_rotation_reaches_the_gizmo_target(soma: bh.Body) -> None:
+def test_soma_free_flyer_rotation_reaches_the_gizmo_target(soma: bh.HumanModel) -> None:
     """The reported Hips rotation includes their T-pose orientation, so ``q[3:7]`` takes the world delta."""
     target, posed, _ = _pose_with(soma, "Hips", [0.0, 0.3827, 0.0, 0.9239])
     assert _angle(target[3:], posed[3:]) < 1e-4

@@ -1,6 +1,6 @@
 # Frame set (`better_human.frame_set`)
 
-Named mesh points, each a vertex id and an optional parent joint: the input of `Body(contact_frames=...)`. A UTF-8
+Named mesh points, each a vertex id and an optional parent joint: the input of `HumanModel.from_spec(contact_frames=...)`. A UTF-8
 JSON file, read by `better_human.io.read_frame_set(path)` and written by `better_human.io.write_frame_set(path,
 frames)`; BetterHuman ships the SMPL-X contact set as `better_human.io.shipped_frame_set("smplx_contacts")`.
 

@@ -25,7 +25,7 @@ from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 from .mhr_rig import ROOT_COUNT, MhrRig
 
 if TYPE_CHECKING:
-    from better_human.core.human_model import Body, Identity
+    from better_human.core.human_model import HumanModel, Identity
 
 IDENTITY_COUNT = 45
 EXPRESSION_COUNT = 72
@@ -46,8 +46,7 @@ def mhr(
 
     ``proportions (V, 3, 73)`` is a zero mesh basis whose values reach the rig. ``expression=False`` drops the
     ``expression (V, 3, 72)`` stream, ``correctives=False`` the pose-corrective MLP. ``dtype=torch.float64`` derives
-    the rig constants in float64; ``Body(spec, dtype=torch.float64)`` upcasts a float32 spec's rounded pre-rotations
-    and inverse bind poses (the BR model is float64 either way).
+    the rig constants in float64; the dtype and device are chosen here only (decision record 0005).
     """
     if not isinstance(lod, int) or isinstance(lod, bool) or lod not in LODS:
         raise ValueError(f"lod must be one of {LODS}, got {lod!r}")
@@ -90,17 +89,17 @@ def mhr(
     template = floats("template_vertices")
     return FamilySpec(
         name="mhr",
-        vertices=template,
+        template_vertices=template,
         faces=arrays["faces"].to(device),
         joint_names=tuple(str(name) for name in arrays["joint_names"]),
         parents=tuple(arrays["joint_parents"].tolist()),
         skin_weights=skin_weights,
         skin_indices=skin_indices,
-        identity={
+        identity_bases={
             "identity": floats("identity_basis"),
             "proportions": template.new_zeros(len(template), 3, len(rig.proportion_columns)),
         },
-        streams={"expression": floats("expression_basis")} if expression else {},
+        stream_bases={"expression": floats("expression_basis")} if expression else {},
         corrective=corrective,
         rig=rig,
         parts=Parts(part_ids, tuple(joint_groups.index(group) for group in kept)),
@@ -123,15 +122,15 @@ class MHRClassic:
     expression: torch.Tensor | None = None
 
 
-def mhr_from_classic(body: Body, classic: MHRClassic) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
-    """``(Identity, q (..., 132), stream)`` for ``body`` (a :class:`~better_human.core.human_model.Body` of ``mhr``)."""
-    spec, rig = body.spec, body.spec.rig
-    exemplar = spec.vertices
+def mhr_from_classic(human: HumanModel, classic: MHRClassic) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
+    """``(Identity, q (..., 132), stream)`` for ``human`` (a :class:`~better_human.core.human_model.HumanModel` of ``mhr``)."""
+    spec, rig = human.spec, human.spec.rig
+    exemplar = spec.template_vertices
     identity = classic_tensor("identity_coeffs", classic.identity_coeffs, IDENTITY_COUNT, exemplar)
     model_parameters = classic_tensor("model_parameters", classic.model_parameters, PARAMETER_COUNT, exemplar)
     if identity is None or model_parameters is None:
         raise TypeError("identity_coeffs and model_parameters must be floating torch.Tensors")
-    use_expression = "expression" in spec.streams
+    use_expression = "expression" in spec.stream_bases
     if not use_expression and classic.expression is not None:
         raise ValueError("expression requires an MHR spec loaded with expression=True")
     expression = (
@@ -143,7 +142,7 @@ def mhr_from_classic(body: Body, classic: MHRClassic) -> tuple[Identity, torch.T
     batch = torch.broadcast_shapes(*shapes)
     identity = identity.expand(*batch, IDENTITY_COUNT)
     model_parameters = model_parameters.expand(*batch, PARAMETER_COUNT)
-    baked = body.bake(identity=identity, proportions=model_parameters.index_select(-1, rig.proportion_columns))
+    baked = human.bake(identity=identity, proportions=model_parameters.index_select(-1, rig.proportion_columns))
     stream = {}
     if use_expression:
         zeros = exemplar.new_zeros((*batch, EXPRESSION_COUNT))
@@ -155,8 +154,8 @@ def mhr_from_classic(body: Body, classic: MHRClassic) -> tuple[Identity, torch.T
 
 def mhr_to_classic(identity: Identity, q: torch.Tensor, stream: dict[str, torch.Tensor] | None = None) -> MHRClassic:
     """Classic parameters for a baked MHR ``identity`` and ``q (..., 132)``; Euler angles on BR's principal branch."""
-    spec, rig = identity.spec, identity.spec.rig
-    coeffs = identity.params["identity"]
+    spec, rig = identity.human.spec, identity.human.spec.rig
+    coeffs = identity.values["identity"]
     q, batch = broadcast_configuration(q, identity.model, coeffs)
     root_quaternion = so3.normalize(q[..., 3:7])
     root_euler = so3.to_euler(root_quaternion)
@@ -166,10 +165,10 @@ def mhr_to_classic(identity: Identity, q: torch.Tensor, stream: dict[str, torch.
     root_parameters = root_channels @ torch.linalg.inv(rig.root_transform).mT
     model_parameters = torch.cat((root_parameters, q.new_zeros((*batch, PARAMETER_COUNT - ROOT_COUNT))), dim=-1)
     model_parameters = model_parameters.index_copy(-1, rig.pose_columns, q[..., 7:] / rig.host_weights)
-    proportions = identity.params["proportions"].expand(*batch, len(rig.proportion_columns))
+    proportions = identity.values["proportions"].expand(*batch, len(rig.proportion_columns))
     model_parameters = model_parameters.index_copy(-1, rig.proportion_columns, proportions)
     expression = None
-    if "expression" in spec.streams:
+    if "expression" in spec.stream_bases:
         value = (stream or {}).get("expression")
         expression = (
             q.new_zeros((*batch, EXPRESSION_COUNT)) if value is None else value.expand(*batch, EXPRESSION_COUNT)

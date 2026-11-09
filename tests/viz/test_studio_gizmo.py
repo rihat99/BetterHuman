@@ -19,16 +19,16 @@ _TURN = [0.0, 0.3827, 0.0, 0.9239]
 
 
 @pytest.fixture(scope="module")
-def smpl() -> bh.Body:
+def smpl() -> bh.HumanModel:
     return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
 
 
 @pytest.fixture(scope="module")
-def mhr() -> bh.Body:
+def mhr() -> bh.HumanModel:
     return bh.load("mhr", weight_path("MHR", "converted/mhr_lod1.npz"), lod=1)
 
 
-def _setup(body: bh.Body, key: str) -> tuple[StudioSession, GizmoController, list[str]]:
+def _setup(body: bh.HumanModel, key: str) -> tuple[StudioSession, GizmoController, list[str]]:
     session = StudioSession(body, key)
     status: list[str] = []
     return session, GizmoController(Viewer(server=FakeServer()), session, on_status=status.append), status
@@ -38,16 +38,16 @@ def _angle(quat_a: np.ndarray, quat_b: np.ndarray) -> float:
     return float(2 * np.arccos(min(abs(float(np.dot(quat_a, quat_b))), 1.0)))
 
 
-def test_non_root_is_rotation_only(smpl: bh.Body) -> None:
+def test_non_root_is_rotation_only(smpl: bh.HumanModel) -> None:
     session, gizmo, status = _setup(smpl, "smpl")
     gizmo.select(18)
     props = gizmo.gizmo.handle.props
     assert props["disable_sliders"] is True and props["disable_axes"] is True
-    assert status[-1] == f"posing {smpl.joint_names[18]!r} (spherical)"
+    assert status[-1] == f"posing {smpl.spec.joint_names[18]!r} (spherical)"
     np.testing.assert_allclose(gizmo.gizmo.pose, session.joint_poses[18].numpy(), atol=1e-6)
 
 
-def test_root_is_six_dof(smpl: bh.Body) -> None:
+def test_root_is_six_dof(smpl: bh.HumanModel) -> None:
     _, gizmo, status = _setup(smpl, "smpl")
     gizmo.select(0)
     props = gizmo.gizmo.handle.props
@@ -56,7 +56,7 @@ def test_root_is_six_dof(smpl: bh.Body) -> None:
     assert status[-1].endswith("(free_flyer)")
 
 
-def test_drag_non_root_rotates_only_its_slot(smpl: bh.Body) -> None:
+def test_drag_non_root_rotates_only_its_slot(smpl: bh.HumanModel) -> None:
     session, gizmo, _ = _setup(smpl, "smpl")
     gizmo.select(18)
     handle = gizmo.handle_for(18)
@@ -69,7 +69,7 @@ def test_drag_non_root_rotates_only_its_slot(smpl: bh.Body) -> None:
     assert _angle(session.joint_poses[18, 3:].numpy(), np.array(_TURN)) < 1e-4
 
 
-def test_drag_root_translates_and_follows(smpl: bh.Body) -> None:
+def test_drag_root_translates_and_follows(smpl: bh.HumanModel) -> None:
     session, gizmo, _ = _setup(smpl, "smpl")
     gizmo.select(0)
     pose = session.joint_poses[0].numpy().copy()
@@ -79,7 +79,7 @@ def test_drag_root_translates_and_follows(smpl: bh.Body) -> None:
     np.testing.assert_allclose(gizmo.gizmo.pose[:3], pose[:3], atol=1e-5)
 
 
-def test_clear_on_body_change_and_select_none(smpl: bh.Body) -> None:
+def test_clear_on_body_change_and_select_none(smpl: bh.HumanModel) -> None:
     session, gizmo, _ = _setup(smpl, "smpl")
     gizmo.select(5)
     assert gizmo.gizmo is not None and gizmo.joint == 5
@@ -90,17 +90,17 @@ def test_clear_on_body_change_and_select_none(smpl: bh.Body) -> None:
     assert gizmo.gizmo is None and gizmo.joint is None
 
 
-def test_fixed_joint_reports_status(mhr: bh.Body) -> None:
+def test_fixed_joint_reports_status(mhr: bh.HumanModel) -> None:
     session, gizmo, status = _setup(mhr, "mhr")
     posed = {h.native_index for h in session.handles}
-    fixed = next(j for j in range(len(mhr.joint_names)) if j not in posed)
+    fixed = next(j for j in range(len(mhr.spec.joint_names)) if j not in posed)
     assert gizmo.handle_for(fixed) is None
     gizmo.select(fixed)
     assert gizmo.gizmo is None
-    assert status[-1] == f"joint {mhr.joint_names[fixed]!r} has no degree of freedom"
+    assert status[-1] == f"joint {mhr.spec.joint_names[fixed]!r} has no degree of freedom"
 
 
-def test_mhr_channel_drag(mhr: bh.Body) -> None:
+def test_mhr_channel_drag(mhr: bh.HumanModel) -> None:
     session, gizmo, _ = _setup(mhr, "mhr")
     handle = next(h for h in session.handles if h.kind == "channels" and len(h.channels) == 3)
     gizmo.select(handle.native_index)

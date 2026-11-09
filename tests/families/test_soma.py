@@ -6,7 +6,7 @@ import pytest
 import torch
 from better_robot.lie import so3
 
-from better_human import Body, families, load
+from better_human import HumanModel, families, load
 from better_human.families.soma import SOMAClassic, soma_from_classic, soma_to_classic
 from better_human.io import weight_path
 
@@ -23,13 +23,13 @@ def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> 
 
 
 @pytest.fixture(scope="module")
-def body() -> Body:
+def body() -> HumanModel:
     return load("soma", str(weight_path("SOMA", "soma_mid.npz")))
 
 
-def test_sizes_parts_and_mass(body: Body) -> None:
+def test_sizes_parts_and_mass(body: HumanModel) -> None:
     spec = body.spec
-    assert (spec.num_vertices, spec.num_joints, spec.identity["shape"].shape[-1]) == (18056, 110, 128)
+    assert (spec.num_vertices, spec.num_joints, spec.identity_bases["shape"].shape[-1]) == (18056, 110, 128)
     assert spec.joint_names[:2] == ("Root", "Hips")
     assert (body.model.nq, body.model.nv) == (311, 234)
     assert set(spec.parts.joints) <= set(spec.rig.public_ids.tolist())  # twist helpers fold into their parents
@@ -40,7 +40,9 @@ def test_sizes_parts_and_mass(body: Body) -> None:
 
 @pytest.mark.parametrize(("dtype", "atol"), ((torch.float32, 1e-6), (torch.float64, 1e-12)), ids=("float32", "float64"))
 def test_classic_round_trip(dtype: torch.dtype, atol: float) -> None:
-    body = Body(families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), mass=False)
+    body = HumanModel.from_spec(
+        families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), density=None
+    )
     random = _random_classic(torch.Generator().manual_seed(0), (4,))
     classic = SOMAClassic(random.identity_coeffs.to(dtype), random.poses.to(dtype), random.transl.to(dtype))
     identity, q, stream = soma_from_classic(body, classic)
@@ -52,23 +54,23 @@ def test_classic_round_trip(dtype: torch.dtype, atol: float) -> None:
     torch.testing.assert_close(restored.transl, classic.transl, rtol=0, atol=atol)
 
 
-def test_free_flyer_is_world_aligned(body: Body) -> None:
+def test_free_flyer_is_world_aligned(body: HumanModel) -> None:
     """``q[:3]`` moves the body along the world axes; ``q[3:7]`` turns it about the Hips, which start at the origin."""
     identity = body.bake()
-    neutral = identity.forward(identity.q_neutral)
-    q = identity.q_neutral.clone()
+    neutral = identity.forward(identity.model.q_neutral)
+    q = identity.model.q_neutral.clone()
     q[0] += 1.0
     moved = identity.forward(q)
     torch.testing.assert_close(moved.vertices, neutral.vertices + q.new_tensor((1.0, 0.0, 0.0)), rtol=0, atol=1e-6)
-    q = identity.q_neutral.clone()
+    q = identity.model.q_neutral.clone()
     q[3:7] = so3.exp(q.new_tensor((0.0, 0.5, 0.0)))
     turned, turn = identity.forward(q), so3.to_matrix(q[3:7])
-    torch.testing.assert_close(turned.joints, neutral.joints @ turn.mT, rtol=0, atol=1e-6)
+    torch.testing.assert_close(turned.joint_translations, neutral.joint_translations @ turn.mT, rtol=0, atol=1e-6)
     expected = turn @ neutral.joint_transforms[1:, :, :3]  # Root, the universe, does not turn
     torch.testing.assert_close(turned.joint_transforms[1:, :, :3], expected, rtol=0, atol=1e-6)
 
 
-def test_identity_batch_broadcasts_against_pose_batch(body: Body) -> None:
+def test_identity_batch_broadcasts_against_pose_batch(body: HumanModel) -> None:
     generator = torch.Generator().manual_seed(1)
     shapes = 0.5 * torch.randn(2, 1, 128, generator=generator)
     poses = _random_classic(generator, (3,))
@@ -88,7 +90,7 @@ def test_identity_batch_broadcasts_against_pose_batch(body: Body) -> None:
 
 def test_gradients_match_finite_differences() -> None:
     """Shape, pose and root gradients of a vertex and joint loss are finite and match central differences."""
-    body = Body(families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=torch.float64), mass=False)
+    body = HumanModel.from_spec(families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=torch.float64), density=None)
     generator = torch.Generator().manual_seed(2)
     classic = _random_classic(generator)
     weights = torch.randn(18056, 3, generator=generator, dtype=torch.float64)
@@ -100,7 +102,7 @@ def test_gradients_match_finite_differences() -> None:
     def loss(*values: torch.Tensor) -> torch.Tensor:
         identity, q, _ = soma_from_classic(body, SOMAClassic(*values))
         state = identity.forward(q)
-        return (state.vertices * weights).sum() + state.joints.sum()
+        return (state.vertices * weights).sum() + state.joint_translations.sum()
 
     gradients = torch.autograd.grad(loss(*inputs), inputs)
     assert all(torch.isfinite(gradient).all() for gradient in gradients)
@@ -115,7 +117,7 @@ def test_gradients_match_finite_differences() -> None:
         torch.testing.assert_close(gradients[which][index], numeric, rtol=1e-6, atol=1e-7)
 
 
-def test_spec_and_classic_validation(body: Body) -> None:
+def test_spec_and_classic_validation(body: HumanModel) -> None:
     with pytest.raises(TypeError, match="torch.float32 or torch.float64"):
         families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=torch.float16)
     with pytest.raises(TypeError, match="must be bool"):

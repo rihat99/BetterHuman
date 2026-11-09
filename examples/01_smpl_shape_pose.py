@@ -31,11 +31,11 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    body = bh.load("smpl", args.model_path, num_betas=10, mass=False)
+    human = bh.load("smpl", args.model_path, num_betas=10, density=None)
     betas = torch.zeros(10)
-    tangent = torch.zeros(body.model.nv)
-    identity = body.bake(betas=betas)
-    view = HumanView(identity.forward(identity.q_neutral))
+    tangent = torch.zeros(human.model.nv)
+    identity = human.bake(betas=betas)
+    view = HumanView(identity.forward(identity.model.q_neutral))
 
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
     viewer.add(GroundLayer(plane="xz"), group="scene")
@@ -44,7 +44,7 @@ def main() -> None:
 
     def refresh() -> None:
         nonlocal identity
-        view.update(identity.forward(integrate(identity.model, identity.q_neutral, tangent)))
+        view.update(identity.forward(integrate(identity.model, identity.model.q_neutral, tangent)))
         viewer.show()
 
     gui = viewer.server.gui
@@ -55,13 +55,13 @@ def main() -> None:
             def on_beta(_: object, index: int = index, slider: object = slider) -> None:
                 nonlocal identity
                 betas[index] = float(slider.value)
-                identity = body.bake(betas=betas)
+                identity = human.bake(betas=betas)
                 refresh()
 
             slider.on_update(on_beta)
     with gui.add_folder("Pose"):
         for label, joint, axis in POSE_SLIDERS:
-            coordinate = body.model.idx_vs[body.model.joint_id(joint)] + axis
+            coordinate = human.model.idx_vs[human.model.joint_id(joint)] + axis
             slider = gui.add_slider(label, min=-1.5, max=1.5, step=0.05, initial_value=0.0)
 
             def on_pose(_: object, coordinate: int = coordinate, slider: object = slider) -> None:
@@ -72,8 +72,8 @@ def main() -> None:
 
     if args.check:
         betas[0] = 2.0
-        identity = body.bake(betas=betas)
-        tangent[body.model.idx_vs[body.model.joint_id("left_elbow")] + 1] = 1.0
+        identity = human.bake(betas=betas)
+        tangent[human.model.idx_vs[human.model.joint_id("left_elbow")] + 1] = 1.0
         refresh()
         print(f"scene with {len(view.layers)} layers; elbow bent, beta0 = 2")
         viewer.server.stop()

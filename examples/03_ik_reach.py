@@ -30,10 +30,10 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    body = bh.load("smpl", args.model_path, num_betas=10, mass=False)
-    identity = body.bake()
+    human = bh.load("smpl", args.model_path, num_betas=10, density=None)
+    identity = human.bake()
     model = identity.model
-    q = identity.q_neutral[None].clone()
+    q = identity.model.q_neutral[None].clone()
     state = identity.forward(q)
     view = HumanView(state)
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))

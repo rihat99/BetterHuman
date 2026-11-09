@@ -12,15 +12,15 @@ from better_human.io import weight_path
 pytestmark = pytest.mark.licensed
 
 
-def _body(flat_hand_mean: bool = False) -> bh.Body:
-    return bh.Body(
+def _body(flat_hand_mean: bool = False) -> bh.HumanModel:
+    return bh.HumanModel.from_spec(
         bh.families.mano(weight_path("mano", "MANO_RIGHT.npz"), flat_hand_mean=flat_hand_mean, dtype=torch.float64),
-        mass=False,
+        density=None,
     )
 
 
 def test_joint_count() -> None:
-    assert len(_body().joint_names) == 16
+    assert len(_body().spec.joint_names) == 16
 
 
 def test_pca_round_trip() -> None:
@@ -44,7 +44,7 @@ def test_flat_hand_mean() -> None:
     mean_identity, flat_identity = mean_body.bake(), flat_body.bake()
     flat_q, _ = mano_from_classic(flat_identity, MANOClassic())
     torch.testing.assert_close(flat_q[3:], flat_identity.q_neutral[3:], atol=1e-12, rtol=0)
-    torch.testing.assert_close(flat_q[:3], flat_identity.pelvis, atol=1e-12, rtol=0)
+    torch.testing.assert_close(flat_q[:3], flat_identity.root_offset, atol=1e-12, rtol=0)
     mean_q, _ = mano_from_classic(mean_identity, MANOClassic())
     hand_mean = mean_body.spec.meta["hand_mean"]["right"]
     full = mano_to_classic(mean_identity, mean_q)

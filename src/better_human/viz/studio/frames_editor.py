@@ -38,7 +38,7 @@ class FramesEditor:
         gui.add_button("Rename").on_click(
             self.studio._locked(lambda _event: self.rename(self.active, self.rename_text.value))
         )
-        joints = (_DEFAULT_JOINT, *self.session.body.joint_names)
+        joints = (_DEFAULT_JOINT, *self.session.body.spec.joint_names)
         self.joint_dropdown = gui.add_dropdown("Parent joint", options=joints, initial_value=_DEFAULT_JOINT)
         self.joint_dropdown.on_update(
             self.studio._locked(lambda _event: self.set_joint(self.active, self.joint_dropdown.value))
@@ -92,7 +92,7 @@ class FramesEditor:
         self.frame_dropdown.value = name
         self.rename_text.value = name
         self.joint_dropdown.value = (
-            _DEFAULT_JOINT if entry.joint is None else self.session.body.joint_names[entry.joint]
+            _DEFAULT_JOINT if entry.joint is None else self.session.body.spec.joint_names[entry.joint]
         )
         self.studio.layers.set_edit_vertices([entry.vertex])
         self.studio.set_status(f"frame {name!r}: vertex {entry.vertex}, joint {self.session.resolved_joint(entry)}")
@@ -110,7 +110,7 @@ class FramesEditor:
         """Override the parent joint of ``name``; the default entry restores the skinning argmax."""
         if name is None:
             return
-        joint = None if joint_name == _DEFAULT_JOINT else self.session.body.joint_names.index(joint_name)
+        joint = None if joint_name == _DEFAULT_JOINT else self.session.body.spec.joint_names.index(joint_name)
         self.session.set_frame_joint(name, joint)
 
     def delete(self, name: str | None) -> None:
@@ -123,7 +123,7 @@ class FramesEditor:
         self.refresh()
 
     def _as_io(self) -> dict[str, tuple[int, str | None]]:
-        names = self.session.body.joint_names
+        names = self.session.body.spec.joint_names
         return {
             key: (entry.vertex, None if entry.joint is None else names[entry.joint])
             for key, entry in self.session.frame_set.items()
@@ -144,7 +144,7 @@ class FramesEditor:
             self.studio.set_status(f"no saved frame set {name!r}")
             return
         raw = persistence.load_frame_set(path, self.session.vertices.shape[0])
-        names = self.session.body.joint_names
+        names = self.session.body.spec.joint_names
         self.session.set_frame_set(
             {
                 key: FrameEntry(vertex, None if joint is None else names.index(joint))

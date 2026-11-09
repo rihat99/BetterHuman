@@ -17,13 +17,17 @@ pytestmark = pytest.mark.licensed
 @pytest.fixture(scope="module")
 def clip():
     body = bh.load(
-        "smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"), num_betas=10, mass=False, contact_frames={"heel": (3387, None)}
+        "smpl",
+        weight_path("smpl", "SMPL_NEUTRAL.npz"),
+        num_betas=10,
+        density=None,
+        contact_frames={"heel": (3387, None)},
     )
     identity = body.bake()
     frames = 5
-    tangent = torch.zeros(frames, identity.nv)
+    tangent = torch.zeros(frames, identity.model.nv)
     tangent[:, 6 + 3 * 15] = torch.linspace(0.0, 1.0, frames)
-    q = integrate(identity.model, identity.q_neutral.expand(frames, -1), tangent)
+    q = integrate(identity.model, identity.model.q_neutral.expand(frames, -1), tangent)
     return identity, identity.forward(q)
 
 
@@ -32,7 +36,7 @@ def test_layers_have_one_frame_per_pose(clip) -> None:
     layers = human_layers(state, frames=True, forces={"heel": torch.ones(5, 3)})
     assert [layer.name for layer in layers] == ["mesh", "skeleton", "frames", "forces"]
     assert all(layer.nsteps == 5 for layer in layers)
-    assert layers[0].vertices.shape == (5, identity.body.num_vertices, 3)
+    assert layers[0].vertices.shape == (5, identity.human.spec.num_vertices, 3)
     assert layers[1].joints.shape == (5, 24, 3)
     np.testing.assert_allclose(layers[3].origins[2, 0], state.kinematics.frame_translations[2, -1].numpy(), atol=1e-6)
 
@@ -41,13 +45,13 @@ def test_skinned_layer_matches_exact_vertices_without_correctives(clip) -> None:
     identity, state = clip
     skinned = human_layers(state, mesh="skinned", skeleton=False)[0]
     exact = state.vertices[3].numpy()
-    corrective = identity.spec.corrective.apply(state.corrective_feature)[3].abs().max().item()
+    corrective = identity.human.spec.corrective.apply(state.corrective_feature)[3].abs().max().item()
     assert np.abs(skinned.skin(3) - exact).max() < corrective + 1e-3
 
 
 def test_human_view_updates_in_place(clip) -> None:
     identity, state = clip
-    single = identity.forward(identity.q_neutral)
+    single = identity.forward(identity.model.q_neutral)
     view = HumanView(single, frames=True)
     mesh, skeleton, frames = view.layers
     before = mesh.vertices.copy()
@@ -55,7 +59,7 @@ def test_human_view_updates_in_place(clip) -> None:
     view.update(moved)
     np.testing.assert_allclose(mesh.vertices[0], moved.vertices.numpy(), atol=1e-6)
     assert np.abs(mesh.vertices - before).max() > 0.05
-    np.testing.assert_allclose(skeleton.joints[0], moved.joints.numpy(), atol=1e-6)
+    np.testing.assert_allclose(skeleton.joints[0], moved.joint_translations.numpy(), atol=1e-6)
     assert frames.poses.shape == (1, identity.model.nframes, 7)
 
 

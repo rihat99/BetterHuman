@@ -91,21 +91,21 @@ import torch
 import better_human as bh
 from better_human.viz import HumanView
 
-body = bh.load("smpl", gender="neutral")         # one BetterRobot model per family
-identity = body.bake(betas=torch.zeros(1, 10))   # bake shape once (mass, joints, contact frames)
-q = identity.q_neutral.expand(4, -1).clone()     # (B, nq): free-flyer root + spherical joints
+human = bh.load("smpl", gender="neutral")        # one BetterRobot model per family
+identity = human.bake(betas=torch.zeros(1, 10))   # bake shape once (mass, joints, contact frames)
+q = identity.model.q_neutral.expand(4, -1).clone()     # (B, nq): free-flyer root + spherical joints
 q[:, 1] = 1.0                                    # root 1 m up (y-up, metres)
 state = identity.forward(q)                      # HumanState for 4 poses
-print(state.vertices.shape, state.joints.shape)  # (4, 6890, 3) (4, 24, 3)
+print(state.vertices.shape, state.joint_translations.shape)  # (4, 6890, 3) (4, 24, 3)
 
-view = HumanView(identity.forward(identity.q_neutral))   # viewer layers, updated in place
+view = HumanView(identity.forward(identity.model.q_neutral))   # viewer layers, updated in place
 # from better_robot.viewer import Viewer
 # viewer = Viewer(); [viewer.add(layer, group="human") for layer in view]
 # view.update(state_for_next_frame); viewer.show()
 ```
 
 Per-frame groups such as SMPL-X expression go to `forward`:
-`identity.forward(q, stream={"expression": torch.zeros(B, 10)})`.
+`identity.forward(q, streams={"expression": torch.zeros(B, 10)})`.
 See `docs/concepts/architecture.md` for the design and `docs/contracts/bh-addendum.md` for shapes, units and gates.
 
 ## Supported families
@@ -120,7 +120,7 @@ See `docs/concepts/architecture.md` for the design and `docs/contracts/bh-addend
 | MHR | `bh.load("mhr", lod=1)` | `identity`, `proportions` | `expression` |
 | SOMA | `bh.load("soma")` (mid LOD) | `shape` | |
 
-Options `mass`, `density`, `contact_frames` and `stream_joints` go to `Body`; the rest go to the loader.
+Options `density`, `contact_frames` and `stream_joints` go to `HumanModel.from_spec`; the rest go to the loader.
 `contact_frames` takes a mapping `name -> (vertex_id, joint | None)`: `bh.io.read_frame_set(path)` reads a frame-set
 file and `bh.io.shipped_frame_set("smplx_contacts")` returns the 35 SMPL-X contact points BetterHuman ships.
 

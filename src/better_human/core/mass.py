@@ -241,7 +241,7 @@ def body_inertias_from_shape(
     expressed in its rest-joint frame. Compact per-part vertices center each
     integration at the part mean, which is exact for the open seam parts too.
     ``density`` is a scalar or ``(num_parts,)`` tensor already validated by
-    ``Body``.
+    ``HumanModel``.
     """
     per_part = density.broadcast_to((topology.num_parts,))
 

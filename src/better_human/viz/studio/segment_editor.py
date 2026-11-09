@@ -146,21 +146,25 @@ class SegmentEditor:
     def build_bodies(self) -> list[tuple[str, float]]:
         """Close each part mesh, integrate its mass at the session density and fill the mass table.
 
-        Masses use the rest shape (``identity.v_shaped``, identity part poses), as ``Body.bake`` does; returns ``[(part, kg), ...]`` with a trailing ``("total", kg)``.
+        Masses use the rest shape (``identity.rest_vertices``, identity part poses), as ``HumanModel.bake`` does; returns ``[(part, kg), ...]`` with a trailing ``("total", kg)``.
         """
         session, num_parts = self.session, len(self.session.part_names)
         body = session.body
-        authored = body.topology is not None and num_parts == body.spec.parts.count
+        authored = body.part_topology is not None and num_parts == body.spec.parts.count
         if authored and torch.equal(torch.as_tensor(session.part_ids).to(body.spec.parts.ids), body.spec.parts.ids):
-            topology = body.topology  # the body's own (possibly authored, closed) parts: same mass as ``Body.bake``
+            topology = (
+                body.part_topology
+            )  # the body's own (possibly authored, closed) parts: same mass as ``HumanModel.bake``
         else:
-            topology = build_part_topology(body.faces, session.part_ids, num_parts)
+            topology = build_part_topology(body.spec.faces, session.part_ids, num_parts)
         poses = torch.zeros(num_parts, 7)
         poses[:, 6] = 1.0
         density = session.body.density
         if density.numel() != num_parts:
             density = density.mean().expand(num_parts)
-        masses = body_inertias_from_shape(session.identity.v_shaped.detach(), poses, topology, density)[1:, 0].tolist()
+        masses = body_inertias_from_shape(session.identity.rest_vertices.detach(), poses, topology, density)[
+            1:, 0
+        ].tolist()
         rows = [*zip(session.part_names, masses, strict=True), ("total", float(sum(masses)))]
         table = "\n".join(f"| {name} | {mass:.2f} |" for name, mass in rows)
         self.mass_table.content = f"| part | kg |\n|---|---|\n{table}"

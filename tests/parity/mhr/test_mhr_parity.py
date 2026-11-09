@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from better_human import families
-from better_human.core.human_model import Body
+from better_human.core.human_model import HumanModel
 from better_human.families.mhr import MHRClassic, mhr_from_classic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
@@ -129,7 +129,7 @@ def test_mhr_parity_grid(
     """Stream one oracle group through one body to bound peak memory."""
     paths = _selected_goldens(mhr_goldens[lod], use_correctives, use_expression)
     assert paths, "parity configuration selected no golden cases"
-    body = Body(
+    body = HumanModel.from_spec(
         families.mhr(
             weight_path("MHR", f"converted/mhr_lod{lod}.npz"),
             lod=lod,

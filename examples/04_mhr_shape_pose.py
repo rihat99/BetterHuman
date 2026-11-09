@@ -24,18 +24,18 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    body = bh.load("mhr", args.model_path, lod=1, mass=False)
+    human = bh.load("mhr", args.model_path, lod=1, density=None)
     coefficients = torch.zeros(45)
-    tangent = torch.zeros(body.model.nv)
-    identity = body.bake(identity=coefficients)
-    view = HumanView(identity.forward(identity.q_neutral))
+    tangent = torch.zeros(human.model.nv)
+    identity = human.bake(identity=coefficients)
+    view = HumanView(identity.forward(identity.model.q_neutral))
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
     viewer.add(GroundLayer(plane="xz"), group="scene")
     for layer in view:
         viewer.add(layer, group="mhr")
 
     def refresh() -> None:
-        view.update(identity.forward(integrate(identity.model, identity.q_neutral, tangent)))
+        view.update(identity.forward(integrate(identity.model, identity.model.q_neutral, tangent)))
         viewer.show()
 
     gui = viewer.server.gui
@@ -46,21 +46,21 @@ def main() -> None:
             def on_identity(_: object, index: int = index, slider: object = slider) -> None:
                 nonlocal identity
                 coefficients[index] = float(slider.value)
-                identity = body.bake(identity=coefficients)
+                identity = human.bake(identity=coefficients)
                 refresh()
 
             slider.on_update(on_identity)
-    arm = body.model.idx_vs[body.model.joint_id("l_shoulder_rx")] if "l_shoulder_rx" in body.model.joint_names else 6
+    arm = human.model.idx_vs[human.model.joint_id("l_shoulder_rx")] if "l_shoulder_rx" in human.model.joint_names else 6
     with gui.add_folder("Pose"):
         slider = gui.add_slider("left shoulder", min=-1.5, max=1.5, step=0.05, initial_value=0.0)
         slider.on_update(lambda _: (tangent.__setitem__(arm, float(slider.value)), refresh()))
 
     if args.check:
         coefficients[0] = 2.0
-        identity = body.bake(identity=coefficients)
+        identity = human.bake(identity=coefficients)
         tangent[arm] = 1.0
         refresh()
-        print(f"MHR nq={body.model.nq}, {body.num_vertices} vertices; identity0 = 2, shoulder bent")
+        print(f"MHR nq={human.model.nq}, {human.spec.num_vertices} vertices; identity0 = 2, shoulder bent")
         viewer.server.stop()
         return
     print(f"open {viewer.url}; Ctrl-C to exit")

@@ -23,17 +23,17 @@ export BETTERHUMAN_MODELS_DIR=$PWD/models
 
 ## Load a body and bake a subject
 
-`load` builds one `Body` per family. `bake` applies the identity (shape) once and returns an
+`load` builds one `HumanModel` per family. `bake` applies the identity (shape) once and returns an
 `Identity` whose `model` is a BetterRobot `Model`.
 
 ```python
 import torch
 import better_human as bh
 
-body = bh.load("smpl")
-subject = body.bake(betas=torch.zeros(10))
+human = bh.load("smpl")
+subject = human.bake(betas=torch.zeros(10))
 print(type(subject.model).__module__, subject.model.nq, subject.model.nv)
-print(body.joint_names[:4])
+print(human.spec.joint_names[:4])
 ```
 ```output
 better_robot.model.model 99 75
@@ -52,8 +52,8 @@ model = subject.model
 v = torch.zeros(4, model.nv)
 elbow = model.idx_vs[model.joint_id("left_elbow")]
 v[:, elbow + 1] = torch.linspace(0.0, 1.5, 4)
-state = subject.forward(integrate(model, subject.q_neutral, v))
-print(type(state.kinematics).__name__, tuple(state.joints.shape), tuple(state.vertices.shape))
+state = subject.forward(integrate(model, model.q_neutral, v))
+print(type(state.kinematics).__name__, tuple(state.joint_translations.shape), tuple(state.vertices.shape))
 ```
 ```output
 KinematicState (4, 24, 3) (4, 6890, 3)

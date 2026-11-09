@@ -54,7 +54,7 @@ def smplx_goldens() -> Path:
 
 def _body(
     dtype: torch.dtype, num_betas: int, num_expression: int, flat_hand_mean: bool, stream_joints: bool = True
-) -> bh.Body:
+) -> bh.HumanModel:
     key = (dtype, num_betas, num_expression, flat_hand_mean, stream_joints)
     if key not in _BODY_CACHE:
         spec = bh.families.smplx(
@@ -64,7 +64,7 @@ def _body(
             flat_hand_mean=flat_hand_mean,
             dtype=dtype,
         )
-        _BODY_CACHE[key] = bh.Body(spec, mass=False, stream_joints=stream_joints)
+        _BODY_CACHE[key] = bh.HumanModel.from_spec(spec, density=None, stream_joints=stream_joints)
     return _BODY_CACHE[key]
 
 
@@ -98,7 +98,7 @@ def _evaluate(
         ),
     )
     state = identity.forward(q, stream)
-    return state.vertices, state.joints, golden
+    return state.vertices, state.joint_translations, golden
 
 
 @pytest.mark.parametrize("case", sorted(EXPECTED_GOLDENS))

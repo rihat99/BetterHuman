@@ -76,17 +76,17 @@ class HumanStudio:
             return persistence.model_key("mhr", lod=self.lod)
         return persistence.model_key(self.family, gender=self.gender)
 
-    def _load_body(self) -> bh.Body:
+    def _load_body(self) -> bh.HumanModel:
         options = {"lod": self.lod} if self.family == "mhr" else {"gender": self.gender}
         density = self.density
         if isinstance(density, str):
             body = self.session.body
-            names = [body.joint_names[j] for j in body.spec.parts.joints]
-            density = load_density_table("body_densities.json", density, names, body.spec.vertices)
-        return bh.load(self.family, mass=True, density=density, **options)
+            names = [body.spec.joint_names[j] for j in body.spec.parts.joints]
+            density = load_density_table("body_densities.json", density, names, body.spec.template_vertices)
+        return bh.load(self.family, density=density, **options)
 
     @staticmethod
-    def _default_frames(body: bh.Body) -> dict[str, FrameEntry]:
+    def _default_frames(body: bh.HumanModel) -> dict[str, FrameEntry]:
         frames = body.contact_frames
         if frames is None:
             return {}
@@ -129,7 +129,7 @@ class HumanStudio:
         with tabs.add_tab("Body"):
             gui.add_markdown(f"**{self.family}** {self.gender if self.family != 'mhr' else f'lod {self.lod}'}")
             self.shape_sliders: dict[str, list[Any]] = {}
-            for group, width in self.session.body.identity_groups.items():
+            for group, width in self.session.body.spec.identity_groups.items():
                 sliders = [
                     gui.add_slider(f"{group}[{k}]", min=-5.0, max=5.0, step=0.05, initial_value=0.0)
                     for k in range(min(width, 10))
@@ -213,7 +213,7 @@ class HumanStudio:
             return
         model = f"{self.family} {self.gender if self.family != 'mhr' else f'lod {self.lod}'}"
         joint = self.gizmo.joint
-        joint_name = "—" if joint is None else self.session.body.joint_names[joint]
+        joint_name = "—" if joint is None else self.session.body.spec.joint_names[joint]
         frame = self.frames.active if self.frames.active in self.session.frame_set else "—"
         self.selection_text.content = f"{model} · joint: {joint_name} · frame: {frame}"
 
@@ -259,7 +259,10 @@ class HumanStudio:
     def pick_joint(self, origin: np.ndarray, direction: np.ndarray) -> int | None:
         """Nearest joint (along the ray) whose sphere of radius ``layers.radius`` the ray crosses."""
         return nearest_on_ray(
-            self.session.state.joints.detach().reshape(-1, 3).cpu().numpy(), origin, direction, self.layers.radius
+            self.session.state.joint_translations.detach().reshape(-1, 3).cpu().numpy(),
+            origin,
+            direction,
+            self.layers.radius,
         )
 
     def pick_frame(self, origin: np.ndarray, direction: np.ndarray) -> str | None:
@@ -286,7 +289,7 @@ class HumanStudio:
                 self.frames.select_frame(frame)
                 return
         hit = ray_hit(
-            origin, direction, self.session.vertices.detach().cpu().numpy(), self.session.body.faces.cpu().numpy()
+            origin, direction, self.session.vertices.detach().cpu().numpy(), self.session.body.spec.faces.cpu().numpy()
         )
         if hit is None:
             return
@@ -297,7 +300,7 @@ class HumanStudio:
             self.frames.add_at(point)
         else:
             vertex_joints = self.session.vertex_native_joints
-            nearest = int(self.session.body.faces[face, 0])
+            nearest = int(self.session.body.spec.faces[face, 0])
             self.select_joint(int(vertex_joints[nearest]))
 
     def start_marquee(self) -> None:
@@ -318,7 +321,7 @@ class HumanStudio:
 
     def apply_shape(self, group: str) -> None:
         """Push the ``group`` sliders into the session (re-bakes the identity)."""
-        width = self.session.body.identity_groups[group]
+        width = self.session.body.spec.identity_groups[group]
         values = [float(slider.value) for slider in self.shape_sliders[group]] + [0.0] * width
         self.session.set_shape(**{group: self.session.shape_tensor(group, values[:width])})
 

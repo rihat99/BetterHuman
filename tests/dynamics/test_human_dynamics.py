@@ -14,12 +14,12 @@ pytestmark = pytest.mark.licensed
 
 
 @pytest.fixture(scope="module")
-def mass_body() -> bh.Body:
+def mass_body() -> bh.HumanModel:
     """Load the licensed neutral fixture with mass properties."""
-    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")))
+    return bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")))
 
 
-def test_gravity_inverse_dynamics_zero_velocity_and_mass_matrix_spd(mass_body: bh.Body) -> None:
+def test_gravity_inverse_dynamics_zero_velocity_and_mass_matrix_spd(mass_body: bh.HumanModel) -> None:
     model = mass_body.bake().model
     q = model.q_neutral
     state = forward_kinematics(model, q)
@@ -33,7 +33,7 @@ def test_gravity_inverse_dynamics_zero_velocity_and_mass_matrix_spd(mass_body: b
     assert torch.linalg.eigvalsh(M).min() > 0
 
 
-def test_batched_shapes_drive_batched_dynamics(mass_body: bh.Body) -> None:
+def test_batched_shapes_drive_batched_dynamics(mass_body: bh.HumanModel) -> None:
     betas = torch.stack((torch.zeros(10), torch.linspace(-0.5, 0.5, 10)))
     model = mass_body.bake(betas=betas).model
     q = model.q_neutral
@@ -48,11 +48,11 @@ def test_batched_shapes_drive_batched_dynamics(mass_body: bh.Body) -> None:
     assert torch.linalg.eigvalsh(M).min() > 0
 
 
-def test_betas_to_inverse_dynamics_backward_is_finite_and_nonzero(mass_body: bh.Body) -> None:
+def test_betas_to_inverse_dynamics_backward_is_finite_and_nonzero(mass_body: bh.HumanModel) -> None:
     betas = (torch.randn(10, dtype=torch.float32) * 0.03).requires_grad_()
     identity = mass_body.bake(betas=betas)
-    q = identity.q_neutral
-    velocity = torch.zeros(identity.nv, dtype=q.dtype)
+    q = identity.model.q_neutral
+    velocity = torch.zeros(identity.model.nv, dtype=q.dtype)
     state = identity.forward(q)
     tau = inverse_dynamics(identity.model, state.kinematics, v=velocity, a=torch.zeros_like(velocity))
     tau.square().sum().backward()
@@ -63,7 +63,9 @@ def test_betas_to_inverse_dynamics_backward_is_finite_and_nonzero(mass_body: bh.
 
 @pytest.mark.cuda
 def test_cuda_mass_inverse_dynamics_and_mass_matrix_smoke() -> None:
-    model = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), device="cuda").bake().model
+    model = (
+        bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), device="cuda")).bake().model
+    )
     q = model.q_neutral
     velocity = torch.zeros(model.nv, dtype=q.dtype, device=q.device)
     state = forward_kinematics(model, q)

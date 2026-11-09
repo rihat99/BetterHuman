@@ -34,22 +34,22 @@ def flame_path(tmp_path: Path) -> Path:
     return path
 
 
-def _body(path: Path, **options: int) -> bh.Body:
-    return bh.Body(bh.families.flame(path, dtype=torch.float64, **options), mass=False)
+def _body(path: Path, **options: int) -> bh.HumanModel:
+    return bh.HumanModel.from_spec(bh.families.flame(path, dtype=torch.float64, **options), density=None)
 
 
 def test_load(flame_path: Path) -> None:
     body = _body(flame_path)
-    assert body.joint_names == ("global", "neck", "jaw", "left_eye", "right_eye")
-    assert body.num_vertices == NUM_VERTICES
-    assert body.identity_groups == {"betas": 100}
-    assert body.stream_groups == {"expression": 50}
+    assert body.spec.joint_names == ("global", "neck", "jaw", "left_eye", "right_eye")
+    assert body.spec.num_vertices == NUM_VERTICES
+    assert body.spec.identity_groups == {"betas": 100}
+    assert body.spec.stream_groups == {"expression": 50}
 
 
 def test_widths_slice_and_validate(flame_path: Path) -> None:
     body = _body(flame_path, num_betas=7, num_expression=3)
-    assert body.identity_groups == {"betas": 7}
-    assert body.stream_groups == {"expression": 3}
+    assert body.spec.identity_groups == {"betas": 7}
+    assert body.spec.stream_groups == {"expression": 3}
     with pytest.raises(ValueError):
         bh.families.flame(flame_path, num_betas=301)
     with pytest.raises(ValueError):
@@ -59,11 +59,11 @@ def test_widths_slice_and_validate(flame_path: Path) -> None:
 def test_expression_stream_moves_vertices_and_joints(flame_path: Path) -> None:
     identity = _body(flame_path).bake()
     q, stream = flame_from_classic(identity, FLAMEClassic(expression=torch.full((50,), 2.0, dtype=torch.float64)))
-    torch.testing.assert_close(q[3:], identity.q_neutral[3:], atol=0, rtol=0)
+    torch.testing.assert_close(q[3:], identity.model.q_neutral[3:], atol=0, rtol=0)
     neutral = identity.forward(q)
     expressive = identity.forward(q, stream)
     assert (expressive.vertices - neutral.vertices).abs().max() > 1e-4
-    assert (expressive.joints - neutral.joints).abs().max() > 1e-6
+    assert (expressive.joint_translations - neutral.joint_translations).abs().max() > 1e-6
 
 
 def test_classic_round_trip(flame_path: Path) -> None:

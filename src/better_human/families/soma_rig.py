@@ -172,7 +172,7 @@ class SomaRig:
         """BR model with the template (mean shape) placements; ``bake`` replaces them per identity."""
         if frames:
             raise ValueError("SOMA does not support contact frames")
-        placements = self._placements(self._fit_and_repose(spec.vertices)[0]).cpu()
+        placements = self._placements(self._fit_and_repose(spec.template_vertices)[0]).cpu()
         names, helpers = spec.joint_names, set(self.helper_ids.tolist())
         builder = ModelBuilder(spec.name, gravity=gravity(spec.up_axis))
         for name in names[1:]:

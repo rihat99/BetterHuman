@@ -10,7 +10,7 @@ import pytest
 import torch
 from better_robot.lie import se3
 
-from better_human import Body, HumanState, families
+from better_human import HumanModel, HumanState, families
 from better_human.families.soma import SOMAClassic, soma_from_classic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
@@ -56,8 +56,10 @@ def soma_goldens() -> Path:
 
 
 @lru_cache(maxsize=2)
-def _body(dtype: torch.dtype, correctives: bool) -> Body:
-    return Body(families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=correctives, dtype=dtype), mass=False)
+def _body(dtype: torch.dtype, correctives: bool) -> HumanModel:
+    return HumanModel.from_spec(
+        families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=correctives, dtype=dtype), density=None
+    )
 
 
 def _golden(path: Path) -> tuple[bool, dict[str, torch.Tensor]]:
@@ -76,7 +78,7 @@ def _errors(state: HumanState, expected: dict[str, torch.Tensor]) -> tuple[torch
     skin = expected["skin_transforms"][..., :3, :]
     return (
         (state.vertices - expected["vertices"]).abs().amax((-2, -1)),
-        (state.joints - skin[..., 3]).abs().amax((-2, -1)),
+        (state.joint_translations - skin[..., 3]).abs().amax((-2, -1)),
         (state.joint_transforms[..., :3] - skin[..., :3]).abs().amax((-3, -2, -1)),
     )
 
@@ -119,7 +121,9 @@ def test_soma_parity_identity_batch(soma_goldens: Path, dtype: torch.dtype) -> N
 @pytest.mark.parametrize("dtype", (torch.float32, torch.float64), ids=("float32", "float64"))
 def test_bake_matches_upstream_rest_shape_and_bind(soma_goldens: Path, dtype: torch.dtype) -> None:
     """Skeleton fit and repose for every golden identity: the skinning rest mesh and the bind poses."""
-    body = Body(families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), mass=False)
+    body = HumanModel.from_spec(
+        families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), density=None
+    )
     for case in sorted(EXPECTED_CASES):
         path = soma_goldens / f"{case}.npz"
         rest_atol, position_atol, rotation_atol = BAKE_ATOLS_BY_CASE.get(case, BAKE_ATOLS)
@@ -128,8 +132,8 @@ def test_bake_matches_upstream_rest_shape_and_bind(soma_goldens: Path, dtype: to
             coefficients, rest_shape, expected = (torch.from_numpy(golden[name]).to(dtype) for name in names)
         identity = body.bake(shape=coefficients)
         bind = se3.to_matrix(se3.inverse(identity.inverse_bind_poses))
-        rest_error = (identity.v_shaped - rest_shape).abs().amax().item()
-        positions = torch.stack((identity.rest_joints, bind[:, :3, 3]))
+        rest_error = (identity.rest_vertices - rest_shape).abs().amax().item()
+        positions = torch.stack((identity.rest_joint_translations, bind[:, :3, 3]))
         position_error = (positions - expected[:, :3, 3]).abs().amax().item()
         rotation_error = (bind[:, :3, :3] - expected[:, :3, :3]).abs().amax().item()
         assert rest_error <= rest_atol, f"{path.stem}: rest mesh max error {rest_error:.3e}"

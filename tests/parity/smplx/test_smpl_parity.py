@@ -36,20 +36,24 @@ def smpl_goldens() -> Path:
 
 
 @pytest.fixture(scope="module")
-def body_float64() -> bh.Body:
+def body_float64() -> bh.HumanModel:
     """Load the licensed local neutral weights in oracle precision."""
-    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float64), mass=False)
+    return bh.HumanModel.from_spec(
+        bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float64), density=None
+    )
 
 
 @pytest.fixture(scope="module")
-def body_float32() -> bh.Body:
+def body_float32() -> bh.HumanModel:
     """Load the licensed local neutral weights in runtime precision."""
-    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float32), mass=False)
+    return bh.HumanModel.from_spec(
+        bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float32), density=None
+    )
 
 
-def _evaluate(body: bh.Body, golden_path: Path) -> tuple[torch.Tensor, torch.Tensor, np.lib.npyio.NpzFile]:
+def _evaluate(body: bh.HumanModel, golden_path: Path) -> tuple[torch.Tensor, torch.Tensor, np.lib.npyio.NpzFile]:
     golden = np.load(golden_path, allow_pickle=False)
-    dtype = body.dtype
+    dtype = body.spec.dtype
     identity = body.bake(betas=torch.from_numpy(golden["betas"]).to(dtype=dtype))
     q, stream = smpl_from_classic(
         identity,
@@ -60,11 +64,11 @@ def _evaluate(body: bh.Body, golden_path: Path) -> tuple[torch.Tensor, torch.Ten
         ),
     )
     state = identity.forward(q, stream)
-    return state.vertices, state.joints, golden
+    return state.vertices, state.joint_translations, golden
 
 
 @pytest.mark.parametrize("case", sorted(EXPECTED_GOLDENS))
-def test_smpl_float64_parity(body_float64: bh.Body, smpl_goldens: Path, case: str) -> None:
+def test_smpl_float64_parity(body_float64: bh.HumanModel, smpl_goldens: Path, case: str) -> None:
     golden_path = smpl_goldens / f"{case}.npz"
     vertices, joints, golden = _evaluate(body_float64, golden_path)
     vertex_error = (vertices - torch.from_numpy(golden["vertices"])).abs().max().item()
@@ -75,7 +79,7 @@ def test_smpl_float64_parity(body_float64: bh.Body, smpl_goldens: Path, case: st
 
 
 @pytest.mark.parametrize("case", sorted(EXPECTED_GOLDENS))
-def test_smpl_float32_parity(body_float32: bh.Body, smpl_goldens: Path, case: str) -> None:
+def test_smpl_float32_parity(body_float32: bh.HumanModel, smpl_goldens: Path, case: str) -> None:
     golden_path = smpl_goldens / f"{case}.npz"
     vertices, joints, golden = _evaluate(body_float32, golden_path)
     expected_vertices = torch.from_numpy(golden["vertices"]).float()

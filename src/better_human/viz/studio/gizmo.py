@@ -47,7 +47,7 @@ class GizmoController:
         if joint is None:
             return
         handle = self.handle_for(joint)
-        name = self.session.body.joint_names[joint]
+        name = self.session.body.spec.joint_names[joint]
         if handle is None:
             self._status(f"joint {name!r} has no degree of freedom")
             return

@@ -83,7 +83,7 @@ class Rig(Protocol):
     ) -> torch.Tensor:
         """``(..., P)`` features the corrective reads, from ``q (..., nq)``.
 
-        ``identity`` holds the identity group values ``(I..., n)`` :meth:`Body.bake` used (``None`` when the
+        ``identity`` holds the identity group values ``(I..., n)`` :meth:`HumanModel.bake` used (``None`` when the
         caller has none), so a rig whose corrective depends on shape (STAR, SUPR) can read them.
         """
 
@@ -141,7 +141,7 @@ class RegressedRig:
         return torch.cat((placements, _identity_quaternions(placements)), dim=-1)
 
     def stream_joint_basis(self, spec: FamilySpec, name: str) -> torch.Tensor | None:
-        return torch.einsum("jv,vcn->jcn", self.joint_regressor, spec.streams[name])
+        return torch.einsum("jv,vcn->jcn", self.joint_regressor, spec.stream_bases[name])
 
     def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return torch.arange(1, spec.num_joints + 1, device=model.joint_placements.device)

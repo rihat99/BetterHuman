@@ -1,4 +1,10 @@
-"""``Body`` (a family on a device), ``Identity`` (baked once per subject), ``HumanState`` (one posed batch)."""
+"""``HumanModel`` (a family ready to bake), ``Identity`` (one subject, baked once), ``HumanState`` (one posed batch).
+
+All three are frozen and compare by identity (``eq=False``): they hold tensors, whose ``==`` is elementwise.
+``HumanState`` computes its outputs on first use and keeps them in ``_memo``, keyed by the output and the grad mode
+(``"<key>/<torch.is_grad_enabled()>"``): ``joint_transforms``, ``skin_affines``, ``corrective_features``,
+``vertices``. A value computed under ``no_grad`` never serves a grad-enabled caller.
+"""
 
 from __future__ import annotations
 
@@ -8,252 +14,195 @@ from numbers import Real
 
 import torch
 from better_robot import Model
+from better_robot.exceptions import UnknownNameError
 from better_robot.kinematics import KinematicState, forward_kinematics
 from better_robot.lie import so3
 
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
 from .mass import PartMeshTopology, body_inertias_from_shape, build_authored_topology, build_part_topology
 from .pipeline import blend_shapes, lbs_affines, skin_affines
-from .rig import RegressedRig
+from .rig import RegressedRig, RigBake
 from .spec import FamilySpec
 
 Tensors = Mapping[str, torch.Tensor]
 
 
-class Body:
-    """A body family ready to bake subjects: BR model topology, segmentation, optional mass and contact frames.
+@dataclass(frozen=True, eq=False)
+class HumanModel:
+    """A body family ready to bake subjects: the BetterRobot model, skinning, segmentation, mass and contact frames.
 
-    ``density`` is kg/m³, a scalar or one value per part. ``contact_frames`` is a mapping
-    ``name -> (vertex_id, parent joint name | None)`` (a file: ``better_human.io.read_frame_set``);
-    each becomes an operational frame of the model, re-placed on every bake. ``stream_joints=False`` lets stream
-    groups (expression) move vertices but not joints: faster, slightly off upstream.
+    Build it with :meth:`from_spec` (or ``better_human.load``); the dtype and device are the spec's.
     """
 
-    def __init__(
-        self,
+    spec: FamilySpec
+    model: Model  #: the BetterRobot model at zero identity, contact frames attached.
+    skin_matrix: torch.Tensor  #: ``(V, J)`` dense skin weights.
+    joint_ids: torch.Tensor  #: ``(J,)`` BetterRobot joint id of each native joint.
+    part_body_ids: torch.Tensor  #: ``(P,)`` BetterRobot body id carrying each part.
+    density: torch.Tensor | None  #: ``()`` or ``(P,)`` kg/m³; ``None``: the baked models carry no inertias.
+    part_topology: PartMeshTopology | None  #: closed part meshes for the inertias; ``None`` without density.
+    contact_frames: ContactFrames | None  #: frames attached to the model, or ``None``.
+    stream_joint_bases: Tensors  #: stream group -> ``(J, 3, n)`` joint motion; groups that move no joint are absent.
+
+    @classmethod
+    def from_spec(
+        cls,
         spec: FamilySpec,
         *,
-        dtype: torch.dtype | None = None,
-        device: torch.device | str | None = None,
-        mass: bool = True,
-        density: float | torch.Tensor = 1000.0,
+        density: float | torch.Tensor | None = 1000.0,
         contact_frames: Mapping[str, tuple[int, str | None]] | None = None,
         stream_joints: bool = True,
-    ) -> None:
-        self.spec = spec = spec.to(dtype=dtype, device=device)
-        self.stream_joints = stream_joints
-        self.skin_matrix = spec.skin_matrix()
-        self.density = _density(density, spec.parts.count, spec.vertices)
-        self.topology: PartMeshTopology | None = None
-        self.model = spec.rig.build_model(spec, frames=(), dtype=spec.dtype, device=spec.device)
-        self.contact_frames: ContactFrames | None = None
-        self.part_body_ids = torch.tensor(
-            [self.model.body_id(spec.joint_names[joint]) for joint in spec.parts.joints],
-            dtype=torch.long,
-            device=spec.device,
-        )
-        self.native_joint_ids = spec.rig.native_joint_ids(spec, self.model)
+    ) -> HumanModel:
+        """Compute every input from ``spec``, then construct once.
+
+        ``density`` is kg/m³: a scalar, one value per part ``(P,)``, or ``None`` for no inertias. ``contact_frames``
+        maps ``name -> (vertex_id, parent joint name | None)`` (a file: ``better_human.io.read_frame_set``); each
+        becomes an operational frame of the model, re-placed on every bake. ``stream_joints=False`` lets stream groups
+        (expression) move vertices but not joints: faster, slightly off upstream.
+        """
+        model = spec.rig.build_model(spec, frames=(), dtype=spec.dtype, device=spec.device)
+        density = None if density is None else _density(density, spec.parts.count, spec.template_vertices)
+        zero = None
+        if contact_frames is not None or density is not None:
+            zero = _rest(spec, model, _checked_groups({}, spec.identity_groups, spec.template_vertices))
+        frames = None
         if contact_frames is not None:
-            self._attach_contact_frames(contact_frames)
-        if mass:
+            model, frames = _attach(spec, contact_frames, *zero)
+        topology = None
+        if density is not None:
             closed = spec.meta.get("closed_segmentation")
-            zero = self.bake()
-            self.topology = (
-                build_authored_topology(closed, spec.num_vertices, zero.v_shaped, zero.rest_joints)
+            rest_vertices, bake = zero
+            topology = (
+                build_authored_topology(closed, spec.num_vertices, rest_vertices, bake.rest_joints)
                 if closed is not None
                 else build_part_topology(spec.faces, spec.parts.ids, spec.parts.count)
             )
-
-    # Names the viewer and the terms need without reaching into the spec.
-    @property
-    def faces(self) -> torch.Tensor:
-        return self.spec.faces
-
-    @property
-    def joint_names(self) -> tuple[str, ...]:
-        return self.spec.joint_names
-
-    @property
-    def parents(self) -> tuple[int, ...]:
-        return self.spec.parents
-
-    @property
-    def num_vertices(self) -> int:
-        return self.spec.num_vertices
-
-    @property
-    def identity_groups(self) -> dict[str, int]:
-        return self.spec.identity_groups
-
-    @property
-    def stream_groups(self) -> dict[str, int]:
-        return self.spec.stream_groups
-
-    @property
-    def dtype(self) -> torch.dtype:
-        return self.spec.dtype
-
-    @property
-    def device(self) -> torch.device:
-        return self.spec.device
-
-    def _attach_contact_frames(self, source: Mapping[str, tuple[int, str | None]]) -> None:
-        if not isinstance(self.spec.rig, RegressedRig):
-            raise ValueError("contact frames need a regressed rig (SMPL family)")
-        spec = self.spec
-        entries = dict(source)
-        parents = resolve_parents(entries, spec.joint_names, spec.parts.ids)
-        vertex_ids = tuple(int(vertex) for vertex, _ in entries.values())
-        zero = self.bake()
-        placements = frame_local_placements(zero.v_shaped, zero.rest_joints, spec.faces, vertex_ids, parents)
-        frames = [
-            (name, spec.joint_names[parent], placement) for name, parent, placement in zip(entries, parents, placements)
-        ]
-        self.model = spec.rig.build_model(spec, frames=frames, dtype=spec.dtype, device=spec.device)
-        self.contact_frames = ContactFrames(
-            names=tuple(entries),
-            vertex_ids=vertex_ids,
-            parent_joints=tuple(parents),
-            frame_ids=tuple(self.model.frame_id(name) for name in entries),
+        stream_bases = {}
+        if stream_joints:
+            for name in spec.stream_bases:
+                basis = spec.rig.stream_joint_basis(spec, name)
+                if basis is not None:
+                    stream_bases[name] = basis
+        part_body_ids = [model.body_id(spec.joint_names[joint]) for joint in spec.parts.joints]
+        return cls(
+            spec=spec,
+            model=model,
+            skin_matrix=spec.skin_matrix(),
+            joint_ids=spec.rig.native_joint_ids(spec, model),
+            part_body_ids=torch.tensor(part_body_ids, dtype=torch.long, device=spec.device),
+            density=density,
+            part_topology=topology,
+            contact_frames=frames,
+            stream_joint_bases=stream_bases,
         )
 
     def bake(self, **identity: torch.Tensor) -> Identity:
-        """Bake identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast) into an :class:`Identity`."""
+        """Bake identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast) into an :class:`Identity`.
+
+        Raises :class:`~better_robot.exceptions.UnknownNameError` for a group the family does not have.
+        """
         spec = self.spec
-        unknown = set(identity) - set(spec.identity)
-        if unknown:
-            raise ValueError(f"unknown identity groups {sorted(unknown)}; expected {list(spec.identity)}")
-        values = _checked_groups(identity, spec.identity_groups, spec.vertices)
-        v_shaped = spec.vertices
-        for name, coefficients in values.items():
-            v_shaped = v_shaped + blend_shapes(coefficients, spec.identity[name])
-        bake = spec.rig.bake(spec, self.model, v_shaped, values)
-        if bake.v_shaped is not None:
-            v_shaped = bake.v_shaped
-        v_shaped = v_shaped - bake.pelvis[..., None, :]  # the skinning rest frame has the root at the origin
-
-        inertias = None
-        if self.topology is not None:
-            vertices = bake.neutral_vertices if bake.neutral_vertices is not None else v_shaped
+        for name in identity:
+            if name not in spec.identity_bases:
+                raise UnknownNameError("identity group", name, list(spec.identity_bases))
+        values = _checked_groups(identity, spec.identity_groups, spec.template_vertices)
+        rest_vertices, bake = _rest(spec, self.model, values)
+        model_values = {"joint_placements": bake.joint_placements}
+        if self.part_topology is not None:
+            vertices = bake.neutral_vertices if bake.neutral_vertices is not None else rest_vertices
             part_poses = bake.rest_poses[..., torch.as_tensor(spec.parts.joints, device=spec.device), :]
-            native = body_inertias_from_shape(vertices, part_poses, self.topology, self.density)
+            native = body_inertias_from_shape(vertices, part_poses, self.part_topology, self.density)
             inertias = native.new_zeros((*native.shape[:-2], self.model.nbodies, 10))
-            inertias = inertias.index_copy(-2, self.part_body_ids, native[..., 1:, :])
-
-        frame_placements = None
+            model_values["body_inertias"] = inertias.index_copy(-2, self.part_body_ids, native[..., 1:, :])
         if self.contact_frames is not None:
             frames = self.contact_frames
             local = frame_local_placements(
-                v_shaped, bake.rest_joints, spec.faces, frames.vertex_ids, frames.parent_joints
+                rest_vertices, bake.rest_joints, spec.faces, frames.vertex_ids, frames.parent_joints
             )
-            frame_placements = local.new_zeros((*local.shape[:-2], self.model.nframes, 7))
-            frame_placements[..., 6] = 1.0
-            frame_placements[..., torch.as_tensor(frames.frame_ids, device=spec.device), :] = local
-
-        model_values = {"joint_placements": bake.joint_placements}
-        if inertias is not None:
-            model_values["body_inertias"] = inertias
-        if frame_placements is not None:
-            model_values["frame_placements"] = frame_placements
-        model = self.model.with_values(**model_values)
-        stream_joint_basis = {}
-        if self.stream_joints:
-            for name in spec.streams:
-                basis = spec.rig.stream_joint_basis(spec, name)
-                if basis is not None:
-                    stream_joint_basis[name] = basis
+            placements = local.new_zeros((*local.shape[:-2], self.model.nframes, 7))
+            placements[..., 6] = 1.0
+            placements[..., torch.as_tensor(frames.frame_ids, device=spec.device), :] = local
+            model_values["frame_placements"] = placements
         return Identity(
-            body=self,
-            params=values,
-            v_shaped=v_shaped,
-            rest_joints=bake.rest_joints,
-            pelvis=bake.pelvis,
-            model=model,
+            human=self,
+            values=values,
+            rest_vertices=rest_vertices,
+            rest_joint_translations=bake.rest_joints,
+            root_offset=bake.pelvis,
+            model=self.model.with_values(**model_values),
             joint_scales=bake.joint_scales,
             inverse_bind_poses=bake.inverse_bind_poses,
-            stream_joint_basis=stream_joint_basis,
+        )
+
+    def __repr__(self) -> str:
+        spec = self.spec
+        return (
+            f"HumanModel({spec.name}, vertices={spec.num_vertices}, joints={spec.num_joints}, "
+            f"dtype={spec.dtype}, device={spec.device})"
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Identity:
-    """One subject (or an identity batch ``I...``): shaped mesh, rest joints and the baked BR model."""
+    """One subject (or an identity batch ``I...``): rest mesh, rest joints and the baked BetterRobot model."""
 
-    body: Body
-    params: Tensors  #: identity group values ``(I..., n)``.
-    v_shaped: torch.Tensor  #: ``(I..., V, 3)`` in the skinning rest frame (root at the origin).
-    rest_joints: torch.Tensor  #: ``(I..., J, 3)``
-    pelvis: torch.Tensor  #: ``(I..., 3)`` root offset from the native origin; ``transl + pelvis`` is the root position.
+    human: HumanModel
+    values: Tensors  #: identity group values ``(I..., n)``.
+    rest_vertices: torch.Tensor  #: ``(I..., V, 3)`` in the skinning rest frame (root at the origin).
+    rest_joint_translations: torch.Tensor  #: ``(I..., J, 3)`` native joints in the skinning rest frame.
+    root_offset: torch.Tensor  #: ``(I..., 3)`` root from the native origin; ``transl + root_offset`` places the root.
     model: Model  #: placements, inertias and contact frames baked.
     joint_scales: torch.Tensor | None  #: ``(I..., J)`` for authored rigs.
     inverse_bind_poses: torch.Tensor | None  #: ``(I..., J, 7)`` for authored rigs; see ``RigBake``.
-    stream_joint_basis: Tensors  #: stream name -> ``(J, 3, n)`` joint motion.
 
-    @property
-    def spec(self) -> FamilySpec:
-        return self.body.spec
+    def forward(self, q: torch.Tensor, streams: Tensors | None = None) -> HumanState:
+        """Pose ``q (B..., nq)`` with optional stream groups ``(B..., n)``; ``B...`` broadcasts with ``I...``.
 
-    @property
-    def nq(self) -> int:
-        return self.model.nq
-
-    @property
-    def nv(self) -> int:
-        return self.model.nv
-
-    @property
-    def q_neutral(self) -> torch.Tensor:
-        return self.model.q_neutral
-
-    def forward(self, q: torch.Tensor, stream: Tensors | None = None) -> HumanState:
-        """Pose ``q (B..., nq)`` with optional stream groups ``(B..., n)``; ``B...`` broadcasts with ``I...``."""
-        spec = self.spec
-        stream = _checked_groups(dict(stream or {}), spec.stream_groups, spec.vertices, require_all=False)
-        unknown = set(stream) - set(spec.streams)
-        if unknown:
-            raise ValueError(f"unknown stream groups {sorted(unknown)}; expected {list(spec.streams)}")
-        offset = None
+        Raises :class:`~better_robot.exceptions.UnknownNameError` for a stream group the family does not have.
+        """
+        spec = self.human.spec
+        streams = dict(streams or {})
+        for name in streams:
+            if name not in spec.stream_bases:
+                raise UnknownNameError("stream group", name, list(spec.stream_bases))
+        streams = _checked_groups(streams, spec.stream_groups, spec.template_vertices, require_all=False)
+        offsets = None
         delta = None
-        for name, coefficients in stream.items():
-            term = blend_shapes(coefficients, spec.streams[name])
-            offset = term if offset is None else offset + term
-            basis = self.stream_joint_basis.get(name)
+        for name, coefficients in streams.items():
+            term = blend_shapes(coefficients, spec.stream_bases[name])
+            offsets = term if offsets is None else offsets + term
+            basis = self.human.stream_joint_bases.get(name)
             if basis is not None:
                 motion = torch.einsum("...n,jcn->...jc", coefficients, basis)
                 delta = motion if delta is None else delta + motion
-        model, rest_joints, pelvis = self.model, self.rest_joints, self.pelvis
+        model, rest_joints, root_offset = self.model, self.rest_joint_translations, self.root_offset
         if delta is not None:
             root = delta[..., :1, :]
             rest_joints = rest_joints + delta - root
-            offset = offset - root
-            pelvis = pelvis + root[..., 0, :]
+            offsets = offsets - root
+            root_offset = root_offset + root[..., 0, :]
             model = model.with_values(joint_placements=spec.rig.placements_from_rest(spec, model, rest_joints))
         kinematics = forward_kinematics(model, q)
-        return HumanState(self, q, stream, model, kinematics, rest_joints, pelvis, offset)
+        return HumanState(self, q, streams, model, kinematics, rest_joints, root_offset, offsets)
+
+    def __repr__(self) -> str:
+        return f"Identity({self.human.spec.name}, batch={tuple(self.root_offset.shape[:-1])})"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class HumanState:
     """One posed batch. Outputs are computed on first use and memoised; shapes lead with the execution batch."""
 
     identity: Identity
     q: torch.Tensor
-    stream: Tensors
+    streams: Tensors  #: stream group values ``(..., n)`` as given (omitted groups are absent).
     model: Model  #: the model the kinematics were computed with (per-frame placements when streams move joints).
     kinematics: KinematicState
-    rest_joints: torch.Tensor  #: ``(..., J, 3)`` rest joints after the stream joint shift.
-    pelvis: torch.Tensor  #: ``(..., 3)``
-    rest_offset: torch.Tensor | None  #: ``(..., V, 3)`` stream vertex offsets, if any.
+    rest_joint_translations: torch.Tensor  #: ``(..., J, 3)`` rest joints after the stream joint shift.
+    root_offset: torch.Tensor  #: ``(..., 3)``
+    stream_offsets: torch.Tensor | None  #: ``(..., V, 3)`` stream vertex offsets, if any.
     # init=False: dataclasses.replace (e.g. a new identity) starts a fresh memo instead of sharing the old one.
-    _memo: dict[str, torch.Tensor] = field(default_factory=dict, init=False, repr=False, compare=False)
-
-    @property
-    def body(self) -> Body:
-        return self.identity.body
-
-    @property
-    def spec(self) -> FamilySpec:
-        return self.identity.spec
+    _memo: dict[str, torch.Tensor] = field(default_factory=dict, init=False, repr=False)
 
     @property
     def joint_poses(self) -> torch.Tensor:
@@ -262,91 +211,127 @@ class HumanState:
         return torch.cat((transforms[..., 3], so3.from_matrix(transforms[..., :3])), dim=-1)
 
     @property
-    def joints(self) -> torch.Tensor:
+    def joint_translations(self) -> torch.Tensor:
         """``(..., J, 3)`` world joint positions in native order."""
-        return self.kinematics.joint_translations.index_select(-2, self.body.native_joint_ids)
+        return self.kinematics.joint_translations.index_select(-2, self.identity.human.joint_ids)
 
     @property
     def joint_transforms(self) -> torch.Tensor:
         """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints, as the rig's ``joint_transforms`` reports them."""
+        spec = self.identity.human.spec
         transforms = self._memoised(
-            "joint_transforms",
-            lambda: self.spec.rig.joint_transforms(self.spec, self.model, kinematics=self.kinematics),
+            "joint_transforms", lambda: spec.rig.joint_transforms(spec, self.model, kinematics=self.kinematics)
         )
         return transforms.clone()  # the memo feeds skinning: editing the result in place must not move vertices
 
     @property
     def skin_affines(self) -> torch.Tensor:
         """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world."""
-        spec = self.spec
-        inverse_bind = self.identity.inverse_bind_poses
+        identity = self.identity
+        inverse_bind = identity.inverse_bind_poses
         return self._memoised(
             "skin_affines",
             lambda: skin_affines(
                 self.joint_transforms,
-                rest_joints=None if inverse_bind is not None else self.rest_joints,
+                rest_joints=None if inverse_bind is not None else self.rest_joint_translations,
                 inverse_bind_poses=inverse_bind,
-                joint_scales=self.identity.joint_scales,
-                bind_joint_positions=spec.meta.get("bind_joint_positions"),
+                joint_scales=identity.joint_scales,
+                bind_joint_positions=identity.human.spec.meta.get("bind_joint_positions"),
             ),
         )
 
     @property
     def corrective_feature(self) -> torch.Tensor | None:
-        if self.spec.corrective.kind == "none":
+        """``(..., P)`` features the family's corrective reads, or ``None`` for a family without one."""
+        spec = self.identity.human.spec
+        if spec.corrective.kind == "none":
             return None
         return self._memoised(
-            "feature",
-            lambda: self.spec.rig.corrective_features(self.spec, self.model, self.q, identity=self.identity.params),
+            "corrective_features",
+            lambda: spec.rig.corrective_features(spec, self.model, self.q, identity=self.identity.values),
         )
 
     def rest_vertices(self, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
         """``(..., V, 3)`` (or the ``vertex_ids`` subset) before skinning: shape + streams + corrective."""
-        vertices = self.identity.v_shaped
-        offset = self.rest_offset
+        vertices = self.identity.rest_vertices
+        offsets = self.stream_offsets
         if vertex_ids is not None:
             vertices = vertices[..., vertex_ids, :]
-            offset = None if offset is None else offset[..., vertex_ids, :]
-        if offset is not None:
-            vertices = vertices + offset
-        corrective = (
-            self.spec.corrective.apply(self.corrective_feature, vertex_ids)
-            if self.corrective_feature is not None
-            else None
-        )
+            offsets = None if offsets is None else offsets[..., vertex_ids, :]
+        if offsets is not None:
+            vertices = vertices + offsets
+        feature = self.corrective_feature
+        corrective = None if feature is None else self.identity.human.spec.corrective.apply(feature, vertex_ids)
         return vertices if corrective is None else vertices + corrective
 
     @property
     def vertices(self) -> torch.Tensor:
         """``(..., V, 3)`` posed mesh."""
         return self._memoised(
-            "vertices", lambda: lbs_affines(self.rest_vertices(), self.skin_affines, self.body.skin_matrix)
+            "vertices", lambda: lbs_affines(self.rest_vertices(), self.skin_affines, self.identity.human.skin_matrix)
         )
-
-    def _memoised(self, key: str, compute: Callable[[], torch.Tensor]) -> torch.Tensor:
-        # A value computed under no_grad must not serve a grad-enabled caller: key by grad mode.
-        key = f"{key}/{torch.is_grad_enabled()}"
-        if key not in self._memo:
-            self._memo[key] = compute()
-        return self._memo[key]
 
     def points(self, vertex_ids: torch.Tensor) -> torch.Tensor:
         """``(..., M, 3)`` posed positions of ``vertex_ids (M,)``, skinning only those vertices."""
         vertex_ids = torch.as_tensor(vertex_ids, dtype=torch.long, device=self.q.device)
-        return lbs_affines(self.rest_vertices(vertex_ids), self.skin_affines, self.body.skin_matrix[vertex_ids])
+        skin = self.identity.human.skin_matrix[vertex_ids]
+        return lbs_affines(self.rest_vertices(vertex_ids), self.skin_affines, skin)
 
     def landmarks(self, name: str = "keypoints") -> torch.Tensor:
         """``(..., L, 3)`` posed landmark set ``name`` of the family."""
-        return self.points(self.spec.landmarks[name])
+        return self.points(self.identity.human.spec.landmarks[name])
 
     @property
     def frame_poses(self) -> torch.Tensor:
         """``(..., nframes, 7)`` world poses of the model frames (contact frames included)."""
         return self.kinematics.frame_poses
 
+    def _memoised(self, key: str, compute: Callable[[], torch.Tensor]) -> torch.Tensor:
+        key = f"{key}/{torch.is_grad_enabled()}"
+        if key not in self._memo:
+            self._memo[key] = compute()
+        return self._memo[key]
+
+    def __repr__(self) -> str:
+        return f"HumanState({self.identity.human.spec.name}, batch={tuple(self.q.shape[:-1])})"
+
+
+def _rest(spec: FamilySpec, model: Model, values: Tensors) -> tuple[torch.Tensor, RigBake]:
+    """The rig bake of identity group ``values`` and the rest mesh ``(..., V, 3)`` with the root at the origin."""
+    shaped = spec.template_vertices
+    for name, coefficients in values.items():
+        shaped = shaped + blend_shapes(coefficients, spec.identity_bases[name])
+    bake = spec.rig.bake(spec, model, shaped, dict(values))
+    if bake.v_shaped is not None:
+        shaped = bake.v_shaped
+    return shaped - bake.pelvis[..., None, :], bake
+
+
+def _attach(
+    spec: FamilySpec, source: Mapping[str, tuple[int, str | None]], rest_vertices: torch.Tensor, bake: RigBake
+) -> tuple[Model, ContactFrames]:
+    """The model with the contact frames of ``source`` attached, and the frames resolved against it."""
+    if not isinstance(spec.rig, RegressedRig):
+        raise ValueError("contact frames need a regressed rig (SMPL family)")
+    entries = dict(source)
+    parents = resolve_parents(entries, spec.joint_names, spec.parts.ids)
+    vertex_ids = tuple(int(vertex) for vertex, _ in entries.values())
+    placements = frame_local_placements(rest_vertices, bake.rest_joints, spec.faces, vertex_ids, parents)
+    frames = [
+        (name, spec.joint_names[parent], placement) for name, parent, placement in zip(entries, parents, placements)
+    ]
+    model = spec.rig.build_model(spec, frames=frames, dtype=spec.dtype, device=spec.device)
+    resolved = ContactFrames(
+        names=tuple(entries),
+        vertex_ids=vertex_ids,
+        parent_joints=tuple(parents),
+        frame_ids=tuple(model.frame_id(name) for name in entries),
+    )
+    return model, resolved
+
 
 def _checked_groups(
-    values: dict[str, torch.Tensor], widths: Mapping[str, int], exemplar: torch.Tensor, *, require_all: bool = True
+    values: Tensors, widths: Mapping[str, int], exemplar: torch.Tensor, *, require_all: bool = True
 ) -> dict[str, torch.Tensor]:
     """Validate group tensors against ``widths``; fill omitted groups with zeros when ``require_all``."""
     out: dict[str, torch.Tensor] = {}
@@ -383,4 +368,4 @@ def _density(density: float | torch.Tensor, num_parts: int, exemplar: torch.Tens
     return value
 
 
-__all__ = ["Body", "HumanState", "Identity"]
+__all__ = ["HumanModel", "HumanState", "Identity"]

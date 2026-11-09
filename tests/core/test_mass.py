@@ -34,14 +34,14 @@ GRADCHECK_BETAS = 10
 
 def _native(identity: bh.Identity) -> torch.Tensor:
     """Part inertias ``(..., num_parts + 1, 10)`` in native part order behind a zero root row."""
-    parts = identity.model.body_inertias[..., identity.body.part_body_ids, :]
+    parts = identity.model.body_inertias[..., identity.human.part_body_ids, :]
     return torch.cat((torch.zeros_like(parts[..., :1, :]), parts), dim=-2)
 
 
 @pytest.fixture(scope="module")
-def mass_body() -> bh.Body:
+def mass_body() -> bh.HumanModel:
     """Load the neutral SMPL fixture with default mass computation."""
-    return bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")))
+    return bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")))
 
 
 def _box_mesh() -> tuple[torch.Tensor, torch.Tensor]:
@@ -136,20 +136,20 @@ def test_authored_caps_accept_rotated_se3_part_frames() -> None:
 
 
 @pytest.mark.licensed
-def test_default_mass_opt_out_and_per_part_density(mass_body: bh.Body) -> None:
-    assert mass_body.topology is not None
+def test_default_mass_opt_out_and_per_part_density(mass_body: bh.HumanModel) -> None:
+    assert mass_body.part_topology is not None
     assert _native(mass_body.bake()) is not None
-    assert mass_body.topology.num_parts == len(mass_body.joint_names)
+    assert mass_body.part_topology.num_parts == len(mass_body.spec.joint_names)
     torch.testing.assert_close(mass_body.density, torch.full_like(mass_body.density, 1000.0))
 
-    opt_out = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), mass=False)
-    assert opt_out.topology is None
+    opt_out = bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=None)
+    assert opt_out.part_topology is None
 
-    densities = torch.linspace(900.0, 1100.0, len(mass_body.joint_names))
+    densities = torch.linspace(900.0, 1100.0, len(mass_body.spec.joint_names))
     varied = body_inertias_from_shape(
-        mass_body.bake().v_shaped,
-        mass_body.bake().rest_joints,
-        mass_body.topology,
+        mass_body.bake().rest_vertices,
+        mass_body.bake().rest_joint_translations,
+        mass_body.part_topology,
         densities,
     )
     expected_ratio = densities / mass_body.density
@@ -161,7 +161,7 @@ def test_default_mass_opt_out_and_per_part_density(mass_body: bh.Body) -> None:
     )
 
     with pytest.raises(ValueError, match="density must be scalar or"):
-        bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=torch.ones(23), mass=False)
+        bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=torch.ones(23))
 
 
 @pytest.mark.licensed
@@ -174,7 +174,9 @@ def test_smplx_full_and_partial_spawns_receive_mass(
     use_face: bool,
     expected_bodies: int,
 ) -> None:
-    body = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), hands=use_hands, face=use_face))
+    body = bh.HumanModel.from_spec(
+        bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), hands=use_hands, face=use_face)
+    )
     assert _native(body.bake()) is not None
     assert _native(body.bake()).shape == (expected_bodies, 10)
     assert torch.isfinite(_native(body.bake())).all()
@@ -182,12 +184,12 @@ def test_smplx_full_and_partial_spawns_receive_mass(
 
 
 @pytest.mark.licensed
-def test_neutral_mass_conservation_and_com_plausibility(mass_body: bh.Body) -> None:
+def test_neutral_mass_conservation_and_com_plausibility(mass_body: bh.HumanModel) -> None:
     assert _native(mass_body.bake()) is not None
     packed = _native(mass_body.bake())[1:]
     part_mass = packed[:, 0].sum()
     whole = inertia_of_mesh(
-        mass_body.bake().v_shaped,
+        mass_body.bake().rest_vertices,
         mass_body.spec.faces,
         density=1000.0,
     )
@@ -195,20 +197,20 @@ def test_neutral_mass_conservation_and_com_plausibility(mass_body: bh.Body) -> N
     assert relative_error <= CONSERVATION_RTOL
     assert 70.0 <= part_mass <= 90.0
 
-    global_part_com = packed[:, 1:4] + mass_body.bake().rest_joints
+    global_part_com = packed[:, 1:4] + mass_body.bake().rest_joint_translations
     aggregate_com = (packed[:, 0, None] * global_part_com).sum(dim=0) / part_mass
     torch.testing.assert_close(aggregate_com, whole[1:4], rtol=0, atol=COM_ATOL)
-    lower = mass_body.bake().v_shaped.amin(dim=-2)
-    upper = mass_body.bake().v_shaped.amax(dim=-2)
+    lower = mass_body.bake().rest_vertices.amin(dim=-2)
+    upper = mass_body.bake().rest_vertices.amax(dim=-2)
     assert bool(((aggregate_com >= lower) & (aggregate_com <= upper)).all())
     assert aggregate_com.norm() < 0.1
 
 
 @pytest.mark.licensed
-def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body: bh.Body) -> None:
+def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body: bh.HumanModel) -> None:
     segmentation = np.load(SEGMENTATION_PATH, allow_pickle=True).item()
     memberships = {
-        part: {int(vertex) for vertex in vertices if int(vertex) < mass_body.num_vertices}
+        part: {int(vertex) for vertex in vertices if int(vertex) < mass_body.spec.num_vertices}
         for part, vertices in segmentation["body_vertices"].items()
     }
     mismatches = sum(
@@ -220,10 +222,10 @@ def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body:
 
 
 @pytest.mark.licensed
-def test_authored_segmentation_volume_matches_whole_mesh(mass_body: bh.Body) -> None:
+def test_authored_segmentation_volume_matches_whole_mesh(mass_body: bh.HumanModel) -> None:
     packed = _native(mass_body.bake())[1:]
     part_volume = (packed[:, 0] / mass_body.density).sum()
-    whole = inertia_of_mesh(mass_body.bake().v_shaped, mass_body.spec.faces, density=1000.0)
+    whole = inertia_of_mesh(mass_body.bake().rest_vertices, mass_body.spec.faces, density=1000.0)
     whole_volume = whole[0] / 1000.0
     relative_error = (part_volume - whole_volume).abs() / whole_volume
     assert relative_error < AUTHORED_VOLUME_RTOL, f"authored volume gap {relative_error * 1e6:.1f} ppm"
@@ -232,44 +234,50 @@ def test_authored_segmentation_volume_matches_whole_mesh(mass_body: bh.Body) -> 
 
 
 @pytest.mark.licensed
-def test_authored_segmentation_is_batched_and_finite(mass_body: bh.Body) -> None:
+def test_authored_segmentation_is_batched_and_finite(mass_body: bh.HumanModel) -> None:
     betas = torch.stack((torch.zeros(GRADCHECK_BETAS), torch.linspace(-0.4, 0.4, GRADCHECK_BETAS)))
     inertias = _native(mass_body.bake(betas=betas))
     assert inertias is not None
-    assert inertias.shape == (2, len(mass_body.joint_names) + 1, 10)
+    assert inertias.shape == (2, len(mass_body.spec.joint_names) + 1, 10)
     assert torch.isfinite(inertias).all()
     assert inertias[:, 1:, 0].min() > 0
 
 
 @pytest.mark.licensed
-def test_named_density_table_feeds_per_part_density(mass_body: bh.Body) -> None:
-    exemplar = mass_body.bake().v_shaped
-    num_parts = len(mass_body.joint_names)
-    chandler = load_density_table("body_densities.json", "Chandler", mass_body.joint_names, exemplar)
+def test_named_density_table_feeds_per_part_density(mass_body: bh.HumanModel) -> None:
+    exemplar = mass_body.bake().rest_vertices
+    num_parts = len(mass_body.spec.joint_names)
+    chandler = load_density_table("body_densities.json", "Chandler", mass_body.spec.joint_names, exemplar)
     assert chandler.shape == (num_parts,)
     torch.testing.assert_close(chandler[0], exemplar.new_tensor(853.0))
     torch.testing.assert_close(chandler[16], exemplar.new_tensor(1005.0))
 
-    body = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=chandler)
+    body = bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=chandler)
     torch.testing.assert_close(body.density, chandler)
     part_volumes = _native(body.bake())[1:, 0] / chandler
     reference_volumes = _native(mass_body.bake())[1:, 0] / mass_body.density
     torch.testing.assert_close(part_volumes, reference_volumes, rtol=2e-5, atol=2e-5)
 
     with pytest.raises(ValueError, match="no density table"):
-        load_density_table("body_densities.json", "Nonexistent", mass_body.joint_names, exemplar)
+        load_density_table("body_densities.json", "Nonexistent", mass_body.spec.joint_names, exemplar)
 
 
 @pytest.mark.licensed
 def test_named_density_table_maps_smplx_parts_by_name() -> None:
     table = json.loads(DENSITY_TABLE_PATH.read_text())["Dempster"]
-    smpl_names = list(bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), mass=False).joint_names)
-    uniform = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False))
-    body = bh.Body(
-        bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False),
-        density=load_density_table("body_densities.json", "Dempster", uniform.joint_names, uniform.spec.vertices),
+    smpl_names = list(
+        bh.HumanModel.from_spec(
+            bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=None
+        ).spec.joint_names
     )
-    names = list(body.joint_names)
+    uniform = bh.HumanModel.from_spec(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False))
+    body = bh.HumanModel.from_spec(
+        bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False),
+        density=load_density_table(
+            "body_densities.json", "Dempster", uniform.spec.joint_names, uniform.spec.template_vertices
+        ),
+    )
+    names = list(body.spec.joint_names)
     density = body.density
     assert density.shape == (len(names),)
     for index, name in enumerate(names):
@@ -289,16 +297,16 @@ def test_named_density_table_maps_smplx_parts_by_name() -> None:
 
 @pytest.mark.licensed
 def test_argmax_fallback_integrates_smplx_parts() -> None:
-    body = bh.Body(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")))
-    topology = body.topology
+    body = bh.HumanModel.from_spec(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")))
+    topology = body.part_topology
     assert topology is not None
-    for vertices, faces in meshes_from_topology(body.bake().v_shaped, topology):
+    for vertices, faces in meshes_from_topology(body.bake().rest_vertices, topology):
         assert inertia_of_mesh(vertices, faces, density=1000.0)[0] > 0
 
 
 @FLOAT32_GRADCHECK
 @pytest.mark.licensed
-def test_float32_gradcheck_betas_to_total_mass(mass_body: bh.Body) -> None:
+def test_float32_gradcheck_betas_to_total_mass(mass_body: bh.HumanModel) -> None:
     betas = (torch.randn(GRADCHECK_BETAS, dtype=torch.float32) * 0.03).requires_grad_()
 
     def total_mass(value: torch.Tensor) -> torch.Tensor:

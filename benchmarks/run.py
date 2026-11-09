@@ -175,7 +175,8 @@ def _spec(family: str, device: torch.device) -> Any:
 def _identity_inputs(body: Any, device: torch.device) -> dict[str, torch.Tensor]:
     generator = torch.Generator().manual_seed(1)
     return {
-        name: (0.5 * torch.randn(width, generator=generator)).to(device) for name, width in body.identity_groups.items()
+        name: (0.5 * torch.randn(width, generator=generator)).to(device)
+        for name, width in body.spec.identity_groups.items()
     }
 
 
@@ -183,7 +184,7 @@ def _stream_inputs(body: Any, batch: int, device: torch.device) -> dict[str, tor
     generator = torch.Generator().manual_seed(2)
     return {
         name: (0.3 * torch.randn(batch, width, generator=generator)).to(device)
-        for name, width in body.stream_groups.items()
+        for name, width in body.spec.stream_groups.items()
     }
 
 
@@ -235,17 +236,20 @@ def _bench_family(family: str, arguments: argparse.Namespace, device: torch.devi
     rows: list[dict[str, Any]] = []
     limit = arguments.memory_gb * 1e9
     spec = _spec(family, device)
-    bodies = {"mass": bh.Body(spec, device=device, mass=True), "no_mass": bh.Body(spec, device=device, mass=False)}
+    bodies = {
+        "mass": bh.HumanModel.from_spec(spec),
+        "no_mass": bh.HumanModel.from_spec(spec, density=None),
+    }
     body = bodies["mass"]
     identity_inputs = _identity_inputs(body, device)
     for variant, candidate in bodies.items():
         timing = _timed(lambda candidate=candidate: candidate.bake(**identity_inputs), device, arguments.iterations)
         rows.append({"family": family, "op": "bake", "batch": 1, "variant": variant} | timing)
     identity = body.bake(**identity_inputs)
-    num_vertices = body.num_vertices
+    num_vertices = body.spec.num_vertices
     vertex_bodies: dict[str, tuple[Any, bool]] = {"default": (identity, family == "MHR")}
     if family == "SMPL-X":
-        frozen = bh.Body(spec, device=device, mass=False, stream_joints=False).bake(**identity_inputs)
+        frozen = bh.HumanModel.from_spec(spec, density=None, stream_joints=False).bake(**identity_inputs)
         vertex_bodies["expression_stream_joints"] = (identity, True)
         vertex_bodies["expression_frozen_joints"] = (frozen, True)
     reference_model = torch.jit.load(str(MHR_REFERENCE_PATH), map_location=device) if family == "MHR" else None
@@ -260,7 +264,7 @@ def _bench_family(family: str, arguments: argparse.Namespace, device: torch.devi
             rows.append({"family": family, "op": op, "batch": batch, "variant": variant, "skipped": reason})
             return True
 
-        q = identity.q_neutral.expand(batch, identity.nq).clone()
+        q = identity.model.q_neutral.expand(batch, identity.model.nq).clone()
         baselines = _baselines(family, batch, device, arguments.iterations, skip, rows, reference_model)
 
         def add(op: str, variant: str, function: Callable[[], Any], baseline: str | None) -> None:

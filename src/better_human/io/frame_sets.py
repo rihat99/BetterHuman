@@ -8,7 +8,7 @@ A frame-set file (format ``better_human.frame_set``, version 1; spec ``docs/refe
 
 A ``null`` joint name means the vertex's dominant skinning joint. An unversioned file (version 0, ``{name: vertex |
 {"vertex", "joint"}}``) migrates on read; a file without ``format`` is version 0 only when every value is such an
-entry. The functions here return and take the mapping ``Body(contact_frames=...)`` accepts: name -> ``(vertex_id,
+entry. The functions here return and take the mapping ``HumanModel.from_spec(contact_frames=...)`` accepts: name -> ``(vertex_id,
 joint_name | None)``, in authored order. Vertex ids are range-checked where the mesh is known, when the frames are
 attached to a body.
 """

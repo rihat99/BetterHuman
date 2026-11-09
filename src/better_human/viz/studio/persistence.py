@@ -161,7 +161,7 @@ def load_pose(path: Path, model_key: str, nq: int) -> torch.Tensor:
 def frame_config_snippet(frames: Mapping[str, tuple[int, str | None]]) -> str:
     """Render a frame set as a paste-ready ``contact_frames={...}`` argument for ``bh.load``.
 
-    :param frames: frame name -> ``(vertex_id, joint_name | None)``, as accepted by ``Body``.
+    :param frames: frame name -> ``(vertex_id, joint_name | None)``, as ``HumanModel.from_spec(contact_frames=...)`` accepts it.
     """
     rows = "".join(f"\n    {name!r}: ({vertex}, {joint!r})," for name, (vertex, joint) in frames.items())
     return f"contact_frames={{{rows}\n}}"
