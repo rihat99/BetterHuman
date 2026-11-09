@@ -67,7 +67,8 @@ class HumanModel:
         ``density`` is a density table name (``"Dempster"``: each part at its category's density, from
         ``spec.parts``), kg/m³ as a float or a ``()`` or ``(P,)`` tensor on the spec's dtype and device, or ``None``
         for no inertias. It raises :class:`~better_robot.exceptions.UnknownNameError` for an unknown table or
-        category, :class:`~better_robot.exceptions.ArgumentError` naming the parts without a category, and
+        category, :class:`~better_robot.exceptions.ArgumentError` naming the parts without a category or for a density
+        that is not finite and positive or a degenerate part mesh, and
         :class:`~better_robot.exceptions.DtypeMismatchError` (or ``DeviceMismatchError``) for a tensor on another
         dtype (or device). ``contact_frames``
         maps ``name -> (vertex_id, parent joint name | None)`` (a file: ``better_human.io.read_frame_set``); each
@@ -91,6 +92,16 @@ class HumanModel:
                 )
                 if closed is not None
                 else PartTopology.from_part_ids(spec.faces, spec.parts.ids, num_parts=spec.parts.count)
+            )
+            # Bakes integrate the parts without reading values (no host sync), so the density and the part meshes
+            # are checked once, here, on the zero identity's rest mesh.
+            part_joints = torch.as_tensor(spec.parts.joints, device=spec.device)
+            part_inertias(
+                zero.rest_vertices,
+                zero.rest_joint_translations.index_select(-2, part_joints),
+                topology=topology,
+                density=density,
+                check_mesh=True,
             )
         stream_bases = {}
         if stream_joints:

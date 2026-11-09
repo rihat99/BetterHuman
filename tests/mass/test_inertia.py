@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import replace
 
 import pytest
 import torch
@@ -10,7 +11,7 @@ from better_robot.lie import se3, so3
 from better_robot.spatial import inertia_of_mesh
 
 import better_human as bh
-from better_robot.exceptions import ShapeError
+from better_robot.exceptions import ArgumentError, ShapeError
 
 from better_human.io import weight_path
 from better_human.io.mass_data import shipped_density_tables, shipped_segmentation
@@ -151,6 +152,19 @@ def test_uniform_density_opt_out_and_per_part_density(mass_body: bh.HumanModel) 
 
     with pytest.raises(ShapeError, match=r"density must be a \(\) or \(24,\) tensor; got \(23,\)"):
         bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), density=torch.ones(23))
+
+
+@pytest.mark.licensed
+def test_a_bad_density_or_degenerate_part_raises_at_build() -> None:
+    """Bakes integrate the parts unchecked (no host sync); the build checks density and part meshes once."""
+    spec = bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"))
+    for density in (-1.0, float("nan")):
+        with pytest.raises(ArgumentError, match="density must contain only finite positive values"):
+            bh.HumanModel.from_spec(spec, density=density)
+    flat = spec.template_vertices.clone()
+    flat[..., 2] = 0.0
+    with pytest.raises(ArgumentError, match="degenerate enclosed volume"):
+        bh.HumanModel.from_spec(replace(spec, template_vertices=flat), density=1000.0)
 
 
 @pytest.mark.licensed

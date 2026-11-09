@@ -179,7 +179,9 @@ the expression group. Converting a pose that uses a dropped joint raises.
 1. The spec's `Parts` segment the mesh; `PartTopology.from_closed_faces` (authored caps) or
    `PartTopology.from_part_ids` (centroid caps) closes each part, once per `HumanModel`.
 2. `density` resolves to `()` or `(P,)` kg/m³ at `from_spec`; a table name goes through `mass.part_densities`, which
-   gives each part the density of the category its family declares (`Parts.density_categories`).
+   gives each part the density of the category its family declares (`Parts.density_categories`). `from_spec` then
+   integrates the zero identity's rest mesh once with `check_mesh=True`: a density that is not finite and positive,
+   or a degenerate part, raises `ArgumentError` there, so bakes read no tensor values.
 3. On every bake the rest mesh is posed at `q_neutral` and `mass.part_inertias` integrates each closed part with
    `better_robot.spatial.inertia_of_mesh` (differentiable) in its part frame.
 4. The inertias are written into `identity.model`, so BR dynamics (`inverse_dynamics`, `mass_matrix`) use the

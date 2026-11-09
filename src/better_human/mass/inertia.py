@@ -16,6 +16,7 @@ def part_inertias(
     *,
     topology: PartTopology,
     density: torch.Tensor,
+    check_mesh: bool = False,
 ) -> torch.Tensor:
     """``(..., P, 10)`` BetterRobot inertias of the closed parts, each in its part frame.
 
@@ -24,6 +25,9 @@ def part_inertias(
         their positions are also the authored caps, so an authored topology needs one part per cap joint.
     :param topology: the closed parts.
     :param density: ``()`` or ``(P,)`` kg/m³, on the dtype and device of ``vertices``.
+    :param check_mesh: also read the values, one host sync per part, and raise
+        :class:`~better_robot.exceptions.ArgumentError` for a face id outside the mesh, a density that is not finite and
+        positive, or a degenerate part. ``HumanModel.from_spec`` checks once; bakes integrate unchecked.
     Raises :class:`~better_robot.exceptions.ShapeError` for ``part_poses`` that are neither positions nor poses.
     Each part is integrated about its own vertices, which is exact for the open seam parts too.
     """
@@ -38,5 +42,5 @@ def part_inertias(
             local = part_vertices - pose[..., None, :]
         else:
             local = se3.act(se3.inverse(pose)[..., None, :], part_vertices)
-        inertias.append(inertia_of_mesh(local, faces, density=per_part[part], check_mesh=True))
+        inertias.append(inertia_of_mesh(local, faces, density=per_part[part], check_mesh=check_mesh))
     return torch.stack(inertias, dim=-2)
