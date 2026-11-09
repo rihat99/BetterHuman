@@ -146,9 +146,9 @@ def test_rig_corrective_features_receives_the_baked_identity(
     original = rig_type.corrective_features
     seen = []
 
-    def spy(self, spec, model, q, *, identity=None):  # noqa: ANN001, ANN202
+    def spy(self, spec, model, *, q, identity):  # noqa: ANN001, ANN202
         seen.append(identity)
-        return original(self, spec, model, q, identity=identity)
+        return original(self, spec, model, q=q, identity=identity)
 
     monkeypatch.setattr(rig_type, "corrective_features", spy)
     identity = body.bake()

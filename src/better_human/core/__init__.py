@@ -2,8 +2,8 @@
 
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents, vertex_normals
 from .human_model import HumanModel, HumanState, Identity
-from .rig import RegressedRig, Rig, RigBake
-from .spec import Corrective, FamilySpec, Parts, drop_joints, top_k_skin
+from .rig import Rig, RigBake
+from .spec import Corrective, FamilySpec, Parts, top_k_skin
 
 __all__ = [
     "ContactFrames",
@@ -13,10 +13,8 @@ __all__ = [
     "HumanState",
     "Identity",
     "Parts",
-    "RegressedRig",
     "Rig",
     "RigBake",
-    "drop_joints",
     "frame_local_placements",
     "resolve_parents",
     "top_k_skin",

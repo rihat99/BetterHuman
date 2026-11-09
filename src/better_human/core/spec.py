@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Literal
 
 import torch
-
-from .reduction import reduce_joint_data
 
 if TYPE_CHECKING:
     from .rig import Rig
@@ -203,46 +201,4 @@ def top_k_skin(weights: torch.Tensor, k: int | None = None) -> tuple[torch.Tenso
     return values, indices
 
 
-def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
-    """Spec without the terminal subtrees rooted at ``names`` (their skin weights go to the surviving ancestor).
-
-    Only families with a regressed rig and a linear ``(R - I)`` corrective support this (SMPL family).
-    """
-    from .rig import RegressedRig  # noqa: PLC0415 - rig imports spec
-
-    if not names:
-        return spec
-    if not isinstance(spec.rig, RegressedRig) or spec.corrective.kind != "linear":
-        raise ValueError("drop_joints needs a regressed rig with a linear corrective")
-    if spec.parts.joints != tuple(range(spec.num_joints)):
-        raise ValueError("drop_joints expects one part per joint")
-    dropped = [spec.joint_id(name) for name in names]
-    posedirs = spec.corrective.posedirs.T.reshape(spec.num_vertices, 3, -1)
-    joint_names, parents, regressor, dense, posedirs, survivors = reduce_joint_data(
-        spec.joint_names, spec.parents, spec.rig.joint_regressor, spec.skin_matrix(), posedirs, dropped
-    )
-    weights, indices = top_k_skin(dense)
-    survivor_tensor = torch.tensor(survivors, dtype=torch.long, device=spec.device)
-    if "native_joint_ids" in spec.meta:  # an earlier drop already renumbered joints; keep file numbering
-        survivor_tensor = spec.meta["native_joint_ids"].to(spec.device)[survivor_tensor]
-    old_to_new = {old: new for new, old in enumerate(survivors)}
-    part_joints = tuple(old_to_new[j] for j in spec.parts.joints if j in old_to_new)
-    ancestor = torch.arange(spec.num_joints, device=spec.device)
-    for joint in range(spec.num_joints):  # every dropped joint maps to its nearest surviving ancestor
-        while int(ancestor[joint]) not in old_to_new:
-            ancestor[joint] = spec.parents[int(ancestor[joint])]
-    part_ids = torch.tensor([old_to_new[int(ancestor[j])] for j in range(spec.num_joints)], device=spec.device)
-    return replace(
-        spec,
-        joint_names=joint_names,
-        parents=parents,
-        skin_weights=weights,
-        skin_indices=indices,
-        corrective=Corrective("linear", posedirs=posedirs.reshape(spec.num_vertices * 3, -1).T),
-        rig=replace(spec.rig, joint_regressor=regressor),
-        parts=Parts(part_ids[spec.parts.ids], part_joints),
-        meta={**spec.meta, "native_joint_ids": survivor_tensor},
-    )
-
-
-__all__ = ["Corrective", "FamilySpec", "Parts", "drop_joints", "top_k_skin"]
+__all__ = ["Corrective", "FamilySpec", "Parts", "top_k_skin"]

@@ -1,5 +1,4 @@
 {
-  "core -> better_robot.io": "src/better_human/core/rig.py::RegressedRig: RegressedRig and drop_joints move to families (record 0011)",
   "core -> better_robot.spatial": "src/better_human/core/mass.py::body_inertias_from_shape: the mass math becomes the mass package, whose row allows better_robot.spatial (record 0011)",
   "viz -> better_human": "src/better_human/viz/studio/app.py::HumanStudio: studio code; it leaves viz as better_human.studio, whose row allows the root (records 0009, 0011)",
   "viz -> better_robot.lie": "src/better_human/viz/studio/posing.py::_local_delta: studio code; it leaves viz as better_human.studio, whose row allows better_robot.lie (records 0009, 0011)",

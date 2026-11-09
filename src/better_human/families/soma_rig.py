@@ -24,19 +24,18 @@ from better_robot.kinematics import forward_kinematics
 from better_robot.lie import so3
 
 from better_human.core.pipeline import lbs_affines, regress_joints, skin_affines
-from better_human.core.rig import FrameSpec, RigBake, gravity
+from better_human.core.rig import Rig, RigBake, gravity
 
 if TYPE_CHECKING:
     from better_robot.kinematics import KinematicState
 
-    from better_human.core.human_model import Tensors
     from better_human.core.spec import FamilySpec
 
 NEWTON_SCHULZ_STEPS = 30  #: upstream ``align_vectors`` iteration count.
 
 
 @dataclass(frozen=True)
-class SomaRig:
+class SomaRig(Rig):
     """SOMA rig tensors. ``P = 78`` public joints, ``J = 110`` native joints, ``T = 32`` twist helpers."""
 
     # Skeleton fit (upstream ``SkeletonTransfer``, ``rotation_method="auto"``) on the public joints.
@@ -166,9 +165,7 @@ class SomaRig:
         }
         return cls(**tensors).to(dtype, device)
 
-    def build_model(
-        self, spec: FamilySpec, *, frames: Sequence[FrameSpec], dtype: torch.dtype, device: torch.device
-    ) -> Model:
+    def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
         """BR model with the template (mean shape) placements; ``bake`` replaces them per identity."""
         if frames:
             raise ValueError("SOMA does not support contact frames")
@@ -181,14 +178,14 @@ class SomaRig:
         for joint in range(2, len(names)):
             add = builder.add_fixed if joint in helpers else builder.add_spherical
             add(names[joint], parent=names[spec.parents[joint]], child=names[joint], origin=placements[joint])
-        return build_model(builder.finalize(), dtype=dtype).to(device=device)
+        return build_model(builder.finalize(), dtype=spec.dtype).to(device=spec.device)
 
     def bake(
-        self, spec: FamilySpec, model: Model, v_shaped: torch.Tensor, identity: dict[str, torch.Tensor]
+        self, spec: FamilySpec, model: Model, *, shaped_vertices: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> RigBake:
-        """Fit and repose the skeleton to ``v_shaped (I..., V, 3)``; the reposed mesh becomes the skinning rest mesh."""
-        positions, repose = self._fit_and_repose(v_shaped)
-        rest = lbs_affines(v_shaped, repose, self.public_weights)
+        """Fit and repose the skeleton to ``shaped_vertices (I..., V, 3)``; the reposed mesh is the skinning rest mesh."""
+        positions, repose = self._fit_and_repose(shaped_vertices)
+        rest = lbs_affines(shaped_vertices, repose, self.public_weights)
         placements = self._placements(positions)
         inverse_bind = torch.cat(
             (
@@ -211,13 +208,7 @@ class SomaRig:
             v_shaped=rest,
         )
 
-    def placements_from_rest(self, spec: FamilySpec, model: Model, rest_joints: torch.Tensor) -> None:
-        return None
-
-    def stream_joint_basis(self, spec: FamilySpec, name: str) -> None:
-        return None
-
-    def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
+    def joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return torch.arange(spec.num_joints, device=self.parents.device)
 
     def joint_transforms(self, spec: FamilySpec, model: Model, *, kinematics: KinematicState) -> torch.Tensor:
@@ -237,7 +228,7 @@ class SomaRig:
         return transforms.index_copy(-3, self.turned_ids, turned)
 
     def corrective_features(
-        self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None
+        self, spec: FamilySpec, model: Model, *, q: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> torch.Tensor:
         """``(..., P * 6)``: first two columns of ``corrective_bind^T R_local`` minus identity, ``Root`` included."""
         rotations = so3.to_matrix(so3.normalize(q[..., 3:].unflatten(-1, (-1, 4))))

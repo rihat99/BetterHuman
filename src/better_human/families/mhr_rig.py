@@ -24,12 +24,9 @@ from better_robot.kinematics import forward_kinematics, full_configuration
 from better_robot.lie import se3, so3
 
 from better_human.core.pipeline import lbs_affines, pose_feature_6d_from_euler, skin_affines
-from better_human.core.rig import FrameSpec, RigBake, gravity
+from better_human.core.rig import Rig, RigBake, gravity
 
 if TYPE_CHECKING:
-    from better_robot.kinematics import KinematicState
-
-    from better_human.core.human_model import Tensors
     from better_human.core.spec import FamilySpec
 
 ROOT_COUNT = 6  #: model parameters 0-5 drive the root: translation, then Euler angles.
@@ -37,7 +34,7 @@ CHANNELS = 7  #: parameter-transform rows per joint: translation xyz, rotation x
 
 
 @dataclass(frozen=True)
-class MhrRig:
+class MhrRig(Rig):
     """MHR rig tensors. ``J = 127`` native joints, ``N = 125`` pose and ``P = 73`` proportion parameters."""
 
     model: Model  #: float64 BR model at zero proportions; ``bake`` re-places its ``origin_joints``.
@@ -84,16 +81,14 @@ class MhrRig:
         }
         return cls(**tensors).to(dtype, device)
 
-    def build_model(
-        self, spec: FamilySpec, *, frames: Sequence[FrameSpec], dtype: torch.dtype, device: torch.device
-    ) -> Model:
-        """BR model at zero proportions in ``dtype``; ``bake`` re-places it per identity."""
+    def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
+        """BR model at zero proportions in the spec's dtype; ``bake`` re-places it per identity."""
         if frames:
             raise ValueError("MHR does not support contact frames")
-        return self.model.to(device=device, dtype=dtype)
+        return self.model.to(device=spec.device, dtype=spec.dtype)
 
     def bake(
-        self, spec: FamilySpec, model: Model, v_shaped: torch.Tensor, identity: dict[str, torch.Tensor]
+        self, spec: FamilySpec, model: Model, *, shaped_vertices: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> RigBake:
         """Placements, accumulated scales and rest poses for the proportions ``identity["proportions"] (I..., P)``."""
         proportions = identity["proportions"]
@@ -126,24 +121,15 @@ class MhrRig:
             rest_poses=kinematics.joint_poses.index_select(-2, self.native_joints),
             pelvis=placements.new_zeros((*placements.shape[:-2], 3)),
             joint_scales=scales,
-            neutral_vertices=lbs_affines(v_shaped, affines, spec.skin_matrix()),
+            neutral_vertices=lbs_affines(shaped_vertices, affines, spec.skin_matrix()),
             inverse_bind_poses=self.inverse_bind_poses,
         )
 
-    def placements_from_rest(self, spec: FamilySpec, model: Model, rest_joints: torch.Tensor) -> None:
-        return None
-
-    def stream_joint_basis(self, spec: FamilySpec, name: str) -> None:
-        return None
-
-    def native_joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
+    def joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return self.native_joints
 
-    def joint_transforms(self, spec: FamilySpec, model: Model, *, kinematics: KinematicState) -> torch.Tensor:
-        return kinematics.joint_transforms.index_select(-3, self.native_joints)
-
     def corrective_features(
-        self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None
+        self, spec: FamilySpec, model: Model, *, q: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> torch.Tensor:
         """``(..., 6 (J - 2))``: 6D features of the Euler angles of every joint after ``root``."""
         entries = full_configuration(model, q).index_select(-1, self.corrective_entries)

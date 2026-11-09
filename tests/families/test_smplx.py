@@ -32,7 +32,7 @@ def test_reduced_bodies_drop_joints(hands: bool, face: bool, count: int) -> None
 
 def test_repeated_drop_joints_keeps_native_joint_ids() -> None:
     spec = _body(face=False).spec
-    twice = bh.core.spec.drop_joints(spec, [spec.joint_names[-1]])
+    twice = bh.families.drop_joints(spec, [spec.joint_names[-1]])
     native = spec.meta["native_joint_ids"]
     torch.testing.assert_close(twice.meta["native_joint_ids"], native[:-1], rtol=0, atol=0)
 

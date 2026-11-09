@@ -21,7 +21,7 @@ from better_robot.lie import so3
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
 from .mass import PartMeshTopology, body_inertias_from_shape, build_authored_topology, build_part_topology
 from .pipeline import blend_shapes, lbs_affines, skin_affines
-from .rig import RegressedRig, RigBake
+from .rig import RigBake
 from .spec import FamilySpec
 
 Tensors = Mapping[str, torch.Tensor]
@@ -60,7 +60,7 @@ class HumanModel:
         becomes an operational frame of the model, re-placed on every bake. ``stream_joints=False`` lets stream groups
         (expression) move vertices but not joints: faster, slightly off upstream.
         """
-        model = spec.rig.build_model(spec, frames=(), dtype=spec.dtype, device=spec.device)
+        model = spec.rig.build_model(spec, frames=())
         density = None if density is None else _density(density, spec.parts.count, spec.template_vertices)
         zero = None
         if contact_frames is not None or density is not None:
@@ -88,7 +88,7 @@ class HumanModel:
             spec=spec,
             model=model,
             skin_matrix=spec.skin_matrix(),
-            joint_ids=spec.rig.native_joint_ids(spec, model),
+            joint_ids=spec.rig.joint_ids(spec, model),
             part_body_ids=torch.tensor(part_body_ids, dtype=torch.long, device=spec.device),
             density=density,
             part_topology=topology,
@@ -181,7 +181,8 @@ class Identity:
             rest_joints = rest_joints + delta - root
             offsets = offsets - root
             root_offset = root_offset + root[..., 0, :]
-            model = model.with_values(joint_placements=spec.rig.placements_from_rest(spec, model, rest_joints))
+            placements = spec.rig.placements_from_rest(spec, model, rest_joint_translations=rest_joints)
+            model = model.with_values(joint_placements=placements)
         kinematics = forward_kinematics(model, q)
         return HumanState(self, q, streams, model, kinematics, rest_joints, root_offset, offsets)
 
@@ -248,7 +249,7 @@ class HumanState:
             return None
         return self._memoised(
             "corrective_features",
-            lambda: spec.rig.corrective_features(spec, self.model, self.q, identity=self.identity.values),
+            lambda: spec.rig.corrective_features(spec, self.model, q=self.q, identity=self.identity.values),
         )
 
     def rest_vertices(self, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
@@ -301,7 +302,7 @@ def _rest(spec: FamilySpec, model: Model, values: Tensors) -> tuple[torch.Tensor
     shaped = spec.template_vertices
     for name, coefficients in values.items():
         shaped = shaped + blend_shapes(coefficients, spec.identity_bases[name])
-    bake = spec.rig.bake(spec, model, shaped, dict(values))
+    bake = spec.rig.bake(spec, model, shaped_vertices=shaped, identity=values)
     if bake.v_shaped is not None:
         shaped = bake.v_shaped
     return shaped - bake.pelvis[..., None, :], bake
@@ -311,8 +312,6 @@ def _attach(
     spec: FamilySpec, source: Mapping[str, tuple[int, str | None]], rest_vertices: torch.Tensor, bake: RigBake
 ) -> tuple[Model, ContactFrames]:
     """The model with the contact frames of ``source`` attached, and the frames resolved against it."""
-    if not isinstance(spec.rig, RegressedRig):
-        raise ValueError("contact frames need a regressed rig (SMPL family)")
     entries = dict(source)
     parents = resolve_parents(entries, spec.joint_names, spec.parts.ids)
     vertex_ids = tuple(int(vertex) for vertex, _ in entries.values())
@@ -320,7 +319,7 @@ def _attach(
     frames = [
         (name, spec.joint_names[parent], placement) for name, parent, placement in zip(entries, parents, placements)
     ]
-    model = spec.rig.build_model(spec, frames=frames, dtype=spec.dtype, device=spec.device)
+    model = spec.rig.build_model(spec, frames=frames)
     resolved = ContactFrames(
         names=tuple(entries),
         vertex_ids=vertex_ids,
