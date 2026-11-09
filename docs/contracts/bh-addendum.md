@@ -49,7 +49,7 @@ Enforcement: review.
 ## H-ASSET-2 Weights resolve from an explicit path, else `io.models_dir()` (MUST)
 
 An explicit `path` argument wins; otherwise the file is `io.weight_path(folder, filename)`, that is
-`io.models_dir() / <folder> / <file_pattern>` with the patterns of `src/better_human/families/tables.py` (table under "Weight-file
+`io.models_dir() / <folder> / <file_pattern>` with the patterns of `src/better_human/families/_tables.py` (table under "Weight-file
 layout"). `io.models_dir()` is the one reader of `$BETTERHUMAN_MODELS_DIR` and raises with the fix when it is unset
 or names no directory; a missing or malformed file raises a clear error naming the path; nothing guesses a default.
 Example: `src/better_human/io/load.py::models_dir`, `src/better_human/io/load.py::weight_path`.
@@ -169,7 +169,7 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 ### Weight-file layout
 
 Files live under `io.models_dir() / <folder> / <file_pattern>` (`$BETTERHUMAN_MODELS_DIR`); an explicit `path`
-argument wins. Patterns are in `src/better_human/families/tables.py`:
+argument wins. Patterns are in `src/better_human/families/_tables.py`:
 
 | family | folder | file pattern |
 |---|---|---|

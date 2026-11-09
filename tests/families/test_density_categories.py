@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 import better_human as bh
-from better_human.families import tables
+from better_human.families import _tables as tables
 from better_human.families.densities import density_categories
 from better_human.io import weight_path
 from better_human.io.mass_data import shipped_density_tables

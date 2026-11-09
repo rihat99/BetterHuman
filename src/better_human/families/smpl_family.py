@@ -18,7 +18,7 @@ from better_human.io.mass_data import shipped_density_tables, shipped_segmentati
 from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA
 from better_human.mass import segment_vertices
 
-from . import tables
+from . import _tables
 from .densities import density_categories
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 
@@ -54,7 +54,7 @@ def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
 
 
 def load_family(
-    table: tables.FamilyTable,
+    table: _tables.FamilyTable,
     arrays: Mapping[str, torch.Tensor],
     *,
     identity: Mapping[str, int],
@@ -148,9 +148,9 @@ def smpl(
 ) -> FamilySpec:
     """SMPL (24 joints, 6890 vertices)."""
     gender = _gender(gender)
-    path = weight_path(tables.SMPL.folder, tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
+    path = weight_path(_tables.SMPL.folder, _tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
     return load_family(
-        tables.SMPL,
+        _tables.SMPL,
         load_model_npz(path, SMPL_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         dtype=dtype,
@@ -169,7 +169,7 @@ def smplh(
 ) -> FamilySpec:
     """SMPL+H (52 joints; the hand pose is given per joint, the file ships no hand PCA)."""
     gender = _gender(gender)
-    table = tables.SMPLH
+    table = _tables.SMPLH
     path = weight_path(table.folder, table.file_pattern.format(gender_lower=gender), path=path)
     drop = () if hands else tuple(table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints))
     return load_family(
@@ -196,7 +196,7 @@ def smplx(
 ) -> FamilySpec:
     """SMPL-X (55 joints, 10475 vertices). Expression is a stream group; ``face=False`` drops it and the face joints."""
     gender = _gender(gender)
-    table = tables.SMPLX
+    table = _tables.SMPLX
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
     arrays = load_model_npz(path, SMPLX_SCHEMA)
 
@@ -245,7 +245,7 @@ def mano(
     """MANO hand (16 joints, 778 vertices) with its PCA pose space in ``meta``."""
     if side not in {"left", "right"}:
         raise UnknownNameError("side", side, ["left", "right"])
-    table = tables.MANO
+    table = _tables.MANO
     path = weight_path(table.folder, table.file_pattern.format(side=side.upper()), path=path)
     arrays = load_model_npz(path, MANO_SCHEMA)
     mean = arrays["hands_mean"].to(device=device, dtype=dtype)
@@ -274,7 +274,7 @@ def flame(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """FLAME head (5 joints, 5023 vertices); expression is a stream group like SMPL-X."""
-    table = tables.FLAME
+    table = _tables.FLAME
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
     return load_family(
         table,

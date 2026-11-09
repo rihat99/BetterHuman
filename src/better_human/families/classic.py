@@ -22,7 +22,7 @@ from better_human.core.classic import (
     quaternion_to_axis_angle,
 )
 
-from . import tables
+from . import _tables
 
 HAND_DIM = 45
 Stream = dict[str, torch.Tensor]
@@ -230,7 +230,7 @@ class SMPLXClassic:
 
 def smplx_from_classic(identity: Identity, classic: SMPLXClassic) -> tuple[torch.Tensor, Stream]:
     exemplar = identity.root_offset
-    table = tables.SMPLX
+    table = _tables.SMPLX
     hand_width = _pca_width(classic.num_pca_comps)
     fields = {
         "body_pose": (classic.body_pose, 63),
