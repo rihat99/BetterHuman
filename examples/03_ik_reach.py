@@ -50,8 +50,9 @@ def main() -> None:
     current = {"q": q}
 
     def follow(pose: np.ndarray) -> None:
-        problem.data["target"] = torch.from_numpy(pose[:3]).to(q)[None]
-        result = solve(problem, LevenbergMarquardt(), iters=20, x=current)
+        # A Problem is read-only: each drag solves a copy that holds the new target.
+        moved = problem.with_(data={"target": torch.from_numpy(pose[:3]).to(q)[None]})
+        result = solve(moved, LevenbergMarquardt(), iterations=20, x=current)
         current["q"] = result.x["q"]
         view.update(identity.forward(current["q"]))
         viewer.show()
