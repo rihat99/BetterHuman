@@ -181,7 +181,7 @@ class SomaRig:
         for joint in range(2, len(names)):
             add = builder.add_fixed if joint in helpers else builder.add_spherical
             add(names[joint], parent=names[spec.parents[joint]], child=names[joint], origin=placements[joint])
-        return build_model(builder.finalize(), preserve_joint_order=True, dtype=dtype).to(device=device)
+        return build_model(builder.finalize(), dtype=dtype).to(device=device)
 
     def bake(
         self, spec: FamilySpec, model: Model, v_shaped: torch.Tensor, identity: dict[str, torch.Tensor]

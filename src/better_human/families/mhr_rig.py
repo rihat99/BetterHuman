@@ -187,7 +187,7 @@ def _joint_tree(
     root = builder.add_body(names[1])
     builder.add_free_flyer_root("root", child=root, origin=torch.cat((offsets[1], pre_rotations[1])))
     bodies, first, last, entry_joints = ["world", root], ["root"], ["universe", "root"], {}
-    add = {3: builder.add_revolute_x, 4: builder.add_revolute_y, 5: builder.add_revolute_z}
+    axes = {3: (1.0, 0.0, 0.0), 4: (0.0, 1.0, 0.0), 5: (0.0, 0.0, 1.0)}
     for joint in range(2, len(names)):
         parent, origin = bodies[parents[joint]], torch.cat((offsets[joint], pre_rotations[joint]))
         chain = sorted((item for item in entries if item[1] == joint), key=lambda item: (-item[2], item[0]))
@@ -205,7 +205,9 @@ def _joint_tree(
             else:
                 name = f"mhr_mimic_{entry}_{parameters[column]}"
                 drive = {"mimic_source": parameters[column], "mimic_multiplier": weight / host_weight}
-            add[channel](name, parent=parent, child=child, origin=origin if link == 0 else None, **drive)
+            builder.add_revolute(
+                name, parent=parent, child=child, axis=axes[channel], origin=origin if link == 0 else None, **drive
+            )
             entry_joints[entry] = name
             parent = child
         bodies.append(parent)
@@ -214,7 +216,7 @@ def _joint_tree(
 
     # float64, whatever ``dtype``: limits, mimic multipliers and gravity stay exact for a float64 Body of a
     # float32 spec, and ``build_model`` rounds them to float32 exactly as a float32 build would.
-    model = build_model(builder.finalize(), preserve_joint_order=True, dtype=torch.float64)
+    model = build_model(builder.finalize(), dtype=torch.float64)
     dims = (model.nq, model.nv, model.nq_full, model.nv_full)
     if dims != (132, 131, 179, 178) or model.joint_names[1] != "root" or model.idx_qs[1] != 0:
         raise ValueError(f"unexpected MHR tree: (nq, nv, nq_full, nv_full) = {dims}, root free flyer not at q[:7]")

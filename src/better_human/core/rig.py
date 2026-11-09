@@ -119,8 +119,8 @@ class RegressedRig:
                 spec.joint_names[joint], parent=spec.joint_names[parent], child=spec.joint_names[joint]
             )
         for name, parent, placement in frames:
-            builder.add_frame(name, parent_body=parent, placement=placement.detach().cpu())
-        return build_model(builder.finalize(), preserve_joint_order=True, dtype=dtype).to(device=device)
+            builder.add_frame(name, parent=parent, placement=placement.detach().cpu())
+        return build_model(builder.finalize(), dtype=dtype).to(device=device)
 
     def bake(
         self, spec: FamilySpec, model: Model, v_shaped: torch.Tensor, identity: dict[str, torch.Tensor]
