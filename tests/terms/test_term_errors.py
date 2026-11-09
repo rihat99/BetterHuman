@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 import torch
 from better_robot.exceptions import ArgumentError, UnknownNameError
 
 import better_human as bh
 from better_human import terms
+from better_human.core.rig import gravity
 from tests.support.synthetic import flame_spec
 
 
@@ -35,3 +38,16 @@ def test_misspelled_groups_raise_when_the_term_is_built(human: bh.HumanModel) ->
     with pytest.raises(UnknownNameError, match=r"unknown stream group 'expresion'.*\['expression'\]"):
         terms.human_state(human.bake(), streams=["expresion"])
     assert terms.human_state(identity_name="identity", streams=["expresion"]).reads == ("identity", "q", "expresion")
+
+
+def test_ground_defaults_to_the_family_up_axis(human: bh.HumanModel) -> None:
+    z_up = bh.HumanModel.from_spec(dataclasses.replace(human.spec, up_axis="+z"), density=None)
+    for model, up in ((human, (0.0, 1.0, 0.0)), (z_up, (0.0, 0.0, 1.0))):
+        state = model.bake().forward(model.model.q_neutral)
+        torch.testing.assert_close(terms.ground(hinge=False).fn(state), terms.ground(up=up, hinge=False).fn(state))
+
+
+@pytest.mark.parametrize("up_axis", ["y", "+w", "up", ""])
+def test_gravity_of_an_unknown_up_axis_is_an_argument_error(up_axis: str) -> None:
+    with pytest.raises(ArgumentError, match=r"is not one of \['\+x', '-x', '\+y'"):
+        gravity(up_axis)

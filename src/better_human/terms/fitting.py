@@ -10,6 +10,7 @@ from better_robot.kinematics import difference
 from better_robot.optim import TermFn
 
 from better_human.core import HumanState, Identity
+from better_human.core.rig import gravity
 
 
 def joints(*, target: str, state: str = "state", joint_names: Sequence[str] | None = None) -> TermFn:
@@ -110,21 +111,22 @@ def ground(
     vertex_ids: Sequence[int] | torch.Tensor | None = None,
     *,
     height: float = 0.0,
-    up: Sequence[float] = (0.0, 1.0, 0.0),
+    up: Sequence[float] | None = None,
     hinge: bool = True,
     state: str = "state",
 ) -> TermFn:
     """Ground penetration of ``vertex_ids`` (default: every vertex) below the plane at ``height`` along ``up``.
 
+    ``up`` defaults to the family's ``spec.up_axis`` (against its gravity), read from the state on evaluation.
     Residual ``(..., M)``: ``min(h - height, 0)`` (hinge) or the signed height for :func:`solve_constrained`.
     """
     ids = None if vertex_ids is None else torch.as_tensor(vertex_ids, dtype=torch.long)
-    normal = torch.tensor(up, dtype=torch.float64)
-    normal = normal / normal.norm()
+    fixed = None if up is None else torch.tensor(up, dtype=torch.float64)
 
     def residual(human: HumanState) -> torch.Tensor:
         positions = human.vertices if ids is None else human.points(ids)
-        clearance = positions @ normal.to(positions) - height
+        normal = -torch.tensor(gravity(human.identity.human.spec.up_axis), dtype=torch.float64) if up is None else fixed
+        clearance = positions @ (normal / normal.norm()).to(positions) - height
         return clearance.clamp_max(0.0) if hinge else clearance
 
     return TermFn(fn=residual, reads=(state,))
