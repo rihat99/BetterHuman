@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 import torch
-from better_robot.exceptions import ArgumentError
+from better_robot.exceptions import ArgumentError, UnknownNameError
 
 import better_human as bh
 from better_human import terms
@@ -27,3 +27,11 @@ def test_a_family_without_landmarks_raises_an_argument_error(human: bh.HumanMode
     camera = torch.eye(3, 4, dtype=human.spec.dtype)
     with pytest.raises(ArgumentError, match=fix):
         terms.reprojection(target="pixels").fn(state, torch.zeros(0, 2, dtype=human.spec.dtype), camera)
+
+
+def test_misspelled_groups_raise_when_the_term_is_built(human: bh.HumanModel) -> None:
+    with pytest.raises(UnknownNameError, match=r"unknown identity group 'beta'; valid identity groups: \['betas'\]"):
+        terms.baked_identity(human, "beta")
+    with pytest.raises(UnknownNameError, match=r"unknown stream group 'expresion'.*\['expression'\]"):
+        terms.human_state(human.bake(), streams=["expresion"])
+    assert terms.human_state(identity_name="identity", streams=["expresion"]).reads == ("identity", "q", "expresion")
