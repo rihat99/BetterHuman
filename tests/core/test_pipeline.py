@@ -309,39 +309,43 @@ def _affine(poses: torch.Tensor) -> torch.Tensor:
     return torch.cat((so3.to_matrix(poses[..., 3:]), poses[..., :3, None]), dim=-1)
 
 
-@pytest.mark.parametrize("scaled", [False, True])
-def test_skin_affines_match_skinning_transforms_and_lbs(scaled: bool) -> None:
+def _apply(affines: torch.Tensor, points: torch.Tensor) -> torch.Tensor:
+    return (affines[..., :3] @ points[..., None]).squeeze(-1) + affines[..., 3]
+
+
+def test_skin_affines_with_rest_joint_binds_skin_about_the_rest_joints() -> None:
     generator = torch.Generator().manual_seed(4)
-    world = _random_world_poses(2, 5, torch.float64)
+    world = _affine(_random_world_poses(2, 5, torch.float64))
     rest_joints = torch.randn(5, 3, generator=generator, dtype=torch.float64)
     rest_vertices = torch.randn(2, 40, 3, generator=generator, dtype=torch.float64)
     weights = torch.rand(40, 5, generator=generator, dtype=torch.float64)
     weights = weights / weights.sum(dim=-1, keepdim=True)
-    scales = {}
-    if scaled:
-        scales = {
-            "joint_scales": 0.5 + torch.rand(2, 5, generator=generator, dtype=torch.float64),
-            "bind_joint_positions": torch.randn(5, 3, generator=generator, dtype=torch.float64),
-        }
-    expected = lbs(rest_vertices, skinning_transforms(world, rest_joints), weights, **scales)
-    affines = skin_affines(_affine(world), rest_joints=rest_joints, **scales)
+    inverse_binds = torch.cat((torch.eye(3, dtype=torch.float64).expand(5, 3, 3), -rest_joints[..., None]), dim=-1)
+    affines = skin_affines(world, inverse_binds)
+    # The SMPL family's [I | -rest] bind is bitwise the rest-joint form (decision record 0003).
+    assert torch.equal(affines[..., :3], world[..., :3])
+    assert torch.equal(affines[..., 3], world[..., 3] - (world[..., :3] @ rest_joints[..., None]).squeeze(-1))
+    expected = torch.einsum("vj,bvjc->bvc", weights, _apply(world[:, None], rest_vertices[:, :, None] - rest_joints))
     torch.testing.assert_close(lbs_affines(rest_vertices, affines, weights), expected, atol=1e-6, rtol=0)
 
 
 @pytest.mark.parametrize("scaled", [False, True])
-def test_skin_affines_match_inverse_bind_skinning(scaled: bool) -> None:
+def test_skin_affines_with_scaled_inverse_binds_scale_about_the_bind_positions(scaled: bool) -> None:
     generator = torch.Generator().manual_seed(5)
-    world = _random_world_poses(3, 4, torch.float64)
-    inverse_bind = _random_world_poses(1, 4, torch.float64)[0]
+    world = _affine(_random_world_poses(3, 4, torch.float64))
+    inverse_binds = _affine(_random_world_poses(1, 4, torch.float64)[0])
     rest_vertices = torch.randn(30, 3, generator=generator, dtype=torch.float64)
     weights = torch.rand(30, 4, generator=generator, dtype=torch.float64)
     weights = weights / weights.sum(dim=-1, keepdim=True)
-    scales = {}
-    if scaled:
-        scales = {
-            "joint_scales": 0.5 + torch.rand(3, 4, generator=generator, dtype=torch.float64),
-            "bind_joint_positions": torch.randn(4, 3, generator=generator, dtype=torch.float64),
-        }
-    expected = lbs(rest_vertices, skinning_transforms_from_inverse(world, inverse_bind), weights, **scales)
-    affines = skin_affines(_affine(world), inverse_bind_poses=inverse_bind, **scales)
+    ones = torch.ones(3, 4, dtype=torch.float64)
+    scales = ones + torch.rand(3, 4, generator=generator, dtype=torch.float64) - 0.5 if scaled else ones
+    pivots = torch.randn(4, 3, generator=generator, dtype=torch.float64)
+    # MHR's fold [s R_b | t_b - (s - 1) R_b c] (decision record 0003).
+    rotations, translations = inverse_binds[..., :3], inverse_binds[..., 3]
+    folded_translations = translations - (scales - 1.0)[..., None] * (rotations @ pivots[..., None]).squeeze(-1)
+    folded = torch.cat((scales[..., None, None] * rotations, folded_translations[..., None]), dim=-1)
+    # Reference: scale each vertex about the joint's bind position, then apply the inverse bind and the world transform.
+    scaled_vertices = pivots + scales[:, None, :, None] * (rest_vertices[:, None] - pivots)
+    expected = torch.einsum("vj,bvjc->bvc", weights, _apply(world[:, None], _apply(inverse_binds, scaled_vertices)))
+    affines = skin_affines(world, folded)
     torch.testing.assert_close(lbs_affines(rest_vertices, affines, weights), expected, atol=1e-6, rtol=0)

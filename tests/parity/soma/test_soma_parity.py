@@ -8,7 +8,6 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from better_robot.lie import se3
 
 from better_human import HumanModel, HumanState, families
 from better_human.families.soma import SOMAClassic, soma_from_classic
@@ -131,7 +130,8 @@ def test_bake_matches_upstream_rest_shape_and_bind(soma_goldens: Path, dtype: to
             names = ("identity_coeffs", "rest_shape", "bind_transforms")
             coefficients, rest_shape, expected = (torch.from_numpy(golden[name]).to(dtype) for name in names)
         identity = body.bake(shape=coefficients)
-        bind = se3.to_matrix(se3.inverse(identity.inverse_bind_poses))
+        inverse_bind = identity.inverse_bind_affines  # [R | t] of the inverse bind; the bind is [R^T | -R^T t]
+        bind = torch.cat((inverse_bind[..., :3].mT, -(inverse_bind[..., :3].mT @ inverse_bind[..., 3:])), dim=-1)
         rest_error = (identity.rest_vertices - rest_shape).abs().amax().item()
         positions = torch.stack((identity.rest_joint_translations, bind[:, :3, 3]))
         position_error = (positions - expected[:, :3, 3]).abs().amax().item()

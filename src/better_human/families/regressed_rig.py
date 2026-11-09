@@ -46,12 +46,16 @@ class RegressedRig(Rig):
         self, spec: FamilySpec, model: Model, *, shaped_vertices: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> RigBake:
         joints = regress_joints(self.joint_regressor, shaped_vertices)
-        pelvis = joints[..., 0, :]
-        rest_joints = joints - pelvis[..., None, :]
-        placements = self.placements_from_rest(spec, model, rest_joint_translations=rest_joints)
-        quaternions = rest_joints.new_zeros((*rest_joints.shape[:-1], 4))
-        quaternions[..., 3] = 1.0
-        return RigBake(placements, rest_joints, torch.cat((rest_joints, quaternions), dim=-1), pelvis)
+        root_offset = joints[..., 0, :]
+        rest_joints = joints - root_offset[..., None, :]
+        eye = torch.eye(3, dtype=rest_joints.dtype, device=rest_joints.device).expand(*rest_joints.shape[:-1], 3, 3)
+        return RigBake(
+            joint_placements=self.placements_from_rest(spec, model, rest_joint_translations=rest_joints),
+            rest_vertices=shaped_vertices - root_offset[..., None, :],
+            rest_joint_translations=rest_joints,
+            inverse_bind_affines=torch.cat((eye, -rest_joints[..., None]), dim=-1),  # identity-oriented at the joint
+            root_offset=root_offset,
+        )
 
     def joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return torch.arange(1, spec.num_joints + 1, device=spec.device)

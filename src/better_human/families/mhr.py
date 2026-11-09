@@ -106,7 +106,6 @@ def mhr(
         unit="m",
         up_axis=str(arrays["up_axis"]),
         forward_axis=str(arrays["forward_axis"]),
-        meta={"bind_joint_positions": floats("bind_matrices")[..., :3, 3]},
     )
 
 

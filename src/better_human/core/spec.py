@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 META_KEYS = frozenset(
     {
-        "bind_joint_positions",
         "closed_segmentation",
         "hand_components",
         "hand_joints",
@@ -95,7 +94,6 @@ class FamilySpec:
     - ``hand_mean`` ``{side: (45,)}`` and ``hand_components`` ``{side: (C, 45)}``: hand pose PCA.
     - ``side`` ``str``: ``"left"`` or ``"right"`` (MANO).
     - ``closed_segmentation``: authored part segmentation for mass properties (MHR), or absent.
-    - ``bind_joint_positions`` ``(J, 3)``: pivots of the accumulated joint scales in skinning (MHR).
     """
 
     name: str

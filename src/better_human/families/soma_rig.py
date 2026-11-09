@@ -20,10 +20,9 @@ from typing import TYPE_CHECKING, Any
 import torch
 from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
-from better_robot.kinematics import forward_kinematics
 from better_robot.lie import so3
 
-from better_human.core.pipeline import lbs_affines, regress_joints, skin_affines
+from better_human.core.pipeline import lbs_affines, regress_joints
 from better_human.core.rig import Rig, RigBake, gravity
 
 if TYPE_CHECKING:
@@ -185,27 +184,14 @@ class SomaRig(Rig):
     ) -> RigBake:
         """Fit and repose the skeleton to ``shaped_vertices (I..., V, 3)``; the reposed mesh is the skinning rest mesh."""
         positions, repose = self._fit_and_repose(shaped_vertices)
-        rest = lbs_affines(shaped_vertices, repose, self.public_weights)
-        placements = self._placements(positions)
-        inverse_bind = torch.cat(
-            (
-                -(self.bind_rotations.mT @ positions[..., None]).squeeze(-1),
-                self.inverse_bind_quaternions.expand(*positions.shape[:-1], 4),
-            ),
-            dim=-1,
-        )
-        baked = model.with_values(joint_placements=placements)
-        kinematics = forward_kinematics(baked, baked.q_neutral)
-        transforms = self.joint_transforms(spec, baked, kinematics=kinematics)
-        affines = skin_affines(transforms, inverse_bind_poses=inverse_bind)
+        rotations = so3.to_matrix(self.inverse_bind_quaternions).expand(*positions.shape[:-1], 3, 3)
+        translations = -(self.bind_rotations.mT @ positions[..., None])
         return RigBake(
-            joint_placements=placements,
-            rest_joints=positions,
-            rest_poses=kinematics.joint_poses,
-            pelvis=positions.new_zeros((*positions.shape[:-2], 3)),
-            neutral_vertices=lbs_affines(rest, affines, spec.skin_matrix()),
-            inverse_bind_poses=inverse_bind,
-            v_shaped=rest,
+            joint_placements=self._placements(positions),
+            rest_vertices=lbs_affines(shaped_vertices, repose, self.public_weights),
+            rest_joint_translations=positions,
+            inverse_bind_affines=torch.cat((rotations, translations), dim=-1),
+            root_offset=positions.new_zeros((*positions.shape[:-2], 3)),
         )
 
     def joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:

@@ -180,7 +180,7 @@ def test_mhr_parity_grid(
                 state = baked.forward(q, stream)
                 actual_vertices = state.vertices
                 actual_poses = state.joint_poses
-                actual_scales = baked.joint_scales
+                actual_scales = body.spec.rig.joint_scales(body.spec, baked.values["proportions"])
 
                 assert actual_vertices.dtype == dtype
                 assert actual_poses.dtype == dtype

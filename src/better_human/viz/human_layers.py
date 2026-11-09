@@ -45,16 +45,18 @@ def skinned_layer(
 ) -> SkinnedMeshLayer:
     """Client-side skinning: bind mesh once, bone poses per frame. Cheap on the wire; no pose correctives.
 
-    Not for authored rigs with joint scales (MHR): use :func:`mesh_layer`.
+    The bind poses are the translations of the identity's ``inverse_bind_affines``; a rig whose binds rotate or
+    scale (SOMA, MHR) raises: use :func:`mesh_layer`.
     """
-    if identity.joint_scales is not None:
-        raise ValueError("skinned_layer needs a rig without joint scales; use mesh_layer")
-    if identity.rest_joint_translations.ndim != 2:
+    inverse_binds = identity.inverse_bind_affines
+    if inverse_binds.ndim != 3:
         raise ValueError("skinned_layer needs a single identity (no identity batch)")
-    rest = identity.rest_joint_translations
-    quaternion = torch.zeros_like(rest[:, :1]).repeat(1, 4)
+    eye = torch.eye(3, dtype=inverse_binds.dtype, device=inverse_binds.device)
+    if not torch.equal(inverse_binds[..., :3], eye.expand_as(inverse_binds[..., :3])):
+        raise ValueError("skinned_layer needs identity-oriented binds (SMPL family); use mesh_layer")
+    quaternion = inverse_binds.new_zeros((inverse_binds.shape[0], 4))
     quaternion[:, 3] = 1.0
-    bind = torch.cat((rest, quaternion), dim=-1)
+    bind = torch.cat((-inverse_binds[..., 3], quaternion), dim=-1)
     return SkinnedMeshLayer(
         name,
         identity.rest_vertices.detach().cpu().numpy(),

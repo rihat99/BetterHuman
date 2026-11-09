@@ -64,16 +64,15 @@ class HumanModel:
         density = None if density is None else _density(density, spec.parts.count, spec.template_vertices)
         zero = None
         if contact_frames is not None or density is not None:
-            zero = _rest(spec, model, _checked_groups({}, spec.identity_groups, spec.template_vertices))
+            zero = _bake(spec, model, _checked_groups({}, spec.identity_groups, spec.template_vertices))
         frames = None
         if contact_frames is not None:
-            model, frames = _attach(spec, contact_frames, *zero)
+            model, frames = _attach(spec, contact_frames, zero)
         topology = None
         if density is not None:
             closed = spec.meta.get("closed_segmentation")
-            rest_vertices, bake = zero
             topology = (
-                build_authored_topology(closed, spec.num_vertices, rest_vertices, bake.rest_joints)
+                build_authored_topology(closed, spec.num_vertices, zero.rest_vertices, zero.rest_joint_translations)
                 if closed is not None
                 else build_part_topology(spec.faces, spec.parts.ids, spec.parts.count)
             )
@@ -106,18 +105,25 @@ class HumanModel:
             if name not in spec.identity_bases:
                 raise UnknownNameError("identity group", name, list(spec.identity_bases))
         values = _checked_groups(identity, spec.identity_groups, spec.template_vertices)
-        rest_vertices, bake = _rest(spec, self.model, values)
-        model_values = {"joint_placements": bake.joint_placements}
+        bake = _bake(spec, self.model, values)
+        model = self.model.with_values(joint_placements=bake.joint_placements)
+        model_values = {}
         if self.part_topology is not None:
-            vertices = bake.neutral_vertices if bake.neutral_vertices is not None else rest_vertices
-            part_poses = bake.rest_poses[..., torch.as_tensor(spec.parts.joints, device=spec.device), :]
+            # The parts are integrated in the neutral configuration: their frames and the mesh posed there.
+            neutral = forward_kinematics(model, model.q_neutral)
+            transforms = spec.rig.joint_transforms(spec, model, kinematics=neutral)
+            vertices = lbs_affines(
+                bake.rest_vertices, skin_affines(transforms, bake.inverse_bind_affines), self.skin_matrix
+            )
+            part_joints = self.joint_ids.index_select(0, torch.as_tensor(spec.parts.joints, device=spec.device))
+            part_poses = neutral.joint_poses.index_select(-2, part_joints)
             native = body_inertias_from_shape(vertices, part_poses, self.part_topology, self.density)
             inertias = native.new_zeros((*native.shape[:-2], self.model.nbodies, 10))
             model_values["body_inertias"] = inertias.index_copy(-2, self.part_body_ids, native[..., 1:, :])
         if self.contact_frames is not None:
             frames = self.contact_frames
             local = frame_local_placements(
-                rest_vertices, bake.rest_joints, spec.faces, frames.vertex_ids, frames.parent_joints
+                bake.rest_vertices, bake.rest_joint_translations, spec.faces, frames.vertex_ids, frames.parent_joints
             )
             placements = local.new_zeros((*local.shape[:-2], self.model.nframes, 7))
             placements[..., 6] = 1.0
@@ -126,12 +132,11 @@ class HumanModel:
         return Identity(
             human=self,
             values=values,
-            rest_vertices=rest_vertices,
-            rest_joint_translations=bake.rest_joints,
-            root_offset=bake.pelvis,
-            model=self.model.with_values(**model_values),
-            joint_scales=bake.joint_scales,
-            inverse_bind_poses=bake.inverse_bind_poses,
+            rest_vertices=bake.rest_vertices,
+            rest_joint_translations=bake.rest_joint_translations,
+            inverse_bind_affines=bake.inverse_bind_affines,
+            root_offset=bake.root_offset,
+            model=model.with_values(**model_values) if model_values else model,
         )
 
     def __repr__(self) -> str:
@@ -150,10 +155,9 @@ class Identity:
     values: Tensors  #: identity group values ``(I..., n)``.
     rest_vertices: torch.Tensor  #: ``(I..., V, 3)`` in the skinning rest frame (root at the origin).
     rest_joint_translations: torch.Tensor  #: ``(I..., J, 3)`` native joints in the skinning rest frame.
+    inverse_bind_affines: torch.Tensor  #: ``(I..., J, 3, 4)`` rest frame into each joint's frame (``RigBake``).
     root_offset: torch.Tensor  #: ``(I..., 3)`` root from the native origin; ``transl + root_offset`` places the root.
     model: Model  #: placements, inertias and contact frames baked.
-    joint_scales: torch.Tensor | None  #: ``(I..., J)`` for authored rigs.
-    inverse_bind_poses: torch.Tensor | None  #: ``(I..., J, 7)`` for authored rigs; see ``RigBake``.
 
     def forward(self, q: torch.Tensor, streams: Tensors | None = None) -> HumanState:
         """Pose ``q (B..., nq)`` with optional stream groups ``(B..., n)``; ``B...`` broadcasts with ``I...``.
@@ -176,6 +180,7 @@ class Identity:
                 motion = torch.einsum("...n,jcn->...jc", coefficients, basis)
                 delta = motion if delta is None else delta + motion
         model, rest_joints, root_offset = self.model, self.rest_joint_translations, self.root_offset
+        inverse_binds = self.inverse_bind_affines
         if delta is not None:
             root = delta[..., :1, :]
             rest_joints = rest_joints + delta - root
@@ -183,8 +188,12 @@ class Identity:
             root_offset = root_offset + root[..., 0, :]
             placements = spec.rig.placements_from_rest(spec, model, rest_joint_translations=rest_joints)
             model = model.with_values(joint_placements=placements)
+            # A rig that moves joints with streams binds each joint at its rest translation (Rig docstring).
+            rotations = inverse_binds[..., :3]
+            translations = -(rotations @ rest_joints[..., None])
+            inverse_binds = torch.cat((rotations.expand(*translations.shape[:-1], 3), translations), dim=-1)
         kinematics = forward_kinematics(model, q)
-        return HumanState(self, q, streams, model, kinematics, rest_joints, root_offset, offsets)
+        return HumanState(self, q, streams, model, kinematics, rest_joints, inverse_binds, root_offset, offsets)
 
     def __repr__(self) -> str:
         return f"Identity({self.human.spec.name}, batch={tuple(self.root_offset.shape[:-1])})"
@@ -200,6 +209,7 @@ class HumanState:
     model: Model  #: the model the kinematics were computed with (per-frame placements when streams move joints).
     kinematics: KinematicState
     rest_joint_translations: torch.Tensor  #: ``(..., J, 3)`` rest joints after the stream joint shift.
+    inverse_bind_affines: torch.Tensor  #: ``(..., J, 3, 4)`` the identity's, shifted with the rest joints.
     root_offset: torch.Tensor  #: ``(..., 3)``
     stream_offsets: torch.Tensor | None  #: ``(..., V, 3)`` stream vertex offsets, if any.
     # init=False: dataclasses.replace (e.g. a new identity) starts a fresh memo instead of sharing the old one.
@@ -228,18 +238,7 @@ class HumanState:
     @property
     def skin_affines(self) -> torch.Tensor:
         """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world."""
-        identity = self.identity
-        inverse_bind = identity.inverse_bind_poses
-        return self._memoised(
-            "skin_affines",
-            lambda: skin_affines(
-                self.joint_transforms,
-                rest_joints=None if inverse_bind is not None else self.rest_joint_translations,
-                inverse_bind_poses=inverse_bind,
-                joint_scales=identity.joint_scales,
-                bind_joint_positions=identity.human.spec.meta.get("bind_joint_positions"),
-            ),
-        )
+        return self._memoised("skin_affines", lambda: skin_affines(self.joint_transforms, self.inverse_bind_affines))
 
     @property
     def corrective_feature(self) -> torch.Tensor | None:
@@ -297,25 +296,24 @@ class HumanState:
         return f"HumanState({self.identity.human.spec.name}, batch={tuple(self.q.shape[:-1])})"
 
 
-def _rest(spec: FamilySpec, model: Model, values: Tensors) -> tuple[torch.Tensor, RigBake]:
-    """The rig bake of identity group ``values`` and the rest mesh ``(..., V, 3)`` with the root at the origin."""
+def _bake(spec: FamilySpec, model: Model, values: Tensors) -> RigBake:
+    """The rig bake of identity group ``values``: the template plus the identity blend shapes, handed to the rig."""
     shaped = spec.template_vertices
     for name, coefficients in values.items():
         shaped = shaped + blend_shapes(coefficients, spec.identity_bases[name])
-    bake = spec.rig.bake(spec, model, shaped_vertices=shaped, identity=values)
-    if bake.v_shaped is not None:
-        shaped = bake.v_shaped
-    return shaped - bake.pelvis[..., None, :], bake
+    return spec.rig.bake(spec, model, shaped_vertices=shaped, identity=values)
 
 
 def _attach(
-    spec: FamilySpec, source: Mapping[str, tuple[int, str | None]], rest_vertices: torch.Tensor, bake: RigBake
+    spec: FamilySpec, source: Mapping[str, tuple[int, str | None]], bake: RigBake
 ) -> tuple[Model, ContactFrames]:
     """The model with the contact frames of ``source`` attached, and the frames resolved against it."""
     entries = dict(source)
     parents = resolve_parents(entries, spec.joint_names, spec.parts.ids)
     vertex_ids = tuple(int(vertex) for vertex, _ in entries.values())
-    placements = frame_local_placements(rest_vertices, bake.rest_joints, spec.faces, vertex_ids, parents)
+    placements = frame_local_placements(
+        bake.rest_vertices, bake.rest_joint_translations, spec.faces, vertex_ids, parents
+    )
     frames = [
         (name, spec.joint_names[parent], placement) for name, parent, placement in zip(entries, parents, placements)
     ]

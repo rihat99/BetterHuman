@@ -23,19 +23,15 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class RigBake:
-    """Identity-dependent kinematic values. Leading dims are the identity batch.
+    """Identity-dependent kinematic values of one bake; leading dims are the identity batch ``I...``."""
 
-    ``inverse_bind_poses`` is ``None`` for the SMPL-style skinning rest frame: identity-oriented at ``rest_joints``.
-    """
-
-    joint_placements: torch.Tensor  #: ``(..., nj, 7)`` for the BR model (joint 0 is the universe).
-    rest_joints: torch.Tensor  #: ``(..., J, 3)`` native-order joint positions in the skinning rest frame.
-    rest_poses: torch.Tensor  #: ``(..., J, 7)`` native-order BR body poses at the neutral configuration (mass).
-    pelvis: torch.Tensor  #: ``(..., 3)`` offset of the root joint from the native (uncentred) origin.
-    joint_scales: torch.Tensor | None = None  #: ``(..., J)`` accumulated uniform scales (authored rigs).
-    neutral_vertices: torch.Tensor | None = None  #: ``(..., V, 3)`` mesh at the neutral pose when it differs.
-    inverse_bind_poses: torch.Tensor | None = None  #: ``(..., J, 7)`` native-order inverse bind poses (authored rigs).
-    v_shaped: torch.Tensor | None = None  #: ``(..., V, 3)`` skinning rest mesh when the rig re-poses the shaped mesh.
+    joint_placements: torch.Tensor  #: ``(I..., nj, 7)`` for the BetterRobot model (joint 0 is the universe).
+    rest_vertices: torch.Tensor  #: ``(I..., V, 3)`` skinning rest mesh, root at the origin.
+    rest_joint_translations: torch.Tensor  #: ``(I..., J, 3)`` native joints in the skinning rest frame.
+    #: ``(I..., J, 3, 4)`` affine from the rest frame into each native joint's frame; skinning composes the world joint
+    #: transforms with it (``skin_affines``).
+    inverse_bind_affines: torch.Tensor
+    root_offset: torch.Tensor  #: ``(I..., 3)`` root from the native origin; ``transl + root_offset`` places the root.
 
 
 class Rig(ABC):

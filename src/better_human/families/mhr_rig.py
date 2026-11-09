@@ -23,7 +23,7 @@ from better_robot.io import build_model
 from better_robot.kinematics import forward_kinematics, full_configuration
 from better_robot.lie import se3, so3
 
-from better_human.core.pipeline import lbs_affines, pose_feature_6d_from_euler, skin_affines
+from better_human.core.pipeline import pose_feature_6d_from_euler
 from better_human.core.rig import Rig, RigBake, gravity
 
 if TYPE_CHECKING:
@@ -46,6 +46,7 @@ class MhrRig(Rig):
     translation_basis: torch.Tensor  #: ``(J, 3, P)`` offset change per proportion parameter.
     scale_basis: torch.Tensor  #: ``(J, P)`` local log2 scale per proportion parameter.
     inverse_bind_poses: torch.Tensor  #: ``(J, 7)`` authored inverse bind poses.
+    bind_joint_positions: torch.Tensor  #: ``(J, 3)`` bind pivots of the accumulated joint scales.
     root_transform: torch.Tensor  #: ``(6, 6)`` root channels (translation, Euler xyz) from the root parameters.
     pose_columns: torch.Tensor  #: ``(N,)`` model parameter of every host angle ``q[..., 7:]``.
     host_weights: torch.Tensor  #: ``(N,)`` host angle per unit of its model parameter.
@@ -75,6 +76,7 @@ class MhrRig(Rig):
             "translation_basis": transform[:, :3, proportions],
             "scale_basis": transform[:, 6, proportions],
             "inverse_bind_poses": se3.from_matrix(arrays["inverse_bind_matrices"].to(dtype)),
+            "bind_joint_positions": arrays["bind_matrices"].to(dtype)[..., :3, 3],
             "root_transform": transform[1, :ROOT_COUNT, :ROOT_COUNT].clone(),
             "parents": arrays["joint_parents"][1:],
             "proportion_columns": torch.tensor(proportions),
@@ -90,16 +92,14 @@ class MhrRig(Rig):
     def bake(
         self, spec: FamilySpec, model: Model, *, shaped_vertices: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> RigBake:
-        """Placements, accumulated scales and rest poses for the proportions ``identity["proportions"] (I..., P)``."""
+        """Placements and scaled inverse binds for the proportions ``identity["proportions"] (I..., P)``.
+
+        The accumulated joint scales ``s`` fold into the inverse binds ``[s R_b | t_b - (s - 1) R_b c]`` (bind rotation
+        ``R_b``, translation ``t_b``, pivot ``c``), so skinning is one affine per joint (decision record 0003).
+        """
         proportions = identity["proportions"]
         delta = torch.einsum("...p,jcp->...jc", proportions, self.translation_basis)
-        logs = torch.einsum("...p,jp->...j", proportions, self.scale_basis)
-        # exp2 joint by joint (torch's scalar path) matches the float32 oracle on every golden; one vectorised exp2
-        # over all joints differs by up to an ulp, more than the 1e-7 scale gate allows above 1.
-        scales = [torch.exp2(logs[..., 0])]
-        for joint, parent in enumerate(spec.parents[1:], start=1):
-            scales.append(scales[parent] * torch.exp2(logs[..., joint]))
-        scales = torch.stack(scales, dim=-1)
+        scales = self.joint_scales(spec, proportions)
         translations = (self.offsets[1:] + delta[..., 1:, :]) * scales.index_select(-1, self.parents)[..., None]
         rotations = self.pre_rotations[1:].expand(*translations.shape[:-1], 4)
         base = model.joint_placements
@@ -108,22 +108,28 @@ class MhrRig(Rig):
         )
         baked = model.with_values(joint_placements=placements)
         kinematics = forward_kinematics(baked, baked.q_neutral)
-        transforms = self.joint_transforms(spec, baked, kinematics=kinematics)
-        affines = skin_affines(
-            transforms,
-            inverse_bind_poses=self.inverse_bind_poses,
-            joint_scales=scales,
-            bind_joint_positions=spec.meta["bind_joint_positions"],
-        )
+        bind_rotations = so3.to_matrix(self.inverse_bind_poses[..., 3:])
+        pivots = (bind_rotations @ self.bind_joint_positions[..., None]).squeeze(-1)
+        bind_translations = self.inverse_bind_poses[..., :3] - (scales - 1.0)[..., None] * pivots
         return RigBake(
             joint_placements=placements,
-            rest_joints=transforms[..., 3],
-            rest_poses=kinematics.joint_poses.index_select(-2, self.native_joints),
-            pelvis=placements.new_zeros((*placements.shape[:-2], 3)),
-            joint_scales=scales,
-            neutral_vertices=lbs_affines(shaped_vertices, affines, spec.skin_matrix()),
-            inverse_bind_poses=self.inverse_bind_poses,
+            rest_vertices=shaped_vertices,
+            rest_joint_translations=self.joint_transforms(spec, baked, kinematics=kinematics)[..., 3],
+            inverse_bind_affines=torch.cat(
+                (scales[..., None, None] * bind_rotations, bind_translations[..., None]), -1
+            ),
+            root_offset=placements.new_zeros((*placements.shape[:-2], 3)),
         )
+
+    def joint_scales(self, spec: FamilySpec, proportions: torch.Tensor) -> torch.Tensor:
+        """``(I..., J)`` accumulated uniform joint scales of the proportions ``(I..., P)``."""
+        logs = torch.einsum("...p,jp->...j", proportions, self.scale_basis)
+        # exp2 joint by joint (torch's scalar path) matches the float32 oracle on every golden; one vectorised exp2
+        # over all joints differs by up to an ulp, more than the 1e-7 scale gate allows above 1.
+        scales = [torch.exp2(logs[..., 0])]
+        for joint, parent in enumerate(spec.parents[1:], start=1):
+            scales.append(scales[parent] * torch.exp2(logs[..., joint]))
+        return torch.stack(scales, dim=-1)
 
     def joint_ids(self, spec: FamilySpec, model: Model) -> torch.Tensor:
         return self.native_joints
