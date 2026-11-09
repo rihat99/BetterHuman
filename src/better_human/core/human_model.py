@@ -70,7 +70,7 @@ class HumanModel:
             model, frames = _attach(spec, contact_frames, zero)
         topology = None
         if density is not None:
-            closed = spec.meta.get("closed_segmentation")
+            closed = spec.parts.closed_faces
             topology = (
                 build_authored_topology(closed, spec.num_vertices, zero.rest_vertices, zero.rest_joint_translations)
                 if closed is not None
@@ -244,7 +244,7 @@ class HumanState:
     def corrective_feature(self) -> torch.Tensor | None:
         """``(..., P)`` features the family's corrective reads, or ``None`` for a family without one."""
         spec = self.identity.human.spec
-        if spec.corrective.kind == "none":
+        if spec.corrective is None:
             return None
         return self._memoised(
             "corrective_features",
@@ -280,9 +280,9 @@ class HumanState:
         skin = self.identity.human.skin_matrix[vertex_ids]
         return linear_blend_skinning(self.rest_vertices(vertex_ids), self.skin_affines, weights=skin)
 
-    def landmarks(self, name: str = "keypoints") -> torch.Tensor:
-        """``(..., L, 3)`` posed landmark set ``name`` of the family."""
-        return self.points(self.identity.human.spec.landmarks[name])
+    def landmarks(self) -> torch.Tensor:
+        """``(..., L, 3)`` posed landmarks of the family (``spec.landmarks``)."""
+        return self.points(self.identity.human.spec.landmarks.vertex_ids)
 
     @property
     def frame_poses(self) -> torch.Tensor:

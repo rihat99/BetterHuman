@@ -14,7 +14,7 @@ parameter times the host's weight. The 73 proportion parameters ``p`` place ever
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import torch
@@ -36,7 +36,7 @@ CHANNELS = 7  #: parameter-transform rows per joint: translation xyz, rotation x
 class MhrRig(Rig):
     """MHR rig tensors. ``J = 127`` native joints, ``N = 125`` pose and ``P = 73`` proportion parameters."""
 
-    model: Model  #: float64 BR model at zero proportions; ``bake`` re-places its ``origin_joints``.
+    model: Model  #: BR model at zero proportions; ``bake`` re-places its ``origin_joints``.
     native_joints: torch.Tensor  #: ``(J,)`` BR joint whose child body is each native joint (``body_world``: 0).
     origin_joints: torch.Tensor  #: ``(J - 1,)`` first BR joint of every native joint after ``body_world``.
     parents: torch.Tensor  #: ``(J - 1,)`` native parent of every native joint after ``body_world``.
@@ -55,7 +55,7 @@ class MhrRig(Rig):
 
     @classmethod
     def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> MhrRig:
-        """Rig from validated ``mhr_lod*.npz`` arrays (``tools/convert/mhr``)."""
+        """Rig from validated ``mhr_lod*.npz`` arrays (``tools/convert/mhr``), built in ``dtype`` on ``device``."""
         if any(parent >= joint for joint, parent in enumerate(arrays["joint_parents"].tolist())):
             raise ValueError("MHR joint parents must precede their children")
         offsets = arrays["joint_translation_offsets"].to(dtype)
@@ -69,7 +69,7 @@ class MhrRig(Rig):
         transform.index_put_((rows, columns), arrays["parameter_transform_values"].to(dtype))
         transform = transform.unflatten(0, (len(offsets), CHANNELS))
         tensors = {
-            **_joint_tree(arrays, offsets, pre_rotations, dtype),
+            **_joint_tree(arrays, offsets, pre_rotations, dtype, device),
             "offsets": offsets,
             "pre_rotations": pre_rotations,
             "translation_basis": transform[:, :3, proportions],
@@ -80,13 +80,13 @@ class MhrRig(Rig):
             "parents": arrays["joint_parents"][1:],
             "proportion_columns": torch.tensor(proportions),
         }
-        return cls(**tensors).to(dtype, device)
+        return cls(**{name: value if name == "model" else value.to(device) for name, value in tensors.items()})
 
     def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
-        """BR model at zero proportions in the spec's dtype; ``bake`` re-places it per identity."""
+        """BR model at zero proportions; ``bake`` re-places it per identity."""
         if frames:
             raise ValueError("MHR does not support contact frames")
-        return self.model.to(device=spec.device, dtype=spec.dtype)
+        return self.model
 
     def bake(
         self, spec: FamilySpec, model: Model, *, shaped_vertices: torch.Tensor, identity: Mapping[str, torch.Tensor]
@@ -140,19 +140,13 @@ class MhrRig(Rig):
         entries = full_configuration(model, q).index_select(-1, self.corrective_entries)
         return _pose_feature_6d_from_euler((entries @ self.corrective_rows).unflatten(-1, (-1, 3)))
 
-    def to(self, dtype: torch.dtype, device: torch.device) -> MhrRig:
-        """Rig tensors in ``dtype`` on ``device``; the BR model only moves (``build_model`` casts it)."""
-
-        def cast(value: Model | torch.Tensor) -> Model | torch.Tensor:
-            if isinstance(value, Model) or not value.is_floating_point():
-                return value.to(device=device)
-            return value.to(device=device, dtype=dtype)
-
-        return MhrRig(**{field.name: cast(getattr(self, field.name)) for field in fields(self)})
-
 
 def _joint_tree(
-    arrays: Mapping[str, Any], offsets: torch.Tensor, pre_rotations: torch.Tensor, dtype: torch.dtype
+    arrays: Mapping[str, Any],
+    offsets: torch.Tensor,
+    pre_rotations: torch.Tensor,
+    dtype: torch.dtype,
+    device: torch.device,
 ) -> dict[str, Any]:
     """The BR tree and its :class:`MhrRig` bindings, from the rotation entries of the parameter transform.
 
@@ -205,9 +199,7 @@ def _joint_tree(
         first.append(entry_joints[chain[0][0]] if chain else name)
         last.append(name)
 
-    # float64, whatever ``dtype``: limits, mimic multipliers and gravity stay exact for a float64 Body of a
-    # float32 spec, and ``build_model`` rounds them to float32 exactly as a float32 build would.
-    model = build_model(builder.finalize(), dtype=torch.float64)
+    model = build_model(builder.finalize(), dtype=dtype, device=device)
     dims = (model.nq, model.nv, model.nq_full, model.nv_full)
     if dims != (132, 131, 179, 178) or model.joint_names[1] != "root" or model.idx_qs[1] != 0:
         raise ValueError(f"unexpected MHR tree: (nq, nv, nq_full, nv_full) = {dims}, root free flyer not at q[:7]")

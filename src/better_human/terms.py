@@ -70,11 +70,11 @@ def points(vertex_ids: Sequence[int] | torch.Tensor, *, target: str, state: str 
     return TermFn(fn=residual, reads=(state, target))
 
 
-def landmarks(*, target: str, name: str = "keypoints", state: str = "state") -> TermFn:
-    """Landmark set ``name`` of the family against data ``target (..., L, 3)``. Residual ``(..., L * 3)``."""
+def landmarks(*, target: str, state: str = "state") -> TermFn:
+    """The family's landmarks (``spec.landmarks``) against data ``target (..., L, 3)``. Residual ``(..., L * 3)``."""
 
     def residual(human: HumanState, goal: torch.Tensor) -> torch.Tensor:
-        return (human.landmarks(name) - goal).flatten(-2)
+        return (human.landmarks() - goal).flatten(-2)
 
     return TermFn(fn=residual, reads=(state, target))
 
@@ -101,21 +101,21 @@ def reprojection(
     target: str,
     camera: str = "camera",
     vertex_ids: Sequence[int] | torch.Tensor | None = None,
-    landmark_set: str | None = "keypoints",
+    joints: bool = False,
     confidence: str | None = None,
     state: str = "state",
 ) -> TermFn:
-    """2D reprojection error of landmarks (or ``vertex_ids``, or all joints) against ``target (..., M, 2)``.
+    """2D reprojection error of the landmarks (or ``vertex_ids``, or with ``joints=True`` all joints).
 
-    ``camera (..., 3, 4)`` is the world-to-pixel projection; ``confidence (..., M)`` scales rows.
-    Residual ``(..., M * 2)``.
+    ``target (..., M, 2)`` holds the pixels; ``camera (..., 3, 4)`` is the world-to-pixel projection;
+    ``confidence (..., M)`` scales rows. Residual ``(..., M * 2)``.
     """
     ids = None if vertex_ids is None else torch.as_tensor(vertex_ids, dtype=torch.long)
 
     def positions(human: HumanState) -> torch.Tensor:
         if ids is not None:
             return human.points(ids)
-        return human.landmarks(landmark_set) if landmark_set is not None else human.joint_translations
+        return human.joint_translations if joints else human.landmarks()
 
     def residual(
         human: HumanState, goal: torch.Tensor, projection: torch.Tensor, *weight: torch.Tensor

@@ -56,7 +56,7 @@ def test_points_and_landmarks_gather_vertices(body: bh.HumanModel) -> None:
     state = identity.forward(identity.model.q_neutral)
     ids = torch.tensor([0, 411, 3500, 6889])
     torch.testing.assert_close(state.points(ids), state.vertices[..., ids, :], atol=1e-6, rtol=0)
-    keypoints = torch.as_tensor(body.spec.landmarks["keypoints"], dtype=torch.long)
+    keypoints = body.spec.landmarks.vertex_ids
     torch.testing.assert_close(state.landmarks(), state.vertices[..., keypoints, :], atol=1e-6, rtol=0)
 
 

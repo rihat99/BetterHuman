@@ -1,10 +1,16 @@
-"""``FamilySpec``: a body family as data — mesh, skin weights, blend groups, corrective, rig."""
+"""``FamilySpec``: a body family as data — mesh, skin weights, blend groups, corrective, rig, parts, landmarks.
+
+A family loader builds the spec once at the requested dtype and device (decision record 0005); nothing in
+BetterHuman moves or casts it afterwards. Every field has a type (record 0008): ``provenance`` is the only free-form
+mapping.
+"""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any, Literal
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Literal, final
 
 import torch
 
@@ -12,66 +18,56 @@ if TYPE_CHECKING:
     from .rig import Rig
 
 
-META_KEYS = frozenset(
-    {
-        "closed_segmentation",
-        "hand_components",
-        "hand_joints",
-        "hand_mean",
-        "native_joint_ids",
-        "side",
-    }
-)
-"""Every ``FamilySpec.meta`` key read by ``better_human.core`` and ``better_human.families``."""
+class Corrective(ABC):
+    """Pose-dependent vertex offsets computed from the features the family's rig gives (record 0008)."""
+
+    @abstractmethod
+    def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
+        """Offsets ``(..., V, 3)`` of features ``(..., P)``, or ``(..., M, 3)`` for ``vertex_ids (M,)``."""
 
 
+@final
 @dataclass(frozen=True)
-class Corrective:
-    """Pose-dependent vertex offsets as data: a linear basis or a one-hidden-layer MLP.
+class LinearCorrective(Corrective):
+    """``offsets = feature @ posedirs`` with ``posedirs (P, V * 3)`` (the SMPL family)."""
 
-    ``linear``: ``offsets = feature @ posedirs`` with ``posedirs (P, V * 3)``.
-    ``mlp``: ``offsets = relu(feature @ first_layer.T) @ output`` with ``first_layer (H, P)`` and
-    ``output (H, V * 3)``. ``none``: no offsets. Features come from the rig.
-    """
+    posedirs: torch.Tensor
 
-    kind: Literal["none", "linear", "mlp"] = "none"
-    posedirs: torch.Tensor | None = None
-    first_layer: torch.Tensor | None = None
-    output: torch.Tensor | None = None
+    def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
+        return _offsets(feature, self.posedirs, vertex_ids)
 
-    def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor | None:
-        """Offsets ``(..., V, 3)`` (or ``(..., M, 3)`` for ``vertex_ids (M,)``); ``None`` when ``kind == "none"``."""
-        if self.kind == "none":
-            return None
-        if self.kind == "linear":
-            matrix = self.posedirs
-        else:
-            feature = torch.nn.functional.linear(feature, self.first_layer).relu()
-            matrix = self.output
-        if vertex_ids is not None:
-            matrix = matrix.unflatten(-1, (-1, 3))[:, vertex_ids].flatten(-2)
-        return (feature @ matrix).unflatten(-1, (-1, 3))
 
-    def to(self, dtype: torch.dtype, device: torch.device) -> Corrective:
-        return Corrective(
-            self.kind,
-            *(
-                None if t is None else t.to(dtype=dtype, device=device)
-                for t in (self.posedirs, self.first_layer, self.output)
-            ),
-        )
+@final
+@dataclass(frozen=True)
+class MLPCorrective(Corrective):
+    """``offsets = relu(feature @ first_layer.T) @ output`` with ``first_layer (H, P)``, ``output (H, V * 3)``."""
+
+    first_layer: torch.Tensor
+    output: torch.Tensor
+
+    def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
+        return _offsets(torch.nn.functional.linear(feature, self.first_layer).relu(), self.output, vertex_ids)
+
+
+def _offsets(feature: torch.Tensor, matrix: torch.Tensor, vertex_ids: torch.Tensor | None) -> torch.Tensor:
+    if vertex_ids is not None:
+        matrix = matrix.unflatten(-1, (-1, 3))[:, vertex_ids].flatten(-2)
+    return (feature @ matrix).unflatten(-1, (-1, 3))
 
 
 @dataclass(frozen=True)
 class Parts:
     """Vertex segmentation into rigid parts for mass properties.
 
-    ``ids (V,)`` is the part of every vertex; ``joints[p]`` is the native joint whose body carries
-    part ``p`` and whose rest pose is the part's reference frame.
+    ``ids (V,)`` is the part of every vertex; ``joints[p]`` is the native joint whose body carries part ``p`` and
+    whose rest pose is the part's reference frame. ``closed_faces`` maps a native joint to the ``(F, 3)`` faces of
+    its authored closed part mesh over ``[rest_vertices; rest_joint_translations]``, or is ``None`` when the parts
+    are closed from ``ids`` alone.
     """
 
     ids: torch.Tensor
     joints: tuple[int, ...]
+    closed_faces: Mapping[int, torch.Tensor] | None = None
 
     @property
     def count(self) -> int:
@@ -79,21 +75,25 @@ class Parts:
 
 
 @dataclass(frozen=True)
+class Landmarks:
+    """Named points of the mesh: landmark ``names[l]`` is vertex ``vertex_ids[l]`` (``(L,)`` long)."""
+
+    names: tuple[str, ...]
+    vertex_ids: torch.Tensor
+
+
+@dataclass(frozen=True)
 class FamilySpec:
     """One body family on one dtype and device. Pure data except for ``rig``.
 
-    Shapes: ``template_vertices (V, 3)``, ``faces (F, 3)``, ``skin_weights``/``skin_indices (V, K)``
-    (top-K influences, rows sum to one), blend groups ``(V, 3, n)``. ``identity_bases`` groups are baked
-    once per subject (``HumanModel.bake``); ``stream_bases`` groups change per frame (``Identity.forward``).
-    ``landmarks`` maps a set name to ``(L,)`` vertex ids. ``meta`` carries family extras that the
-    loader and its classic converters own; every key core and the families read
-    (:data:`META_KEYS`):
+    Shapes: ``template_vertices (V, 3)``, ``faces (F, 3)``, ``skin_weights``/``skin_indices (V, K)`` (top-K
+    influences, rows sum to one), blend groups ``(V, 3, n)``, ``file_joint_ids (J,)`` (the weight file's number of
+    every kept joint; ``Rig.joint_ids`` is the BetterRobot numbering). ``identity_bases`` groups are baked once per
+    subject (``HumanModel.bake``); ``stream_bases`` groups change per frame (``Identity.forward``).
 
-    - ``native_joint_ids`` ``(J,)`` long: file joint numbering of the kept joints (set by ``drop_joints``).
-    - ``hand_joints`` ``set[str]``: sides whose hand joints survived loading.
-    - ``hand_mean`` ``{side: (45,)}`` and ``hand_components`` ``{side: (C, 45)}``: hand pose PCA.
-    - ``side`` ``str``: ``"left"`` or ``"right"`` (MANO).
-    - ``closed_segmentation``: authored part segmentation for mass properties (MHR), or absent.
+    ``meta`` holds only the SMPL-family hand pose PCA until it moves to the SMPL-family classic format (record 0004):
+    ``hand_joints`` ``set[str]`` (sides whose hand joints survived loading), ``hand_mean`` ``{side: (45,)}``,
+    ``hand_components`` ``{side: (C, 45)}`` and ``side`` ``str`` (MANO).
     """
 
     name: str
@@ -101,17 +101,17 @@ class FamilySpec:
     faces: torch.Tensor
     joint_names: tuple[str, ...]
     parents: tuple[int, ...]
+    file_joint_ids: torch.Tensor
     skin_weights: torch.Tensor
     skin_indices: torch.Tensor
     identity_bases: Mapping[str, torch.Tensor]
     stream_bases: Mapping[str, torch.Tensor]
-    corrective: Corrective
+    corrective: Corrective | None
     rig: Rig
     parts: Parts
-    landmarks: Mapping[str, torch.Tensor] = field(default_factory=dict)
-    unit: str = "m"
-    up_axis: str = "+y"
-    forward_axis: str = "+z"
+    landmarks: Landmarks | None = None
+    up_axis: Literal["+x", "-x", "+y", "-y", "+z", "-z"] = "+y"
+    provenance: Mapping[str, str] = field(default_factory=dict)
     meta: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -120,6 +120,8 @@ class FamilySpec:
             raise ValueError("template_vertices must be (V, 3) and faces (F, 3)")
         if len(self.parents) != num_joints or self.parents[0] != -1:
             raise ValueError("parents must have one entry per joint and start with the root (-1)")
+        if self.file_joint_ids.shape != (num_joints,):
+            raise ValueError("file_joint_ids must be (J,)")
         if self.skin_weights.shape != self.skin_indices.shape or self.skin_weights.shape[0] != num_vertices:
             raise ValueError("skin_weights and skin_indices must both be (V, K)")
         for group, basis in (*self.identity_bases.items(), *self.stream_bases.items()):
@@ -160,32 +162,5 @@ class FamilySpec:
         dense = self.skin_weights.new_zeros((self.num_vertices, self.num_joints))
         return dense.scatter_add_(1, self.skin_indices, self.skin_weights)
 
-    def to(self, *, dtype: torch.dtype | None = None, device: torch.device | str | None = None) -> FamilySpec:
-        """Copy with every floating tensor cast to ``dtype`` and every tensor moved to ``device``."""
-        dtype = dtype or self.dtype
-        device = torch.device(device) if device is not None else self.device
 
-        def cast(value: Any) -> Any:
-            if isinstance(value, torch.Tensor):
-                return value.to(device=device, dtype=dtype) if value.is_floating_point() else value.to(device=device)
-            if isinstance(value, Mapping):
-                return {key: cast(item) for key, item in value.items()}
-            return value
-
-        return replace(
-            self,
-            template_vertices=cast(self.template_vertices),
-            faces=cast(self.faces),
-            skin_weights=cast(self.skin_weights),
-            skin_indices=cast(self.skin_indices),
-            identity_bases=cast(self.identity_bases),
-            stream_bases=cast(self.stream_bases),
-            corrective=self.corrective.to(dtype, device),
-            rig=self.rig.to(dtype, device),
-            parts=Parts(cast(self.parts.ids), self.parts.joints),
-            landmarks=cast(self.landmarks),
-            meta=cast(self.meta),
-        )
-
-
-__all__ = ["Corrective", "FamilySpec", "Parts"]
+__all__ = ["Corrective", "FamilySpec", "Landmarks", "LinearCorrective", "MLPCorrective", "Parts"]

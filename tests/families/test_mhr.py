@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import fields
 
 import numpy as np
 import pytest
@@ -173,15 +172,3 @@ def test_spec_and_classic_validation() -> None:
     identity, q, stream = mhr_from_classic(body, MHRClassic(torch.zeros(45), torch.zeros(204)))
     with pytest.raises(ValueError, match="132"):
         mhr_to_classic(identity, q[:-1], stream)
-
-
-def test_rig_to_moves_every_tensor(body: HumanModel) -> None:
-    """``MhrRig.to`` moves every rig and BR model tensor; floats take the dtype, integer tables keep theirs."""
-    rig = body.spec.rig
-    moved = rig.to(torch.float64, torch.device("meta"))
-    for old, new in zip(*((each, each.model) for each in (rig, moved))):
-        for field in fields(old):
-            before, after = getattr(old, field.name), getattr(new, field.name)
-            if torch.is_tensor(before):
-                dtype = torch.float64 if before.is_floating_point() else before.dtype
-                assert (after.device.type, after.dtype) == ("meta", dtype), field.name

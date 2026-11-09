@@ -14,7 +14,7 @@ import torch
 from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
-from better_human.core.spec import Corrective, FamilySpec, Parts
+from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
@@ -38,8 +38,8 @@ def soma(
     """Load ``SOMA/soma_mid.npz`` (``tools/convert/soma``): 18056 vertices, 110 skin joints, ``shape (V, 3, 128)``.
 
     The 78 public joints are posable; the 32 twist helpers follow their limb segments. ``correctives=False`` drops
-    the pose-corrective MLP. ``dtype=torch.float64`` here (or in ``load``) derives the rig constants in float64;
-    the dtype and device are chosen here only (decision record 0005).
+    the pose-corrective MLP. The spec is built once in ``dtype`` on ``device``
+    (decision record 0005).
     """
     if not isinstance(correctives, bool):
         raise TypeError("correctives must be bool")
@@ -55,23 +55,25 @@ def soma(
     def floats(name: str) -> torch.Tensor:
         return arrays[name].to(device=device, dtype=dtype)
 
-    corrective = Corrective("none")
+    corrective = None
     if correctives:
         if bool(arrays["corrective_tanh"]):
             raise ValueError("SOMA correctives with a tanh hidden layer are not supported")
         rows, columns = arrays["corrective_output_indices"].to(device)
         values = floats("corrective_output_values")
         output = values.new_zeros(arrays["corrective_output_shape"].tolist()).index_put_((rows, columns), values)
-        corrective = Corrective("mlp", first_layer=floats("corrective_first_layer").T.contiguous(), output=output)
+        corrective = MLPCorrective(floats("corrective_first_layer").T.contiguous(), output)
     public_ids = arrays["public_joint_ids"].to(device)
     strongest = public_ids[arrays["public_skin_weights"].to(device).argmax(-1)]  # twist helpers count for their parent
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)
+    joint_names = tuple(str(name) for name in arrays["joint_names"])
     return FamilySpec(
         name="soma",
         template_vertices=floats("shape_mean"),
         faces=arrays["faces"].to(device),
-        joint_names=tuple(str(name) for name in arrays["joint_names"]),
+        joint_names=joint_names,
         parents=tuple(arrays["joint_parents"].tolist()),
+        file_joint_ids=torch.arange(len(joint_names), device=device),
         skin_weights=floats("skin_weights"),
         skin_indices=arrays["skin_indices"].to(device),
         identity_bases={"shape": floats("shape_basis")},
@@ -79,9 +81,8 @@ def soma(
         corrective=corrective,
         rig=SomaRig.from_arrays(arrays, dtype=dtype, device=device),
         parts=Parts(part_ids, tuple(part_joints.tolist())),
-        unit=str(arrays["unit"]),
         up_axis=str(arrays["up_axis"]),
-        forward_axis=str(arrays["forward_axis"]),
+        provenance={"archive": str(arrays["provenance"])},
     )
 
 

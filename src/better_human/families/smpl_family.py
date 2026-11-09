@@ -10,13 +10,13 @@ import torch
 from better_human.core.mass import segment_vertices
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
-from better_human.core.spec import Corrective, FamilySpec, Parts
+from better_human.core.spec import FamilySpec, Landmarks, LinearCorrective, Parts
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz
 from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA
 
 from . import tables
-from .regressed_rig import RegressedRig, drop_joints
+from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 from .assets import load_closed_segmentation
 
 SMPLX_SHAPE_DIM, SMPLX_EXPRESSION_DIM = 300, 100
@@ -66,45 +66,57 @@ def load_family(
 
     ``identity`` and ``streams`` give the requested width of each blend group; ``columns`` says
     where each group lives in ``shapedirs`` (default: one group ``betas`` spanning the file).
-    ``drop`` names terminal joints to remove (hands, face).
+    ``drop`` names terminal joints to remove (hands, face). The arrays are reduced in float64, then the spec is
+    built once in ``dtype`` on ``device``; ``meta`` (the hand pose PCA) must already be there.
     """
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
         raise ValueError(f"{table.name} weights hold {joint_count} joints; expected {len(table.joint_names)}")
+    device = torch.device("cpu" if device is None else device)
     shapedirs = arrays["shapedirs"]
     columns = columns or {"betas": slice(0, shapedirs.shape[-1])}
     bases: dict[str, torch.Tensor] = {}
     for name, width in (*identity.items(), *streams.items()):
         basis, _ = slice_parameter_basis(shapedirs, columns, {name: width})
-        bases[name] = basis.to(torch.float64)
+        bases[name] = basis.to(device=device, dtype=dtype)
     posedirs = arrays["posedirs"].to(torch.float64)
     weights, indices = top_k_skin(arrays["weights"].to(torch.float64))
-    num_joints = len(table.joint_names)
-    landmarks = {}
-    if table.keypoint_vertex_ids:
-        landmarks["keypoints"] = torch.tensor(table.keypoint_vertex_ids, dtype=torch.long)
-    extra = dict(meta)
-    extra["native_joint_ids"] = torch.arange(num_joints)
-    extra["keypoint_names"] = table.keypoint_names
+    closed_faces = None
     if table.closed_segmentation_file is not None:
-        extra["closed_segmentation"] = load_closed_segmentation(table.closed_segmentation_file)
-    spec = FamilySpec(
+        closed_faces = load_closed_segmentation(table.closed_segmentation_file, device=device)
+    data = _reduce_joints(
+        _JointData(
+            table.joint_names,
+            parents_from_kintree(arrays["kintree_table"]),
+            torch.arange(joint_count),
+            arrays["J_regressor"].to(torch.float64),
+            weights,
+            indices,
+            posedirs.reshape(-1, posedirs.shape[-1]).T.contiguous(),
+            Parts(segment_vertices(weights, indices), tuple(range(joint_count))),
+        ),
+        [table.joint_names.index(name) for name in drop],
+    )
+    landmarks = None
+    if table.keypoint_vertex_ids:
+        landmarks = Landmarks(table.keypoint_names, torch.tensor(table.keypoint_vertex_ids, device=device))
+    return FamilySpec(
         name=table.name,
-        template_vertices=arrays["v_template"].to(torch.float64),
-        faces=arrays["f"].to(torch.long),
-        joint_names=table.joint_names,
-        parents=parents_from_kintree(arrays["kintree_table"]),
-        skin_weights=weights,
-        skin_indices=indices,
+        template_vertices=arrays["v_template"].to(device=device, dtype=dtype),
+        faces=arrays["f"].to(device=device, dtype=torch.long),
+        joint_names=data.joint_names,
+        parents=data.parents,
+        file_joint_ids=data.file_joint_ids.to(device),
+        skin_weights=data.skin_weights.to(device=device, dtype=dtype),
+        skin_indices=data.skin_indices.to(device),
         identity_bases={name: bases[name] for name in identity},
         stream_bases={name: bases[name] for name in streams},
-        corrective=Corrective("linear", posedirs=posedirs.reshape(-1, posedirs.shape[-1]).T.contiguous()),
-        rig=RegressedRig(arrays["J_regressor"].to(torch.float64)),
-        parts=Parts(segment_vertices(weights, indices), tuple(range(num_joints))),
+        corrective=LinearCorrective(data.posedirs.to(device=device, dtype=dtype)),
+        rig=RegressedRig(data.joint_regressor.to(device=device, dtype=dtype)),
+        parts=Parts(data.parts.ids.to(device), data.parts.joints, closed_faces),
         landmarks=landmarks,
-        meta=extra,
+        meta=meta,
     )
-    return drop_joints(spec, drop).to(dtype=dtype, device=device)
 
 
 def smpl(
@@ -168,11 +180,15 @@ def smplx(
     table = tables.SMPLX
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
     arrays = load_model_npz(path, SMPLX_SCHEMA)
+
+    def floats(name: str) -> torch.Tensor:
+        return arrays[name].to(device=device, dtype=dtype)
+
     hand_meta = {
-        "hand_components": {"left": arrays["hands_componentsl"], "right": arrays["hands_componentsr"]},
+        "hand_components": {"left": floats("hands_componentsl"), "right": floats("hands_componentsr")},
         "hand_mean": {
             side: torch.zeros_like(mean) if flat_hand_mean else mean
-            for side, mean in (("left", arrays["hands_meanl"]), ("right", arrays["hands_meanr"]))
+            for side, mean in (("left", floats("hands_meanl")), ("right", floats("hands_meanr")))
         },
     }
     drop = []
@@ -213,10 +229,10 @@ def mano(
     table = tables.MANO
     path = weight_path(table.folder, table.file_pattern.format(side=side.upper()), path=path)
     arrays = load_model_npz(path, MANO_SCHEMA)
-    mean = arrays["hands_mean"]
+    mean = arrays["hands_mean"].to(device=device, dtype=dtype)
     meta = {
         "side": side,
-        "hand_components": {side: arrays["hands_components"]},
+        "hand_components": {side: arrays["hands_components"].to(device=device, dtype=dtype)},
         "hand_mean": {side: torch.zeros_like(mean) if flat_hand_mean else mean},
     }
     return load_family(

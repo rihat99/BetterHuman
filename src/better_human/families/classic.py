@@ -91,7 +91,7 @@ def _assemble(
         basis = identity.human.stream_joint_bases.get(name)
         if basis is not None:
             pelvis = pelvis + torch.einsum("...n,cn->...c", value, basis[0])
-    native_ids = identity.human.spec.meta["native_joint_ids"]
+    native_ids = identity.human.spec.file_joint_ids
     reduced = axes.index_select(-2, native_ids[1:] - 1)
     if reduced.shape[-2] < axes.shape[-2]:
         keep = torch.zeros(axes.shape[-2], dtype=torch.bool, device=axes.device)
@@ -118,7 +118,7 @@ def _disassemble(
     global_orient, transl = free_flyer_to_classic_root(q[..., :7], pelvis.expand(*batch, 3))
     reduced = quaternion_to_axis_angle(q[..., 7:].unflatten(-1, (-1, 4)))
     axes = q.new_zeros((*batch, num_native - 1, 3))
-    native_ids = identity.human.spec.meta["native_joint_ids"]
+    native_ids = identity.human.spec.file_joint_ids
     axes = axes.index_copy(-2, native_ids[1:] - 1, reduced)
     return global_orient, axes, transl
 

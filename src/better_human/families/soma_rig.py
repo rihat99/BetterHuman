@@ -14,7 +14,7 @@ free flyer is world-aligned instead: ``q[:3]`` is the Hips world position, ``q[3
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import torch
@@ -76,7 +76,7 @@ class SomaRig(Rig):
 
     @classmethod
     def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> SomaRig:
-        """Rig from validated ``soma_mid.npz`` arrays (``tools/convert/soma``); constants are derived in float64.
+        """Rig from validated ``soma_mid.npz`` arrays (``tools/convert/soma``), derived in float64, built in ``dtype``.
 
         The archive's rotations are rounded to float32; they are projected onto the nearest rotations first.
         """
@@ -162,7 +162,12 @@ class SomaRig(Rig):
             "t_pose_rotations": t_rotations[public],
             "corrective_frames": corrective_frames,
         }
-        return cls(**tensors).to(dtype, device)
+        return cls(
+            **{
+                name: value.to(device=device, dtype=dtype if value.is_floating_point() else value.dtype)
+                for name, value in tensors.items()
+            }
+        )
 
     def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
         """BR model with the template (mean shape) placements; ``bake`` replaces them per identity."""
@@ -177,7 +182,7 @@ class SomaRig(Rig):
         for joint in range(2, len(names)):
             add = builder.add_fixed if joint in helpers else builder.add_spherical
             add(names[joint], parent=names[spec.parents[joint]], child=names[joint], origin=placements[joint])
-        return build_model(builder.finalize(), dtype=spec.dtype).to(device=spec.device)
+        return build_model(builder.finalize(), dtype=spec.dtype, device=spec.device)
 
     def bake(
         self, spec: FamilySpec, model: Model, *, shaped_vertices: torch.Tensor, identity: Mapping[str, torch.Tensor]
@@ -224,12 +229,6 @@ class SomaRig(Rig):
         columns = self.corrective_frames @ torch.cat((root, hips, rotations[..., 1:, :, :]), dim=-3)[..., :2]
         eye = torch.eye(3, 2, dtype=q.dtype, device=q.device)
         return (columns - eye).flatten(-3)
-
-    def to(self, dtype: torch.dtype, device: torch.device) -> SomaRig:
-        def cast(tensor: torch.Tensor) -> torch.Tensor:
-            return tensor.to(device=device, dtype=dtype) if tensor.is_floating_point() else tensor.to(device=device)
-
-        return SomaRig(**{field.name: cast(getattr(self, field.name)) for field in fields(self)})
 
     def _fit_and_repose(self, v_shaped: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Bind positions ``(..., J, 3)`` and public repose affines ``(..., P, 3, 4)`` of ``v_shaped (..., V, 3)``.

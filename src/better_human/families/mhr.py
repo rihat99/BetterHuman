@@ -16,7 +16,7 @@ from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.mass import segment_vertices
-from better_human.core.spec import Corrective, FamilySpec, Parts
+from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
@@ -44,8 +44,8 @@ def mhr(
     """Load ``MHR/converted/mhr_lod{lod}.npz`` (``tools/convert/mhr``): 127 joints, ``identity (V, 3, 45)``.
 
     ``proportions (V, 3, 73)`` is a zero mesh basis whose values reach the rig. ``expression=False`` drops the
-    ``expression (V, 3, 72)`` stream, ``correctives=False`` the pose-corrective MLP. ``dtype=torch.float64`` derives
-    the rig constants in float64; the dtype and device are chosen here only (decision record 0005).
+    ``expression (V, 3, 72)`` stream, ``correctives=False`` the pose-corrective MLP. The spec is built
+    once in ``dtype`` on ``device`` (decision record 0005).
     """
     if not isinstance(lod, int) or isinstance(lod, bool) or lod not in LODS:
         raise ValueError(f"lod must be one of {LODS}, got {lod!r}")
@@ -66,14 +66,14 @@ def mhr(
     def floats(name: str) -> torch.Tensor:
         return arrays[name].to(device=device, dtype=dtype)
 
-    corrective = Corrective("none")
+    corrective = None
     if correctives:
         first_layer = _dense_weight_from_sparse(
             arrays["corrective_first_layer_indices"].to(device),
             floats("corrective_first_layer_weights"),
             arrays["corrective_first_layer_mask"].to(device),
         )
-        corrective = Corrective("mlp", first_layer=first_layer, output=floats("corrective_output_weights"))
+        corrective = MLPCorrective(first_layer, floats("corrective_output_weights"))
     # Parts: the segmentation groups but ``zero_weight``; a vertex joins the group of its strongest skin joint.
     skin_weights, skin_indices = floats("skin_weights"), arrays["skin_indices"].to(device)
     kept = [group for group, name in enumerate(arrays["segmentation_group_names"]) if name != "zero_weight"]
@@ -86,12 +86,14 @@ def mhr(
         raise ValueError("MHR positive skin weights unexpectedly map to zero_weight")
     rig = MhrRig.from_arrays(arrays, dtype=dtype, device=device)
     template = floats("template_vertices")
+    joint_names = tuple(str(name) for name in arrays["joint_names"])
     return FamilySpec(
         name="mhr",
         template_vertices=template,
         faces=arrays["faces"].to(device),
-        joint_names=tuple(str(name) for name in arrays["joint_names"]),
+        joint_names=joint_names,
         parents=tuple(arrays["joint_parents"].tolist()),
+        file_joint_ids=torch.arange(len(joint_names), device=device),
         skin_weights=skin_weights,
         skin_indices=skin_indices,
         identity_bases={
@@ -102,9 +104,8 @@ def mhr(
         corrective=corrective,
         rig=rig,
         parts=Parts(part_ids, tuple(joint_groups.index(group) for group in kept)),
-        unit="m",
         up_axis=str(arrays["up_axis"]),
-        forward_axis=str(arrays["forward_axis"]),
+        provenance={"archive": str(arrays["provenance"])},
     )
 
 
