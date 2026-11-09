@@ -29,7 +29,7 @@ A family loader (`smpl`, `smplh`, `smplx`, `mano`, `flame`, `mhr`) returns a `Hu
 *what* they are through a `FamilySpec` (`src/better_human/core/spec.py`); the *how* (LBS, blend shapes, correctives, regressors)
 lives once in `core`. Partial models are loader parameters (`hands=False`), never subclasses.
 Rationale: one forward pass to test and keep in parity; see principles 6 and 7 below.
-Example: `src/better_human/families/smpl_family.py::load_family` serves all five SMPL-family loaders.
+Example: `src/better_human/families/smpl_family.py::_load_family` serves all five SMPL-family loaders.
 Enforcement: review; parity gates below.
 
 ## H-API-2 Arguments after the second are keyword-only (SHOULD)

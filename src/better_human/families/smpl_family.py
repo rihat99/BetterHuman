@@ -40,7 +40,7 @@ def _check_width(name: str, value: int, limit: int) -> int:
     return value
 
 
-def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
+def _parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
     """Resolve a two-row native-id kintree table to column parent indices."""
     joint_ids = [int(value) for value in kintree_table[1].tolist()]
     columns_by_id = {joint_id: column for column, joint_id in enumerate(joint_ids)}
@@ -53,7 +53,7 @@ def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
     return tuple(parents)
 
 
-def load_family(
+def _load_family(
     table: _tables.FamilyTable,
     arrays: Mapping[str, torch.Tensor],
     *,
@@ -100,7 +100,7 @@ def load_family(
     data = _reduce_joints(
         _JointData(
             table.joint_names,
-            parents_from_kintree(arrays["kintree_table"]),
+            _parents_from_kintree(arrays["kintree_table"]),
             torch.arange(joint_count),
             arrays["J_regressor"].to(torch.float64),
             weights,
@@ -149,7 +149,7 @@ def smpl(
     """SMPL (24 joints, 6890 vertices)."""
     gender = _gender(gender)
     path = weight_path(_tables.SMPL.folder, _tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
-    return load_family(
+    return _load_family(
         _tables.SMPL,
         load_model_npz(path, SMPL_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
@@ -172,7 +172,7 @@ def smplh(
     table = _tables.SMPLH
     path = weight_path(table.folder, table.file_pattern.format(gender_lower=gender), path=path)
     drop = () if hands else tuple(table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints))
-    return load_family(
+    return _load_family(
         table,
         load_model_npz(path, SMPLH_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
@@ -217,7 +217,7 @@ def smplx(
         drop += [table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints)]
     hand_meta["hand_joints"] = {"left", "right"} if hands else set()
     streams = {"expression": _check_width("num_expression", num_expression, SMPLX_EXPRESSION_DIM)} if face else {}
-    return load_family(
+    return _load_family(
         table,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, SMPLX_SHAPE_DIM)},
@@ -254,7 +254,7 @@ def mano(
         "hand_components": {side: arrays["hands_components"].to(device=device, dtype=dtype)},
         "hand_mean": {side: torch.zeros_like(mean) if flat_hand_mean else mean},
     }
-    return load_family(
+    return _load_family(
         table,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, 10)},
@@ -276,7 +276,7 @@ def flame(
     """FLAME head (5 joints, 5023 vertices); expression is a stream group like SMPL-X."""
     table = _tables.FLAME
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
-    return load_family(
+    return _load_family(
         table,
         load_model_npz(path, FLAME_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, FLAME_SHAPE_DIM)},
@@ -290,4 +290,4 @@ def flame(
     )
 
 
-__all__ = ["flame", "load_family", "mano", "parents_from_kintree", "smpl", "smplh", "smplx"]
+__all__ = ["flame", "mano", "smpl", "smplh", "smplx"]
