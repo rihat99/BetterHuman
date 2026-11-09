@@ -8,7 +8,7 @@ from better_robot.exceptions import ArgumentError, DtypeMismatchError, ShapeErro
 from better_robot.lie import so3
 
 from better_human import HumanModel, families, load
-from better_human.families.soma import SOMAClassic, soma_from_classic, soma_to_classic
+from better_human.families.soma_family import SOMAClassic, soma_from_classic, soma_to_classic
 from better_human.io import weight_path
 
 pytestmark = pytest.mark.licensed

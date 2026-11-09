@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from better_human import HumanModel, families
-from better_human.families.mhr import MHRClassic, mhr_from_classic, mhr_to_classic
+from better_human.families.mhr_family import MHRClassic, mhr_from_classic, mhr_to_classic
 from better_human.io import weight_path
 from better_robot.exceptions import ArgumentError, DtypeMismatchError
 from better_robot.kinematics import full_configuration

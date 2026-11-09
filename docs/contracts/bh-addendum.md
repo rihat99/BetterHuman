@@ -132,7 +132,7 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 - `<family>_from_classic(identity, classic) -> (q, stream)` and
   `<family>_to_classic(identity, q, stream=None) -> <Family>Classic` in `src/better_human/families/classic.py`.
   MHR: `mhr_from_classic(body, classic) -> (identity, q, stream)` and
-  `mhr_to_classic(identity, q, stream=None)` in `src/better_human/families/mhr.py`.
+  `mhr_to_classic(identity, q, stream=None)` in `src/better_human/families/mhr_family.py`.
 - Hand PCA (SMPL-H, SMPL-X, MANO): `num_pca_comps` must be in `[1, 45]` or `None` (full axis-angle).
   `to_classic` raises `ValueError` when the hand pose leaves the requested PCA subspace.
 - Dropped joints: a hand pose given to a body loaded with `hands=False` raises `ValueError`;

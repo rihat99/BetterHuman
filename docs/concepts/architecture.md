@@ -164,8 +164,8 @@ stream offsets; `top_k_skin` keeps the K strongest weights per vertex at load.
 
 Native parameter sets (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA, ...) are converted at the boundary,
 never inside the core: `families.<family>_from_classic` and `families.<family>_to_classic` for SMPL, SMPL-H, SMPL-X,
-MANO, FLAME (`src/better_human/families/classic.py`), MHR (`src/better_human/families/mhr.py`) and SOMA
-(`src/better_human/families/soma.py`). Each family has a `<Family>Classic` dataclass (`SMPLClassic`, `SMPLXClassic`,
+MANO, FLAME (`src/better_human/families/classic.py`), MHR (`src/better_human/families/mhr_family.py`) and SOMA
+(`src/better_human/families/soma_family.py`). Each family has a `<Family>Classic` dataclass (`SMPLClassic`, `SMPLXClassic`,
 `MHRClassic`, ...).
 
 ## Partial models

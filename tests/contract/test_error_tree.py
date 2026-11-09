@@ -29,8 +29,8 @@ _NOT_A_TENSOR = "a value that is not a floating torch.Tensor is a Python TypeErr
 PLAIN_RAISES: dict[str, str] = {
     "src/better_human/core/human_model.py::_checked_groups": _NOT_A_TENSOR,
     "src/better_human/core/human_model.py::_density": _NOT_A_TENSOR,
-    "src/better_human/families/mhr.py::mhr_from_classic": _NOT_A_TENSOR,
-    "src/better_human/families/soma.py::soma_from_classic": _NOT_A_TENSOR,
+    "src/better_human/families/mhr_family.py::mhr_from_classic": _NOT_A_TENSOR,
+    "src/better_human/families/soma_family.py::soma_from_classic": _NOT_A_TENSOR,
 }
 
 

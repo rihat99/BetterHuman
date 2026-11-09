@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import torch
 
-from better_human.families.mhr import _dense_weight_from_sparse
+from better_human.families.mhr_family import _dense_weight_from_sparse
 from better_human.families.mhr_rig import _pose_feature_6d_from_euler
 from better_human.families.regressed_rig import _pose_feature_rotmat_minus_identity
 from tests.support.marks import FLOAT32_GRADCHECK

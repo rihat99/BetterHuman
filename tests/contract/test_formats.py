@@ -296,7 +296,7 @@ def test_format_version_is_named_only_in_io_formats_and_schema() -> None:
 
 
 def test_a_planted_format_version_is_found(tmp_path: Path) -> None:
-    """A comparison, the whole-metadata equality ``src/better_human/families/mhr.py`` had before record 0012, and a match."""
+    """A comparison, the whole-metadata equality the MHR loader (``families.mhr``) had before record 0012, and a match."""
     planted = {
         "io/formats.py": "ok = data['format_version'] < 2\n",
         "io/schema.py": "FIELDS = {'format_version': ()}\n",
