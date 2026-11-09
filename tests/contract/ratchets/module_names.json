@@ -1,0 +1,5 @@
+{
+  "better_human.families.mhr": "the module shadows the exported loader families.mhr; the families rewrite (H3) renames the module",
+  "better_human.families.soma": "the module shadows the exported loader families.soma; the families rewrite (H3) renames the module",
+  "better_human.viz.human_layers": "the module shadows the exported function viz.human_layers; viz becomes one layers module (H6, record 0010)"
+}

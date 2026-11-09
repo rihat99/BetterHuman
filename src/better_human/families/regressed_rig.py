@@ -82,6 +82,7 @@ class RegressedRig(Rig):
         return torch.cat((placements, quaternions), dim=-1)
 
 
+@final
 class _JointData(NamedTuple):
     """The per-joint arrays of an SMPL-family spec that dropping joints reduces."""
 

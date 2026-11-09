@@ -12,12 +12,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import final
 
 import torch
 from better_robot.exceptions import ArgumentError
 from better_robot.spatial import orient_faces_by_component
 
 
+@final
 @dataclass(frozen=True)
 class PartTopology:
     """Static topology of one closed mesh per part; built once per ``HumanModel``, applied to every shape.

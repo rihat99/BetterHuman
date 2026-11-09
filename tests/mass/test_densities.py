@@ -10,35 +10,20 @@ import inspect
 from dataclasses import replace
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from better_robot.exceptions import ArgumentError, DtypeMismatchError, UnknownNameError
 
 import better_human as bh
 from better_human.mass import part_densities
+from tests.support.synthetic import flame_spec
 
-NUM_VERTICES = 50
 TABLES = {"Light": {"head": 900.0, "neck": 950.0}, "Heavy": {"head": 1100.0, "neck": 1150.0}}
 
 
 @pytest.fixture
 def flame(tmp_path: Path) -> bh.FamilySpec:
-    """A float64 FLAME spec from a random FLAME-shaped file: joints global, neck, jaw, left_eye, right_eye."""
-    rng = np.random.default_rng(0)
-    weights, regressor = rng.random((NUM_VERTICES, 5)), rng.random((5, NUM_VERTICES))
-    path = tmp_path / "generic_model.npz"
-    np.savez(
-        path,
-        v_template=rng.normal(size=(NUM_VERTICES, 3)) * 0.1,
-        shapedirs=rng.normal(size=(NUM_VERTICES, 3, 400)) * 1e-3,
-        posedirs=rng.normal(size=(NUM_VERTICES, 3, 36)) * 1e-3,
-        J_regressor=regressor / regressor.sum(axis=1, keepdims=True),
-        weights=weights / weights.sum(axis=1, keepdims=True),
-        kintree_table=np.array([[4294967295, 0, 1, 1, 1], [0, 1, 2, 3, 4]], dtype=np.uint32),
-        f=rng.integers(0, NUM_VERTICES, size=(80, 3)).astype(np.uint32),
-    )
-    return bh.families.flame(path, dtype=torch.float64)
+    return flame_spec(tmp_path)
 
 
 def test_the_default_density_is_the_dempster_table() -> None:

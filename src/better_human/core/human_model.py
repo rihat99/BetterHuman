@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from typing import final
 from numbers import Real
 
 import torch
@@ -34,6 +35,7 @@ from .spec import FamilySpec
 Tensors = Mapping[str, torch.Tensor]
 
 
+@final
 @dataclass(frozen=True, eq=False)
 class HumanModel:
     """A body family ready to bake subjects: the BetterRobot model, skinning, segmentation, mass and contact frames.
@@ -161,6 +163,7 @@ class HumanModel:
         )
 
 
+@final
 @dataclass(frozen=True, eq=False)
 class Identity:
     """One subject (or an identity batch ``I...``): rest mesh, rest joints and the baked BetterRobot model."""
@@ -213,6 +216,7 @@ class Identity:
         return f"Identity({self.human.spec.name}, batch={tuple(self.root_offset.shape[:-1])})"
 
 
+@final
 @dataclass(frozen=True, eq=False)
 class HumanState:
     """One posed batch. Outputs are computed on first use and memoised; shapes lead with the execution batch."""
@@ -358,9 +362,11 @@ def _checked_groups(
         if not isinstance(value, torch.Tensor) or not value.is_floating_point():
             raise TypeError(f"{name} must be a floating torch.Tensor")
         if value.shape[-1:] != (width,):
-            raise ValueError(f"{name} must have shape (..., {width}); got {tuple(value.shape)}")
-        if value.dtype != exemplar.dtype or value.device != exemplar.device:
-            raise ValueError(f"{name} must use dtype={exemplar.dtype} and device={exemplar.device}")
+            raise ShapeError(f"{name} must have shape (..., {width}); got {tuple(value.shape)}")
+        if value.dtype != exemplar.dtype:
+            raise DtypeMismatchError(f"{name} is {value.dtype}; pass it in the model's dtype, {exemplar.dtype}")
+        if value.device != exemplar.device:
+            raise DeviceMismatchError(f"{name} is on {value.device}; pass it on the model's device, {exemplar.device}")
         out[name] = value
     if require_all and out:
         batch = torch.broadcast_shapes(*(value.shape[:-1] for value in out.values()))

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 import torch
+from better_robot.exceptions import ArgumentError, ShapeError
 
 
 def slice_parameter_basis(
@@ -19,7 +20,7 @@ def slice_parameter_basis(
     groups. The returned basis concatenates those selections in output order.
     """
     if basis.ndim != 3 or basis.shape[-2] != 3:
-        raise ValueError(f"basis must have shape (V, 3, S), got {tuple(basis.shape)}")
+        raise ShapeError(f"basis must have shape (V, 3, S), got {tuple(basis.shape)}")
 
     selected: list[torch.Tensor] = []
     widths: dict[str, int] = {}
@@ -27,7 +28,7 @@ def slice_parameter_basis(
         try:
             columns = group_columns[name]
         except KeyError as error:
-            raise ValueError(f"Unknown parameter group {name!r}") from error
+            raise ArgumentError(f"Unknown parameter group {name!r}") from error
         if (
             not isinstance(columns.start, int)
             or isinstance(columns.start, bool)
@@ -35,15 +36,15 @@ def slice_parameter_basis(
             or isinstance(columns.stop, bool)
             or columns.step not in {None, 1}
         ):
-            raise ValueError(f"Parameter group {name!r} must use a bounded contiguous slice")
+            raise ArgumentError(f"Parameter group {name!r} must use a bounded contiguous slice")
         if columns.start < 0 or columns.stop < columns.start or columns.stop > basis.shape[-1]:
-            raise ValueError(
+            raise ArgumentError(
                 f"Parameter group {name!r} slice [{columns.start}, {columns.stop}) "
                 f"must fit basis width {basis.shape[-1]}"
             )
         available = columns.stop - columns.start
         if not isinstance(width, int) or isinstance(width, bool) or width < 0 or width > available:
-            raise ValueError(f"Parameter group {name!r} width must be in [0, {available}], got {width}")
+            raise ArgumentError(f"Parameter group {name!r} width must be in [0, {available}], got {width}")
         selected.append(basis[..., columns.start : columns.start + width])
         widths[name] = width
     if not selected:
@@ -54,13 +55,13 @@ def slice_parameter_basis(
 def _validate_terminal_drop(parents: Sequence[int], dropped: set[int]) -> None:
     joint_count = len(parents)
     if 0 in dropped:
-        raise ValueError("The root joint cannot be dropped")
+        raise ArgumentError("The root joint cannot be dropped")
     invalid = sorted(index for index in dropped if index < 0 or index >= joint_count)
     if invalid:
-        raise ValueError(f"Dropped joint indices are out of range [0, {joint_count}): {invalid}")
+        raise ArgumentError(f"Dropped joint indices are out of range [0, {joint_count}): {invalid}")
     for child, parent in enumerate(parents):
         if parent in dropped and child not in dropped:
-            raise ValueError(
+            raise ArgumentError(
                 f"Dropped joints must form terminal subtrees; joint {parent} is dropped but child {child} survives"
             )
 
@@ -89,24 +90,24 @@ def reduce_joint_data(
     """
     joint_count = len(joint_names)
     if len(parents) != joint_count:
-        raise ValueError("parents and joint_names must have the same length")
+        raise ArgumentError("parents and joint_names must have the same length")
     if joint_regressor.ndim != 2:
-        raise ValueError(f"joint_regressor must have shape (J, V), got {tuple(joint_regressor.shape)}")
+        raise ShapeError(f"joint_regressor must have shape (J, V), got {tuple(joint_regressor.shape)}")
     if skinning_weights.ndim != 2:
-        raise ValueError(f"skinning_weights must have shape (V, J), got {tuple(skinning_weights.shape)}")
+        raise ShapeError(f"skinning_weights must have shape (V, J), got {tuple(skinning_weights.shape)}")
     if posedirs.ndim != 3 or posedirs.shape[1] != 3:
-        raise ValueError(f"posedirs must have shape (V, 3, (J - 1) * 9), got {tuple(posedirs.shape)}")
+        raise ShapeError(f"posedirs must have shape (V, 3, (J - 1) * 9), got {tuple(posedirs.shape)}")
     if joint_regressor.shape[0] != joint_count or skinning_weights.shape[1] != joint_count:
-        raise ValueError("joint regressor and skinning weights must use the declared joint count")
+        raise ShapeError("joint regressor and skinning weights must use the declared joint count")
     vertex_count = skinning_weights.shape[0]
     if joint_regressor.shape[1] != vertex_count or posedirs.shape[0] != vertex_count:
-        raise ValueError("joint regressor, skinning weights, and posedirs must use the same vertex count")
+        raise ShapeError("joint regressor, skinning weights, and posedirs must use the same vertex count")
     expected_pose_width = (joint_count - 1) * 9
     if posedirs.shape[-1] != expected_pose_width:
-        raise ValueError(f"posedirs must have trailing width {expected_pose_width}, got {posedirs.shape[-1]}")
+        raise ShapeError(f"posedirs must have trailing width {expected_pose_width}, got {posedirs.shape[-1]}")
     weight_sums = skinning_weights.sum(dim=-1)
     if not bool(torch.isfinite(weight_sums).all()) or bool((weight_sums <= 0).any()):
-        raise ValueError("skinning weight rows must have positive finite sums")
+        raise ArgumentError("skinning weight rows must have positive finite sums")
 
     dropped = set(dropped_joints)
     _validate_terminal_drop(parents, dropped)

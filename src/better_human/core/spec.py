@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, final
 
 import torch
+from better_robot.exceptions import ShapeError
 
 if TYPE_CHECKING:
     from .rig import Rig
@@ -55,6 +56,7 @@ def _offsets(feature: torch.Tensor, matrix: torch.Tensor, vertex_ids: torch.Tens
     return (feature @ matrix).unflatten(-1, (-1, 3))
 
 
+@final
 @dataclass(frozen=True)
 class Parts:
     """Vertex segmentation into rigid parts for mass properties.
@@ -78,6 +80,7 @@ class Parts:
         return len(self.joints)
 
 
+@final
 @dataclass(frozen=True)
 class Landmarks:
     """Named points of the mesh: landmark ``names[l]`` is vertex ``vertex_ids[l]`` (``(L,)`` long)."""
@@ -86,6 +89,7 @@ class Landmarks:
     vertex_ids: torch.Tensor
 
 
+@final
 @dataclass(frozen=True)
 class FamilySpec:
     """One body family on one dtype and device. Pure data except for ``rig``.
@@ -121,23 +125,23 @@ class FamilySpec:
     def __post_init__(self) -> None:
         num_vertices, num_joints = self.template_vertices.shape[0], len(self.joint_names)
         if self.template_vertices.shape != (num_vertices, 3) or self.faces.ndim != 2 or self.faces.shape[1] != 3:
-            raise ValueError("template_vertices must be (V, 3) and faces (F, 3)")
+            raise ShapeError("template_vertices must be (V, 3) and faces (F, 3)")
         if len(self.parents) != num_joints or self.parents[0] != -1:
-            raise ValueError("parents must have one entry per joint and start with the root (-1)")
+            raise ShapeError("parents must have one entry per joint and start with the root (-1)")
         if self.file_joint_ids.shape != (num_joints,):
-            raise ValueError("file_joint_ids must be (J,)")
+            raise ShapeError("file_joint_ids must be (J,)")
         if self.skin_weights.shape != self.skin_indices.shape or self.skin_weights.shape[0] != num_vertices:
-            raise ValueError("skin_weights and skin_indices must both be (V, K)")
+            raise ShapeError("skin_weights and skin_indices must both be (V, K)")
         for group, basis in (*self.identity_bases.items(), *self.stream_bases.items()):
             if basis.shape[:2] != (num_vertices, 3):
-                raise ValueError(f"blend group {group!r} must be (V, 3, n); got {tuple(basis.shape)}")
+                raise ShapeError(f"blend group {group!r} must be (V, 3, n); got {tuple(basis.shape)}")
         if self.parts.ids.shape != (num_vertices,):
-            raise ValueError("parts.ids must be (V,)")
+            raise ShapeError("parts.ids must be (V,)")
         closed = self.parts.closed_faces
         if len(self.parts.density_categories) != self.parts.count or (
             closed is not None and len(closed) != self.parts.count
         ):
-            raise ValueError("parts.density_categories and parts.closed_faces must have one entry per part")
+            raise ShapeError("parts.density_categories and parts.closed_faces must have one entry per part")
 
     @property
     def num_vertices(self) -> int:

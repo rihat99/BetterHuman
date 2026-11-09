@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, final
 
 import torch
 from better_robot import Model
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from .spec import FamilySpec
 
 
+@final
 @dataclass(frozen=True)
 class RigBake:
     """Identity-dependent kinematic values of one bake; leading dims are the identity batch ``I...``."""

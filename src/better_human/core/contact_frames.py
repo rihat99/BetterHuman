@@ -16,11 +16,14 @@ from __future__ import annotations
 import numbers
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import final
 
 import torch
+from better_robot.exceptions import ArgumentError
 from better_robot.lie import so3
 
 
+@final
 @dataclass(frozen=True)
 class ContactFrames:
     """Contact-frame spec resolved against one body."""
@@ -50,18 +53,18 @@ def resolve_parents(
     :param joint_names: the body's native reduced joint names.
     :param part_ids: ``(V,)`` argmax skinning joint per vertex.
     :returns: one native reduced-joint index per entry, in entry order.
-    :raises ValueError: for a vertex id outside ``[0, V)`` or an unknown joint name.
+    :raises ~better_robot.exceptions.ArgumentError: for a vertex id outside ``[0, V)`` or an unknown joint name.
     """
     index_by_name = {name: index for index, name in enumerate(joint_names)}
     parents = []
     for name, (vertex, joint) in entries.items():
         if isinstance(vertex, bool) or not isinstance(vertex, numbers.Integral) or not 0 <= vertex < len(part_ids):
-            raise ValueError(f"{name!r}: vertex id {vertex!r} is not an int in [0, {len(part_ids)})")
+            raise ArgumentError(f"{name!r}: vertex id {vertex!r} is not an int in [0, {len(part_ids)})")
         if joint is None:
             parents.append(int(part_ids[int(vertex)]))
             continue
         if joint not in index_by_name:
-            raise ValueError(f"{name!r}: unknown parent joint {joint!r}")
+            raise ArgumentError(f"{name!r}: unknown parent joint {joint!r}")
         parents.append(index_by_name[joint])
     return parents
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, final
 
 import numpy as np
 
@@ -19,6 +19,7 @@ Axis = int | str
 DTypeExpectation = str | tuple[str, ...]
 
 
+@final
 @dataclass(frozen=True)
 class FieldSpec:
     """Expected shape and dtype for one logical model field."""
@@ -31,6 +32,7 @@ class FieldSpec:
     dtype: DTypeExpectation
 
 
+@final
 @dataclass(frozen=True)
 class ModelSchema:
     """Required fields and any pre-bound axes for one model family."""
