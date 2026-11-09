@@ -12,8 +12,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import torch
-from better_robot.dynamics.state import inverse_dynamics
 from better_robot import Model
+from better_robot.dynamics import inverse_dynamics
 from better_robot.kinematics import KinematicState, difference, forward_kinematics
 from better_robot.optim import TermFn
 
@@ -182,7 +182,7 @@ def shape_prior(group: str = "betas") -> TermFn:
 def contact_wrenches(
     model: Model, kinematics: KinematicState, frame_ids: torch.Tensor, forces: torch.Tensor
 ) -> torch.Tensor:
-    """``fext (..., njoints, 6)`` in joint frames from world ``forces (..., C, 3)`` applied at model frames ``frame_ids (C,)``."""
+    """``external_forces (..., njoints, 6)`` in joint frames from world ``forces (..., C, 3)`` applied at model frames ``frame_ids (C,)``."""
     parents = torch.as_tensor(
         [model.frame_parent_joint_ids[int(f)] for f in frame_ids], dtype=torch.long, device=forces.device
     )
@@ -192,8 +192,8 @@ def contact_wrenches(
     rotation = joint[..., :3]
     linear = (rotation.mT @ forces[..., None]).squeeze(-1)
     angular = (rotation.mT @ torch.linalg.cross(lever, forces)[..., None]).squeeze(-1)
-    fext = forces.new_zeros((*forces.shape[:-2], model.njoints, 6))
-    return fext.index_add(-2, parents, torch.cat((linear, angular), dim=-1))
+    wrenches = forces.new_zeros((*forces.shape[:-2], model.njoints, 6))
+    return wrenches.index_add(-2, parents, torch.cat((linear, angular), dim=-1))
 
 
 def root_wrench(
@@ -219,8 +219,8 @@ def root_wrench(
         acceleration = (velocity[:, 1:] - velocity[:, :-1]) / dt  # (B, T-2, nv)
         mid_velocity = 0.5 * (velocity[:, 1:] + velocity[:, :-1])
         kinematics = forward_kinematics(model, pose[:, 1:-1])
-        fext = contact_wrenches(model, kinematics, frame_ids.to(force.device), force[:, 1:-1])
-        return inverse_dynamics(model, kinematics, v=mid_velocity, a=acceleration, fext=fext)[..., :6]
+        wrenches = contact_wrenches(model, kinematics, frame_ids.to(force.device), force[:, 1:-1])
+        return inverse_dynamics(model, kinematics, v=mid_velocity, a=acceleration, external_forces=wrenches)[..., :6]
 
     return TermFn(fn=residual, reads=(q, forces), window=3)
 

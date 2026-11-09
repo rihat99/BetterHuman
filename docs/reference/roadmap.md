@@ -119,7 +119,7 @@ BetterRobot's roadmap.
 | `Motion` type for clips | one clip object for import, studio and dynamics | BetterRobot `Trajectory` (now) | next |
 | Mocap import: C3D, BVH, AMASS | gait labs, datasets | `Motion` type | next |
 | Marker sets and virtual markers for OpenSim-style marker IK | biomechanics labs | mocap import | later |
-| Force-plate / ground-reaction input | gait dynamics | BetterRobot `fext` input, contact frames | later |
+| Force-plate / ground-reaction input | gait dynamics | BetterRobot `external_forces` input, contact frames | later |
 | Muscles and musculotendon models | biomechanics | marker sets | maybe |
 
 ### Not on the roadmap
