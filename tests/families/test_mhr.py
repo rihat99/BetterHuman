@@ -194,7 +194,7 @@ def test_rig_to_moves_every_tensor(body: Body) -> None:
     """``MhrRig.to`` moves every rig and BR model tensor; floats take the dtype, integer tables keep theirs."""
     rig = body.spec.rig
     moved = rig.to(torch.float64, torch.device("meta"))
-    for old, new in zip(*((each, each.model.structure, each.model.values) for each in (rig, moved))):
+    for old, new in zip(*((each, each.model) for each in (rig, moved))):
         for field in fields(old):
             before, after = getattr(old, field.name), getattr(new, field.name)
             if torch.is_tensor(before):

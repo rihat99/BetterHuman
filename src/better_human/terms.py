@@ -184,7 +184,7 @@ def contact_wrenches(
 ) -> torch.Tensor:
     """``fext (..., njoints, 6)`` in joint frames from world ``forces (..., C, 3)`` applied at model frames ``frame_ids (C,)``."""
     parents = torch.as_tensor(
-        [model.structure.frame_parent_joint_ids[int(f)] for f in frame_ids], dtype=torch.long, device=forces.device
+        [model.frame_parent_joint_ids[int(f)] for f in frame_ids], dtype=torch.long, device=forces.device
     )
     joint = kinematics.joint_transforms[..., parents, :, :]  # (..., C, 3, 4)
     forces = forces.expand(*joint.shape[:-2], 3)

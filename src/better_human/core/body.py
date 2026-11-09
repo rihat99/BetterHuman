@@ -150,9 +150,12 @@ class Body:
             frame_placements[..., 6] = 1.0
             frame_placements[..., torch.as_tensor(frames.frame_ids, device=spec.device), :] = local
 
-        model = self.model.with_values(
-            joint_placements=bake.joint_placements, body_inertias=inertias, frame_placements=frame_placements
-        )
+        values = {"joint_placements": bake.joint_placements}
+        if inertias is not None:
+            values["body_inertias"] = inertias
+        if frame_placements is not None:
+            values["frame_placements"] = frame_placements
+        model = self.model.with_values(**values)
         stream_joint_basis = {}
         if self.stream_joints:
             for name in spec.streams:

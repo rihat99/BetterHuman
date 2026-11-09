@@ -93,7 +93,7 @@ def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.Body) -> None:
 def test_shape_rebake_is_batched(body: bh.Body) -> None:
     torch.manual_seed(1)
     shaped = body.bake(betas=torch.randn(3, 10) * 0.5)
-    assert shaped.model.values.frame_placements.shape == (3, body.model.nframes, 7)
+    assert shaped.model.frame_placements.shape == (3, body.model.nframes, 7)
 
     poses = _frame_poses(shaped)
     vertices = torch.tensor(body.contact_frames.vertex_ids, dtype=torch.long)
