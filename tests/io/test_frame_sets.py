@@ -46,6 +46,13 @@ def test_the_authored_fixture_reads() -> None:
     assert frames["heel_right"] == (8712, None)
 
 
+def test_an_added_key_inside_an_entry_is_ignored(tmp_path: Path) -> None:
+    path = tmp_path / "set.json"
+    entry = {"vertex_id": 5, "joint_name": None, "color": "red"}
+    path.write_text(json.dumps({"format": "better_human.frame_set", "format_version": 1, "frames": {"tip": entry}}))
+    assert bh.io.read_frame_set(path) == {"tip": (5, None)}
+
+
 def test_unknown_joint_names_pass_the_reader(tmp_path: Path) -> None:
     # The reader does not know the body; Body resolves (and refuses) joint names.
     path = tmp_path / "set.json"

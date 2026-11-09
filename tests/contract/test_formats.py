@@ -107,6 +107,15 @@ def test_past_version_reads_through_migration_as_the_latest(format: str, version
 
 
 @pytest.mark.parametrize("format", WRITTEN_FORMATS)
+def test_an_added_field_is_ignored(format: str, tmp_path: Path) -> None:
+    """A file may carry a field its reader does not know (Law 7): the reader returns what it returns without it."""
+    fixture = _fixture(format, LATEST[format])
+    added = np.asarray([1.0, 2.0]) if READERS[format][0] == "npz" else {"note": "written by a later tool"}
+    path = _rewrite(fixture, tmp_path / fixture.name, {"added_field": added})
+    assert _comparable(format, _read(format, path)) == _comparable(format, _read(format, fixture))
+
+
+@pytest.mark.parametrize("format", WRITTEN_FORMATS)
 def test_later_version_is_refused_naming_both(format: str, tmp_path: Path) -> None:
     later = LATEST[format] + 1
     fixture = _fixture(format, LATEST[format])
