@@ -37,9 +37,8 @@ def main() -> None:
     state = identity.forward(q)
     view = HumanView(state)
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
-    viewer.add(GroundLayer(plane="xz"), group="scene")
-    for layer in view:
-        viewer.add(layer, group="smpl")
+    viewer.add([GroundLayer(plane="xz")], group="scene")
+    viewer.add(view, group="smpl")
 
     wrist = human.spec.joint_id(WRIST)
     target = state.joint_poses[0, wrist].clone()

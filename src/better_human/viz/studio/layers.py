@@ -105,6 +105,10 @@ class SegmentationLayer(Layer):
         for mesh in self._meshes:
             mesh.vertices = self.vertices[step]
 
+    def set_opacity(self, opacity: float) -> None:
+        """Draw the submeshes at ``opacity`` in ``(0, 1]``, live and after a rebuild."""
+        self._fade(opacity)
+
 
 class PartsLayer(Layer):
     """Closed part meshes posed rigidly by each part's dominant native joint, pushed apart by ``explode``.
@@ -247,11 +251,10 @@ class BodyMeshLayer(Layer):
             provider.dispose()
 
     def set_opacity(self, opacity: float) -> None:
-        """Set skin and segmentation opacity on the live nodes (parts stay opaque)."""
-        self.skin.opacity = self.segmentation.opacity = opacity
-        if self.mode != "parts":
-            for handle in self.active._handles:
-                handle.opacity = None if opacity >= 1.0 else opacity
+        """Draw skin and segmentation at ``opacity`` in ``(0, 1]``, live and after a mode switch (parts stay opaque)."""
+        # Only the active provider holds nodes; the other keeps the opacity for its next build.
+        self.skin.set_opacity(opacity)
+        self.segmentation.set_opacity(opacity)
 
 
 class StudioLayers:
@@ -274,7 +277,7 @@ class StudioLayers:
         self.layers: dict[str, Layer] = {}
         for name, (cls, args, kwargs) in self._specs().items():
             layer = self.layers[name] = cls(name, *args, **kwargs)
-            self.viewer.add(layer, GROUP)
+            self.viewer.add([layer], group=GROUP)
             self.viewer.set_visible(layer, name in ("mesh", "skeleton", "frames"))
         self.set_highlight(None, show=False)
         self.viewer.show()
@@ -319,14 +322,12 @@ class StudioLayers:
         }
 
     def _renew(self, name: str) -> None:
-        # Same layer object, new data: the viewer keeps its entry and Layers checkbox (no remove_group).
-        layer = self.layers[name]
+        # A new layer from the session's data in the old one's place: the viewer keeps its group, Layers row and
+        # visibility.
         cls, args, kwargs = self._specs()[name]
-        visible = layer.visible
-        layer.dispose()
-        cls.__init__(layer, name, *args, **kwargs)
-        layer._visible = visible
-        self.viewer.rebuild(layer)
+        layer = cls(name, *args, **kwargs)
+        self.viewer.replace(self.layers[name], layer)
+        self.layers[name] = layer
 
     def set_mode(self, mode: MeshMode) -> None:
         """Draw the body mesh in colour ``mode`` (``skin``, ``segmentation``, ``parts``) on the same layer."""
@@ -349,7 +350,7 @@ class StudioLayers:
             self.viewer.show()
 
     def set_opacity(self, opacity: float) -> None:
-        """Set the mesh and segmentation opacity in ``[0, 1]``."""
+        """Set the mesh and segmentation opacity in ``(0, 1]``."""
         self.opacity = opacity
         self.mesh.set_opacity(opacity)
 

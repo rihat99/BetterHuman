@@ -64,11 +64,25 @@ class FakeScene:
         self.log: list[tuple[str, str]] = []
         self.pointer_callbacks: dict[str, Any] = {}
 
-    def on_pointer_event(self, event_type: str) -> Any:
-        return lambda callback: self.pointer_callbacks.__setitem__(event_type, callback)
+    def on_click(self) -> Any:
+        return self._register("click")
 
-    def remove_pointer_callback(self) -> None:
-        self.pointer_callbacks.clear()
+    def on_rect_select(self) -> Any:
+        return self._register("rect-select")
+
+    def remove_click_callback(self, callback: Any) -> None:
+        del self.pointer_callbacks["click"]
+
+    def remove_rect_select_callback(self, callback: Any) -> None:
+        del self.pointer_callbacks["rect-select"]
+
+    def _register(self, event_type: str) -> Any:
+        # viser's registration is a decorator factory: ``scene.on_click()(callback)``.
+        def register(callback: Any) -> Any:
+            self.pointer_callbacks[event_type] = callback
+            return callback
+
+        return register
 
     def __getattr__(self, method: str) -> Any:
         if not method.startswith(("add_", "set_", "configure_")):

@@ -312,9 +312,11 @@ class HumanStudio:
         def _on_rect(event: Any) -> None:
             self.viewer.clear_pointer()
             camera = CameraFrustum.from_camera(event.client.camera)
-            (x0, y0), (x1, y1) = event.screen_pos
             ids = vertices_in_rect(
-                self.session.vertices.detach().cpu().numpy(), camera, np.array([x0, y0]), np.array([x1, y1])
+                self.session.vertices.detach().cpu().numpy(),
+                camera,
+                np.asarray(event.screen_min, float),
+                np.asarray(event.screen_max, float),
             )
             self.segment.assign(ids)
             self.viewer.on_pointer("click", self._locked(self.on_click))

@@ -174,7 +174,7 @@ def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
     blob = studio.session.part_names.index("blob")
     studio.start_marquee()
     camera = SimpleNamespace(position=(0.0, -0.3, 4.0), wxyz=(0.0, 0.0, 1.0, 0.0), fov=1.0, aspect=1.0)
-    event = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_pos=((0.0, 0.0), (1.0, 1.0)))
+    event = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_min=(0.0, 0.0), screen_max=(1.0, 1.0))
     studio.viewer.server.scene.pointer_callbacks["rect-select"](event)
     assert int((studio.session.part_ids == blob).sum()) == studio.session.vertices.shape[-2]
     assert set(studio.viewer.server.scene.pointer_callbacks) == {"click"}
@@ -234,9 +234,6 @@ def test_model_switch_clears_active_frame(studio) -> None:
     assert studio.frames.active is None
 
 
-# BetterRobot's `Viewer.on_pointer` (better_robot.viewer.viewer) registers clicks through viser's deprecated
-# `scene.on_pointer_event`; only that call site is excused, not BetterHuman's own code.
-@pytest.mark.filterwarnings("ignore:Use on_click:DeprecationWarning:better_robot.viewer.viewer")
 @pytest.mark.licensed
 def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
     """Regression: viser's tab-group remove() raised when the Model tab rebuilt the tabs."""

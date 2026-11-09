@@ -30,9 +30,8 @@ def main() -> None:
     identity = human.bake(identity=coefficients)
     view = HumanView(identity.forward(identity.model.q_neutral))
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
-    viewer.add(GroundLayer(plane="xz"), group="scene")
-    for layer in view:
-        viewer.add(layer, group="mhr")
+    viewer.add([GroundLayer(plane="xz")], group="scene")
+    viewer.add(view, group="mhr")
 
     def refresh() -> None:
         view.update(identity.forward(integrate(identity.model, identity.model.q_neutral, tangent)))

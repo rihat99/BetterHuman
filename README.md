@@ -100,7 +100,7 @@ print(state.vertices.shape, state.joint_translations.shape)  # (4, 6890, 3) (4, 
 
 view = HumanView(identity.forward(identity.model.q_neutral))   # viewer layers, updated in place
 # from better_robot.viewer import Viewer
-# viewer = Viewer(); [viewer.add(layer, group="human") for layer in view]
+# viewer = Viewer(); viewer.add(view, group="human")
 # view.update(state_for_next_frame); viewer.show()
 ```
 

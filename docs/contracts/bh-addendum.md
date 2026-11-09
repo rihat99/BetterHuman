@@ -116,7 +116,7 @@ take one pose each. Unknown group names raise `ValueError`.
 A clip is `(B, T, nq)`: axis `-2` is time and carries no rate of its own. Time follows BR's viewer
 model (`BetterRobot/docs/concepts/viewer.md`): the viewer timeline has integer steps played at `fps`;
 a layer with `T` samples shows sample `min(step, T - 1)` by default, or, when added with
-`Viewer.add(layer, group, times=...)`, `times` is a `(T,)` non-decreasing array of seconds and the
+`Viewer.add(layers, group=..., times=...)`, `times` is a `(T,)` non-decreasing array of seconds and the
 layer shows the latest sample with `times[i] <= step / fps`. A clip recorded at a different rate
 therefore passes its `times` to the viewer; BH never resamples `q`.
 

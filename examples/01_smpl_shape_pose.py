@@ -38,9 +38,8 @@ def main() -> None:
     view = HumanView(identity.forward(identity.model.q_neutral))
 
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
-    viewer.add(GroundLayer(plane="xz"), group="scene")
-    for layer in view:
-        viewer.add(layer, group="smpl")
+    viewer.add([GroundLayer(plane="xz")], group="scene")
+    viewer.add(view, group="smpl")
 
     def refresh() -> None:
         nonlocal identity

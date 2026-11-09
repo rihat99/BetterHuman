@@ -71,8 +71,7 @@ from better_robot.viewer import Viewer
 from better_human.viz.human_layers import human_layers
 
 viewer = Viewer()                 # viser on 127.0.0.1:8080
-for layer in human_layers(state):
-    viewer.add(layer)
+viewer.add(human_layers(state))
 viewer.show(3)                    # jump to the most bent frame
 ```
 

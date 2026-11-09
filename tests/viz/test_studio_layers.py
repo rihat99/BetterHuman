@@ -124,7 +124,9 @@ def test_visibility_defaults_and_body_reload(smpl: bh.HumanModel) -> None:
     layers.set_highlight(3)
     old = dict(layers.layers)
     session.load_body(smpl, "smpl")
-    assert layers.layers == old and all(layers.layers[name] is old[name] for name in old)
+    # Each layer is rebuilt from the new body and takes its predecessor's place in the viewer.
+    assert list(layers.layers) == list(old) and layers.viewer.layers == list(layers.layers.values())
+    assert not any(layers.layers[name] is old[name] for name in old)
     assert layers.highlight is None and layers.visible["mesh"] is False and layers.mesh.mode == "parts"
 
 
@@ -172,12 +174,14 @@ def test_visible_parts_keep_visibility_through_viewer_rebuild(smpl: bh.HumanMode
     assert layers.visible["mesh"] is True
 
 
-def test_opacity_radius_and_edit_keep_layer_objects(smpl: bh.HumanModel) -> None:
+def test_opacity_and_radius_keep_layer_objects_and_edit_replaces_its_layer(smpl: bh.HumanModel) -> None:
     _, layers, server = _setup(smpl)
     before = {name: layer for name, layer in layers.layers.items()}
     layers.set_opacity(0.4)
     layers.set_radius(0.03)
-    layers.set_edit_vertices(np.arange(5))
     assert all(layers.layers[name] is before[name] for name in before)
+    layers.set_edit_vertices(np.arange(5))
+    assert layers.edit is not before["edit"] and layers.viewer.layers == list(layers.layers.values())
+    assert all(layers.layers[name] is before[name] for name in before if name != "edit")
     assert server.scene.nodes[_mesh_nodes(server)[0]].opacity == 0.4
     assert layers.edit.points.shape[1] == 5 and layers.visible["edit"]

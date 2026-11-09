@@ -38,7 +38,7 @@ def main() -> None:
     expression = 2.0 * torch.sin(phase)[:, None] * torch.ones(frames, 10)
 
     viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
-    viewer.add(GroundLayer(plane="xz"), group="scene")
+    viewer.add([GroundLayer(plane="xz")], group="scene")
     for body, name, classic, offset in (
         (
             full,
@@ -52,8 +52,7 @@ def main() -> None:
     ):
         identity = body.bake()
         q, stream = smplx_from_classic(identity, classic)
-        for layer in human_layers(identity.forward(q, stream)):
-            viewer.add(layer, group=name, offset=offset)
+        viewer.add(human_layers(identity.forward(q, stream)), group=name, offset=offset)
     if args.check:
         viewer.show(45)
         print(f"{frames} frames, {len(viewer.layers)} layers; full nq={full.model.nq}, body-only nq={partial.model.nq}")

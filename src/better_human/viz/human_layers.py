@@ -116,7 +116,7 @@ def human_layers(
     """Layers for a posed clip: ``mesh`` is ``"exact"`` (per-frame vertices), ``"skinned"`` (client LBS) or ``None``.
 
     ``forces`` maps a model frame name to world forces ``(T, 3)``. Add the result with
-    ``viewer.add(layer, group="human")`` for each layer.
+    ``viewer.add(layers, group="human")``.
     """
     layers: list[Layer] = []
     if mesh == "exact":
