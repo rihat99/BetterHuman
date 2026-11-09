@@ -55,8 +55,18 @@ class PartTopology:
         :param closed_faces: part ``0..P-1`` -> its ``(F_p, 3)`` long faces.
         :param reference_vertices: ``(V, 3)`` rest mesh used to orient the faces.
         :param reference_joints: ``(J, 3)`` rest joints, the caps.
+        :raises ~better_robot.exceptions.ArgumentError: for a part with an index outside ``[0, V + J)``.
         """
         num_vertices, num_joints = reference_vertices.shape[0], reference_joints.shape[0]
+        for part, part_faces in closed_faces.items():
+            if (
+                part_faces.numel()
+                and not 0 <= int(part_faces.min()) <= int(part_faces.max()) < num_vertices + num_joints
+            ):
+                raise ArgumentError(
+                    f"closed part {part} indexes outside [0, {num_vertices + num_joints}) = [vertices; joints]; "
+                    "pass faces over this family's rest vertices and joints"
+                )
         vertex_tables: list[torch.Tensor] = []
         cap_tables: list[torch.Tensor] = []
         face_tables: list[torch.Tensor] = []
