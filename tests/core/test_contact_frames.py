@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from better_robot.exceptions import UnknownNameError
 from better_robot.lie import so3
 
 import better_human as bh
@@ -112,13 +113,13 @@ def test_body_without_contact_frames_keeps_only_body_frames() -> None:
 
 @pytest.mark.licensed
 def test_unknown_explicit_joint_name_raises(body: bh.HumanModel) -> None:
-    with pytest.raises(ValueError, match="'tip'.*unknown parent joint 'not_a_joint'"):
+    with pytest.raises(UnknownNameError, match="unknown parent joint 'not_a_joint'; 52 parent joints"):
         _resolve_parents(
             {"tip": (0, "not_a_joint")},
             body.spec.joint_names,
             body.spec.parts.ids,
         )
-    with pytest.raises(ValueError, match="unknown parent joint"):
+    with pytest.raises(UnknownNameError, match="unknown parent joint 'not_a_joint'"):
         bh.HumanModel.from_spec(
             bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False),
             density=None,

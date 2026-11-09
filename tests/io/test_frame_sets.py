@@ -117,11 +117,17 @@ def test_writer_refuses_what_the_reader_refuses(tmp_path: Path) -> None:
     assert not path.exists()
 
 
-def test_a_file_that_is_not_json_is_a_format_error(tmp_path: Path) -> None:
+@pytest.mark.parametrize("content", [b'{"tip": 5,', bytes(range(256))], ids=["truncated", "binary"])
+def test_a_file_that_is_not_json_is_a_format_error(tmp_path: Path, content: bytes) -> None:
     path = tmp_path / "set.json"
-    path.write_text('{"tip": 5,')
+    path.write_bytes(content)
     with pytest.raises(FormatError, match=rf"set\.json: not a JSON file .*{FIX}"):
         bh.io.read_frame_set(path)
+
+
+def test_a_missing_file_is_an_argument_error_naming_the_path(tmp_path: Path) -> None:
+    with pytest.raises(ArgumentError, match=r"absent\.json is not a file; pass the path of a frame-set file"):
+        bh.io.read_frame_set(tmp_path / "absent.json")
 
 
 @pytest.mark.parametrize("value", [5, (5,), (5, None, "x"), "ab"])

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import final
 
 import torch
-from better_robot.exceptions import ArgumentError
+from better_robot.exceptions import ArgumentError, UnknownNameError
 from better_robot.lie import so3
 
 
@@ -53,7 +53,8 @@ def _resolve_parents(
     :param joint_names: the spec's native joint names.
     :param part_ids: ``(V,)`` argmax skinning joint per vertex.
     :returns: one native joint index per entry, in entry order.
-    :raises ~better_robot.exceptions.ArgumentError: for a vertex id outside ``[0, V)`` or an unknown joint name.
+    :raises ~better_robot.exceptions.ArgumentError: for a vertex id outside ``[0, V)``.
+    :raises ~better_robot.exceptions.UnknownNameError: for a joint name the family does not have.
     """
     index_by_name = {name: index for index, name in enumerate(joint_names)}
     parents = []
@@ -64,7 +65,7 @@ def _resolve_parents(
             parents.append(int(part_ids[int(vertex)]))
             continue
         if joint not in index_by_name:
-            raise ArgumentError(f"{name!r}: unknown parent joint {joint!r}")
+            raise UnknownNameError("parent joint", joint, joint_names)
         parents.append(index_by_name[joint])
     return parents
 
