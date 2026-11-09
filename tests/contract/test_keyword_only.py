@@ -1,14 +1,17 @@
 """H-API-2 / BR C-API-2: public callables take at most two positional parameters.
 
 Every function in a public ``__all__`` and every public method of a public class is inspected; parameters after
-the second (``self`` excluded) must be keyword-only. ``KEYWORD_ONLY_ALLOWLIST`` names the current violations by
-qualified name; it only shrinks.
+the second (``self`` excluded) must be keyword-only. The violations that exist today sit in
+``ratchets/keyword_only.json`` (qualified name -> the fix that removes it); the ratchet only shrinks, and the fix
+that resolves a violation removes its entry.
 """
 
 from __future__ import annotations
 
 import importlib
 import inspect
+import json
+from pathlib import Path
 
 PACKAGES = [
     "better_human",
@@ -20,20 +23,9 @@ PACKAGES = [
     "better_human.viz.studio",
 ]
 MAX_POSITIONAL = 2
-
-# Current violations (qualified name -> positional count). Shrink, never grow.
-KEYWORD_ONLY_ALLOWLIST: dict[str, int] = {
-    "better_human.core.rig.Rig.bake": 4,
-    "better_human.core.rig.Rig.placements_from_rest": 3,
-    "better_human.core.rig.Rig.corrective_features": 3,
-    "better_human.core.rig.RegressedRig.bake": 4,
-    "better_human.core.rig.RegressedRig.placements_from_rest": 3,
-    "better_human.core.rig.RegressedRig.corrective_features": 3,
-    "better_human.core.contact_frames.resolve_parents": 3,
-    "better_human.core.contact_frames.frame_local_placements": 5,
-    "better_human.terms.contact_wrenches": 4,
-    "better_human.viz.human_layers.forces_layer": 3,
-}
+KEYWORD_ONLY_RATCHET: dict[str, str] = json.loads(
+    (Path(__file__).parent / "ratchets" / "keyword_only.json").read_text()
+)
 
 
 def _positional_count(fn: object, *, bound: bool) -> int:
@@ -60,13 +52,15 @@ def _public_callables() -> dict[str, int]:
     return counts
 
 
+def _violations() -> set[str]:
+    return {name for name, count in _public_callables().items() if count > MAX_POSITIONAL}
+
+
 def test_public_callables_are_keyword_only_after_second_argument() -> None:
-    violations = {name: count for name, count in _public_callables().items() if count > MAX_POSITIONAL}
-    new = {name: count for name, count in violations.items() if KEYWORD_ONLY_ALLOWLIST.get(name) != count}
+    new = sorted(_violations() - KEYWORD_ONLY_RATCHET.keys())
     assert not new, f"positional parameters beyond {MAX_POSITIONAL} (make them keyword-only): {new}"
 
 
-def test_allowlist_has_no_stale_entries() -> None:
-    counts = _public_callables()
-    stale = [name for name, count in KEYWORD_ONLY_ALLOWLIST.items() if counts.get(name) != count]
-    assert not stale, f"fixed or renamed; remove from KEYWORD_ONLY_ALLOWLIST: {stale}"
+def test_keyword_only_ratchet_has_no_stale_entries() -> None:
+    stale = sorted(KEYWORD_ONLY_RATCHET.keys() - _violations())
+    assert not stale, f"fixed or renamed; remove from tests/contract/ratchets/keyword_only.json: {stale}"
