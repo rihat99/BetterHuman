@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import torch
-from better_robot.exceptions import UnknownNameError
+from better_robot.exceptions import DtypeMismatchError, UnknownNameError
 
 from . import families, io
 from .core import FamilySpec, HumanModel, HumanState, Identity
@@ -40,10 +40,17 @@ def load(
     ``path`` is the weight file (default: found under ``$BETTERHUMAN_MODELS_DIR``). ``density``, ``contact_frames``
     and ``stream_joints`` are :meth:`HumanModel.from_spec`'s. Family options (gender, ``num_betas``, ...) go
     through ``HumanModel.from_spec(families.smplx(path, gender=...), ...)`` (decision record 0006). Raises
-    :class:`~better_robot.exceptions.UnknownNameError` for an unknown family.
+    :class:`~better_robot.exceptions.UnknownNameError` for an unknown family and
+    :class:`~better_robot.exceptions.DtypeMismatchError` for a ``dtype`` other than ``torch.float32`` or
+    ``torch.float64``, the floating dtypes BetterRobot computes in.
     """
     if family not in _LOADERS:
         raise UnknownNameError("family", family, list(_LOADERS))
+    if dtype not in (torch.float32, torch.float64):
+        raise DtypeMismatchError(
+            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
+            "pass dtype=torch.float32 or dtype=torch.float64"
+        )
     spec = _LOADERS[family](path, dtype=dtype, device=device)
     return HumanModel.from_spec(spec, density=density, contact_frames=contact_frames, stream_joints=stream_joints)
 
