@@ -8,6 +8,7 @@ import torch
 from better_robot.exceptions import ArgumentError, BetterRobotError
 
 from better_human.io import AssetNotFoundError
+from better_human.io.formats import FormatError
 from better_human.io.load import load_model_npz, models_dir, weight_path
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA, SMPL_SCHEMA
 
@@ -123,6 +124,31 @@ def test_object_valued_required_field_is_an_actionable_load_error(tmp_path: Path
         match=r"object_template\.npz.*'v_template'.*non-pickled numeric array.*Reconvert",
     ):
         load_model_npz(model_path, SMPL_SCHEMA)
+
+
+@pytest.mark.parametrize("corruption", ["garbage", "empty", "first_half", "tail_cut", "single_npy"])
+def test_an_unreadable_archive_is_a_format_error_naming_the_path(tmp_path: Path, corruption: str) -> None:
+    valid = tmp_path / "valid.npz"
+    _write_dense_fixture(valid)
+    raw = valid.read_bytes()
+    model_path = tmp_path / f"{corruption}.npz"
+    if corruption == "garbage":
+        model_path.write_bytes(b"this is not a zip archive" * 10)
+    elif corruption == "empty":
+        model_path.write_bytes(b"")
+    elif corruption == "first_half":
+        model_path.write_bytes(raw[: len(raw) // 2])
+    elif corruption == "tail_cut":
+        model_path.write_bytes(raw[:-100])
+    else:
+        with model_path.open("wb") as file:
+            np.save(file, np.zeros(3))
+
+    with pytest.raises(FormatError, match=r"not a readable \.npz archive") as raised:
+        load_model_npz(model_path, SMPL_SCHEMA)
+    assert str(model_path) in str(raised.value)
+    assert "allow_pickle" not in str(raised.value)
+    assert raised.value.__cause__ is None and raised.value.__context__ is None
 
 
 def test_mhr_resolution_uses_nested_canonical_layout(
