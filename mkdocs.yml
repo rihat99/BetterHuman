@@ -106,6 +106,8 @@ nav:
           - MHR archive: reference/formats/mhr.md
           - SOMA archive: reference/formats/soma.md
           - Frame set: reference/formats/frame_set.md
+          - Closed segmentation: reference/formats/segmentation.md
+          - Density tables: reference/formats/density_tables.md
   - Contracts:
       - Index: contracts/index.md
       - BetterHuman addendum: contracts/bh-addendum.md

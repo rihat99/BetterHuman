@@ -1,6 +1,6 @@
 """Find weight files, read and write frame sets, and check the formats BetterHuman files carry.
 
-The weight-file readers and their schemas are internal (``io.load``, ``io.schema``).
+The archive readers and their schemas are internal (``io.load``, ``io.schema``, ``io.mass_data``).
 """
 
 from .formats import FormatError, check_format

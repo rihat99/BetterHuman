@@ -1,4 +1,4 @@
-"""Declarative schemas for weight files: the fields each reader reads, with their shapes and dtypes."""
+"""Declarative schemas for the archives BetterHuman reads (weight files, the shipped mass data): fields, shapes, dtypes."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .formats import MHR, SOMA, FormatError
+from .formats import DENSITY_TABLES, MHR, SEGMENTATION, SOMA, FormatError
 
 #: Sentinel axis for the single derived width ``(num_joints - 1) * 9``.
 POSE_FEATURES = "(J-1)*9"
@@ -176,6 +176,34 @@ SOMA_SCHEMA = ModelSchema(
         "corrective_tanh": FieldSpec((), "bool"),
     },
     dimensions={"V": 18056, "S": 128, "J": 110, "P": 78, "T": 32},
+)
+
+#: Closed part meshes over ``[vertices; joints]``: part ``p`` is ``faces[part_offsets[p]:part_offsets[p + 1]]``.
+SEGMENTATION_SCHEMA = ModelSchema(
+    name="segmentation",
+    format=SEGMENTATION,
+    fields={
+        "format": FieldSpec((), "str"),
+        "format_version": FieldSpec((), "int64"),
+        "provenance": FieldSpec((), "str"),
+        "num_vertices": FieldSpec((), "int64"),
+        "faces": FieldSpec(("F", 3), "int64"),
+        "part_offsets": FieldSpec(("P+1",), "int64"),
+    },
+)
+
+#: Named density tables: ``densities[t, c]`` is table ``table_names[t]``'s kg/m³ for category ``categories[c]``.
+DENSITY_TABLES_SCHEMA = ModelSchema(
+    name="density_tables",
+    format=DENSITY_TABLES,
+    fields={
+        "format": FieldSpec((), "str"),
+        "format_version": FieldSpec((), "int64"),
+        "provenance": FieldSpec((), "str"),
+        "table_names": FieldSpec(("T",), "str"),
+        "categories": FieldSpec(("C",), "str"),
+        "densities": FieldSpec(("T", "C"), "float64"),
+    },
 )
 
 

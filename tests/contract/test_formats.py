@@ -23,9 +23,19 @@ import numpy as np
 import pytest
 
 from better_human.io import FormatError, check_format, read_frame_set, write_frame_set
-from better_human.io.formats import FRAME_SET, LATEST, MHR, MIGRATIONS, SOMA, header, upgrade
+from better_human.io.formats import (
+    DENSITY_TABLES,
+    FRAME_SET,
+    LATEST,
+    MHR,
+    MIGRATIONS,
+    SEGMENTATION,
+    SOMA,
+    header,
+    upgrade,
+)
 from better_human.io.load import load_model_npz
-from better_human.io.schema import MHR_SCHEMA, SOMA_SCHEMA, ModelSchema
+from better_human.io.schema import DENSITY_TABLES_SCHEMA, MHR_SCHEMA, SEGMENTATION_SCHEMA, SOMA_SCHEMA, ModelSchema
 
 REPO = Path(__file__).resolve().parents[2]
 PACKAGE = REPO / "src" / "better_human"
@@ -39,6 +49,8 @@ READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     MHR: ("npz", lambda path: load_model_npz(path, MHR_SCHEMA)),
     SOMA: ("npz", lambda path: load_model_npz(path, SOMA_SCHEMA)),
     FRAME_SET: ("json", read_frame_set),
+    SEGMENTATION: ("npz", lambda path: load_model_npz(path, SEGMENTATION_SCHEMA)),
+    DENSITY_TABLES: ("npz", lambda path: load_model_npz(path, DENSITY_TABLES_SCHEMA)),
 }
 #: The provenance a v1 archive migrates to: an MHR v1 archive has none, a SOMA v1 archive carries it as ``source``.
 V1_PROVENANCE = {MHR: "unknown (v1)", SOMA: '{"package": "py-soma-x"}'}
@@ -189,7 +201,10 @@ def _spec_fields(page: Path) -> dict[str, tuple[str, str]]:
     return fields
 
 
-@pytest.mark.parametrize("schema", [MHR_SCHEMA, SOMA_SCHEMA], ids=[MHR, SOMA])
+SCHEMAS = [MHR_SCHEMA, SOMA_SCHEMA, SEGMENTATION_SCHEMA, DENSITY_TABLES_SCHEMA]
+
+
+@pytest.mark.parametrize("schema", SCHEMAS, ids=[schema.format for schema in SCHEMAS])
 def test_spec_page_fields_are_the_schema(schema: ModelSchema) -> None:
     """Every field the reader reads has a row with its name, dtype and shape, and no row names another field."""
     expected = {

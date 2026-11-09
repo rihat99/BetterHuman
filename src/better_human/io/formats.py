@@ -20,9 +20,11 @@ from better_robot.exceptions import BetterRobotError
 MHR = "better_human.mhr"
 SOMA = "better_human.soma"
 FRAME_SET = "better_human.frame_set"
+SEGMENTATION = "better_human.segmentation"
+DENSITY_TABLES = "better_human.density_tables"
 
 #: The version each format's readers read and its writers write.
-LATEST = {MHR: 2, SOMA: 2, FRAME_SET: 1}
+LATEST = {MHR: 2, SOMA: 2, FRAME_SET: 1, SEGMENTATION: 1, DENSITY_TABLES: 1}
 
 
 def header(format: str) -> dict[str, Any]:
