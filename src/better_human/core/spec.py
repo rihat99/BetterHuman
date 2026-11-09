@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, final
 
 import torch
-from better_robot.exceptions import ShapeError
+from better_robot.exceptions import ShapeError, UnknownNameError
 
 if TYPE_CHECKING:
     from .rig import Rig
@@ -168,6 +168,9 @@ class FamilySpec:
         return {name: basis.shape[-1] for name, basis in self.stream_bases.items()}
 
     def joint_id(self, name: str) -> int:
+        """Native index of joint ``name``; :class:`~better_robot.exceptions.UnknownNameError` for another name."""
+        if name not in self.joint_names:
+            raise UnknownNameError("joint", name, self.joint_names)
         return self.joint_names.index(name)
 
     def skin_matrix(self) -> torch.Tensor:
