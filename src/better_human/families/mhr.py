@@ -16,7 +16,6 @@ from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.mass import segment_vertices
-from better_human.core.skinning import dense_weight_from_sparse
 from better_human.core.spec import Corrective, FamilySpec, Parts
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz
@@ -69,7 +68,7 @@ def mhr(
 
     corrective = Corrective("none")
     if correctives:
-        first_layer = dense_weight_from_sparse(
+        first_layer = _dense_weight_from_sparse(
             arrays["corrective_first_layer_indices"].to(device),
             floats("corrective_first_layer_weights"),
             arrays["corrective_first_layer_mask"].to(device),
@@ -173,6 +172,24 @@ def mhr_to_classic(identity: Identity, q: torch.Tensor, stream: dict[str, torch.
             q.new_zeros((*batch, EXPRESSION_COUNT)) if value is None else value.expand(*batch, EXPRESSION_COUNT)
         )
     return MHRClassic(coeffs.expand(*batch, IDENTITY_COUNT), model_parameters, expression)
+
+
+def _dense_weight_from_sparse(
+    sparse_indices: torch.Tensor,
+    sparse_values: torch.Tensor,
+    sparse_mask: torch.Tensor,
+) -> torch.Tensor:
+    """Bake coordinate-list values into one immutable dense weight matrix."""
+    if sparse_indices.dtype != torch.long or sparse_indices.ndim != 2 or sparse_indices.shape[0] != 2:
+        raise ValueError("sparse_indices must be an int64 tensor with shape (2, K)")
+    if sparse_values.ndim != 1 or sparse_values.shape[0] != sparse_indices.shape[1]:
+        raise ValueError("sparse_values must have shape (K,) matching sparse_indices")
+    if sparse_mask.dtype != torch.bool or sparse_mask.ndim != 2:
+        raise ValueError("sparse_mask must be a bool tensor with shape (H, P)")
+    if not torch.equal(sparse_indices, sparse_mask.nonzero().T):
+        raise ValueError("sparse_indices must exactly match sparse_mask.nonzero().T")
+    dense_weight = sparse_values.new_zeros(sparse_mask.shape)
+    return dense_weight.index_put((sparse_indices[0], sparse_indices[1]), sparse_values)
 
 
 __all__ = ["MHRClassic", "MhrRig", "mhr", "mhr_from_classic", "mhr_to_classic"]

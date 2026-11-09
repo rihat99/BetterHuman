@@ -23,7 +23,6 @@ from better_robot.io import build_model
 from better_robot.kinematics import forward_kinematics, full_configuration
 from better_robot.lie import se3, so3
 
-from better_human.core.skinning import pose_feature_6d_from_euler
 from better_human.core.rig import Rig, RigBake, gravity
 
 if TYPE_CHECKING:
@@ -139,7 +138,7 @@ class MhrRig(Rig):
     ) -> torch.Tensor:
         """``(..., 6 (J - 2))``: 6D features of the Euler angles of every joint after ``root``."""
         entries = full_configuration(model, q).index_select(-1, self.corrective_entries)
-        return pose_feature_6d_from_euler((entries @ self.corrective_rows).unflatten(-1, (-1, 3)))
+        return _pose_feature_6d_from_euler((entries @ self.corrective_rows).unflatten(-1, (-1, 3)))
 
     def to(self, dtype: torch.dtype, device: torch.device) -> MhrRig:
         """Rig tensors in ``dtype`` on ``device``; the BR model only moves (``build_model`` casts it)."""
@@ -225,6 +224,33 @@ def _joint_tree(
         "corrective_entries": torch.tensor(full_slots),
         "corrective_rows": torch.nn.functional.one_hot(euler_ids, 3 * (len(names) - 2)).to(dtype),
     }
+
+
+def _pose_feature_6d_from_euler(joint_euler_angles: torch.Tensor) -> torch.Tensor:
+    """Return MHR-style 6D features from local XYZ Euler channels.
+
+    ``joint_euler_angles`` has shape ``(..., J, 3)`` and stores ``rx, ry,
+    rz``. The local rotation is ``Rz(rz) @ Ry(ry) @ Rx(rx)``. The first two
+    matrix columns, minus their identity values, are flattened to
+    ``(..., J * 6)``.
+    """
+    cosine = torch.cos(joint_euler_angles)
+    sine = torch.sin(joint_euler_angles)
+    cx, cy, cz = cosine.unbind(dim=-1)
+    sx, sy, sz = sine.unbind(dim=-1)
+    feature = torch.stack(
+        (
+            cy * cz,
+            cy * sz,
+            -sy,
+            -cx * sz + sx * sy * cz,
+            cx * cz + sx * sy * sz,
+            sx * cy,
+        ),
+        dim=-1,
+    )
+    identity = feature.new_tensor((1.0, 0.0, 0.0, 0.0, 1.0, 0.0))
+    return (feature - identity).flatten(start_dim=-2)
 
 
 __all__ = ["MhrRig"]

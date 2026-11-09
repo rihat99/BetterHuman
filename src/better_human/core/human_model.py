@@ -20,7 +20,7 @@ from better_robot.lie import so3
 
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
 from .mass import PartMeshTopology, body_inertias_from_shape, build_authored_topology, build_part_topology
-from .skinning import blend_shapes, lbs_affines, skin_affines
+from .skinning import blend_shapes, linear_blend_skinning, skin_affines
 from .rig import RigBake
 from .spec import FamilySpec
 
@@ -112,8 +112,8 @@ class HumanModel:
             # The parts are integrated in the neutral configuration: their frames and the mesh posed there.
             neutral = forward_kinematics(model, model.q_neutral)
             transforms = spec.rig.joint_transforms(spec, model, kinematics=neutral)
-            vertices = lbs_affines(
-                bake.rest_vertices, skin_affines(transforms, bake.inverse_bind_affines), self.skin_matrix
+            vertices = linear_blend_skinning(
+                bake.rest_vertices, skin_affines(transforms, bake.inverse_bind_affines), weights=self.skin_matrix
             )
             part_joints = self.joint_ids.index_select(0, torch.as_tensor(spec.parts.joints, device=spec.device))
             part_poses = neutral.joint_poses.index_select(-2, part_joints)
@@ -268,14 +268,17 @@ class HumanState:
     def vertices(self) -> torch.Tensor:
         """``(..., V, 3)`` posed mesh."""
         return self._memoised(
-            "vertices", lambda: lbs_affines(self.rest_vertices(), self.skin_affines, self.identity.human.skin_matrix)
+            "vertices",
+            lambda: linear_blend_skinning(
+                self.rest_vertices(), self.skin_affines, weights=self.identity.human.skin_matrix
+            ),
         )
 
     def points(self, vertex_ids: torch.Tensor) -> torch.Tensor:
         """``(..., M, 3)`` posed positions of ``vertex_ids (M,)``, skinning only those vertices."""
         vertex_ids = torch.as_tensor(vertex_ids, dtype=torch.long, device=self.q.device)
         skin = self.identity.human.skin_matrix[vertex_ids]
-        return lbs_affines(self.rest_vertices(vertex_ids), self.skin_affines, skin)
+        return linear_blend_skinning(self.rest_vertices(vertex_ids), self.skin_affines, weights=skin)
 
     def landmarks(self, name: str = "keypoints") -> torch.Tensor:
         """``(..., L, 3)`` posed landmark set ``name`` of the family."""

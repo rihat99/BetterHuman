@@ -9,11 +9,12 @@ from typing import ClassVar, final
 import torch
 from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
+from better_robot.lie import so3
 
-from better_human.core.skinning import pose_feature_rotmat_minus_identity, regress_joints
 from better_human.core.reduction import reduce_joint_data
 from better_human.core.rig import Rig, RigBake, gravity
-from better_human.core.spec import Corrective, FamilySpec, Parts, top_k_skin
+from better_human.core.skinning import top_k_skin
+from better_human.core.spec import Corrective, FamilySpec, Parts
 
 
 @final
@@ -45,7 +46,7 @@ class RegressedRig(Rig):
     def bake(
         self, spec: FamilySpec, model: Model, *, shaped_vertices: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> RigBake:
-        joints = regress_joints(self.joint_regressor, shaped_vertices)
+        joints = torch.einsum("jv,...vc->...jc", self.joint_regressor, shaped_vertices)
         root_offset = joints[..., 0, :]
         rest_joints = joints - root_offset[..., None, :]
         eye = torch.eye(3, dtype=rest_joints.dtype, device=rest_joints.device).expand(*rest_joints.shape[:-1], 3, 3)
@@ -64,7 +65,7 @@ class RegressedRig(Rig):
         self, spec: FamilySpec, model: Model, *, q: torch.Tensor, identity: Mapping[str, torch.Tensor]
     ) -> torch.Tensor:
         quaternions = q[..., 7:].unflatten(-1, (spec.num_joints - 1, 4))
-        return pose_feature_rotmat_minus_identity(quaternions)
+        return _pose_feature_rotmat_minus_identity(quaternions)
 
     def stream_joint_basis(self, spec: FamilySpec, name: str) -> torch.Tensor:
         return torch.einsum("jv,vcn->jcn", self.joint_regressor, spec.stream_bases[name])
@@ -122,6 +123,18 @@ def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
         parts=Parts(part_ids[spec.parts.ids], part_joints),
         meta={**spec.meta, "native_joint_ids": survivor_tensor},
     )
+
+
+def _pose_feature_rotmat_minus_identity(joint_quaternions: torch.Tensor) -> torch.Tensor:
+    """Return flattened non-root ``(R - I)`` pose features.
+
+    ``joint_quaternions`` contains only non-root joints and has shape
+    ``(..., J - 1, 4)`` in scalar-last order. The result has shape
+    ``(..., (J - 1) * 9)``.
+    """
+    rotation_matrices = so3.to_matrix(so3.normalize(joint_quaternions))
+    identity = torch.eye(3, dtype=joint_quaternions.dtype, device=joint_quaternions.device)
+    return (rotation_matrices - identity).flatten(start_dim=-3)
 
 
 __all__ = ["RegressedRig", "drop_joints"]

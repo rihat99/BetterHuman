@@ -188,15 +188,4 @@ class FamilySpec:
         )
 
 
-def top_k_skin(weights: torch.Tensor, k: int | None = None) -> tuple[torch.Tensor, torch.Tensor]:
-    """Dense ``(V, J)`` weights to padded ``(V, K)`` values and indices (``K`` = largest row support)."""
-    nonzero = weights != 0
-    if k is None:
-        k = int(nonzero.sum(dim=-1).max().item())
-    order = torch.argsort(nonzero.to(torch.int8), dim=-1, descending=True, stable=True)[:, :k]
-    values = torch.gather(weights, 1, order)
-    indices = torch.where(values != 0, order, torch.zeros_like(order))
-    return values, indices
-
-
-__all__ = ["Corrective", "FamilySpec", "Parts", "top_k_skin"]
+__all__ = ["Corrective", "FamilySpec", "Parts"]

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 import torch
+from better_robot.lie import so3
 
-from better_human.core.skinning import linear_corrective, pose_feature_rotmat_minus_identity
 from better_human.core.reduction import reduce_joint_data, slice_parameter_basis
 
 NAMES = ("root", "branch", "leaf_a", "leaf_b")
@@ -20,6 +20,11 @@ def _joint_data() -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     )
     posedirs = torch.arange(2 * 3 * 27, dtype=torch.float32).reshape(2, 3, 27)
     return regressor, weights, posedirs
+
+
+def _rotmat_feature(quaternions: torch.Tensor) -> torch.Tensor:
+    """The SMPL family's ``(R - I)`` pose feature ``(J * 9,)`` of quaternions ``(J, 4)``, normalised as FK does."""
+    return (so3.to_matrix(so3.normalize(quaternions)) - torch.eye(3, dtype=quaternions.dtype)).flatten(start_dim=-3)
 
 
 def test_reduction_rejects_root_and_nonterminal_drops() -> None:
@@ -71,13 +76,13 @@ def test_corrective_slice_is_exact_when_dropped_joint_is_at_rest() -> None:
     )
     # The matmul sums the dropped zero rows in another order: equal to one ulp in either dtype, not bitwise.
     for dtype, rtol, atol in ((torch.float32, 1e-6, 1e-7), (torch.float64, 1e-15, 0.0)):
-        full_feature = pose_feature_rotmat_minus_identity(quaternions.to(dtype))
-        reduced_feature = pose_feature_rotmat_minus_identity(quaternions[:2].to(dtype))
+        full_feature = _rotmat_feature(quaternions.to(dtype))
+        reduced_feature = _rotmat_feature(quaternions[:2].to(dtype))
         full_matrix = posedirs.to(dtype).reshape(-1, posedirs.shape[-1]).T
         reduced_matrix = reduced_posedirs.to(dtype).reshape(-1, reduced_posedirs.shape[-1]).T
         torch.testing.assert_close(
-            linear_corrective(full_feature, full_matrix),
-            linear_corrective(reduced_feature, reduced_matrix),
+            (full_feature @ full_matrix).unflatten(-1, (-1, 3)),
+            (reduced_feature @ reduced_matrix).unflatten(-1, (-1, 3)),
             rtol=rtol,
             atol=atol,
         )

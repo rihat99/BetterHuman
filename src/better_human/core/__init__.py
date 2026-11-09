@@ -3,7 +3,8 @@
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents, vertex_normals
 from .human_model import HumanModel, HumanState, Identity
 from .rig import Rig, RigBake
-from .spec import Corrective, FamilySpec, Parts, top_k_skin
+from .skinning import blend_shapes, linear_blend_skinning, skin_affines, top_k_skin
+from .spec import Corrective, FamilySpec, Parts
 
 __all__ = [
     "ContactFrames",
@@ -15,8 +16,11 @@ __all__ = [
     "Parts",
     "Rig",
     "RigBake",
+    "blend_shapes",
     "frame_local_placements",
+    "linear_blend_skinning",
     "resolve_parents",
+    "skin_affines",
     "top_k_skin",
     "vertex_normals",
 ]

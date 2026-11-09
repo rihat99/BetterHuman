@@ -22,8 +22,8 @@ from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
 from better_robot.lie import so3
 
-from better_human.core.skinning import lbs_affines, regress_joints
 from better_human.core.rig import Rig, RigBake, gravity
+from better_human.core.skinning import linear_blend_skinning
 
 if TYPE_CHECKING:
     from better_robot.kinematics import KinematicState
@@ -188,7 +188,7 @@ class SomaRig(Rig):
         translations = -(self.bind_rotations.mT @ positions[..., None])
         return RigBake(
             joint_placements=self._placements(positions),
-            rest_vertices=lbs_affines(shaped_vertices, repose, self.public_weights),
+            rest_vertices=linear_blend_skinning(shaped_vertices, repose, weights=self.public_weights),
             rest_joint_translations=positions,
             inverse_bind_affines=torch.cat((rotations, translations), dim=-1),
             root_offset=positions.new_zeros((*positions.shape[:-2], 3)),
@@ -240,7 +240,7 @@ class SomaRig(Rig):
         """
         parents = self.public_parents
         bind = self.bind_rotations[self.public_ids]
-        positions = regress_joints(self.joint_regressor, v_shaped)
+        positions = torch.einsum("jv,...vc->...jc", self.joint_regressor, v_shaped)
         rotations = self._fit_rotations(v_shaped, positions, bind)
         local = (rotations[..., parents, :, :].mT @ (positions - positions[..., parents, :])[..., None]).squeeze(-1)
         offsets = (bind[parents] @ (local * self.repose_mask)[..., None]).squeeze(-1)
