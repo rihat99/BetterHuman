@@ -12,7 +12,7 @@ BetterHuman builds a BetterRobot `Model` per subject and reuses BetterRobot for 
 |---|---|
 | `Model`, `ModelBuilder`, `io.build_model` | weight-file readers, family tables, MHR rig |
 | `KinematicState`, Jacobians, `dynamics` | blend shapes, pose correctives, top-K skinning |
-| `lie.{so3,se3}`, `spatial.Inertia` | per-part mass from mesh volume, contact frames |
+| `lie.{so3,se3}`, `spatial.inertia_of_mesh` | per-part mass from mesh volume, contact frames |
 | `optim` solvers, `Problem`, `TermFn` | `better_human.terms` (markers, reprojection, ground, ...) |
 | `viewer` layers and `Viewer` | `better_human.viz` (`human_layers`, `HumanView`, HumanStudio) |
 
@@ -165,7 +165,7 @@ joints and the expression group. Converting a pose that uses a dropped joint rai
 1. The spec's `Parts` segment the mesh; `build_authored_topology` closes each part with
    authored joint caps into one `PartMeshTopology` (built once per `Body`).
 2. On every bake the shaped part meshes go through
-   `better_robot.spatial.Inertia.from_mesh` (differentiable) with `density` in kg/m³
+   `better_robot.spatial.inertia_of_mesh` (differentiable) with `density` in kg/m³
    (scalar or one value per part).
 3. The inertias are written into `identity.model`, so BR dynamics (`inverse_dynamics`,
    `mass_matrix`) use the subject's mass.

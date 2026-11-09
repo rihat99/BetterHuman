@@ -4,7 +4,7 @@ Human mass and dynamics need each vertex assigned to the body part it moves
 with, and each part closed into a solid whose volume, centre of mass, and
 inertia can be integrated. BetterHuman derives that closed part topology from
 **two segmentation sources** that both flow into the one differentiable
-`Inertia.from_mesh` integrator (`core/mass.py`). This page explains what the two
+`inertia_of_mesh` integrator (`core/mass.py`). This page explains what the two
 sources are, why the authored one preserves volume, and when each is used — the
 images make the difference visible.
 
@@ -41,7 +41,7 @@ signed volume and the 24 closed parts telescope back to the original surface.
 
 Three SMPL parts — `spine3`, `left_collar`, `right_collar` — are genuinely open
 and non-manifold at the shoulder-girdle seam, so their individual absolute
-volumes are origin-dependent. `Inertia.from_mesh` integrates each part about its
+volumes are origin-dependent. `inertia_of_mesh` integrates each part about its
 own mean, which makes the *aggregate* exact even though those three parts are
 open. Measured on the neutral SMPL fixture at 1000 kg/m³:
 

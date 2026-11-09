@@ -1,7 +1,7 @@
 """Shape-dependent human mesh segmentation and rigid-body inertias.
 
 Two segmentation sources feed one :class:`PartMeshTopology` and the shared,
-differentiable :meth:`better_robot.spatial.Inertia.from_mesh` integrator:
+differentiable :func:`better_robot.spatial.inertia_of_mesh` integrator:
 
 - :func:`build_authored_topology` closes each part with authored joint caps
   from a vetted closed-3D asset (default for SMPL-family models that ship one).
@@ -16,8 +16,7 @@ from dataclasses import dataclass
 
 import torch
 from better_robot.lie import se3
-from better_robot.spatial import Inertia
-from better_robot.spatial.mesh import orient_faces_by_component
+from better_robot.spatial import inertia_of_mesh, orient_faces_by_component
 
 
 @dataclass(frozen=True)
@@ -256,7 +255,7 @@ def body_inertias_from_shape(
             local_vertices = vertices - rest_joint[..., None, :]
         else:
             local_vertices = se3.act(se3.inverse(rest_joint)[..., None, :], vertices)
-        packed_parts.append(Inertia.from_mesh(local_vertices, faces, density=per_part[part]).data)
+        packed_parts.append(inertia_of_mesh(local_vertices, faces, density=per_part[part], check_mesh=True))
     native = torch.stack(packed_parts, dim=-2)
     universe = native.new_zeros((*native.shape[:-2], 1, 10))
     return torch.cat((universe, native), dim=-2)

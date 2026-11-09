@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 import torch
 from better_robot.lie import se3, so3
-from better_robot.spatial import Inertia
+from better_robot.spatial import inertia_of_mesh
 
 import better_human as bh
 from better_human.families.assets import load_density_table
@@ -105,8 +105,8 @@ def test_part_meshes_caps_mixed_face_partition_as_closed_surfaces() -> None:
     masses = []
     for part_vertices, part_faces in meshes:
         _assert_closed_edges(part_faces)
-        masses.append(Inertia.from_mesh(part_vertices, part_faces).mass)
-    torch.testing.assert_close(torch.stack(masses).sum(), Inertia.from_mesh(vertices, faces).mass)
+        masses.append(inertia_of_mesh(part_vertices, part_faces)[0])
+    torch.testing.assert_close(torch.stack(masses).sum(), inertia_of_mesh(vertices, faces)[0])
 
 
 def test_authored_caps_accept_rotated_se3_part_frames() -> None:
@@ -131,7 +131,7 @@ def test_authored_caps_accept_rotated_se3_part_frames() -> None:
     actual = body_inertias_from_shape(vertices, pose, topology, torch.tensor(1000.0))[1]
     capped = torch.cat((vertices, pose[:, :3]), dim=0)
     local = se3.act(se3.inverse(pose)[..., None, :], capped).squeeze(0)
-    expected = Inertia.from_mesh(local, faces, density=1000.0).data
+    expected = inertia_of_mesh(local, faces, density=1000.0)
     torch.testing.assert_close(actual, expected)
 
 
@@ -186,18 +186,18 @@ def test_neutral_mass_conservation_and_com_plausibility(mass_body: bh.Body) -> N
     assert _native(mass_body.bake()) is not None
     packed = _native(mass_body.bake())[1:]
     part_mass = packed[:, 0].sum()
-    whole = Inertia.from_mesh(
+    whole = inertia_of_mesh(
         mass_body.bake().v_shaped,
         mass_body.spec.faces,
         density=1000.0,
     )
-    relative_error = (part_mass - whole.mass).abs() / whole.mass
+    relative_error = (part_mass - whole[0]).abs() / whole[0]
     assert relative_error <= CONSERVATION_RTOL
     assert 70.0 <= part_mass <= 90.0
 
     global_part_com = packed[:, 1:4] + mass_body.bake().rest_joints
     aggregate_com = (packed[:, 0, None] * global_part_com).sum(dim=0) / part_mass
-    torch.testing.assert_close(aggregate_com, whole.com, rtol=0, atol=COM_ATOL)
+    torch.testing.assert_close(aggregate_com, whole[1:4], rtol=0, atol=COM_ATOL)
     lower = mass_body.bake().v_shaped.amin(dim=-2)
     upper = mass_body.bake().v_shaped.amax(dim=-2)
     assert bool(((aggregate_com >= lower) & (aggregate_com <= upper)).all())
@@ -223,8 +223,8 @@ def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body:
 def test_authored_segmentation_volume_matches_whole_mesh(mass_body: bh.Body) -> None:
     packed = _native(mass_body.bake())[1:]
     part_volume = (packed[:, 0] / mass_body.density).sum()
-    whole = Inertia.from_mesh(mass_body.bake().v_shaped, mass_body.spec.faces, density=1000.0)
-    whole_volume = whole.mass / 1000.0
+    whole = inertia_of_mesh(mass_body.bake().v_shaped, mass_body.spec.faces, density=1000.0)
+    whole_volume = whole[0] / 1000.0
     relative_error = (part_volume - whole_volume).abs() / whole_volume
     assert relative_error < AUTHORED_VOLUME_RTOL, f"authored volume gap {relative_error * 1e6:.1f} ppm"
     total_mass = packed[:, 0].sum()
@@ -293,7 +293,7 @@ def test_argmax_fallback_integrates_smplx_parts() -> None:
     topology = body.topology
     assert topology is not None
     for vertices, faces in meshes_from_topology(body.bake().v_shaped, topology):
-        assert Inertia.from_mesh(vertices, faces, density=1000.0).mass > 0
+        assert inertia_of_mesh(vertices, faces, density=1000.0)[0] > 0
 
 
 @FLOAT32_GRADCHECK

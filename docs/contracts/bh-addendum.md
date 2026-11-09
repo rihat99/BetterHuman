@@ -121,7 +121,7 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 
 ### Differentiability
 
-- `bake`, `forward`, `vertices`, `points`, `landmarks`, mass (`Inertia.from_mesh`) and BR
+- `bake`, `forward`, `vertices`, `points`, `landmarks`, mass (`inertia_of_mesh`) and BR
   kinematics/dynamics are differentiable in the identity values, `q` and streams.
 - `HumanState` memoises `joint_transforms`, `skin_affines`, `corrective_feature` and `vertices`; create a new state
   for new inputs, never mutate one.
