@@ -2,7 +2,7 @@
 
 A family loader builds the spec once at the requested dtype and device (decision record 0005); nothing in
 BetterHuman moves or casts it afterwards. Every field has a type (record 0008): ``provenance`` is the only free-form
-mapping.
+mapping. Every mapping field is a read-only copy (``MappingProxyType``), nested mappings too.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, final
 
 import torch
@@ -50,6 +51,13 @@ class MLPCorrective(Corrective):
         return _offsets(torch.nn.functional.linear(feature, self.first_layer).relu(), self.output, vertex_ids)
 
 
+def _read_only(mapping: Mapping[Any, Any]) -> MappingProxyType:
+    """A read-only copy of ``mapping`` whose mapping values are read-only too: frozen records stay frozen inside."""
+    return MappingProxyType(
+        {key: _read_only(value) if isinstance(value, Mapping) else value for key, value in mapping.items()}
+    )
+
+
 def _offsets(feature: torch.Tensor, matrix: torch.Tensor, vertex_ids: torch.Tensor | None) -> torch.Tensor:
     if vertex_ids is not None:
         matrix = matrix.unflatten(-1, (-1, 3))[:, vertex_ids].flatten(-2)
@@ -74,6 +82,11 @@ class Parts:
     density_categories: tuple[str | None, ...]
     density_tables: Mapping[str, Mapping[str, float]]
     closed_faces: Mapping[int, torch.Tensor] | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "density_tables", _read_only(self.density_tables))
+        if self.closed_faces is not None:
+            object.__setattr__(self, "closed_faces", _read_only(self.closed_faces))
 
     @property
     def count(self) -> int:
@@ -123,6 +136,8 @@ class FamilySpec:
     meta: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        for name in ("identity_bases", "stream_bases", "provenance", "meta"):
+            object.__setattr__(self, name, _read_only(getattr(self, name)))
         num_vertices, num_joints = self.template_vertices.shape[0], len(self.joint_names)
         if self.template_vertices.shape != (num_vertices, 3) or self.faces.ndim != 2 or self.faces.shape[1] != 3:
             raise ShapeError("template_vertices must be (V, 3) and faces (F, 3)")
