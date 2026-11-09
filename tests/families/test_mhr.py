@@ -10,6 +10,7 @@ import torch
 from better_human import HumanModel, families
 from better_human.families.mhr import MHRClassic, mhr_from_classic, mhr_to_classic
 from better_human.io import weight_path
+from better_robot.exceptions import ArgumentError, DtypeMismatchError
 from better_robot.kinematics import full_configuration
 
 pytestmark = pytest.mark.licensed
@@ -154,12 +155,12 @@ def test_mass_lives_on_part_bodies_only(body: HumanModel) -> None:
 
 def test_spec_and_classic_validation() -> None:
     path = weight_path("MHR", "converted/mhr_lod6.npz")
-    with pytest.raises(TypeError, match="torch.float32 or torch.float64"):
+    with pytest.raises(DtypeMismatchError, match="torch.float32 or torch.float64"):
         families.mhr(path, lod=6, dtype=torch.float16)
     for lod in (-1, 7, 1.0, True):
-        with pytest.raises(ValueError, match="lod must be one of"):
+        with pytest.raises(ArgumentError, match="lod must be one of"):
             families.mhr(path, lod=lod)
-    with pytest.raises(TypeError, match="must be bool"):
+    with pytest.raises(ArgumentError, match="must be bool"):
         families.mhr(path, lod=6, expression=1)
     body = HumanModel.from_spec(families.mhr(path, lod=6, correctives=False, device="cpu"))
     assert body.spec.device == torch.device("cpu")

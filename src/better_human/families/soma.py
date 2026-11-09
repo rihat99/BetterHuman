@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import torch
+from better_robot.exceptions import ArgumentError, DtypeMismatchError, ShapeError
 from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
-from better_human.io import weight_path
+from better_human.io import FormatError, weight_path
 from better_human.io.load import load_model_npz
 from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
@@ -44,9 +45,12 @@ def soma(
     (decision record 0005).
     """
     if not isinstance(correctives, bool):
-        raise TypeError("correctives must be bool")
+        raise ArgumentError(f"correctives must be bool, got {correctives!r}")
     if dtype not in (torch.float32, torch.float64):
-        raise TypeError(f"dtype must be torch.float32 or torch.float64, got {dtype}")
+        raise DtypeMismatchError(
+            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
+            "pass dtype=torch.float32 or dtype=torch.float64"
+        )
     device = torch.device("cpu" if device is None else device)
     arrays = load_model_npz(
         weight_path("SOMA", "soma_mid.npz", path=path),
@@ -60,7 +64,9 @@ def soma(
     corrective = None
     if correctives:
         if bool(arrays["corrective_tanh"]):
-            raise ValueError("SOMA correctives with a tanh hidden layer are not supported")
+            raise FormatError(
+                "SOMA correctives with a tanh hidden layer are not supported; load with correctives=False"
+            )
         rows, columns = arrays["corrective_output_indices"].to(device)
         values = floats("corrective_output_values")
         output = values.new_zeros(arrays["corrective_output_shape"].tolist()).index_put_((rows, columns), values)
@@ -119,7 +125,7 @@ def soma_from_classic(
     if identity is None or poses is None or transl is None:
         raise TypeError("identity_coeffs, poses and transl must be floating torch.Tensors")
     if poses.shape[-2:] != (POSE_JOINT_COUNT, 3):
-        raise ValueError(f"poses must have shape (..., {POSE_JOINT_COUNT}, 3); got {tuple(poses.shape)}")
+        raise ShapeError(f"poses must have shape (..., {POSE_JOINT_COUNT}, 3); got {tuple(poses.shape)}")
     orient = human.spec.rig.t_pose_rotations[2:]
     rotations = so3.exp(torch.cat((poses[..., :1, :], (orient.mT @ poses[..., 1:, :, None]).squeeze(-1)), dim=-2))
     batch = torch.broadcast_shapes(transl.shape[:-1], rotations.shape[:-2])

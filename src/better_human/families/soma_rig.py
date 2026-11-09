@@ -19,11 +19,13 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from better_robot import Model, ModelBuilder
+from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.lie import so3
 
 from better_human.core.rig import Rig, RigBake, gravity
 from better_human.core.skinning import linear_blend_skinning
+from better_human.io import FormatError
 
 if TYPE_CHECKING:
     from better_robot.kinematics import KinematicState
@@ -106,7 +108,10 @@ class SomaRig(Rig):
         start, end, parent, reverse = (arrays[f"segment_{role}"] for role in ("start", "end", "parent", "reverse"))
         targets = torch.cat((end, start[reverse])).tolist()
         if len(set(targets)) < len(targets):
-            raise ValueError("SOMA twist segments must end on distinct joints that no reverse segment starts on")
+            raise FormatError(
+                "SOMA twist segments must end on distinct joints that no reverse segment starts on; "
+                "convert the archive again with tools/convert/soma"
+            )
         expansion = torch.zeros(len(parents), count, dtype=torch.float64)
         expansion[public, torch.arange(count)] = 1.0
         expansion[helpers, start[segment]] = 1.0 - fraction
@@ -172,7 +177,7 @@ class SomaRig(Rig):
     def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
         """BR model with the template (mean shape) placements; ``bake`` replaces them per identity."""
         if frames:
-            raise ValueError("SOMA does not support contact frames")
+            raise ArgumentError("SOMA does not support contact frames; load it with contact_frames=None")
         placements = self._placements(self._fit_and_repose(spec.template_vertices)[0]).cpu()
         names, helpers = spec.joint_names, set(self.helper_ids.tolist())
         builder = ModelBuilder(spec.name, gravity=gravity(spec.up_axis))

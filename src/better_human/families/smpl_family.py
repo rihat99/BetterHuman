@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import torch
+from better_robot.exceptions import ArgumentError, UnknownNameError
 
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
@@ -29,13 +30,13 @@ HAND_DIM = 45
 def _gender(gender: str) -> str:
     normalized = gender.lower()
     if normalized not in {"female", "male", "neutral"}:
-        raise ValueError("gender must be 'female', 'male' or 'neutral'")
+        raise UnknownNameError("gender", gender, ["female", "male", "neutral"])
     return normalized
 
 
 def _check_width(name: str, value: int, limit: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 1 or value > limit:
-        raise ValueError(f"{name} must be in [1, {limit}], got {value!r}")
+        raise ArgumentError(f"{name} must be an int in [1, {limit}], got {value!r}")
     return value
 
 
@@ -47,7 +48,7 @@ def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
     for column in range(1, len(joint_ids)):
         parent_id = int(kintree_table[0, column])
         if parent_id not in columns_by_id:
-            raise ValueError(f"kintree parent id {parent_id} for joint column {column} does not exist")
+            raise FormatError(f"kintree parent id {parent_id} for joint column {column} does not exist")
         parents.append(columns_by_id[parent_id])
     return tuple(parents)
 
@@ -73,7 +74,10 @@ def load_family(
     """
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
-        raise ValueError(f"{table.name} weights hold {joint_count} joints; expected {len(table.joint_names)}")
+        raise FormatError(
+            f"{table.name} weights hold {joint_count} joints; expected {len(table.joint_names)}. "
+            f"Pass an unmodified {table.name} file."
+        )
     device = torch.device("cpu" if device is None else device)
     shapedirs = arrays["shapedirs"]
     columns = columns or {"betas": slice(0, shapedirs.shape[-1])}
@@ -240,7 +244,7 @@ def mano(
 ) -> FamilySpec:
     """MANO hand (16 joints, 778 vertices) with its PCA pose space in ``meta``."""
     if side not in {"left", "right"}:
-        raise ValueError("side must be 'left' or 'right'")
+        raise UnknownNameError("side", side, ["left", "right"])
     table = tables.MANO
     path = weight_path(table.folder, table.file_pattern.format(side=side.upper()), path=path)
     arrays = load_model_npz(path, MANO_SCHEMA)

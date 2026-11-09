@@ -19,11 +19,13 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from better_robot import Model, ModelBuilder
+from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.kinematics import forward_kinematics, full_configuration
 from better_robot.lie import se3, so3
 
 from better_human.core.rig import Rig, RigBake, gravity
+from better_human.io import FormatError
 
 if TYPE_CHECKING:
     from better_human.core.spec import FamilySpec
@@ -57,11 +59,11 @@ class MhrRig(Rig):
     def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> MhrRig:
         """Rig from validated ``mhr_lod*.npz`` arrays (``tools/convert/mhr``), built in ``dtype`` on ``device``."""
         if any(parent >= joint for joint, parent in enumerate(arrays["joint_parents"].tolist())):
-            raise ValueError("MHR joint parents must precede their children")
+            raise FormatError("MHR joint parents must precede their children; convert the archive again")
         offsets = arrays["joint_translation_offsets"].to(dtype)
         pre_rotations = so3.normalize(arrays["joint_pre_rotations"].to(dtype))
         if not torch.equal(pre_rotations[1], pre_rotations.new_tensor((0.0, 0.0, 0.0, 1.0))):
-            raise ValueError("MHR root pre-rotation must be the identity: q[:3] is the root's world translation")
+            raise FormatError("MHR root pre-rotation must be the identity: q[:3] is the root's world translation")
         kinds = arrays["model_parameter_channel_types"].tolist()
         proportions = [column for column, kind in enumerate(kinds) if kind in (0, 2) and column >= ROOT_COUNT]
         rows, columns = arrays["parameter_transform_rows"], arrays["parameter_transform_columns"]
@@ -85,7 +87,7 @@ class MhrRig(Rig):
     def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
         """BR model at zero proportions; ``bake`` re-places it per identity."""
         if frames:
-            raise ValueError("MHR does not support contact frames")
+            raise ArgumentError("MHR does not support contact frames; load it with contact_frames=None")
         return self.model
 
     def bake(
@@ -202,7 +204,7 @@ def _joint_tree(
     model = build_model(builder.finalize(), dtype=dtype, device=device)
     dims = (model.nq, model.nv, model.nq_full, model.nv_full)
     if dims != (132, 131, 179, 178) or model.joint_names[1] != "root" or model.idx_qs[1] != 0:
-        raise ValueError(f"unexpected MHR tree: (nq, nv, nq_full, nv_full) = {dims}, root free flyer not at q[:7]")
+        raise FormatError(f"unexpected MHR tree: (nq, nv, nq_full, nv_full) = {dims}, root free flyer not at q[:7]")
     # Every host angle has one q slot after the root: sorting the hosts by slot gives the q order.
     pose_columns = sorted(hosts, key=lambda column: model.idx_qs[model.joint_id(parameters[column])])
     full_slots = [model.idx_qs_full[model.joint_id(entry_joints[entry])] for entry, *_ in entries]
