@@ -20,7 +20,7 @@ from better_robot.terms import RobotManifold
 from better_robot.viewer import LIGHT, GroundLayer, Viewer
 from better_robot.viewer.tools import PoseGizmo
 
-WRIST = 20  # native joint index of left_wrist
+WRIST = "left_wrist"
 
 
 def main() -> None:
@@ -41,10 +41,11 @@ def main() -> None:
     for layer in view:
         viewer.add(layer, group="smpl")
 
-    target = state.joint_poses[0, WRIST].clone()
+    wrist = human.spec.joint_id(WRIST)
+    target = state.joint_poses[0, wrist].clone()
     problem = Problem({"q": q}, manifolds={"q": RobotManifold(model)}, data={"target": target[None, :3]})
     problem.cached(terms.human_state(identity), name="state")
-    problem.residual("wrist", terms.joints(target="target", joint_ids=[WRIST]))
+    problem.residual("wrist", terms.joints(target="target", joint_names=[WRIST]))
     problem.residual("prior", terms.pose_prior(identity), weight=0.05)
     current = {"q": q}
 
@@ -60,7 +61,7 @@ def main() -> None:
         moved = target.clone()
         moved[:3] += torch.tensor([0.15, 0.10, 0.05])
         follow(moved.numpy())
-        reached = identity.forward(current["q"]).joint_translations[0, WRIST]
+        reached = identity.forward(current["q"]).joint_translations[0, wrist]
         print(f"target moved, residual {float((reached - moved[:3]).norm()):.1e} m")
         viewer.server.stop()
         return

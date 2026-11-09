@@ -6,9 +6,11 @@ import pytest
 import torch
 
 import better_human as bh
+from better_robot.exceptions import ShapeError, UnknownNameError
+from better_robot.kinematics import integrate
+
 from better_human import terms
 from better_human.io import weight_path
-from better_robot.kinematics import integrate
 
 pytestmark = pytest.mark.licensed
 
@@ -38,16 +40,29 @@ def test_terms_keep_leading_batch_axes(identity: bh.Identity) -> None:
     assert terms.pose_prior(identity).fn(q).shape == (2, 3, identity.model.nv - 6)
 
 
-def test_project_aligns_camera_with_leading_batch_axes(identity: bh.Identity) -> None:
+def test_reprojection_aligns_camera_with_leading_batch_axes(identity: bh.Identity) -> None:
     q = _trajectory(identity, 3, 3)  # B == T so a right-aligned broadcast would silently pass
     state = identity.forward(q)
     cameras = torch.eye(3, 4, dtype=q.dtype).expand(3, 3, 4).clone()
     cameras[:, 2, 3] = torch.tensor([3.0, 5.0, 7.0], dtype=q.dtype)
-    pixels = terms.project(state.joint_translations, cameras)
-    per_sequence = torch.stack([terms.project(state.joint_translations[b], cameras[b]) for b in range(3)])
+    term = terms.reprojection(target="pixels", joints=True)
+    origin = torch.zeros(3, 3, 24, 2, dtype=q.dtype)  # the residual is then the projected pixels
+    pixels = term.fn(state, origin, cameras)
+    per_sequence = torch.stack([term.fn(identity.forward(q[b]), origin[b], cameras[b]) for b in range(3)])
     torch.testing.assert_close(pixels, per_sequence)
-    with pytest.raises(ValueError, match="camera batch"):
-        terms.project(state.joint_translations, cameras[:2])
+    with pytest.raises(ShapeError, match="camera batch"):
+        term.fn(state, origin, cameras[:2])
+
+
+def test_joints_by_name_and_unknown_names_raise(identity: bh.Identity) -> None:
+    state = identity.forward(_trajectory(identity, 2, 1))
+    wrist = identity.human.spec.joint_id("left_wrist")
+    goal = state.joint_translations[..., [wrist], :]
+    assert terms.joints(target="t", joint_names=["left_wrist"]).fn(state, goal).abs().max() == 0
+    with pytest.raises(UnknownNameError, match="unknown joint 'left_wirst'"):
+        terms.joints(target="t", joint_names=["left_wirst"]).fn(state, goal)
+    with pytest.raises(UnknownNameError, match="unknown stream group 'expresion'"):
+        terms.human_state(identity, streams=["expresion"]).fn(state.q, torch.zeros(10, dtype=state.q.dtype))
 
 
 def test_root_wrench_vanishes_in_free_fall(identity: bh.Identity) -> None:
@@ -65,11 +80,11 @@ def test_root_wrench_vanishes_in_free_fall(identity: bh.Identity) -> None:
 
 def test_root_wrench_rejects_unbatched_or_short_trajectories(identity: bh.Identity) -> None:
     term = terms.root_wrench(identity, [], dt=1e-2)
-    with pytest.raises(ValueError, match="root_wrench needs"):
+    with pytest.raises(ShapeError, match="root_wrench needs"):
         term.fn(identity.model.q_neutral.expand(4, identity.model.nq), torch.zeros(4, 0, 3))
-    with pytest.raises(ValueError, match="root_wrench needs"):
+    with pytest.raises(ShapeError, match="root_wrench needs"):
         term.fn(identity.model.q_neutral.expand(1, 2, identity.model.nq), torch.zeros(1, 2, 0, 3))
-    with pytest.raises(ValueError, match="forces must be"):
+    with pytest.raises(ShapeError, match="forces must be"):
         term.fn(identity.model.q_neutral.expand(1, 3, identity.model.nq), torch.zeros(1, 3, 1, 3))
 
 

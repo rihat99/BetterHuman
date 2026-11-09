@@ -16,7 +16,7 @@ with record 0011's package layout; until then the studio is `viz/studio`, and ea
 listed with its reason in `tests/contract/ratchets/edges.json`.
 
 Rationale: the body model (`core`) and weight-file reading (`io`) stay usable without any family table or viewer.
-Example: `src/better_human/families/smpl_family.py` imports `core` and `io`; `src/better_human/terms.py`
+Example: `src/better_human/families/smpl_family.py` imports `core` and `io`; `src/better_human/terms/`
 imports only `core`.
 Enforcement: `tests/contract/test_layer_dependencies.py`.
 
