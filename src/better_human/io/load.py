@@ -17,7 +17,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from better_robot.exceptions import BetterRobotError
+from better_robot.exceptions import ArgumentError, BetterRobotError
 
 from .formats import FormatError, header, past_fields, upgrade
 from .schema import ModelSchema, validate
@@ -95,8 +95,9 @@ def load_model_npz(
     excluded = frozenset(exclude_fields)
     unknown_exclusions = excluded - set(schema.fields)
     if unknown_exclusions:
-        raise ValueError(
-            f"exclude_fields contains names outside the {schema.name} schema: {sorted(unknown_exclusions)}"
+        raise ArgumentError(
+            f"exclude_fields names {sorted(unknown_exclusions)}, which the {schema.name} schema does not have; "
+            "pass names of its fields only."
         )
     selected_schema = ModelSchema(
         name=schema.name,
@@ -111,8 +112,9 @@ def load_model_npz(
     with np.load(model_path, allow_pickle=False) as archive:
         arrays = _read_archive_arrays(archive, names, schema.name, model_path)
         if schema.format is not None:
-            for name in past_fields(arrays, format=schema.format):
-                arrays[name] = np.asarray(archive[name])
+            for name in past_fields(arrays, format=schema.format, source=str(model_path)):
+                if name in archive.files:
+                    arrays[name] = np.asarray(archive[name])
     if schema.format is not None:
         arrays = upgrade(arrays, format=schema.format, source=str(model_path))
     validate(arrays, selected_schema, source=str(model_path))
@@ -129,9 +131,8 @@ def _read_archive_arrays(
     schema_name: str,
     model_path: Path,
 ) -> dict[str, Any]:
-    members = set(archive.files)
-    arrays: dict[str, Any] = {name: None for name in members - set(names)}
-    for name in members & set(names):
+    arrays: dict[str, Any] = {}
+    for name in set(archive.files) & set(names):
         try:
             arrays[name] = np.asarray(archive[name])
         except Exception as error:

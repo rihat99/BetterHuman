@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from better_robot.exceptions import UnknownNameError
+from better_robot.exceptions import ArgumentError, UnknownNameError
 
 import better_human as bh
 from better_human.families import tables
@@ -115,6 +115,19 @@ def test_writer_refuses_what_the_reader_refuses(tmp_path: Path) -> None:
     with pytest.raises(FormatError, match="'tip': vertex id '5' is not an int"):
         bh.io.write_frame_set(path, {"tip": ("5", None)})
     assert not path.exists()
+
+
+def test_a_file_that_is_not_json_is_a_format_error(tmp_path: Path) -> None:
+    path = tmp_path / "set.json"
+    path.write_text('{"tip": 5,')
+    with pytest.raises(FormatError, match=rf"set\.json: not a JSON file .*{FIX}"):
+        bh.io.read_frame_set(path)
+
+
+@pytest.mark.parametrize("value", [5, (5,), (5, None, "x"), "ab"])
+def test_writer_refuses_a_value_that_is_not_a_pair(tmp_path: Path, value: object) -> None:
+    with pytest.raises(ArgumentError, match=r"frame 'tip' must be a pair \(vertex_id, joint_name \| None\)"):
+        bh.io.write_frame_set(tmp_path / "set.json", {"tip": value})
 
 
 def test_writer_takes_any_integer_vertex_id(tmp_path: Path) -> None:

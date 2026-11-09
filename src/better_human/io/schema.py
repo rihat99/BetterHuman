@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -10,8 +9,6 @@ from typing import Any
 import numpy as np
 
 from .formats import MHR, SOMA, FormatError
-
-LOGGER = logging.getLogger(__name__)
 
 #: Sentinel axis for the single derived width ``(num_joints - 1) * 9``.
 POSE_FEATURES = "(J-1)*9"
@@ -209,10 +206,6 @@ def validate(
 
     for name, spec in schema.fields.items():
         _validate_array(_as_array(data, name, source, schema), spec, bindings, source, name, schema)
-
-    extras = sorted(set(data) - set(schema.fields))
-    if extras:
-        LOGGER.debug("Ignoring unknown fields in %s: %s", source, ", ".join(extras))
 
 
 def _bind_axes(

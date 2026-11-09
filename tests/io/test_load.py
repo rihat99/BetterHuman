@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from better_robot.exceptions import BetterRobotError
+from better_robot.exceptions import ArgumentError, BetterRobotError
 
 from better_human.io import AssetNotFoundError
 from better_human.io.load import load_model_npz, models_dir, weight_path
@@ -105,6 +105,13 @@ def test_dense_regressor_loads_without_dtype_conversion(tmp_path: Path) -> None:
     assert regressor.dtype == torch.float64
     assert regressor.shape == (3, 4)
     assert loaded["f"].dtype == torch.uint32
+
+
+def test_an_unknown_excluded_field_is_an_argument_error(tmp_path: Path) -> None:
+    model_path = tmp_path / "model.npz"
+    _write_dense_fixture(model_path)
+    with pytest.raises(ArgumentError, match=r"exclude_fields names \['nope'\].*pass names of its fields only"):
+        load_model_npz(model_path, SMPL_SCHEMA, exclude_fields=("nope",))
 
 
 def test_object_valued_required_field_is_an_actionable_load_error(tmp_path: Path) -> None:

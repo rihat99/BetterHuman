@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from importlib import resources
 from pathlib import Path
 
-from better_robot.exceptions import UnknownNameError
+from better_robot.exceptions import ArgumentError, UnknownNameError
 
 from .formats import FRAME_SET, FormatError, header, upgrade
 
@@ -32,20 +32,30 @@ FIX = "Write frame sets with better_human.io.write_frame_set (spec: docs/referen
 def read_frame_set(path: str | Path) -> dict[str, tuple[int, str | None]]:
     """The frames of a frame-set file: name -> ``(vertex_id, joint_name | None)``, in authored order.
 
-    Raises :class:`~better_human.io.FormatError` for another format, a later version, or a file or entry that is not
-    frame-shaped.
+    Raises :class:`~better_human.io.FormatError` for a file that is not JSON, another format, a later version, or a
+    file or entry that is not frame-shaped.
     """
     path = Path(path)
-    return _frames(json.loads(path.read_text()), source=str(path))
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as error:
+        raise FormatError(f"{path}: not a JSON file ({error}). {FIX}") from error
+    return _frames(data, source=str(path))
 
 
 def write_frame_set(path: str | Path, frames: Mapping[str, tuple[int, str | None]]) -> None:
     """Write ``frames`` (name -> ``(vertex_id, joint_name | None)``) as a version-1 frame-set file.
 
     A vertex id is any integer >= 0 (``int``, ``numpy.int64``, ...). The entries pass the reader's checks before
-    anything is written, and the file is replaced atomically.
+    anything is written, and the file is replaced atomically. Raises :class:`~better_robot.exceptions.ArgumentError`
+    for a value that is not a ``(vertex_id, joint_name | None)`` pair.
     """
     path = Path(path)
+    for name, value in frames.items():
+        if not isinstance(value, tuple | list) or len(value) != 2:
+            raise ArgumentError(
+                f"write_frame_set: frame {name!r} must be a pair (vertex_id, joint_name | None), got {value!r}"
+            )
     checked = {
         str(name): _entry(str(name), {"vertex_id": vertex, "joint_name": joint}, str(path))
         for name, (vertex, joint) in frames.items()

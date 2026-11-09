@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 
 import numpy as np
 import pytest
@@ -22,14 +21,10 @@ def _valid_smpl_data() -> dict[str, np.ndarray]:
     }
 
 
-def test_valid_schema_uses_required_subset_semantics(caplog: pytest.LogCaptureFixture) -> None:
+def test_valid_schema_uses_required_subset_semantics() -> None:
     data = _valid_smpl_data()
     data["vendor_metadata"] = np.array([1], dtype=np.int32)
-
-    with caplog.at_level(logging.DEBUG, logger="better_human.io.schema"):
-        validate(data, SMPL_SCHEMA, source="synthetic.npz")
-
-    assert "vendor_metadata" in caplog.text
+    validate(data, SMPL_SCHEMA, source="synthetic.npz")
 
 
 def test_missing_field_error_names_field_file_and_remedy() -> None:

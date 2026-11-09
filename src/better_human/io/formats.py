@@ -10,6 +10,7 @@ checks it against :func:`header`. Each format's spec is ``docs/reference/formats
 
 from __future__ import annotations
 
+import operator
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -51,7 +52,7 @@ def check_format(data: Mapping[str, Any], *, format: str, version: int, source: 
         raise FormatError(
             f"{source}: a {format} file without format_version. Write it with this version's writer or converter."
         )
-    found_version = int(data["format_version"])
+    found_version = _version(data, format=format, source=source)
     if found_version > version:
         raise FormatError(
             f"{source}: {format} format_version {found_version} is later than {version}, the latest this BetterHuman "
@@ -70,12 +71,18 @@ def upgrade(fields: Mapping[str, Any], *, format: str, source: str = "<mapping>"
     if "format" in fields:
         check_format(fields, format=format, version=latest, source=source)
     upgraded = dict(fields)
-    while (version := int(upgraded.get("format_version", 0))) < latest:
+    while (version := _version(upgraded, format=format, source=source)) < latest:
         migrate = MIGRATIONS.get((format, version))
         if migrate is None:
             raise FormatError(
                 f"{source}: {format} format_version {version} has no migration to version {latest}. "
                 f"Pass a {format} file, or reconvert it with this version's converter."
+            )
+        missing = [name for name in PAST_FIELDS.get((format, version), ()) if name not in upgraded]
+        if missing:
+            raise FormatError(
+                f"{source}: a {format} format_version {version} file without its field(s) {missing}, which the "
+                f"migration to version {version + 1} reads. Reconvert it with this version's converter."
             )
         upgraded = migrate(upgraded)
     check_format(upgraded, format=format, version=latest, source=source)
@@ -116,6 +123,18 @@ MIGRATIONS: dict[tuple[str, int], Callable[[Mapping[str, Any]], dict[str, Any]]]
 PAST_FIELDS: dict[tuple[str, int], tuple[str, ...]] = {(SOMA, 1): ("source",)}
 
 
-def past_fields(fields: Mapping[str, Any], *, format: str) -> tuple[str, ...]:
+def past_fields(fields: Mapping[str, Any], *, format: str, source: str = "<mapping>") -> tuple[str, ...]:
     """The fields a reader reads besides the latest schema's, for the version ``fields`` names: v1 SOMA's ``source``."""
-    return PAST_FIELDS.get((format, int(fields.get("format_version", 0))), ())
+    return PAST_FIELDS.get((format, _version(fields, format=format, source=source)), ())
+
+
+def _version(fields: Mapping[str, Any], *, format: str, source: str) -> int:
+    """``fields["format_version"]`` as an int, 0 when absent; :class:`FormatError` when it is not an integer."""
+    value = fields.get("format_version", 0)
+    try:
+        return operator.index(value)
+    except TypeError:
+        raise FormatError(
+            f"{source}: {format} format_version {value!r} is not an integer. "
+            "Write the file with this version's writer or converter."
+        ) from None

@@ -23,7 +23,7 @@ import numpy as np
 import pytest
 
 from better_human.io import FormatError, check_format, read_frame_set, write_frame_set
-from better_human.io.formats import FRAME_SET, LATEST, MHR, MIGRATIONS, SOMA, header
+from better_human.io.formats import FRAME_SET, LATEST, MHR, MIGRATIONS, SOMA, header, upgrade
 from better_human.io.load import load_model_npz
 from better_human.io.schema import MHR_SCHEMA, SOMA_SCHEMA, ModelSchema
 
@@ -142,6 +142,18 @@ def test_another_format_is_refused_before_any_migration(tmp_path: Path) -> None:
 def test_a_format_without_its_version_is_refused() -> None:
     with pytest.raises(FormatError, match=rf"a {FRAME_SET} file without format_version"):
         check_format({"format": FRAME_SET, "frames": {}}, format=FRAME_SET, version=LATEST[FRAME_SET])
+
+
+@pytest.mark.parametrize("version", ["1", 1.0, None])
+def test_a_version_that_is_not_an_integer_is_refused(version: object) -> None:
+    with pytest.raises(FormatError, match=rf"format_version {version!r} is not an integer\. Write the file"):
+        check_format({"format": FRAME_SET, "format_version": version}, format=FRAME_SET, version=LATEST[FRAME_SET])
+
+
+def test_a_past_version_without_the_field_its_migration_reads_is_refused() -> None:
+    v1 = {"format": SOMA, "format_version": np.int64(1)}
+    with pytest.raises(FormatError, match=r"v1\.npz: a better_human\.soma format_version 1 file without .*'source'"):
+        upgrade(v1, format=SOMA, source="v1.npz")
 
 
 def _spec_page(format: str) -> Path:
