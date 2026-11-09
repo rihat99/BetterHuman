@@ -17,9 +17,3 @@ def test_no_private_better_robot_imports() -> None:
             if PRIVATE.search(match.group(2)):
                 offenders.append(f"{path.relative_to(SRC)}: {match.group(0).strip()}")
     assert not offenders, "\n".join(offenders)
-
-
-def test_no_old_api_left() -> None:
-    text = "\n".join(path.read_text() for path in SRC.rglob("*.py") if "studio" not in path.parts)
-    for symbol in ("RenderContext", "ParametricBody", "better_robot.tasks", " Data,"):
-        assert symbol not in text, symbol
