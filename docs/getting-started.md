@@ -36,21 +36,23 @@ print(type(subject.model).__module__, subject.model.nq, subject.model.nv)
 print(body.joint_names[:4])
 ```
 ```output
-better_robot.data_model.model 99 75
+better_robot.model.model 99 75
 ('pelvis', 'left_hip', 'right_hip', 'spine1')
 ```
 
 ## Pose a batch and run forward kinematics
 
-`q` has `nq` entries and the tangent `v` has `nv`; build poses with `model.integrate`, never by
+`q` has `nq` entries and the tangent `v` has `nv`; build poses with `kinematics.integrate`, never by
 adding to `q`. `forward` runs BetterRobot forward kinematics once for the whole batch.
 
 ```python
+from better_robot.kinematics import integrate
+
 model = subject.model
 v = torch.zeros(4, model.nv)
-elbow = model.idx_vs[model.joint_name_to_id["left_elbow"]]
+elbow = model.idx_vs[model.joint_id("left_elbow")]
 v[:, elbow + 1] = torch.linspace(0.0, 1.5, 4)
-state = subject.forward(model.integrate(subject.q_neutral, v))
+state = subject.forward(integrate(model, subject.q_neutral, v))
 print(type(state.kinematics).__name__, tuple(state.joints.shape), tuple(state.vertices.shape))
 ```
 ```output

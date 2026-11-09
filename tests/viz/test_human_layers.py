@@ -9,6 +9,7 @@ import torch
 import better_human as bh
 from better_human.io import weight_path
 from better_human.viz import HumanView, human_layers
+from better_robot.kinematics import integrate
 
 pytestmark = pytest.mark.licensed
 
@@ -22,7 +23,7 @@ def clip():
     frames = 5
     tangent = torch.zeros(frames, identity.nv)
     tangent[:, 6 + 3 * 15] = torch.linspace(0.0, 1.0, frames)
-    q = identity.model.integrate(identity.q_neutral.expand(frames, -1), tangent)
+    q = integrate(identity.model, identity.q_neutral.expand(frames, -1), tangent)
     return identity, identity.forward(q)
 
 

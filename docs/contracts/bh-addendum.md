@@ -98,7 +98,7 @@ Parity gates are rule `H-PARITY-1` (MUST): never weaken them.
   SMPL family and SOMA it is the root joint's world position) and `q[3:7]` is the root's world rotation
   relative to its neutral orientation. `q[..., 1] += 1` lifts any body 1 m.
 - SMPL: `nq = 99`, `nv = 75`. Read `identity.nq`, `identity.nv`, `identity.q_neutral`; do not hard-code.
-- Move on the manifold with BR: `identity.model.integrate(q, dq)`.
+- Move on the manifold with BR: `kinematics.integrate(identity.model, q, dq)`.
 
 ### Batching
 

@@ -11,6 +11,7 @@ import torch
 from better_human import Body, families
 from better_human.families.mhr import MHRClassic, mhr_from_classic, mhr_to_classic
 from better_human.io import weight_path
+from better_robot.kinematics import full_configuration
 
 pytestmark = pytest.mark.licensed
 
@@ -50,9 +51,9 @@ def test_mimic_expansion_matches_all_spine_twist_weights(body: Body) -> None:
     model_parameters[parameter_index] = 1.0
     _, q, _ = mhr_from_classic(body, MHRClassic(torch.zeros(45), model_parameters))
     model = body.model
-    q_full = model.expand_configuration(q)
+    q_full = full_configuration(model, q)
     source_id = model.joint_id("spine_twist0")
-    driven = [joint for joint, source in enumerate(model.mimic_source) if int(source) == source_id]
+    driven = [joint for joint, source in enumerate(model.mimic_source_ids) if int(source) == source_id]
     contributions = q_full.index_select(-1, torch.tensor([int(model.idx_qs_full[joint]) for joint in driven]))
     torch.testing.assert_close(contributions.sort().values, expected.to(q_full.dtype).sort().values)
 

@@ -14,7 +14,7 @@ from collections.abc import Sequence
 import torch
 from better_robot.dynamics.state import inverse_dynamics
 from better_robot import Model
-from better_robot.kinematics import KinematicState, forward_kinematics
+from better_robot.kinematics import KinematicState, difference, forward_kinematics
 from better_robot.optim import TermFn
 
 from .core.body import Body, HumanState, Identity
@@ -169,7 +169,7 @@ def pose_prior(identity: Identity, *, q: str = "q", mean: torch.Tensor | None = 
     start = 0 if root else 6
 
     def residual(pose: torch.Tensor) -> torch.Tensor:
-        return model.difference(reference.expand_as(pose), pose)[..., start:]
+        return difference(model, reference.expand_as(pose), pose)[..., start:]
 
     return TermFn(fn=residual, reads=(q,))
 
@@ -215,7 +215,7 @@ def root_wrench(
             raise ValueError(f"root_wrench needs q (B, T >= 3, nq); got {tuple(pose.shape)}")
         if force.shape[:2] != pose.shape[:2] or force.shape[-2:] != (len(contacts), 3):
             raise ValueError(f"forces must be (B, T, {len(contacts)}, 3) matching q; got {tuple(force.shape)}")
-        velocity = model.difference(pose[:, :-1], pose[:, 1:]) / dt  # (B, T-1, nv) at half steps
+        velocity = difference(model, pose[:, :-1], pose[:, 1:]) / dt  # (B, T-1, nv) at half steps
         acceleration = (velocity[:, 1:] - velocity[:, :-1]) / dt  # (B, T-2, nv)
         mid_velocity = 0.5 * (velocity[:, 1:] + velocity[:, :-1])
         kinematics = forward_kinematics(model, pose[:, 1:-1])

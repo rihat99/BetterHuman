@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
-from better_robot.kinematics import forward_kinematics
+from better_robot.kinematics import forward_kinematics, full_configuration
 from better_robot.lie import se3, so3
 
 from better_human.core.pipeline import lbs_affines, pose_feature_6d_from_euler, skin_affines
@@ -146,7 +146,7 @@ class MhrRig:
         self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None
     ) -> torch.Tensor:
         """``(..., 6 (J - 2))``: 6D features of the Euler angles of every joint after ``root``."""
-        entries = model.expand_configuration(q).index_select(-1, self.corrective_entries)
+        entries = full_configuration(model, q).index_select(-1, self.corrective_entries)
         return pose_feature_6d_from_euler((entries @ self.corrective_rows).unflatten(-1, (-1, 3)))
 
     def to(self, dtype: torch.dtype, device: torch.device) -> MhrRig:

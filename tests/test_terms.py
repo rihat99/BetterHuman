@@ -8,6 +8,7 @@ import torch
 import better_human as bh
 from better_human import terms
 from better_human.io import weight_path
+from better_robot.kinematics import integrate
 
 pytestmark = pytest.mark.licensed
 
@@ -20,7 +21,7 @@ def identity() -> bh.Identity:
 
 def _trajectory(identity: bh.Identity, batch: int, length: int) -> torch.Tensor:
     q = identity.q_neutral.expand(batch, length, identity.nq).clone()
-    q[..., 7:] = identity.model.integrate(q, 0.1 * torch.randn(batch, length, identity.nv, dtype=q.dtype))[..., 7:]
+    q[..., 7:] = integrate(identity.model, q, 0.1 * torch.randn(batch, length, identity.nv, dtype=q.dtype))[..., 7:]
     return q
 
 

@@ -14,11 +14,12 @@ forward kinematics, Jacobians, dynamics, optimisers and viewer apply to it.
 - **Differentiable end to end.** Shape, pose and mass are torch tensors; fit them with
   `better_robot.optim` and the terms in `better_human.terms`.
 - **Shared contracts.** Poses are `[tx, ty, tz, qx, qy, qz, qw]`, tangents are
-  `[linear, angular]`, and `nq` differs from `nv`: change `q` with `model.integrate`.
+  `[linear, angular]`, and `nq` differs from `nv`: change `q` with `kinematics.integrate`.
 
 ```python
 import torch
 import better_human as bh
+from better_robot.kinematics import integrate
 
 body = bh.load("smpl")                          # $BETTERHUMAN_MODELS_DIR/smpl/
 subject = body.bake(betas=torch.zeros(10))      # shape once
@@ -27,9 +28,9 @@ joints, vertices = len(body.joint_names), body.num_vertices
 print(f"nq={model.nq} nv={model.nv} joints={joints} vertices={vertices}")
 
 v = torch.zeros(4, model.nv)                    # a batch of 4 tangent offsets
-elbow = model.idx_vs[model.joint_name_to_id["left_elbow"]]
+elbow = model.idx_vs[model.joint_id("left_elbow")]
 v[:, elbow + 1] = torch.linspace(0.0, 1.5, 4)   # flex the left elbow
-state = subject.forward(model.integrate(subject.q_neutral, v))
+state = subject.forward(integrate(model, subject.q_neutral, v))
 print("vertices", tuple(state.vertices.shape), "joints", tuple(state.joints.shape))
 ```
 ```output

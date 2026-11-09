@@ -11,7 +11,7 @@ hosts added in archive channel order ``z, y, x``
 (``families/mhr_rig.py``), so its local rotation composes
 ``Rz(z) @ Ry(y) @ Rx(x)`` -- exactly the ``so3.from_euler`` /
 ``so3.to_euler`` extrinsic-XYZ convention.  Mimic joints carry no public
-coordinate (``robot.nqs == 0`` and ``robot.mimic_source != joint_id``) and are
+coordinate (``robot.nqs == 0`` and ``robot.mimic_source_ids != joint_id``) and are
 skipped; they follow their source host automatically through FK.
 """
 
@@ -21,14 +21,11 @@ from dataclasses import dataclass
 
 import torch
 from better_robot.lie import so3
+from better_robot.model import JointRevolute
 
 from better_human.core.body import Identity
 
-_REVOLUTE_AXIS = {
-    "revolute_rx": "x",
-    "revolute_ry": "y",
-    "revolute_rz": "z",
-}
+_AXIS_NAME = {(1.0, 0.0, 0.0): "x", (0.0, 1.0, 0.0): "y", (0.0, 0.0, 1.0): "z"}
 _EULER_INDEX = {"x": 0, "y": 1, "z": 2}
 
 
@@ -71,7 +68,6 @@ def joint_handles(identity: Identity) -> tuple[JointHandle, ...]:
         return tuple(handles)
 
     native_set = set(native_leaves)
-    kind_codes = [joint.kind for joint in robot.joint_models]
     handles = []
     for native_index in range(1, len(native_leaves)):
         leaf = native_leaves[native_index]
@@ -81,9 +77,10 @@ def joint_handles(identity: Identity) -> tuple[JointHandle, ...]:
         hosts: list[tuple[str, int]] = []
         current = leaf
         while True:
-            if robot.nqs[current] > 0 and kind_codes[current] in _REVOLUTE_AXIS:
-                hosts.append((_REVOLUTE_AXIS[kind_codes[current]], robot.idx_qs[current]))
-            parent = robot.parents[current]
+            joint = robot.joints[current]
+            if robot.nqs[current] > 0 and isinstance(joint, JointRevolute) and joint.axis in _AXIS_NAME:
+                hosts.append((_AXIS_NAME[joint.axis], robot.idx_qs[current]))
+            parent = robot.parent_joint_ids[current]
             if parent in native_set or parent < 0:
                 break
             current = parent

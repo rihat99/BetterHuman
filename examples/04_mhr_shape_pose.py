@@ -13,6 +13,7 @@ import torch
 
 import better_human as bh
 from better_human.viz import HumanView
+from better_robot.kinematics import integrate
 from better_robot.viewer import LIGHT, GroundLayer, Viewer
 
 
@@ -34,7 +35,7 @@ def main() -> None:
         viewer.add(layer, group="mhr")
 
     def refresh() -> None:
-        view.update(identity.forward(identity.model.integrate(identity.q_neutral, tangent)))
+        view.update(identity.forward(integrate(identity.model, identity.q_neutral, tangent)))
         viewer.show()
 
     gui = viewer.server.gui
