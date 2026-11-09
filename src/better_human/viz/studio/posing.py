@@ -21,7 +21,6 @@ from dataclasses import dataclass
 
 import torch
 from better_robot.lie import so3
-from better_robot.model import JointRevolute
 
 from better_human.core.body import Identity
 
@@ -77,9 +76,10 @@ def joint_handles(identity: Identity) -> tuple[JointHandle, ...]:
         hosts: list[tuple[str, int]] = []
         current = leaf
         while True:
-            joint = robot.joints[current]
-            if robot.nqs[current] > 0 and isinstance(joint, JointRevolute) and joint.axis in _AXIS_NAME:
-                hosts.append((_AXIS_NAME[joint.axis], robot.idx_qs[current]))
+            # The MHR rig adds every coordinate-carrying joint of a chain with add_revolute about a unit axis.
+            axis = robot.joints[current].axis
+            if robot.nqs[current] > 0 and axis in _AXIS_NAME:
+                hosts.append((_AXIS_NAME[axis], robot.idx_qs[current]))
             parent = robot.parent_joint_ids[current]
             if parent in native_set or parent < 0:
                 break
