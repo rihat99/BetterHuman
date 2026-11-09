@@ -92,9 +92,12 @@ def _soma_v1_to_v2(fields: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _frame_set_v0_to_v1(fields: Mapping[str, Any]) -> dict[str, Any]:
-    """v1 wraps the frames in a header and writes every entry as ``{vertex, joint}``; a bare vertex id gets joint null."""
+    """v1 wraps the frames in a header and writes every entry as ``{vertex_id, joint_name}``; a bare vertex id gets
+    joint_name null."""
     frames = {
-        name: value if isinstance(value, Mapping) else {"vertex": value, "joint": None}
+        name: {"vertex_id": value["vertex"], "joint_name": value.get("joint")}
+        if isinstance(value, Mapping)
+        else {"vertex_id": value, "joint_name": None}
         for name, value in fields.items()
     }
     return {"format": FRAME_SET, "format_version": 1, "frames": frames}

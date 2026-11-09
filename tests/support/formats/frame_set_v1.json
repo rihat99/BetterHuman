@@ -3,16 +3,16 @@
   "format_version": 1,
   "frames": {
     "legacy": {
-      "vertex": 331,
-      "joint": null
+      "vertex_id": 331,
+      "joint_name": null
     },
     "default": {
-      "vertex": 100,
-      "joint": null
+      "vertex_id": 100,
+      "joint_name": null
     },
     "named": {
-      "vertex": 200,
-      "joint": "left_wrist"
+      "vertex_id": 200,
+      "joint_name": "left_wrist"
     }
   }
 }

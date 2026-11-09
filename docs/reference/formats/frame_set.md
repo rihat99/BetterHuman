@@ -16,8 +16,8 @@ frames)`; BetterHuman ships the SMPL-X contact set as `better_human.io.shipped_f
   "format": "better_human.frame_set",
   "format_version": 1,
   "frames": {
-    "heel_left": {"vertex": 8924, "joint": null},
-    "knee_left": {"vertex": 3673, "joint": "left_knee"}
+    "heel_left": {"vertex_id": 8924, "joint_name": null},
+    "knee_left": {"vertex_id": 3673, "joint_name": "left_knee"}
   }
 }
 ```
@@ -27,14 +27,14 @@ frames)`; BetterHuman ships the SMPL-X contact set as `better_human.io.shipped_f
 | `format` | string | `"better_human.frame_set"` |
 | `format_version` | integer | `1` |
 | `frames` | object | frame name to entry, in authored order |
-| `frames.<name>.vertex` | integer >= 0 | mesh vertex carrying the frame; range-checked against the mesh when the frames are attached to a body |
-| `frames.<name>.joint` | string or null | parent joint name; `null` takes the vertex's dominant skinning joint |
+| `frames.<name>.vertex_id` | integer >= 0 | mesh vertex carrying the frame; range-checked against the mesh when the frames are attached to a body |
+| `frames.<name>.joint_name` | string or null | parent joint name; `null` takes the vertex's dominant skinning joint |
 
 The writer uses two-space indentation and a trailing newline, and replaces the file atomically.
 
 ## Migration
 
 `better_human.io.formats` migrates version 0 in memory: it wraps the mapping in the header and turns a bare vertex id
-into `{"vertex": id, "joint": null}`. A file is version 0 only when it has no `format` key and every value is a vertex
+into `{"vertex_id": id, "joint_name": null}`, and an entry `{"vertex", "joint"}` into `{"vertex_id", "joint_name"}`. A file is version 0 only when it has no `format` key and every value is a vertex
 id or `{"vertex", "joint"}`; any other file without `format`, a top-level array, and a file with `format` but no
 `format_version` are refused. A later version is refused with both versions named.

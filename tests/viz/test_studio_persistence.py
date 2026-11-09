@@ -47,10 +47,10 @@ def test_frame_set_round_trip_with_and_without_override(tmp_path: Path) -> None:
     path = tmp_path / "frames" / "config.json"
     persistence.save_frame_set(path, frames)
     assert path.is_file()
-    # No-override entries are written as {"vertex": v, "joint": null}.
+    # No-override entries are written as {"vertex_id": v, "joint_name": null}.
     payload = json.loads(path.read_text())
-    assert payload["frames"]["nose"] == {"vertex": 331, "joint": None}
-    assert payload["frames"]["reye"] == {"vertex": 6260, "joint": "right_eye_smplhf"}
+    assert payload["frames"]["nose"] == {"vertex_id": 331, "joint_name": None}
+    assert payload["frames"]["reye"] == {"vertex_id": 6260, "joint_name": "right_eye_smplhf"}
     assert persistence.load_frame_set(path, num_vertices=SMPLX_NUM_VERTICES) == frames
 
 

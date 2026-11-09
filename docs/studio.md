@@ -82,7 +82,7 @@ Named frames (for example foot contact points) are attached to a parent joint wi
 ```text
 <repo>/studio_data/
   segmentations/<key>/<name>.json   # part name -> vertex ids
-  frames/<key>/<name>.json          # frame set: {format, format_version, frames: {name: {vertex, joint}}}
+  frames/<key>/<name>.json          # frame set: {format, format_version, frames: {name: {vertex_id, joint_name}}}
   poses/<key>/<name>.npz            # joint rotations and root
 ```
 

@@ -3,9 +3,10 @@
 A frame-set file (format ``better_human.frame_set``, version 1; spec ``docs/reference/formats/frame_set.md``)::
 
     {"format": "better_human.frame_set", "format_version": 1,
-     "frames": {"heel_left": {"vertex": 8924, "joint": null}, "knee_left": {"vertex": 3673, "joint": "left_knee"}}}
+     "frames": {"heel_left": {"vertex_id": 8924, "joint_name": null},
+                "knee_left": {"vertex_id": 3673, "joint_name": "left_knee"}}}
 
-A ``null`` joint means the vertex's dominant skinning joint. An unversioned file (version 0, ``{name: vertex |
+A ``null`` joint name means the vertex's dominant skinning joint. An unversioned file (version 0, ``{name: vertex |
 {"vertex", "joint"}}``) migrates on read; a file without ``format`` is version 0 only when every value is such an
 entry. The functions here return and take the mapping ``Body(contact_frames=...)`` accepts: name -> ``(vertex_id,
 joint_name | None)``, in authored order. Vertex ids are range-checked where the mesh is known, when the frames are
@@ -46,12 +47,12 @@ def write_frame_set(path: str | Path, frames: Mapping[str, tuple[int, str | None
     """
     path = Path(path)
     checked = {
-        str(name): _entry(str(name), {"vertex": vertex, "joint": joint}, str(path))
+        str(name): _entry(str(name), {"vertex_id": vertex, "joint_name": joint}, str(path))
         for name, (vertex, joint) in frames.items()
     }
     payload = {
         **header(FRAME_SET),
-        "frames": {name: {"vertex": vertex, "joint": joint} for name, (vertex, joint) in checked.items()},
+        "frames": {name: {"vertex_id": vertex, "joint_name": joint} for name, (vertex, joint) in checked.items()},
     }
     temporary = path.with_name(f"{path.name}.tmp")
     temporary.write_text(json.dumps(payload, indent=2) + "\n")
@@ -79,7 +80,9 @@ def _frames(data: object, *, source: str) -> dict[str, tuple[int, str | None]]:
         )
     frames = upgrade(data, format=FRAME_SET, source=source).get("frames")
     if not isinstance(frames, Mapping):
-        raise FormatError(f"{source}: 'frames' must map each frame name to {{vertex, joint}}, got {frames!r}. {FIX}")
+        raise FormatError(
+            f"{source}: 'frames' must map each frame name to {{vertex_id, joint_name}}, got {frames!r}. {FIX}"
+        )
     return {name: _entry(name, value, source) for name, value in frames.items()}
 
 
@@ -92,10 +95,10 @@ def _is_v0_entry(value: object) -> bool:
 
 def _entry(name: str, value: object, source: str) -> tuple[int, str | None]:
     if not isinstance(value, Mapping):
-        raise FormatError(f"{source}: frame {name!r} must be {{vertex, joint}}, got {value!r}. {FIX}")
-    vertex, joint = value.get("vertex"), value.get("joint")
+        raise FormatError(f"{source}: frame {name!r} must be {{vertex_id, joint_name}}, got {value!r}. {FIX}")
+    vertex, joint = value.get("vertex_id"), value.get("joint_name")
     if isinstance(vertex, bool) or not isinstance(vertex, numbers.Integral) or vertex < 0:
         raise FormatError(f"{source}: frame {name!r}: vertex id {vertex!r} is not an int >= 0")
     if joint is not None and not isinstance(joint, str):
-        raise FormatError(f"{source}: frame {name!r}: joint {joint!r} is not a joint name or null")
+        raise FormatError(f"{source}: frame {name!r}: joint_name {joint!r} is not a string or null")
     return int(vertex), joint

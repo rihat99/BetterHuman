@@ -3,144 +3,144 @@
   "format_version": 1,
   "frames": {
     "heel_left": {
-      "vertex": 8924,
-      "joint": null
+      "vertex_id": 8924,
+      "joint_name": null
     },
     "heel_right": {
-      "vertex": 8712,
-      "joint": null
+      "vertex_id": 8712,
+      "joint_name": null
     },
     "toe_above_left": {
-      "vertex": 5895,
-      "joint": null
+      "vertex_id": 5895,
+      "joint_name": null
     },
     "toe_above_right": {
-      "vertex": 8589,
-      "joint": null
+      "vertex_id": 8589,
+      "joint_name": null
     },
     "palm_left": {
-      "vertex": 4704,
-      "joint": null
+      "vertex_id": 4704,
+      "joint_name": null
     },
     "palm_right": {
-      "vertex": 7440,
-      "joint": null
+      "vertex_id": 7440,
+      "joint_name": null
     },
     "finger_right": {
-      "vertex": 7813,
-      "joint": null
+      "vertex_id": 7813,
+      "joint_name": null
     },
     "finger_left": {
-      "vertex": 5077,
-      "joint": null
+      "vertex_id": 5077,
+      "joint_name": null
     },
     "sit_left": {
-      "vertex": 3463,
-      "joint": null
+      "vertex_id": 3463,
+      "joint_name": null
     },
     "sit_right": {
-      "vertex": 6224,
-      "joint": null
+      "vertex_id": 6224,
+      "joint_name": null
     },
     "elbow_left": {
-      "vertex": 4374,
-      "joint": null
+      "vertex_id": 4374,
+      "joint_name": null
     },
     "elbow_right": {
-      "vertex": 7110,
-      "joint": null
+      "vertex_id": 7110,
+      "joint_name": null
     },
     "back_right": {
-      "vertex": 8278,
-      "joint": "right_collar"
+      "vertex_id": 8278,
+      "joint_name": "right_collar"
     },
     "back_left": {
-      "vertex": 5566,
-      "joint": "left_collar"
+      "vertex_id": 5566,
+      "joint_name": "left_collar"
     },
     "ball_inner_left": {
-      "vertex": 5906,
-      "joint": null
+      "vertex_id": 5906,
+      "joint_name": null
     },
     "ball_outer_left": {
-      "vertex": 5916,
-      "joint": null
+      "vertex_id": 5916,
+      "joint_name": null
     },
     "ball_inner_right": {
-      "vertex": 8600,
-      "joint": null
+      "vertex_id": 8600,
+      "joint_name": null
     },
     "ball_outer_right": {
-      "vertex": 8610,
-      "joint": null
+      "vertex_id": 8610,
+      "joint_name": null
     },
     "big_toe_left": {
-      "vertex": 5847,
-      "joint": null
+      "vertex_id": 5847,
+      "joint_name": null
     },
     "big_toe_right": {
-      "vertex": 8541,
-      "joint": null
+      "vertex_id": 8541,
+      "joint_name": null
     },
     "knee_left": {
-      "vertex": 3677,
-      "joint": null
+      "vertex_id": 3677,
+      "joint_name": null
     },
     "knee_right": {
-      "vertex": 6438,
-      "joint": null
+      "vertex_id": 6438,
+      "joint_name": null
     },
     "sacrum": {
-      "vertex": 5613,
-      "joint": null
+      "vertex_id": 5613,
+      "joint_name": null
     },
     "shoulder_right": {
-      "vertex": 6822,
-      "joint": null
+      "vertex_id": 6822,
+      "joint_name": null
     },
     "shoulder_left": {
-      "vertex": 4078,
-      "joint": null
+      "vertex_id": 4078,
+      "joint_name": null
     },
     "hip_side_left": {
-      "vertex": 3958,
-      "joint": null
+      "vertex_id": 3958,
+      "joint_name": null
     },
     "hip_side_right": {
-      "vertex": 6706,
-      "joint": null
+      "vertex_id": 6706,
+      "joint_name": null
     },
     "chest": {
-      "vertex": 3855,
-      "joint": null
+      "vertex_id": 3855,
+      "joint_name": null
     },
     "pelvis_front_left": {
-      "vertex": 4420,
-      "joint": null
+      "vertex_id": 4420,
+      "joint_name": null
     },
     "pelvis_front_right": {
-      "vertex": 7156,
-      "joint": null
+      "vertex_id": 7156,
+      "joint_name": null
     },
     "head": {
-      "vertex": 9003,
-      "joint": null
+      "vertex_id": 9003,
+      "joint_name": null
     },
     "palm_distal_left": {
-      "vertex": 4903,
-      "joint": "left_middle1"
+      "vertex_id": 4903,
+      "joint_name": "left_middle1"
     },
     "palm_distal_right": {
-      "vertex": 7639,
-      "joint": "right_middle1"
+      "vertex_id": 7639,
+      "joint_name": "right_middle1"
     },
     "thumb_right": {
-      "vertex": 8114,
-      "joint": null
+      "vertex_id": 8114,
+      "joint_name": null
     },
     "thumb_left": {
-      "vertex": 5380,
-      "joint": null
+      "vertex_id": 5380,
+      "joint_name": null
     }
   }
 }

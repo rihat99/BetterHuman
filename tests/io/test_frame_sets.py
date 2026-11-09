@@ -51,10 +51,16 @@ def test_unknown_joint_names_pass_the_reader(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("frames", "match"),
     [
-        pytest.param({"tip": {"vertex": 5, "joint": 7}}, r"'tip': joint 7 is not a joint name or null", id="joint"),
-        pytest.param({"tip": {"vertex": True, "joint": None}}, r"'tip': vertex id True is not an int", id="bool"),
-        pytest.param({"tip": {"vertex": 1.5, "joint": None}}, r"'tip': vertex id 1.5 is not an int", id="float"),
-        pytest.param({"tip": [5, None]}, r"frame 'tip' must be \{vertex, joint\}", id="list"),
+        pytest.param(
+            {"tip": {"vertex_id": 5, "joint_name": 7}}, r"'tip': joint_name 7 is not a string or null", id="joint"
+        ),
+        pytest.param(
+            {"tip": {"vertex_id": True, "joint_name": None}}, r"'tip': vertex id True is not an int", id="bool"
+        ),
+        pytest.param(
+            {"tip": {"vertex_id": 1.5, "joint_name": None}}, r"'tip': vertex id 1.5 is not an int", id="float"
+        ),
+        pytest.param({"tip": [5, None]}, r"frame 'tip' must be \{vertex_id, joint_name\}", id="list"),
     ],
 )
 def test_malformed_entries_are_refused(tmp_path: Path, frames: dict, match: str) -> None:
@@ -74,7 +80,7 @@ FIX = r"Write frame sets with better_human\.io\.write_frame_set"
         pytest.param({"tip": "5"}, rf"names no format and is not a version-0 frame set .*\. {FIX}", id="v0_string"),
         pytest.param({"tip": 5, "note": None}, rf"is not a version-0 frame set .*\. {FIX}", id="v0_null"),
         pytest.param(
-            {"format": "better_human.frame_set", "frames": {"tip": {"vertex": 5, "joint": None}}},
+            {"format": "better_human.frame_set", "frames": {"tip": {"vertex_id": 5, "joint_name": None}}},
             r"a better_human\.frame_set file without format_version",
             id="no_version",
         ),
@@ -119,5 +125,7 @@ def test_shipped_frame_set_reads_package_data() -> None:
 
 
 def test_unknown_shipped_name_lists_the_shipped_names() -> None:
-    with pytest.raises(UnknownNameError, match=r"unknown shipped frame set 'nope'; valid shipped frame sets: \['smplx_contacts'\]"):
+    with pytest.raises(
+        UnknownNameError, match=r"unknown shipped frame set 'nope'; valid shipped frame sets: \['smplx_contacts'\]"
+    ):
         bh.io.shipped_frame_set("nope")
