@@ -47,7 +47,10 @@ def points(vertex_ids: Sequence[int] | torch.Tensor, *, target: str, state: str 
 
 
 def landmarks(*, target: str, state: str = "state") -> TermFn:
-    """The family's landmarks (``spec.landmarks``) against data ``target (..., L, 3)``. Residual ``(..., L * 3)``."""
+    """The family's landmarks (``spec.landmarks``) against data ``target (..., L, 3)``. Residual ``(..., L * 3)``.
+
+    A family without landmarks raises :class:`~better_robot.exceptions.ArgumentError` on evaluation.
+    """
 
     def residual(human: HumanState, goal: torch.Tensor) -> torch.Tensor:
         return (human.landmarks() - goal).flatten(-2)
@@ -68,7 +71,8 @@ def reprojection(
 
     ``target (..., M, 2)`` holds the pixels; ``camera (..., 3, 4)`` is the world-to-pixel projection ``K [R | t]``,
     whose batch axes align with the *leading* batch axes of the points (a per-sequence ``camera (B, 3, 4)`` applies
-    to ``(B, T, M, 3)``); ``confidence (..., M)`` scales rows. Residual ``(..., M * 2)``.
+    to ``(B, T, M, 3)``); ``confidence (..., M)`` scales rows. Residual ``(..., M * 2)``. Without ``vertex_ids`` or
+    ``joints``, a family without landmarks raises :class:`~better_robot.exceptions.ArgumentError` on evaluation.
     """
     ids = None if vertex_ids is None else torch.as_tensor(vertex_ids, dtype=torch.long)
 

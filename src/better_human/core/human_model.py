@@ -310,8 +310,17 @@ class HumanState:
         return linear_blend_skinning(self.rest_vertices(vertex_ids), self.skin_affines, weights=skin)
 
     def landmarks(self) -> torch.Tensor:
-        """``(..., L, 3)`` posed landmarks of the family (``spec.landmarks``)."""
-        return self.points(self.identity.human.spec.landmarks.vertex_ids)
+        """``(..., L, 3)`` posed landmarks of the family (``spec.landmarks``).
+
+        Raises :class:`~better_robot.exceptions.ArgumentError` for a family without landmarks (MHR, SOMA).
+        """
+        spec = self.identity.human.spec
+        if spec.landmarks is None:
+            raise ArgumentError(
+                f"the {spec.name} family has no landmarks (spec.landmarks is None); name vertices instead: "
+                "state.points(vertex_ids), terms.points, or terms.reprojection(vertex_ids=...) or (joints=True)"
+            )
+        return self.points(spec.landmarks.vertex_ids)
 
     @property
     def frame_poses(self) -> torch.Tensor:
