@@ -24,8 +24,10 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    full = bh.load("smplx", args.model_path, num_betas=10, num_expression=10, density=None)
-    partial = bh.load("smplx", args.model_path, num_betas=10, hands=False, face=False, density=None)
+    full = bh.HumanModel.from_spec(bh.families.smplx(args.model_path, num_betas=10, num_expression=10), density=None)
+    partial = bh.HumanModel.from_spec(
+        bh.families.smplx(args.model_path, num_betas=10, hands=False, face=False), density=None
+    )
     torch.manual_seed(0)
     frames = 90
     phase = torch.linspace(0.0, 2.0 * torch.pi, frames)

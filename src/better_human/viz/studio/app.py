@@ -77,13 +77,16 @@ class HumanStudio:
         return persistence.model_key(self.family, gender=self.gender)
 
     def _load_body(self) -> bh.HumanModel:
-        options = {"lod": self.lod} if self.family == "mhr" else {"gender": self.gender}
         density = self.density
         if isinstance(density, str):
             body = self.session.body
             names = [body.spec.joint_names[j] for j in body.spec.parts.joints]
             density = load_density_table("body_densities.json", density, names, body.spec.template_vertices)
-        return bh.load(self.family, density=density, **options)
+        if self.family == "mhr":
+            spec = bh.families.mhr(lod=self.lod)
+        else:
+            spec = getattr(bh.families, self.family)(gender=self.gender)
+        return bh.HumanModel.from_spec(spec, density=density)
 
     @staticmethod
     def _default_frames(body: bh.HumanModel) -> dict[str, FrameEntry]:

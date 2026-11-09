@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    human = bh.load("mhr", args.model_path, lod=1, density=None)
+    human = bh.load("mhr", args.model_path, density=None)
     coefficients = torch.zeros(45)
     tangent = torch.zeros(human.model.nv)
     identity = human.bake(identity=coefficients)

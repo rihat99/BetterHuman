@@ -30,7 +30,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    human = bh.load("smpl", args.model_path, num_betas=10, density=None)
+    human = bh.HumanModel.from_spec(bh.families.smpl(args.model_path, num_betas=10), density=None)
     identity = human.bake()
     model = identity.model
     q = identity.model.q_neutral[None].clone()
@@ -60,7 +60,7 @@ def main() -> None:
         moved = target.clone()
         moved[:3] += torch.tensor([0.15, 0.10, 0.05])
         follow(moved.numpy())
-        reached = identity.forward(current["q"]).joints[0, WRIST]
+        reached = identity.forward(current["q"]).joint_translations[0, WRIST]
         print(f"target moved, residual {float((reached - moved[:3]).norm()):.1e} m")
         viewer.server.stop()
         return

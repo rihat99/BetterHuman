@@ -20,7 +20,7 @@ def smpl() -> bh.HumanModel:
 
 @pytest.fixture(scope="module")
 def mhr() -> bh.HumanModel:
-    return bh.load("mhr", weight_path("MHR", "converted/mhr_lod1.npz"), lod=1)
+    return bh.load("mhr", weight_path("MHR", "converted/mhr_lod1.npz"))
 
 
 @pytest.fixture(scope="module")

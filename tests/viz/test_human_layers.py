@@ -16,10 +16,8 @@ pytestmark = pytest.mark.licensed
 
 @pytest.fixture(scope="module")
 def clip():
-    body = bh.load(
-        "smpl",
-        weight_path("smpl", "SMPL_NEUTRAL.npz"),
-        num_betas=10,
+    body = bh.HumanModel.from_spec(
+        bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), num_betas=10),
         density=None,
         contact_frames={"heel": (3387, None)},
     )

@@ -13,6 +13,11 @@ import inspect
 import json
 from pathlib import Path
 
+import pytest
+from better_robot.exceptions import UnknownNameError
+
+import better_human as bh
+
 PACKAGES = [
     "better_human",
     "better_human.core",
@@ -64,3 +69,18 @@ def test_public_callables_are_keyword_only_after_second_argument() -> None:
 def test_keyword_only_ratchet_has_no_stale_entries() -> None:
     stale = sorted(KEYWORD_ONLY_RATCHET.keys() - _violations())
     assert not stale, f"fixed or renamed; remove from tests/contract/ratchets/keyword_only.json: {stale}"
+
+
+def test_load_shows_every_option_and_dispatches_to_every_family_loader() -> None:
+    """Record 0006: ``bh.load`` takes no ``**kwargs``, and its literal table is the loaders in ``families.__all__``."""
+    parameters = inspect.signature(bh.load).parameters.values()
+    assert all(param.kind is not inspect.Parameter.VAR_KEYWORD for param in parameters)
+    loaders = {
+        name: getattr(bh.families, name)
+        for name in bh.families.__all__
+        if inspect.isfunction(getattr(bh.families, name))
+        and next(iter(inspect.signature(getattr(bh.families, name)).parameters)) == "path"
+    }
+    assert bh._LOADERS == loaders
+    with pytest.raises(UnknownNameError, match="smplxx"):
+        bh.load("smplxx")

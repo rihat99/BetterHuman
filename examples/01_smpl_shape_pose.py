@@ -31,7 +31,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    human = bh.load("smpl", args.model_path, num_betas=10, density=None)
+    human = bh.HumanModel.from_spec(bh.families.smpl(args.model_path, num_betas=10), density=None)
     betas = torch.zeros(10)
     tangent = torch.zeros(human.model.nv)
     identity = human.bake(betas=betas)

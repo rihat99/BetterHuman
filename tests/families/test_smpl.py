@@ -18,7 +18,9 @@ def body() -> bh.HumanModel:
 
 
 def test_load_without_mass(body: bh.HumanModel) -> None:
-    plain = bh.load("smpl", str(weight_path("smpl", "SMPL_NEUTRAL.npz")), num_betas=10, density=None)
+    plain = bh.HumanModel.from_spec(
+        bh.families.smpl(str(weight_path("smpl", "SMPL_NEUTRAL.npz")), num_betas=10), density=None
+    )
     assert len(plain.spec.joint_names) == 24 and plain.part_topology is None
 
 

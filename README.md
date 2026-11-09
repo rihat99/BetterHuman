@@ -91,7 +91,7 @@ import torch
 import better_human as bh
 from better_human.viz import HumanView
 
-human = bh.load("smpl", gender="neutral")        # one BetterRobot model per family
+human = bh.load("smpl")                          # one BetterRobot model per family
 identity = human.bake(betas=torch.zeros(1, 10))   # bake shape once (mass, joints, contact frames)
 q = identity.model.q_neutral.expand(4, -1).clone()     # (B, nq): free-flyer root + spherical joints
 q[:, 1] = 1.0                                    # root 1 m up (y-up, metres)
@@ -114,10 +114,10 @@ See `docs/concepts/architecture.md` for the design and `docs/contracts/bh-addend
 |---|---|---|---|
 | SMPL | `bh.load("smpl")` | `betas` | |
 | SMPL-H | `bh.load("smplh")` | `betas` | |
-| SMPL-X | `bh.load("smplx", hands=, face=)` | `betas` | `expression` |
+| SMPL-X | `bh.families.smplx(hands=, face=)` | `betas` | `expression` |
 | MANO | `bh.load("mano")` | `betas` | |
 | FLAME | `bh.load("flame")` (no asset tested here) | `betas` | `expression` |
-| MHR | `bh.load("mhr", lod=1)` | `identity`, `proportions` | `expression` |
+| MHR | `bh.load("mhr")` (LOD 1; `bh.families.mhr(lod=)`) | `identity`, `proportions` | `expression` |
 | SOMA | `bh.load("soma")` (mid LOD) | `shape` | |
 
 Options `density`, `contact_frames` and `stream_joints` go to `HumanModel.from_spec`; the rest go to the loader.

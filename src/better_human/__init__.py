@@ -2,25 +2,50 @@
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Callable, Mapping
+from pathlib import Path
+from typing import Literal
+
+import torch
+from better_robot.exceptions import UnknownNameError
 
 from . import families, io
 from .core import FamilySpec, HumanModel, HumanState, Identity
 
 __version__ = "0.1.0.dev0"
 
-_LOADERS = {name: getattr(families, name) for name in families.__all__}
-_MODEL_OPTIONS = {"density", "contact_frames", "stream_joints"}
+_LOADERS: dict[str, Callable[..., FamilySpec]] = {
+    "flame": families.flame,
+    "mano": families.mano,
+    "mhr": families.mhr,
+    "smpl": families.smpl,
+    "smplh": families.smplh,
+    "smplx": families.smplx,
+    "soma": families.soma,
+}
 
 
-def load(family: str, path: str | None = None, **options: Any) -> HumanModel:
-    """``HumanModel`` of ``family`` (``"smpl"``, ``"smplx"``, ``"mhr"``, ...): loader and model options in one call."""
-    try:
-        loader = _LOADERS[family.lower()]
-    except KeyError as error:
-        raise ValueError(f"unknown family {family!r}; choose one of {sorted(_LOADERS)}") from error
-    model_options = {key: options.pop(key) for key in list(options) if key in _MODEL_OPTIONS}
-    return HumanModel.from_spec(loader(path, **options), **model_options)
+def load(
+    family: Literal["flame", "mano", "mhr", "smpl", "smplh", "smplx", "soma"],
+    path: str | Path | None = None,
+    *,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | str | None = None,
+    density: float | torch.Tensor | None = 1000.0,
+    contact_frames: Mapping[str, tuple[int, str | None]] | None = None,
+    stream_joints: bool = True,
+) -> HumanModel:
+    """``HumanModel`` of ``family`` with the family's default options, built in ``dtype`` on ``device``.
+
+    ``path`` is the weight file (default: found under ``$BETTERHUMAN_MODELS_DIR``). ``density``, ``contact_frames``
+    and ``stream_joints`` are :meth:`HumanModel.from_spec`'s. Family options (gender, ``num_betas``, ...) go
+    through ``HumanModel.from_spec(families.smplx(path, gender=...), ...)`` (decision record 0006). Raises
+    :class:`~better_robot.exceptions.UnknownNameError` for an unknown family.
+    """
+    if family not in _LOADERS:
+        raise UnknownNameError("family", family, list(_LOADERS))
+    spec = _LOADERS[family](path, dtype=dtype, device=device)
+    return HumanModel.from_spec(spec, density=density, contact_frames=contact_frames, stream_joints=stream_joints)
 
 
 __all__ = ["FamilySpec", "HumanModel", "HumanState", "Identity", "__version__", "families", "io", "load"]

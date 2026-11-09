@@ -70,7 +70,7 @@ def test_full_coverage_on_real_joint_names(family: str) -> None:
     if family == "smplx":
         body = bh.HumanModel.from_spec(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")), density=None)
     else:
-        body = bh.load("mhr", str(weight_path("MHR", "converted/mhr_lod1.npz")), lod=1, density=None)
+        body = bh.load("mhr", str(weight_path("MHR", "converted/mhr_lod1.npz")), density=None)
     names = list(body.spec.joint_names)
     categories = densities.part_categories(names)
     unmapped = [name for name, category in zip(names, categories, strict=True) if category is None]
