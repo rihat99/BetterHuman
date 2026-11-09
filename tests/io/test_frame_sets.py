@@ -54,7 +54,7 @@ def test_an_added_key_inside_an_entry_is_ignored(tmp_path: Path) -> None:
 
 
 def test_unknown_joint_names_pass_the_reader(tmp_path: Path) -> None:
-    # The reader does not know the body; Body resolves (and refuses) joint names.
+    # The reader does not know the family; HumanModel.from_spec resolves (and refuses) joint names.
     path = tmp_path / "set.json"
     bh.io.write_frame_set(path, {"tip": (5, "not_a_real_joint")})
     assert bh.io.read_frame_set(path) == {"tip": (5, "not_a_real_joint")}
