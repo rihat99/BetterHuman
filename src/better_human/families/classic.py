@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import torch
 
-from better_human.core.body import Identity
+from better_human.core.human_model import Identity
 from better_human.core.classic import (
     axis_angle_to_quaternion,
     classic_root_to_free_flyer,

@@ -48,7 +48,7 @@ from this repo.
 |---|---|
 | `src/better_human/__init__.py` | `load`, `Body`, `FamilySpec`, `Identity`, `HumanState` |
 | `src/better_human/core/spec.py`, `src/better_human/core/rig.py` | `FamilySpec` data, `Rig` protocol, `RegressedRig`, `drop_joints` |
-| `src/better_human/core/body.py` | `Body` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
+| `src/better_human/core/human_model.py` | `Body` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
 | `src/better_human/core/pipeline.py`, `src/better_human/core/mass.py` | blend shapes and skinning; segmentation and inertias |
 | `src/better_human/families/smpl_family.py`, `src/better_human/families/tables.py` | SMPL-family loaders; file patterns and joint names |
 | `src/better_human/families/classic.py`, `src/better_human/families/mhr.py` | classic converters; MHR loader and converters |

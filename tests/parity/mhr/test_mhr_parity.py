@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from better_human import families
-from better_human.core.body import Body
+from better_human.core.human_model import Body
 from better_human.families.mhr import MHRClassic, mhr_from_classic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir

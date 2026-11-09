@@ -73,7 +73,7 @@ Three rigs exist:
   twist helpers by the swing-twist of their limb segments and turns the world-aligned Hips free flyer
   into the upstream Hips frame.
 
-### Body (`src/better_human/core/body.py`)
+### Body (`src/better_human/core/human_model.py`)
 
 ```python { .no-run }
 Body(spec, *, dtype=None, device=None, mass=True, density=1000.0, contact_frames=None, stream_joints=True)

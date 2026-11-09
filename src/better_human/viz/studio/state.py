@@ -17,7 +17,7 @@ from typing import NamedTuple
 import torch
 from better_robot.lie import so3
 
-from better_human.core.body import Body, HumanState, Identity
+from better_human.core.human_model import Body, HumanState, Identity
 from better_human.core.mass import _majority_face_parts, segment_vertices
 
 from .posing import JointHandle, apply_local_rotation, joint_handles

@@ -21,7 +21,7 @@ from .pipeline import pose_feature_rotmat_minus_identity, regress_joints
 if TYPE_CHECKING:
     from better_robot.kinematics import KinematicState
 
-    from .body import Tensors
+    from .human_model import Tensors
     from .spec import FamilySpec
 
 #: An operational frame to attach at build time: ``(name, parent joint name, placement (7,))``.

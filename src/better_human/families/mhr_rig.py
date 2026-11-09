@@ -29,7 +29,7 @@ from better_human.core.rig import FrameSpec, RigBake, gravity
 if TYPE_CHECKING:
     from better_robot.kinematics import KinematicState
 
-    from better_human.core.body import Tensors
+    from better_human.core.human_model import Tensors
     from better_human.core.spec import FamilySpec
 
 ROOT_COUNT = 6  #: model parameters 0-5 drive the root: translation, then Euler angles.

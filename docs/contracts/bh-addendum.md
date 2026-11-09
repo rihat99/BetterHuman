@@ -23,9 +23,9 @@ Enforcement: `tests/contract/test_layer_dependencies.py`.
 ## H-API-1 One body API across families (MUST)
 
 A family loader (`smpl`, `smplh`, `smplx`, `mano`, `flame`, `mhr`) returns a `Body`
-(`src/better_human/core/body.py::Body`). `Body.bake(...)` gives an `Identity`
-(`src/better_human/core/body.py::Identity`) that owns the baked BetterRobot model; `identity.forward(q, ...)` gives a
-`HumanState` (`src/better_human/core/body.py::HumanState`). Families declare
+(`src/better_human/core/human_model.py::Body`). `Body.bake(...)` gives an `Identity`
+(`src/better_human/core/human_model.py::Identity`) that owns the baked BetterRobot model; `identity.forward(q, ...)` gives a
+`HumanState` (`src/better_human/core/human_model.py::HumanState`). Families declare
 *what* they are through a `FamilySpec` (`src/better_human/core/spec.py`); the *how* (LBS, blend shapes, correctives, regressors)
 lives once in `core`. Partial models are loader parameters (`hands=False`), never subclasses.
 Rationale: one forward pass to test and keep in parity; see principles 6 and 7 below.

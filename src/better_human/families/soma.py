@@ -22,7 +22,7 @@ from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 from .soma_rig import SomaRig
 
 if TYPE_CHECKING:
-    from better_human.core.body import Body, Identity
+    from better_human.core.human_model import Body, Identity
 
 SHAPE_COUNT = 128
 POSE_JOINT_COUNT = 77  #: public joints after the virtual ``Root``; ``Hips`` first.
@@ -99,7 +99,7 @@ class SOMAClassic:
 
 
 def soma_from_classic(body: Body, classic: SOMAClassic) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
-    """``(Identity, q (..., 311), {})`` for ``body`` (a :class:`~better_human.core.body.Body` of ``soma``).
+    """``(Identity, q (..., 311), {})`` for ``body`` (a :class:`~better_human.core.human_model.Body` of ``soma``).
 
     The identity bakes over ``identity_coeffs``' own batch and ``q`` broadcasts with it. ``q`` holds the world-aligned
     Hips free flyer ``(transl, exp(a_Hips))`` then ``exp(orient_j^T a_j)`` per public joint, ``orient_j`` its T-pose

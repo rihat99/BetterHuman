@@ -16,7 +16,7 @@ from better_robot.viewer import (
 )
 from better_robot.viewer import LIGHT, Theme
 
-from ..core.body import HumanState, Identity
+from ..core.human_model import HumanState, Identity
 
 RGB = tuple[float, float, float]
 

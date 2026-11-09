@@ -17,7 +17,7 @@ from better_robot.dynamics import inverse_dynamics
 from better_robot.kinematics import KinematicState, difference, forward_kinematics
 from better_robot.optim import TermFn
 
-from .core.body import Body, HumanState, Identity
+from .core.human_model import Body, HumanState, Identity
 
 
 def shaped(body: Body, *groups: str) -> TermFn:

@@ -25,7 +25,7 @@ from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 from .mhr_rig import ROOT_COUNT, MhrRig
 
 if TYPE_CHECKING:
-    from better_human.core.body import Body, Identity
+    from better_human.core.human_model import Body, Identity
 
 IDENTITY_COUNT = 45
 EXPRESSION_COUNT = 72
@@ -124,7 +124,7 @@ class MHRClassic:
 
 
 def mhr_from_classic(body: Body, classic: MHRClassic) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
-    """``(Identity, q (..., 132), stream)`` for ``body`` (a :class:`~better_human.core.body.Body` of ``mhr``)."""
+    """``(Identity, q (..., 132), stream)`` for ``body`` (a :class:`~better_human.core.human_model.Body` of ``mhr``)."""
     spec, rig = body.spec, body.spec.rig
     exemplar = spec.vertices
     identity = classic_tensor("identity_coeffs", classic.identity_coeffs, IDENTITY_COUNT, exemplar)

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 import torch
 from better_robot.lie import so3
 
-from better_human.core.body import Identity
+from better_human.core.human_model import Identity
 
 _AXIS_NAME = {(1.0, 0.0, 0.0): "x", (0.0, 1.0, 0.0): "y", (0.0, 0.0, 1.0): "z"}
 _EULER_INDEX = {"x": 0, "y": 1, "z": 2}
