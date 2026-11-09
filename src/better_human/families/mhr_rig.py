@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
-from better_robot.kinematics import forward_kinematics_state
+from better_robot.kinematics import forward_kinematics
 from better_robot.lie import se3, so3
 
 from better_human.core.pipeline import lbs_affines, pose_feature_6d_from_euler, skin_affines
@@ -112,7 +112,7 @@ class MhrRig:
             -2, self.origin_joints, torch.cat((translations, rotations), dim=-1)
         )
         baked = model.with_values(joint_placements=placements)
-        kinematics = forward_kinematics_state(baked, baked.q_neutral)
+        kinematics = forward_kinematics(baked, baked.q_neutral)
         transforms = self.joint_transforms(spec, baked, kinematics=kinematics)
         affines = skin_affines(
             transforms,
@@ -123,7 +123,7 @@ class MhrRig:
         return RigBake(
             joint_placements=placements,
             rest_joints=transforms[..., 3],
-            rest_poses=kinematics.joint_pose.index_select(-2, self.native_joints),
+            rest_poses=kinematics.joint_poses.index_select(-2, self.native_joints),
             pelvis=placements.new_zeros((*placements.shape[:-2], 3)),
             joint_scales=scales,
             neutral_vertices=lbs_affines(v_shaped, affines, spec.skin_matrix()),
@@ -140,7 +140,7 @@ class MhrRig:
         return self.native_joints
 
     def joint_transforms(self, spec: FamilySpec, model: Model, *, kinematics: KinematicState) -> torch.Tensor:
-        return kinematics.joint_transform.index_select(-3, self.native_joints)
+        return kinematics.joint_transforms.index_select(-3, self.native_joints)
 
     def corrective_features(
         self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None

@@ -24,7 +24,7 @@ from scipy.sparse import csr_matrix
 
 import better_human as bh
 from better_robot.dynamics.state import inverse_dynamics
-from better_robot.kinematics import forward_kinematics_state
+from better_robot.kinematics import forward_kinematics
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_PACKAGE_ROOT = ROOT / "references" / "parametric_body" / "smplx"
@@ -286,8 +286,8 @@ def _bench_family(family: str, arguments: argparse.Namespace, device: torch.devi
 
         model = identity.model
         with torch.no_grad():
-            add("fk", "default", lambda: forward_kinematics_state(model, q), None)
-            state = forward_kinematics_state(model, q)
+            add("fk", "default", lambda: forward_kinematics(model, q), None)
+            state = forward_kinematics(model, q)
             generator = torch.Generator().manual_seed(3)
             v = (0.1 * torch.randn(batch, model.nv, generator=generator)).to(device)
             a = (0.1 * torch.randn(batch, model.nv, generator=generator)).to(device)

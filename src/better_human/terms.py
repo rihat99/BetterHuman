@@ -14,7 +14,7 @@ from collections.abc import Sequence
 import torch
 from better_robot.dynamics.state import inverse_dynamics
 from better_robot import Model
-from better_robot.kinematics import KinematicState, forward_kinematics_state
+from better_robot.kinematics import KinematicState, forward_kinematics
 from better_robot.optim import TermFn
 
 from .core.body import Body, HumanState, Identity
@@ -186,9 +186,9 @@ def contact_wrenches(
     parents = torch.as_tensor(
         [model.structure.frame_parent_joint_ids[int(f)] for f in frame_ids], dtype=torch.long, device=forces.device
     )
-    joint = kinematics.joint_transform[..., parents, :, :]  # (..., C, 3, 4)
+    joint = kinematics.joint_transforms[..., parents, :, :]  # (..., C, 3, 4)
     forces = forces.expand(*joint.shape[:-2], 3)
-    lever = kinematics.frame_translation[..., frame_ids, :] - joint[..., 3]
+    lever = kinematics.frame_translations[..., frame_ids, :] - joint[..., 3]
     rotation = joint[..., :3]
     linear = (rotation.mT @ forces[..., None]).squeeze(-1)
     angular = (rotation.mT @ torch.linalg.cross(lever, forces)[..., None]).squeeze(-1)
@@ -218,7 +218,7 @@ def root_wrench(
         velocity = model.difference(pose[:, :-1], pose[:, 1:]) / dt  # (B, T-1, nv) at half steps
         acceleration = (velocity[:, 1:] - velocity[:, :-1]) / dt  # (B, T-2, nv)
         mid_velocity = 0.5 * (velocity[:, 1:] + velocity[:, :-1])
-        kinematics = forward_kinematics_state(model, pose[:, 1:-1])
+        kinematics = forward_kinematics(model, pose[:, 1:-1])
         fext = contact_wrenches(model, kinematics, frame_ids.to(force.device), force[:, 1:-1])
         return inverse_dynamics(model, kinematics, v=mid_velocity, a=acceleration, fext=fext)[..., :6]
 

@@ -147,7 +147,7 @@ class RegressedRig:
         return torch.arange(1, spec.num_joints + 1, device=model.joint_placements.device)
 
     def joint_transforms(self, spec: FamilySpec, model: Model, *, kinematics: KinematicState) -> torch.Tensor:
-        return kinematics.joint_transform.index_select(-3, self.native_joint_ids(spec, model))
+        return kinematics.joint_transforms.index_select(-3, self.native_joint_ids(spec, model))
 
     def corrective_features(
         self, spec: FamilySpec, model: Model, q: torch.Tensor, *, identity: Tensors | None = None

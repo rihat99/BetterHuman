@@ -33,7 +33,7 @@ def test_layers_have_one_frame_per_pose(clip) -> None:
     assert all(layer.nsteps == 5 for layer in layers)
     assert layers[0].vertices.shape == (5, identity.body.num_vertices, 3)
     assert layers[1].joints.shape == (5, 24, 3)
-    np.testing.assert_allclose(layers[3].origins[2, 0], state.kinematics.frame_translation[2, -1].numpy(), atol=1e-6)
+    np.testing.assert_allclose(layers[3].origins[2, 0], state.kinematics.frame_translations[2, -1].numpy(), atol=1e-6)
 
 
 def test_skinned_layer_matches_exact_vertices_without_correctives(clip) -> None:

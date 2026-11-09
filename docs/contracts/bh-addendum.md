@@ -151,7 +151,7 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
   and world-aligned Hips). Positions must stay BR's joint translations: `HumanState.joints` reads those.
   `RigBake.inverse_bind_poses` (copied to `Identity.inverse_bind_poses`) replaces
   `meta["inverse_bind_poses"]` as the skinning bind. **Breaking for third-party `Rig` implementations**:
-  add `joint_transforms` (`kinematics.joint_transform.index_select(-3, self.native_joint_ids(spec, model))`
+  add `joint_transforms` (`kinematics.joint_transforms.index_select(-3, self.native_joint_ids(spec, model))`
   keeps the old behaviour) and return authored inverse bind poses in the `RigBake`.
 - `RigBake.v_shaped (..., V, 3)` is new and optional: the skinning rest mesh when the rig re-poses the
   shaped mesh. `Body.bake` uses it in place of the blend-shape mesh, so pose correctives are added to

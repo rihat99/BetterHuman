@@ -8,7 +8,7 @@ from numbers import Real
 
 import torch
 from better_robot import Model
-from better_robot.kinematics import KinematicState, forward_kinematics_state
+from better_robot.kinematics import KinematicState, forward_kinematics
 from better_robot.lie import so3
 
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
@@ -225,7 +225,7 @@ class Identity:
             offset = offset - root
             pelvis = pelvis + root[..., 0, :]
             model = model.with_values(joint_placements=spec.rig.placements_from_rest(spec, model, rest_joints))
-        kinematics = forward_kinematics_state(model, q)
+        kinematics = forward_kinematics(model, q)
         return HumanState(self, q, stream, model, kinematics, rest_joints, pelvis, offset)
 
 
@@ -261,7 +261,7 @@ class HumanState:
     @property
     def joints(self) -> torch.Tensor:
         """``(..., J, 3)`` world joint positions in native order."""
-        return self.kinematics.joint_translation.index_select(-2, self.body.native_joint_ids)
+        return self.kinematics.joint_translations.index_select(-2, self.body.native_joint_ids)
 
     @property
     def joint_transforms(self) -> torch.Tensor:
@@ -339,7 +339,7 @@ class HumanState:
     @property
     def frame_poses(self) -> torch.Tensor:
         """``(..., nframes, 7)`` world poses of the model frames (contact frames included)."""
-        return self.kinematics.frame_pose
+        return self.kinematics.frame_poses
 
 
 def _checked_groups(

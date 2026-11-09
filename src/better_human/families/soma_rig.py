@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
-from better_robot.kinematics import forward_kinematics_state
+from better_robot.kinematics import forward_kinematics
 from better_robot.lie import so3
 
 from better_human.core.pipeline import lbs_affines, regress_joints, skin_affines
@@ -198,13 +198,13 @@ class SomaRig:
             dim=-1,
         )
         baked = model.with_values(joint_placements=placements)
-        kinematics = forward_kinematics_state(baked, baked.q_neutral)
+        kinematics = forward_kinematics(baked, baked.q_neutral)
         transforms = self.joint_transforms(spec, baked, kinematics=kinematics)
         affines = skin_affines(transforms, inverse_bind_poses=inverse_bind)
         return RigBake(
             joint_placements=placements,
             rest_joints=positions,
-            rest_poses=kinematics.joint_pose,
+            rest_poses=kinematics.joint_poses,
             pelvis=positions.new_zeros((*positions.shape[:-2], 3)),
             neutral_vertices=lbs_affines(rest, affines, spec.skin_matrix()),
             inverse_bind_poses=inverse_bind,
@@ -226,7 +226,7 @@ class SomaRig:
         Each twist helper also turns about its x axis by the swing-twist of its segment; a segment twisted past 180°
         wraps to the opposite angle, as upstream.
         """
-        transforms = kinematics.joint_transform
+        transforms = kinematics.joint_transforms
         angle = self._twist_angles(so3.from_matrix(transforms.index_select(-3, self.twist_joints)[..., :3]))
         cos, sin = angle.cos(), angle.sin()
         one, zero = torch.ones_like(cos), torch.zeros_like(cos)

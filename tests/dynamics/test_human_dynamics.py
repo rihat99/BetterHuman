@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 from better_robot.dynamics import inverse_dynamics, mass_matrix
-from better_robot.kinematics import forward_kinematics_state
+from better_robot.kinematics import forward_kinematics
 
 import better_human as bh
 from better_human.io import weight_path
@@ -22,7 +22,7 @@ def mass_body() -> bh.Body:
 def test_gravity_inverse_dynamics_zero_velocity_and_mass_matrix_spd(mass_body: bh.Body) -> None:
     model = mass_body.bake().model
     q = model.q_neutral
-    state = forward_kinematics_state(model, q)
+    state = forward_kinematics(model, q)
     velocity = torch.zeros(model.nv, dtype=q.dtype)
     acceleration = torch.zeros_like(velocity)
     tau = inverse_dynamics(model, state, v=velocity, a=acceleration)
@@ -39,7 +39,7 @@ def test_batched_shapes_drive_batched_dynamics(mass_body: bh.Body) -> None:
     q = model.q_neutral
     velocity = torch.zeros(model.nv, dtype=q.dtype)
     acceleration = torch.zeros_like(velocity)
-    state = forward_kinematics_state(model, q)
+    state = forward_kinematics(model, q)
     tau = inverse_dynamics(model, state, v=velocity, a=acceleration)
     M = mass_matrix(model, state)
     assert tau.shape == (2, model.nv)
@@ -66,7 +66,7 @@ def test_cuda_mass_inverse_dynamics_and_mass_matrix_smoke() -> None:
     model = bh.Body(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")), device="cuda").bake().model
     q = model.q_neutral
     velocity = torch.zeros(model.nv, dtype=q.dtype, device=q.device)
-    state = forward_kinematics_state(model, q)
+    state = forward_kinematics(model, q)
     tau = inverse_dynamics(model, state, v=velocity, a=torch.zeros_like(velocity))
     M = mass_matrix(model, state)
     assert tau.is_cuda and M.is_cuda

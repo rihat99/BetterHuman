@@ -89,7 +89,7 @@ def forces_layer(
     theme: Theme = LIGHT,
 ) -> ArrowsLayer:
     """World ``forces (T, C, 3)`` applied at model ``frame_ids (C,)``, drawn as arrows (``scale`` metres per newton)."""
-    origins = state.kinematics.frame_translation[..., frame_ids, :]
+    origins = state.kinematics.frame_translations[..., frame_ids, :]
     return ArrowsLayer(name, _frames(origins, 2), _frames(forces, 2), scale=scale, colors=theme.force)
 
 
