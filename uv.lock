@@ -112,6 +112,7 @@ dependencies = [
 
 [package.optional-dependencies]
 viewer = [
+    { name = "pillow" },
     { name = "viser" },
 ]
 
@@ -119,10 +120,11 @@ viewer = [
 requires-dist = [
     { name = "mujoco", marker = "extra == 'mjcf'", specifier = ">=3.1" },
     { name = "numpy", specifier = ">=2.0" },
+    { name = "pillow", marker = "extra == 'viewer'", specifier = ">=10" },
     { name = "robot-descriptions", marker = "extra == 'demos'", specifier = ">=1.0.0" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
     { name = "trimesh", marker = "extra == 'meshes'", specifier = ">=4.0.0" },
-    { name = "viser", marker = "extra == 'viewer'", specifier = ">=1.0.18" },
+    { name = "viser", marker = "extra == 'viewer'", specifier = ">=1.0.30" },
     { name = "yourdfpy", specifier = ">=0.0.14" },
 ]
 provides-extras = ["viewer", "mjcf", "meshes", "demos"]
