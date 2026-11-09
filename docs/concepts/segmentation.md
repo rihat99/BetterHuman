@@ -4,7 +4,7 @@ Human mass and dynamics need each vertex assigned to the body part it moves
 with, and each part closed into a solid whose volume, centre of mass, and
 inertia can be integrated. BetterHuman derives that closed part topology from
 **two segmentation sources** that both flow into the one differentiable
-`inertia_of_mesh` integrator (`core/mass.py`). This page explains what the two
+`inertia_of_mesh` integrator (`src/better_human/core/mass.py`). This page explains what the two
 sources are, why the authored one preserves volume, and when each is used — the
 images make the difference visible.
 

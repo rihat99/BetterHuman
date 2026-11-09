@@ -44,11 +44,11 @@ weight file --loader--> FamilySpec --Body(spec)--> Body --bake(**identity)--> Id
               (families)   (data + rig)     (BR model once)        (shape once)            (per frame, memoised)
 ```
 
-### FamilySpec (`core/spec.py`)
+### FamilySpec (`src/better_human/core/spec.py`)
 
 Plain data: template vertices, faces, top-K skin weights, identity and stream blend groups,
 a `Corrective`, `Parts` (segmentation), landmarks and `meta`. Its one behavioural member is
-`rig`, which implements the `Rig` protocol (`core/rig.py`):
+`rig`, which implements the `Rig` protocol (`src/better_human/core/rig.py`):
 
 | Rig method | Job |
 |---|---|
@@ -61,19 +61,19 @@ a `Corrective`, `Parts` (segmentation), landmarks and `meta`. Its one behavioura
 
 Three rigs exist:
 
-- `RegressedRig` (`core/rig.py`, SMPL family). Joints come from a joint regressor `(J, V)`
+- `RegressedRig` (`src/better_human/core/rig.py`, SMPL family). Joints come from a joint regressor `(J, V)`
   applied to the shaped vertices. The stream joint basis is `J_regressor @ stream_blendshapes`.
-- `MhrRig` (`families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton: each native
+- `MhrRig` (`src/better_human/families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton: each native
   joint is a chain of revolutes, one per rotation entry of the parameter transform, with mimics for
   parameters that drive several entries. Proportions set the joint offsets and accumulated scales. It
   builds its BR model once from the archive, in float64; `to` moves it and `build_model` casts it. Its
   `stream_joint_basis` returns `None`: MHR expression moves vertices only.
-- `SomaRig` (`families/soma_rig.py`, SOMA). Bake fits the template skeleton to the shaped mesh and
+- `SomaRig` (`src/better_human/families/soma_rig.py`, SOMA). Bake fits the template skeleton to the shaped mesh and
   re-poses mesh and skeleton to the template bind, as upstream. Its `joint_transforms` turns the 32
   twist helpers by the swing-twist of their limb segments and turns the world-aligned Hips free flyer
   into the upstream Hips frame.
 
-### Body (`core/body.py`)
+### Body (`src/better_human/core/body.py`)
 
 ```python { .no-run }
 Body(spec, *, dtype=None, device=None, mass=True, density=1000.0, contact_frames=None, stream_joints=True)
@@ -148,19 +148,19 @@ Native parameter sets (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA
 
 | family | module | functions |
 |---|---|---|
-| SMPL, SMPL-H, SMPL-X, MANO, FLAME | `families/classic.py` | `<family>_from_classic(identity, classic) -> (q, stream)`, `<family>_to_classic(identity, q, stream=None)` |
-| MHR | `families/mhr.py` | `mhr_from_classic(body, classic) -> (identity, q, stream)`, `mhr_to_classic(identity, q, stream=None)` |
+| SMPL, SMPL-H, SMPL-X, MANO, FLAME | `src/better_human/families/classic.py` | `<family>_from_classic(identity, classic) -> (q, stream)`, `<family>_to_classic(identity, q, stream=None)` |
+| MHR | `src/better_human/families/mhr.py` | `mhr_from_classic(body, classic) -> (identity, q, stream)`, `mhr_to_classic(identity, q, stream=None)` |
 
 Each family has a `<Family>Classic` dataclass (`SMPLClassic`, `SMPLXClassic`, `MHRClassic`, ...).
 
 ## Partial models
 
 `core.drop_joints(spec, names) -> FamilySpec` removes joints from a regressed-rig spec. It
-needs a linear corrective (`ValueError` otherwise); `core/reduction.py` slices the corrective.
+needs a linear corrective (`ValueError` otherwise); `src/better_human/core/reduction.py` slices the corrective.
 Loaders expose the common cases: `smplx(hands=False, face=False)` drops the hand and face
 joints and the expression group. Converting a pose that uses a dropped joint raises.
 
-## Mass pipeline (`core/mass.py`)
+## Mass pipeline (`src/better_human/core/mass.py`)
 
 1. The spec's `Parts` segment the mesh; `build_authored_topology` closes each part with
    authored joint caps into one `PartMeshTopology` (built once per `Body`).

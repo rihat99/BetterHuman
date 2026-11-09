@@ -2,8 +2,8 @@
 
 For each format in ``io.formats.LATEST``: the latest version round-trips, a fixture of every past version in
 ``tests/support/formats/`` reads through its migration and equals the latest fixture, a later version and another
-format are refused naming both, and ``docs/reference/formats/<name>.md`` specifies it. No module but ``io/formats.py``
-and ``io/schema.py`` names ``format_version`` (8.8), and none loads a pickle but the listed exception (record 0013).
+format are refused naming both, and ``docs/reference/formats/<name>.md`` specifies it. No module but
+``src/better_human/io/formats.py`` and ``src/better_human/io/schema.py`` names ``format_version`` (8.8), and none loads a pickle but the listed exception (record 0013).
 The fixtures are synthetic and frozen: ``tests/support/formats/make_fixtures.py`` wrote them (every field a distinct
 constant; the v1 archives as the converters wrote them before record 0012) and ``SHA256SUMS`` there lists them. Each
 spec page's field tables equal the reader's schema, field by field.
@@ -231,7 +231,7 @@ def test_format_version_is_named_only_in_io_formats_and_schema() -> None:
 
 
 def test_a_planted_format_version_is_found(tmp_path: Path) -> None:
-    """A comparison, the whole-metadata equality ``families/mhr.py`` had before record 0012, and a match."""
+    """A comparison, the whole-metadata equality ``src/better_human/families/mhr.py`` had before record 0012, and a match."""
     planted = {
         "io/formats.py": "ok = data['format_version'] < 2\n",
         "io/schema.py": "FIELDS = {'format_version': ()}\n",

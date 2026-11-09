@@ -6,8 +6,8 @@ wherever it sits (module level, inside a function, under ``TYPE_CHECKING``), res
 unit ``sub``, and reports a BetterRobot target as its first-level unit (``better_robot.lie``), or ``better_robot``
 for a name of BetterRobot's root. So the record's ``better_robot.viewer.tools`` row entry is part of
 ``better_robot.viewer``. Imports of other packages are not this test's subject. An edge outside the tables that
-exists today sits in ``ratchets/edges.json`` (``"from -> to"`` -> the ``path::symbol`` that makes it and why it
-goes); the ratchet only shrinks, and the fix that removes an edge removes its entry.
+exists today sits in ``tests/contract/ratchets/edges.json`` (``"from -> to"`` -> the ``path::symbol`` that makes it
+and why it goes); the ratchet only shrinks, and the fix that removes an edge removes its entry.
 """
 
 from __future__ import annotations
@@ -27,7 +27,10 @@ ALLOWED: dict[str, set[str]] = {
     "core": {"mass"},
     "families": {"core", "io", "mass"},
     "terms": {"core"},
-    "viz": {"core", "io"},  # the studio persists frame sets (io/frame_sets.py); permanent, record 0011's note
+    "viz": {
+        "core",
+        "io",
+    },  # the studio persists frame sets (src/better_human/io/frame_sets.py); permanent, record 0011's note
     "studio": {ROOT, "core", "families", "io", "mass", "viz"},
     ROOT: {"core", "families", "io", "mass", "terms", "viz"},
 }
@@ -67,7 +70,7 @@ def test_imports_follow_the_edge_tables() -> None:
 
 
 def test_edge_ratchet_has_no_stale_entries() -> None:
-    """An edge that no longer exists leaves ``ratchets/edges.json`` in the commit that removes it."""
+    """An edge that no longer exists leaves ``tests/contract/ratchets/edges.json`` in the commit that removes it."""
     stale = sorted(EDGE_RATCHET.keys() - _forbidden_edges(SRC))
     assert not stale, "remove these edges from tests/contract/ratchets/edges.json:\n  " + "\n  ".join(stale)
 

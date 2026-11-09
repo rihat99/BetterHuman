@@ -13,7 +13,7 @@ uv run pytest tests -q -m "licensed and not cuda"               # release tier o
 uv run pytest tests -q -m cuda                                  # release tier on a free GPU, 10 s
 uv run ruff check src tests examples benchmarks                 # lint (line length 120)
 uv run python examples/01_smpl_shape_pose.py --check            # each example 01-04 supports --check
-uv run python benchmarks/run.py --device cpu --threads 8 --out temp/bench_cpu.json   # temp/ is ignored
+uv run python benchmarks/run.py --device cpu --threads 8 --out ./temp/bench_cpu.json  # temp/ is ignored
 ```
 
 Tier times are wall times measured on 2026-11-06 (384-core host, load average 8 to 15, default huge pages). The fast
@@ -34,16 +34,16 @@ higher ones. Import BetterRobot through its public surface only (`better_robot.M
 | path | what |
 |---|---|
 | `src/better_human/__init__.py` | `load`, `Body`, `FamilySpec`, `Identity`, `HumanState` |
-| `core/spec.py`, `core/rig.py` | `FamilySpec` data, `Rig` protocol, `RegressedRig`, `drop_joints` |
-| `core/body.py` | `Body` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
-| `core/pipeline.py`, `core/mass.py` | blend shapes and skinning; segmentation and inertias |
-| `families/smpl_family.py`, `families/tables.py` | SMPL-family loaders; file patterns and joint names |
-| `families/classic.py`, `families/mhr.py` | classic converters; MHR loader and converters |
-| `families/mhr_rig.py` | `MhrRig` |
-| `families/soma.py`, `families/soma_rig.py` | SOMA loader and converters; `SomaRig` |
-| `io/load.py`, `io/schema.py` | weight paths (`models_dir`, `weight_path`); internal archive reader and schemas |
-| `io/formats.py`, `io/frame_sets.py` | file formats, `check_format`, the migrations (spec: `docs/reference/formats/`); frame sets |
-| `terms.py`, `viz/human_layers.py` | optimisation terms; viewer layers and `HumanView` |
+| `src/better_human/core/spec.py`, `src/better_human/core/rig.py` | `FamilySpec` data, `Rig` protocol, `RegressedRig`, `drop_joints` |
+| `src/better_human/core/body.py` | `Body` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
+| `src/better_human/core/pipeline.py`, `src/better_human/core/mass.py` | blend shapes and skinning; segmentation and inertias |
+| `src/better_human/families/smpl_family.py`, `src/better_human/families/tables.py` | SMPL-family loaders; file patterns and joint names |
+| `src/better_human/families/classic.py`, `src/better_human/families/mhr.py` | classic converters; MHR loader and converters |
+| `src/better_human/families/mhr_rig.py` | `MhrRig` |
+| `src/better_human/families/soma.py`, `src/better_human/families/soma_rig.py` | SOMA loader and converters; `SomaRig` |
+| `src/better_human/io/load.py`, `src/better_human/io/schema.py` | weight paths (`models_dir`, `weight_path`); internal archive reader and schemas |
+| `src/better_human/io/formats.py`, `src/better_human/io/frame_sets.py` | file formats, `check_format`, the migrations (spec: `docs/reference/formats/`); frame sets |
+| `src/better_human/terms.py`, `src/better_human/viz/human_layers.py` | optimisation terms; viewer layers and `HumanView` |
 | `tests/parity/` | parity gates; their goldens live in `$BETTERHUMAN_MODELS_DIR/goldens/` (release tier) |
 
 ## Numerical contracts

@@ -2,8 +2,8 @@
 
 Every function in a public ``__all__`` and every public method of a public class is inspected; parameters after
 the second (``self`` excluded) must be keyword-only. The violations that exist today sit in
-``ratchets/keyword_only.json`` (qualified name -> the fix that removes it); the ratchet only shrinks, and the fix
-that resolves a violation removes its entry.
+``tests/contract/ratchets/keyword_only.json`` (qualified name -> the fix that removes it); the ratchet only shrinks,
+and the fix that resolves a violation removes its entry.
 """
 
 from __future__ import annotations

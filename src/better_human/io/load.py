@@ -1,11 +1,8 @@
 """Find and load validated model weights.
 
-Every weight file lives under one directory, named by ``$BETTERHUMAN_MODELS_DIR``::
-
-    $BETTERHUMAN_MODELS_DIR/
-    ├── smpl/SMPL_NEUTRAL.npz
-    ├── smplx/SMPLX_NEUTRAL.npz
-    └── MHR/converted/mhr_lod1.npz
+Every weight file lives under one directory, named by ``$BETTERHUMAN_MODELS_DIR``, in one folder per family:
+``$BETTERHUMAN_MODELS_DIR/smpl/SMPL_NEUTRAL.npz``, ``$BETTERHUMAN_MODELS_DIR/smplx/SMPLX_NEUTRAL.npz``,
+``$BETTERHUMAN_MODELS_DIR/MHR/converted/mhr_lod1.npz``.
 
 :func:`models_dir` is the one reader of that variable, and an explicit ``path`` always takes precedence over it.
 Licensed weights are never downloaded or cached by BetterHuman.
