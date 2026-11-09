@@ -3,21 +3,23 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import torch
 
-from better_human.core.mass import segment_vertices
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
 from better_human.core.spec import FamilySpec, Landmarks, LinearCorrective, Parts
-from better_human.io import weight_path
+from better_human.io import FormatError, weight_path
 from better_human.io.load import load_model_npz
+from better_human.io.mass_data import shipped_density_tables, shipped_segmentation
 from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA
+from better_human.mass import segment_vertices
 
 from . import tables
+from .densities import density_categories
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
-from .assets import load_closed_segmentation
 
 SMPLX_SHAPE_DIM, SMPLX_EXPRESSION_DIM = 300, 100
 FLAME_SHAPE_DIM, FLAME_EXPRESSION_DIM = 300, 100
@@ -82,8 +84,15 @@ def load_family(
     posedirs = arrays["posedirs"].to(torch.float64)
     weights, indices = top_k_skin(arrays["weights"].to(torch.float64))
     closed_faces = None
-    if table.closed_segmentation_file is not None:
-        closed_faces = load_closed_segmentation(table.closed_segmentation_file, device=device)
+    if table.closed_segmentation is not None:
+        num_vertices, closed_faces = shipped_segmentation(table.closed_segmentation)
+        if num_vertices != arrays["v_template"].shape[0]:
+            raise FormatError(
+                f"{table.name} weights hold {arrays['v_template'].shape[0]} vertices; the shipped "
+                f"{table.closed_segmentation} segmentation needs {num_vertices}. Pass an unmodified {table.name} file."
+            )
+        closed_faces = {part: faces.to(device) for part, faces in closed_faces.items()}
+    density_tables = shipped_density_tables()
     data = _reduce_joints(
         _JointData(
             table.joint_names,
@@ -93,7 +102,13 @@ def load_family(
             weights,
             indices,
             posedirs.reshape(-1, posedirs.shape[-1]).T.contiguous(),
-            Parts(segment_vertices(weights, indices), tuple(range(joint_count))),
+            Parts(
+                segment_vertices(weights, indices),
+                tuple(range(joint_count)),
+                density_categories(table.joint_names, density_tables),
+                density_tables,
+                closed_faces,
+            ),
         ),
         [table.joint_names.index(name) for name in drop],
     )
@@ -113,7 +128,7 @@ def load_family(
         stream_bases={name: bases[name] for name in streams},
         corrective=LinearCorrective(data.posedirs.to(device=device, dtype=dtype)),
         rig=RegressedRig(data.joint_regressor.to(device=device, dtype=dtype)),
-        parts=Parts(data.parts.ids.to(device), data.parts.joints, closed_faces),
+        parts=replace(data.parts, ids=data.parts.ids.to(device)),
         landmarks=landmarks,
         meta=meta,
     )

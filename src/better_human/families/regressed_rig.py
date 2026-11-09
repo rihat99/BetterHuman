@@ -153,6 +153,7 @@ def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
             ancestor[joint] = data.parents[int(ancestor[joint])]
     part_ids = torch.tensor([old_to_new[int(ancestor[j])] for j in range(num_joints)], device=device)
     part_joints = tuple(old_to_new[j] for j in data.parts.joints if j in old_to_new)
+    categories = data.parts.density_categories
     return _JointData(
         joint_names,
         parents,
@@ -161,7 +162,15 @@ def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
         weights,
         indices,
         posedirs.reshape(num_vertices * 3, -1).T,
-        Parts(part_ids[data.parts.ids], part_joints, data.parts.closed_faces),
+        # Authored closed faces cap parts with joints by their old numbering: the reduced parts close from ids.
+        Parts(
+            part_ids[data.parts.ids],
+            part_joints,
+            tuple(
+                category for joint, category in zip(data.parts.joints, categories, strict=True) if joint in old_to_new
+            ),
+            data.parts.density_tables,
+        ),
     )
 
 

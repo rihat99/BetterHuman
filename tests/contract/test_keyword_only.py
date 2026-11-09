@@ -23,6 +23,7 @@ PACKAGES = [
     "better_human.core",
     "better_human.families",
     "better_human.io",
+    "better_human.mass",
     "better_human.terms",
     "better_human.viz",
     "better_human.viz.studio",

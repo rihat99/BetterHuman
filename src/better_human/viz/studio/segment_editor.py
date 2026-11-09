@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from better_robot.viewer.tools import vertices_in_sphere
 
-from better_human.core.mass import body_inertias_from_shape, build_part_topology
+from better_human.mass import PartTopology, part_inertias
 from better_human.viz.studio import persistence
 
 if TYPE_CHECKING:
@@ -156,14 +156,14 @@ class SegmentEditor:
                 body.part_topology
             )  # the body's own (possibly authored, closed) parts: same mass as ``HumanModel.bake``
         else:
-            topology = build_part_topology(body.spec.faces, session.part_ids, num_parts)
+            topology = PartTopology.from_part_ids(body.spec.faces, session.part_ids, num_parts=num_parts)
         poses = torch.zeros(num_parts, 7)
         poses[:, 6] = 1.0
         density = session.body.density
         if density.numel() != num_parts:
             density = density.mean().expand(num_parts)
-        masses = body_inertias_from_shape(session.identity.rest_vertices.detach(), poses, topology, density)[
-            1:, 0
+        masses = part_inertias(session.identity.rest_vertices.detach(), poses, topology=topology, density=density)[
+            :, 0
         ].tolist()
         rows = [*zip(session.part_names, masses, strict=True), ("total", float(sum(masses)))]
         table = "\n".join(f"| {name} | {mass:.2f} |" for name, mass in rows)

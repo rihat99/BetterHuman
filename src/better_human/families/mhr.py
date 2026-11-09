@@ -15,11 +15,14 @@ import torch
 from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
-from better_human.core.mass import segment_vertices
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz
+from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
+from better_human.mass import segment_vertices
+
+from .densities import density_categories
 
 from .mhr_rig import ROOT_COUNT, MhrRig
 
@@ -87,6 +90,9 @@ def mhr(
     rig = MhrRig.from_arrays(arrays, dtype=dtype, device=device)
     template = floats("template_vertices")
     joint_names = tuple(str(name) for name in arrays["joint_names"])
+    part_joints = tuple(joint_groups.index(group) for group in kept)
+    density_tables = shipped_density_tables()
+    categories = density_categories([joint_names[joint] for joint in part_joints], density_tables)
     return FamilySpec(
         name="mhr",
         template_vertices=template,
@@ -103,7 +109,7 @@ def mhr(
         stream_bases={"expression": floats("expression_basis")} if expression else {},
         corrective=corrective,
         rig=rig,
-        parts=Parts(part_ids, tuple(joint_groups.index(group) for group in kept)),
+        parts=Parts(part_ids, part_joints, categories, density_tables),
         up_axis=str(arrays["up_axis"]),
         provenance={"archive": str(arrays["provenance"])},
     )

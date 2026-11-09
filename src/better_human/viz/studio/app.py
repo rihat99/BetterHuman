@@ -13,7 +13,6 @@ from better_robot.viewer import LIGHT, Viewer
 from better_robot.viewer.tools import CameraFrustum, nearest_on_ray, ray_hit, vertices_in_rect
 
 import better_human as bh
-from better_human.families.assets import load_density_table
 from better_human.viz.studio import persistence
 from better_human.viz.studio.frames_editor import FramesEditor
 from better_human.viz.studio.gizmo import GizmoController
@@ -22,7 +21,13 @@ from better_human.viz.studio.segment_editor import SegmentEditor
 from better_human.viz.studio.state import FrameEntry, StudioSession
 
 _TABLE_FAMILIES = ("smpl", "smplh")
-_DENSITY_TABLES = ("Naive", "Chandler", "Dempster", "Clauser", "Custom")  #: keys of body_densities.json
+_DENSITY_TABLES = (
+    "Naive",
+    "Chandler",
+    "Dempster",
+    "Clauser",
+    "Custom",
+)  #: the shipped density tables (io.mass_data.shipped_density_tables)
 _DIM = 0.35  #: mesh opacity factor while a joint is selected
 _FAMILIES = ("smpl", "smplx", "mhr")  #: Model-tab choices
 _GENDERS = ("neutral", "male", "female")
@@ -77,16 +82,11 @@ class HumanStudio:
         return persistence.model_key(self.family, gender=self.gender)
 
     def _load_body(self) -> bh.HumanModel:
-        density = self.density
-        if isinstance(density, str):
-            body = self.session.body
-            names = [body.spec.joint_names[j] for j in body.spec.parts.joints]
-            density = load_density_table("body_densities.json", density, names, body.spec.template_vertices)
         if self.family == "mhr":
             spec = bh.families.mhr(lod=self.lod)
         else:
             spec = getattr(bh.families, self.family)(gender=self.gender)
-        return bh.HumanModel.from_spec(spec, density=density)
+        return bh.HumanModel.from_spec(spec, density=self.density)
 
     @staticmethod
     def _default_frames(body: bh.HumanModel) -> dict[str, FrameEntry]:

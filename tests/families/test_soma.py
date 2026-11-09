@@ -24,7 +24,8 @@ def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> 
 
 @pytest.fixture(scope="module")
 def body() -> HumanModel:
-    return load("soma", str(weight_path("SOMA", "soma_mid.npz")))
+    # density=1000.0 until SOMA's density table ships (H3): "Dempster" covers 68 of its 72 parts (record 0007).
+    return load("soma", str(weight_path("SOMA", "soma_mid.npz")), density=1000.0)
 
 
 def test_sizes_parts_and_mass(body: HumanModel) -> None:

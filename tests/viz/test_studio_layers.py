@@ -68,10 +68,10 @@ def test_parts_are_closed_meshes(smpl: bh.HumanModel) -> None:
 
 
 def test_parts_fall_back_to_open_submeshes(smpl: bh.HumanModel, monkeypatch: pytest.MonkeyPatch) -> None:
-    def fail(*_args: object) -> None:
+    def fail(*_args: object, **_kwargs: object) -> None:
         raise ValueError("no closed topology")
 
-    monkeypatch.setattr(studio_layers, "build_part_topology", fail)
+    monkeypatch.setattr(studio_layers.PartTopology, "from_part_ids", fail)
     session, layers, server = _setup(smpl)
     layers.set_mode("parts")
     assert not layers.mesh.parts.closed

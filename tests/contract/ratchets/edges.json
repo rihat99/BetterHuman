@@ -1,6 +1,5 @@
 {
-  "core -> better_robot.spatial": "src/better_human/core/mass.py::body_inertias_from_shape: the mass math becomes the mass package, whose row allows better_robot.spatial (record 0011)",
   "viz -> better_human": "src/better_human/viz/studio/app.py::HumanStudio: studio code; it leaves viz as better_human.studio, whose row allows the root (records 0009, 0011)",
   "viz -> better_robot.lie": "src/better_human/viz/studio/posing.py::_local_delta: studio code; it leaves viz as better_human.studio, whose row allows better_robot.lie (records 0009, 0011)",
-  "viz -> families": "src/better_human/viz/studio/app.py::HumanStudio: studio code; it leaves viz as better_human.studio, whose row allows families (records 0009, 0011)"
+  "viz -> mass": "src/better_human/viz/studio/state.py::StudioSession: studio code; it leaves viz as better_human.studio, whose row allows mass (records 0009, 0011)"
 }

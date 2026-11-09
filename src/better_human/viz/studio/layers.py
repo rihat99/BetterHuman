@@ -9,7 +9,8 @@ import numpy as np
 import torch
 from better_robot.viewer import LIGHT, FramesLayer, Layer, PointsLayer, SkeletonLayer, Theme
 
-from better_human.core.mass import _majority_face_parts, build_part_topology, meshes_from_topology
+from better_human.mass import PartTopology
+from better_human.mass.topology import _majority_face_parts
 from better_human.viz.human_layers import mesh_layer
 
 from .state import ChangeKind, StudioSession, compact_segmentation
@@ -108,7 +109,7 @@ class SegmentationLayer(Layer):
 class PartsLayer(Layer):
     """Closed part meshes posed rigidly by each part's dominant native joint, pushed apart by ``explode``.
 
-    Parts come from :func:`build_part_topology` on the compacted segmentation (``closed = True``); when no
+    Parts come from :meth:`PartTopology.from_part_ids` on the compacted segmentation (``closed = True``); when no
     closed topology can be built for the current labels they fall back to open submeshes (``closed = False``).
     """
 
@@ -133,15 +134,15 @@ class PartsLayer(Layer):
         ids, names = compact_segmentation(faces, session.part_ids, session.part_names)
         kept = [session.part_names.index(name) for name in names]
         try:
-            topology = build_part_topology(faces, ids, len(names))
-            meshes = meshes_from_topology(rest_vertices, topology)
+            topology = PartTopology.from_part_ids(faces, ids, num_parts=len(names))
+            meshes = topology.meshes(rest_vertices)
         except ValueError:
             self.closed = False
         else:
             self.closed = True
             return [
                 (kept[p], used.cpu().numpy(), vertices.detach().cpu().numpy(), part_faces.cpu().numpy())
-                for p, (used, (vertices, part_faces)) in enumerate(zip(topology.vertex_indices, meshes, strict=True))
+                for p, (used, (vertices, part_faces)) in enumerate(zip(topology.vertex_ids, meshes, strict=True))
             ]
         face_parts = _majority_face_parts(faces, session.part_ids).cpu().numpy()
         faces_np, rest_np = faces.cpu().numpy(), rest_vertices.detach().cpu().numpy()

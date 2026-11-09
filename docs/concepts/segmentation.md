@@ -4,22 +4,23 @@ Human mass and dynamics need each vertex assigned to the body part it moves
 with, and each part closed into a solid whose volume, centre of mass, and
 inertia can be integrated. BetterHuman derives that closed part topology from
 **two segmentation sources** that both flow into the one differentiable
-`inertia_of_mesh` integrator (`src/better_human/core/mass.py`). This page explains what the two
+`inertia_of_mesh` integrator (`src/better_human/mass/`). This page explains what the two
 sources are, why the authored one preserves volume, and when each is used — the
 images make the difference visible.
 
 ## Two sources, one closed topology
 
-- **Authored closed-3D segmentation** (`build_authored_topology`). A vetted
-  asset ships per-part face tables that index the concatenation
+- **Authored closed-3D segmentation** (`PartTopology.from_closed_faces`). A vetted
+  archive (`src/better_human/io/assets/smpl_segmentation.npz`, format
+  [`better_human.segmentation`](../reference/formats/segmentation.md)) ships per-part face tables that index the concatenation
   `[shaped_vertices; rest_joints]`: each part is a surface patch of the body
   mesh whose open boundary is closed by triangles fanning to a **rest joint used
   as a cap vertex**. Winding is fixed once from the rest geometry with
   BetterRobot's non-strict `orient_faces_by_component`, which tolerates the
   seam parts that are not strict manifolds. This is the default for SMPL-family
-  models that ship the asset (SMPL does).
+  models that ship the asset (SMPL does; SMPL-H's 52 joints are not its 24 parts).
 
-- **Argmax fallback** (`build_part_topology`). For models without an authored
+- **Argmax fallback** (`PartTopology.from_part_ids`). For models without an authored
   asset, each vertex is assigned to its strongest-weighted skinning joint
   (`segment_vertices`), a face joins the part held by at least two of its
   vertices, and every resulting open boundary loop is closed by a reverse-wound
@@ -28,8 +29,10 @@ images make the difference visible.
   step. This is the generic path; SMPL-X and MHR use it because neither ships an
   authored closed-3D asset.
 
-Both produce one `PartMeshTopology`, stay batched, and remain differentiable
-with respect to shape through the cap vertices.
+Both produce one `mass.PartTopology`, stay batched, and remain differentiable
+with respect to shape through the cap vertices. `mass.part_inertias` integrates each part at its density: by
+default the `"Dempster"` table, each part at the density of the category its family declares
+(`Parts.density_categories`, [density tables](../reference/formats/density_tables.md)).
 
 ## Why the authored partition preserves volume
 

@@ -18,7 +18,8 @@ import torch
 from better_robot.lie import so3
 
 from better_human.core.human_model import HumanModel, HumanState, Identity
-from better_human.core.mass import _majority_face_parts, segment_vertices
+from better_human.mass import segment_vertices
+from better_human.mass.topology import _majority_face_parts
 
 from .posing import JointHandle, apply_local_rotation, joint_handles
 
@@ -59,7 +60,7 @@ def compact_segmentation(
 ) -> tuple[torch.Tensor, tuple[str, ...]]:
     """Drop parts that own no majority face so a closed topology can be built.
 
-    :func:`better_human.core.mass.build_part_topology` requires every part index
+    :meth:`better_human.mass.PartTopology.from_part_ids` requires every part index
     to win the majority of at least one face. A user may add a part before
     painting it, and remapping dropped parts to ``-1`` can flip a tiebreaker
     face's majority, so this iterates to a fixed point: it keeps only the parts

@@ -14,12 +14,19 @@ from numbers import Real
 
 import torch
 from better_robot import Model
-from better_robot.exceptions import UnknownNameError
+from better_robot.exceptions import (
+    ArgumentError,
+    DeviceMismatchError,
+    DtypeMismatchError,
+    ShapeError,
+    UnknownNameError,
+)
 from better_robot.kinematics import KinematicState, forward_kinematics
 from better_robot.lie import so3
 
+from better_human.mass import PartTopology, part_densities, part_inertias
+
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
-from .mass import PartMeshTopology, body_inertias_from_shape, build_authored_topology, build_part_topology
 from .skinning import blend_shapes, linear_blend_skinning, skin_affines
 from .rig import RigBake
 from .spec import FamilySpec
@@ -40,7 +47,7 @@ class HumanModel:
     joint_ids: torch.Tensor  #: ``(J,)`` BetterRobot joint id of each native joint.
     part_body_ids: torch.Tensor  #: ``(P,)`` BetterRobot body id carrying each part.
     density: torch.Tensor | None  #: ``()`` or ``(P,)`` kg/m³; ``None``: the baked models carry no inertias.
-    part_topology: PartMeshTopology | None  #: closed part meshes for the inertias; ``None`` without density.
+    part_topology: PartTopology | None  #: closed part meshes for the inertias; ``None`` without density.
     contact_frames: ContactFrames | None  #: frames attached to the model, or ``None``.
     stream_joint_bases: Tensors  #: stream group -> ``(J, 3, n)`` joint motion; groups that move no joint are absent.
 
@@ -49,19 +56,24 @@ class HumanModel:
         cls,
         spec: FamilySpec,
         *,
-        density: float | torch.Tensor | None = 1000.0,
+        density: str | float | torch.Tensor | None = "Dempster",
         contact_frames: Mapping[str, tuple[int, str | None]] | None = None,
         stream_joints: bool = True,
     ) -> HumanModel:
         """Compute every input from ``spec``, then construct once.
 
-        ``density`` is kg/m³: a scalar, one value per part ``(P,)``, or ``None`` for no inertias. ``contact_frames``
+        ``density`` is a density table name (``"Dempster"``: each part at its category's density, from
+        ``spec.parts``), kg/m³ as a float or a ``()`` or ``(P,)`` tensor on the spec's dtype and device, or ``None``
+        for no inertias. It raises :class:`~better_robot.exceptions.UnknownNameError` for an unknown table or
+        category, :class:`~better_robot.exceptions.ArgumentError` naming the parts without a category, and
+        :class:`~better_robot.exceptions.DtypeMismatchError` (or ``DeviceMismatchError``) for a tensor on another
+        dtype (or device). ``contact_frames``
         maps ``name -> (vertex_id, parent joint name | None)`` (a file: ``better_human.io.read_frame_set``); each
         becomes an operational frame of the model, re-placed on every bake. ``stream_joints=False`` lets stream groups
         (expression) move vertices but not joints: faster, slightly off upstream.
         """
         model = spec.rig.build_model(spec, frames=())
-        density = None if density is None else _density(density, spec.parts.count, spec.template_vertices)
+        density = None if density is None else _density(density, spec)
         zero = None
         if contact_frames is not None or density is not None:
             zero = _bake(spec, model, _checked_groups({}, spec.identity_groups, spec.template_vertices))
@@ -72,9 +84,11 @@ class HumanModel:
         if density is not None:
             closed = spec.parts.closed_faces
             topology = (
-                build_authored_topology(closed, spec.num_vertices, zero.rest_vertices, zero.rest_joint_translations)
+                PartTopology.from_closed_faces(
+                    closed, reference_vertices=zero.rest_vertices, reference_joints=zero.rest_joint_translations
+                )
                 if closed is not None
-                else build_part_topology(spec.faces, spec.parts.ids, spec.parts.count)
+                else PartTopology.from_part_ids(spec.faces, spec.parts.ids, num_parts=spec.parts.count)
             )
         stream_bases = {}
         if stream_joints:
@@ -117,9 +131,9 @@ class HumanModel:
             )
             part_joints = self.joint_ids.index_select(0, torch.as_tensor(spec.parts.joints, device=spec.device))
             part_poses = neutral.joint_poses.index_select(-2, part_joints)
-            native = body_inertias_from_shape(vertices, part_poses, self.part_topology, self.density)
-            inertias = native.new_zeros((*native.shape[:-2], self.model.nbodies, 10))
-            model_values["body_inertias"] = inertias.index_copy(-2, self.part_body_ids, native[..., 1:, :])
+            parts = part_inertias(vertices, part_poses, topology=self.part_topology, density=self.density)
+            inertias = parts.new_zeros((*parts.shape[:-2], self.model.nbodies, 10))
+            model_values["body_inertias"] = inertias.index_copy(-2, self.part_body_ids, parts)
         if self.contact_frames is not None:
             frames = self.contact_frames
             local = frame_local_placements(
@@ -354,17 +368,34 @@ def _checked_groups(
     return out
 
 
-def _density(density: float | torch.Tensor, num_parts: int, exemplar: torch.Tensor) -> torch.Tensor:
+def _density(density: str | float | torch.Tensor, spec: FamilySpec) -> torch.Tensor:
+    """``()`` or ``(P,)`` kg/m³ on the spec's dtype and device; never casts a tensor (decision record 0007)."""
+    parts, exemplar = spec.parts, spec.template_vertices
+    if isinstance(density, str):
+        return part_densities(
+            parts.density_tables,
+            density,
+            categories=parts.density_categories,
+            part_names=[spec.joint_names[joint] for joint in parts.joints],
+            dtype=exemplar.dtype,
+            device=exemplar.device,
+        )
     if isinstance(density, Real) and not isinstance(density, bool):
         value = exemplar.new_tensor(float(density))
     elif isinstance(density, torch.Tensor) and density.is_floating_point():
-        if density.shape not in ((), (num_parts,)):
-            raise ValueError(f"density must be scalar or ({num_parts},), got {tuple(density.shape)}")
-        value = density.to(dtype=exemplar.dtype, device=exemplar.device)
+        if density.shape not in ((), (parts.count,)):
+            raise ShapeError(f"density must be a () or ({parts.count},) tensor; got {tuple(density.shape)}")
+        if density.dtype != exemplar.dtype:
+            raise DtypeMismatchError(f"density is {density.dtype}; pass it in the spec's dtype, {exemplar.dtype}")
+        if density.device != exemplar.device:
+            raise DeviceMismatchError(
+                f"density is on {density.device}; pass it on the spec's device, {exemplar.device}"
+            )
+        value = density
     else:
-        raise TypeError("density must be a positive real number or floating torch.Tensor")
+        raise TypeError("density must be a table name, a positive real number, a floating torch.Tensor or None")
     if not bool(torch.isfinite(value).all()) or bool((value <= 0).any()):
-        raise ValueError("density must contain only finite positive values")
+        raise ArgumentError("density must contain only finite positive values")
     return value
 
 

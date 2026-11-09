@@ -60,13 +60,17 @@ class Parts:
     """Vertex segmentation into rigid parts for mass properties.
 
     ``ids (V,)`` is the part of every vertex; ``joints[p]`` is the native joint whose body carries part ``p`` and
-    whose rest pose is the part's reference frame. ``closed_faces`` maps a native joint to the ``(F, 3)`` faces of
-    its authored closed part mesh over ``[rest_vertices; rest_joint_translations]``, or is ``None`` when the parts
-    are closed from ``ids`` alone.
+    whose rest pose is the part's reference frame. ``density_categories[p]`` is part ``p``'s key in the density
+    tables, or ``None`` when no category covers it; ``density_tables`` maps a table name (``"Dempster"``) to category
+    -> kg/m³ (decision record 0007). ``closed_faces`` maps part ``p`` to the ``(F_p, 3)`` faces of its authored
+    closed mesh over ``[rest_vertices; rest_joint_translations]``, or is ``None`` when the parts are closed from
+    ``ids`` alone.
     """
 
     ids: torch.Tensor
     joints: tuple[int, ...]
+    density_categories: tuple[str | None, ...]
+    density_tables: Mapping[str, Mapping[str, float]]
     closed_faces: Mapping[int, torch.Tensor] | None = None
 
     @property
@@ -129,6 +133,11 @@ class FamilySpec:
                 raise ValueError(f"blend group {group!r} must be (V, 3, n); got {tuple(basis.shape)}")
         if self.parts.ids.shape != (num_vertices,):
             raise ValueError("parts.ids must be (V,)")
+        closed = self.parts.closed_faces
+        if len(self.parts.density_categories) != self.parts.count or (
+            closed is not None and len(closed) != self.parts.count
+        ):
+            raise ValueError("parts.density_categories and parts.closed_faces must have one entry per part")
 
     @property
     def num_vertices(self) -> int:

@@ -17,8 +17,10 @@ from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz
+from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
+from .densities import density_categories
 from .soma_rig import SomaRig
 
 if TYPE_CHECKING:
@@ -67,6 +69,8 @@ def soma(
     strongest = public_ids[arrays["public_skin_weights"].to(device).argmax(-1)]  # twist helpers count for their parent
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)
     joint_names = tuple(str(name) for name in arrays["joint_names"])
+    density_tables = shipped_density_tables()
+    categories = density_categories([joint_names[joint] for joint in part_joints.tolist()], density_tables)
     return FamilySpec(
         name="soma",
         template_vertices=floats("shape_mean"),
@@ -80,7 +84,7 @@ def soma(
         stream_bases={},
         corrective=corrective,
         rig=SomaRig.from_arrays(arrays, dtype=dtype, device=device),
-        parts=Parts(part_ids, tuple(part_joints.tolist())),
+        parts=Parts(part_ids, tuple(part_joints.tolist()), categories, density_tables),
         up_axis=str(arrays["up_axis"]),
         provenance={"archive": str(arrays["provenance"])},
     )

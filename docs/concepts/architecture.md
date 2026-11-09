@@ -160,7 +160,7 @@ needs a linear corrective (`ValueError` otherwise); `src/better_human/core/reduc
 Loaders expose the common cases: `smplx(hands=False, face=False)` drops the hand and face
 joints and the expression group. Converting a pose that uses a dropped joint raises.
 
-## Mass pipeline (`src/better_human/core/mass.py`)
+## Mass pipeline (`src/better_human/mass/`)
 
 1. The spec's `Parts` segment the mesh; `build_authored_topology` closes each part with
    authored joint caps into one `PartMeshTopology` (built once per `Body`).

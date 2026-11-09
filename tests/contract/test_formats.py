@@ -44,7 +44,7 @@ CONVERTERS = REPO / "tools" / "convert"
 #: The modules that may name ``format_version``: the one check with its migrations, and the archive schemas.
 FORMAT_VERSION_MODULES = ("io/formats.py", "io/schema.py")
 #: ``path -> reason`` for each module that still loads a pickle; an entry leaves with its fix (record 0013).
-ALLOW_PICKLE_EXCEPTIONS = {"families/assets/__init__.py": "segmentation becomes .npz in H2"}
+ALLOW_PICKLE_EXCEPTIONS: dict[str, str] = {}
 READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     MHR: ("npz", lambda path: load_model_npz(path, MHR_SCHEMA)),
     SOMA: ("npz", lambda path: load_model_npz(path, SOMA_SCHEMA)),

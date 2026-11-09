@@ -31,7 +31,7 @@ def load(
     *,
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
-    density: float | torch.Tensor | None = 1000.0,
+    density: str | float | torch.Tensor | None = "Dempster",
     contact_frames: Mapping[str, tuple[int, str | None]] | None = None,
     stream_joints: bool = True,
 ) -> HumanModel:

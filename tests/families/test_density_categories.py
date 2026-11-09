@@ -1,4 +1,8 @@
-"""Name-keyword density mapping for SMPL-X and MHR parts."""
+"""Every family declares the density category of each part (decision record 0007): the keyword map and its coverage.
+
+SOMA, MANO and FLAME have parts no category covers until their tables ship (H3): ``UNCOVERED`` pins them, and
+``density="Dempster"`` raises for those families (``tests/mass/test_densities.py``).
+"""
 
 from __future__ import annotations
 
@@ -6,28 +10,36 @@ import pytest
 
 import better_human as bh
 from better_human.families import tables
-from better_human.families.assets import densities
+from better_human.families.densities import density_categories
 from better_human.io import weight_path
+from better_human.io.mass_data import shipped_density_tables
+
+#: Parts the keyword map leaves without a category, per family; H3 empties it with each family's table.
+UNCOVERED = {
+    "mano": list(tables.MANO.joint_names),
+    "flame": ["global"],
+    "soma": ["LeftArm", "RightArm", "LeftLeg", "RightLeg"],
+}
 
 
-def test_categories_match_smpl_config() -> None:
-    # The 24 density categories are exactly SMPL's native joints, in order.
-    assert densities.SMPL_CATEGORY_NAMES == tuple(tables.SMPL.joint_names)
+def test_the_shipped_categories_are_smpl_joints() -> None:
+    for table in shipped_density_tables().values():
+        assert tuple(table) == tables.SMPL.joint_names
 
 
-def test_part_categories_smplx_names() -> None:
+def test_smplx_names() -> None:
     names = ["pelvis", "spine1", "jaw", "left_eye_smplhf", "left_index1", "right_thumb3"]
-    assert densities.part_categories(names) == [
+    assert density_categories(names, shipped_density_tables()) == (
         "pelvis",  # exact match
         "spine1",  # exact match
         "head",  # jaw -> head
         "head",  # eye -> head (center category ignores the side token)
         "left_hand",  # finger -> hand
         "right_hand",
-    ]
+    )
 
 
-def test_part_categories_mhr_names() -> None:
+def test_mhr_names() -> None:
     names = [
         "l_thumb2",
         "c_jaw",
@@ -39,7 +51,7 @@ def test_part_categories_mhr_names() -> None:
         "l_transversetarsal",
         "root",
     ]
-    assert densities.part_categories(names) == [
+    assert density_categories(names, shipped_density_tables()) == (
         "left_hand",  # thumb -> hand
         "head",  # jaw -> head
         "left_hip",  # upleg -> hip
@@ -49,31 +61,36 @@ def test_part_categories_mhr_names() -> None:
         "spine1",  # c_spine0 -> spine1 (digit + 1)
         "left_ankle",  # transversetarsal -> ankle
         "pelvis",  # root -> pelvis
-    ]
+    )
 
 
-def test_unmapped_part_falls_back_to_mean() -> None:
-    table = {str(index): 1000.0 for index in range(24)}
-    table["0"] = 2000.0  # pelvis
-    tensor = densities.density_for_parts(["pelvis", "totally_unknown_gadget"], table)
-    assert tensor.shape == (2,)
-    assert float(tensor[0]) == pytest.approx(2000.0)
-    # Unmapped -> table mean over all 24 category values.
-    expected_mean = (2000.0 + 23 * 1000.0) / 24
-    assert float(tensor[1]) == pytest.approx(expected_mean)
-    assert densities.part_categories(["totally_unknown_gadget"]) == [None]
+def test_a_name_the_map_misses_has_no_category() -> None:
+    assert density_categories(["totally_unknown_gadget"], shipped_density_tables()) == (None,)
+
+
+@pytest.mark.parametrize("family", ["smpl", "smplh", "smplx", "mano", "flame"])
+def test_smpl_family_coverage_by_joint_names(family: str) -> None:
+    """The SMPL-family loaders declare one category per joint from the table's joint names (no weights needed)."""
+    names = getattr(tables, family.upper()).joint_names
+    categories = density_categories(names, shipped_density_tables())
+    uncovered = [name for name, category in zip(names, categories, strict=True) if category is None]
+    assert uncovered == UNCOVERED.get(family, [])
 
 
 @pytest.mark.licensed
-@pytest.mark.parametrize("family", ["smplx", "mhr"])
-def test_full_coverage_on_real_joint_names(family: str) -> None:
-    if family == "smplx":
-        body = bh.HumanModel.from_spec(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")), density=None)
-    else:
-        body = bh.load("mhr", str(weight_path("MHR", "converted/mhr_lod1.npz")), density=None)
-    names = list(body.spec.joint_names)
-    categories = densities.part_categories(names)
-    unmapped = [name for name, category in zip(names, categories, strict=True) if category is None]
-    assert unmapped == []
-    tensor = densities.density_for_parts(names, {str(index): 1000.0 for index in range(24)})
-    assert tensor.shape == (len(names),)
+@pytest.mark.parametrize("family", ["smpl", "smplh", "smplx", "mhr", "soma"])
+def test_every_part_of_a_loaded_family_has_its_category(family: str) -> None:
+    """``Parts.density_categories`` has one entry per part; ``None`` only for the parts ``UNCOVERED`` names."""
+    paths = {
+        "smpl": ("smpl", "SMPL_NEUTRAL.npz"),
+        "smplh": ("smplh/smplh/neutral", "model.npz"),
+        "smplx": ("smplx", "SMPLX_NEUTRAL.npz"),
+        "mhr": ("MHR/converted", "mhr_lod1.npz"),
+        "soma": ("SOMA", "soma_mid.npz"),
+    }
+    spec = getattr(bh.families, family)(weight_path(*paths[family]))
+    parts = spec.parts
+    assert len(parts.density_categories) == parts.count
+    names = [spec.joint_names[joint] for joint in parts.joints]
+    uncovered = [name for name, category in zip(names, parts.density_categories, strict=True) if category is None]
+    assert uncovered == UNCOVERED.get(family, [])

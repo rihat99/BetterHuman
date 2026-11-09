@@ -19,7 +19,8 @@ class FamilyTable:
     face_joints: tuple[int, ...] = ()
     left_hand_joints: tuple[int, ...] = ()
     right_hand_joints: tuple[int, ...] = ()
-    closed_segmentation_file: str | None = None
+    #: Shipped closed segmentation (``io.mass_data.shipped_segmentation``) whose parts are this family's joints.
+    closed_segmentation: str | None = None
 
 
 KEYPOINT_NAMES = (
@@ -100,7 +101,7 @@ SMPL = FamilyTable(
         6624,
         6787,
     ),
-    closed_segmentation_file="smpl_3d_segmentation.npy",
+    closed_segmentation="smpl",
 )
 
 SMPLH = FamilyTable(
@@ -146,7 +147,6 @@ SMPLH = FamilyTable(
     keypoint_vertex_ids=SMPL.keypoint_vertex_ids,
     left_hand_joints=tuple(range(22, 37)),
     right_hand_joints=tuple(range(37, 52)),
-    closed_segmentation_file="smpl_3d_segmentation.npy",
 )
 
 SMPLX = FamilyTable(
