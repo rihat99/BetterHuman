@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from importlib import resources
 from pathlib import Path
 
 import numpy as np
@@ -10,9 +11,13 @@ import pytest
 from better_robot.exceptions import UnknownNameError
 
 import better_human as bh
+from better_human.families import tables
 from better_human.io import FormatError
 
 FIXTURE = Path(__file__).parents[1] / "support" / "contacts.json"
+SHIPPED = sorted(
+    path.stem for path in (resources.files("better_human.io") / "assets").iterdir() if path.suffix == ".json"
+)
 
 
 def test_round_trip_keeps_order_and_joints(tmp_path: Path) -> None:
@@ -122,6 +127,17 @@ def test_shipped_frame_set_reads_package_data() -> None:
     frames = bh.io.shipped_frame_set("smplx_contacts")
     assert len(frames) == 35
     assert frames["heel_left"] == (8924, None)
+
+
+def test_shipped_frame_names_are_not_body_names() -> None:
+    """BetterRobot refuses a frame named like a body (its record 0018), and every family body carries its joint's name.
+
+    A shipped set's family is its name's first word (``smplx_contacts`` -> SMPL-X).
+    """
+    for name in SHIPPED:
+        table = getattr(tables, name.split("_")[0].upper())
+        clashes = sorted(set(bh.io.shipped_frame_set(name)) & set(table.joint_names))
+        assert not clashes, f"shipped frame set {name!r} names joints of {table.name}: {clashes}"
 
 
 def test_unknown_shipped_name_lists_the_shipped_names() -> None:
