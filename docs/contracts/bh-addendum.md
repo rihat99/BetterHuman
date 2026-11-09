@@ -86,9 +86,9 @@ Parity gates are rule `H-PARITY-1` (MUST): never weaken them.
   model carries gravity against `FamilySpec.up_axis` (`model.gravity[:3] == (0, -9.81, 0)` for every
   shipped family), so `root_wrench` and BR dynamics need no root rotation; `terms.ground` defaults to
   `up=(0, 1, 0)` for the same reason.
-- Joint order: `HumanState.joints`, `joint_poses`, `rest_joints` use the family's native skin-joint
-  order. `q` and BR quantities use BR model order; `rig.native_joint_ids(spec, model)` maps between them.
-- `pelvis` is the root offset from the native origin. `transl + pelvis` is the root position.
+- Joint order: `HumanState.joint_translations`, `joint_poses`, `rest_joint_translations` use the family's native
+  skin-joint order. `q` and BR quantities use BR model order; `rig.joint_ids(spec, model)` maps between them.
+- `root_offset` is the root offset from the native origin. `transl + root_offset` is the root position.
 
 ### State
 
@@ -97,7 +97,8 @@ Parity gates are rule `H-PARITY-1` (MUST): never weaken them.
 - The free flyer is world-aligned in every family: `q[:3]` moves the root along the world axes (for the
   SMPL family and SOMA it is the root joint's world position) and `q[3:7]` is the root's world rotation
   relative to its neutral orientation. `q[..., 1] += 1` lifts any body 1 m.
-- SMPL: `nq = 99`, `nv = 75`. Read `identity.nq`, `identity.nv`, `identity.q_neutral`; do not hard-code.
+- SMPL: `nq = 99`, `nv = 75`. Read `identity.model.nq`, `identity.model.nv`, `identity.model.q_neutral`; do not
+  hard-code.
 - Move on the manifold with BR: `kinematics.integrate(identity.model, q, dq)`.
 
 ### Batching
@@ -139,23 +140,23 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 - Round trips are exact up to rotation equivalence: an axis-angle with norm above π comes back
   as the same rotation with norm below π (vertices match to float precision).
 
-### Rig protocol changes
+### Rig (abstract base, decision record 0002)
 
-- `Rig.corrective_features(spec, model, q, *, identity=None)` takes the identity group values
-  `(I..., n)` that `Body.bake` used, keyword-only, so a shape-dependent corrective (STAR, SUPR) can
-  read them; `HumanState` passes `identity=state.identity.params`. **Breaking for third-party
-  `Rig` implementations**: add the keyword to the method (ignore it if the corrective is pose-only).
-- `Rig.joint_transforms(spec, model, *, kinematics)` is new: `(..., J, 3, 4)` world `[R | p]` of the
-  native joints from the BR `KinematicState`. `HumanState.joint_transforms` memoises it, and `joint_poses`
-  and skinning derive from it, so a rig can post-process rotations BR cannot model (SOMA twist helpers
-  and world-aligned Hips). Positions must stay BR's joint translations: `HumanState.joints` reads those.
-  `RigBake.inverse_bind_poses` (copied to `Identity.inverse_bind_poses`) replaces
-  `meta["inverse_bind_poses"]` as the skinning bind. **Breaking for third-party `Rig` implementations**:
-  add `joint_transforms` (`kinematics.joint_transforms.index_select(-3, self.native_joint_ids(spec, model))`
-  keeps the old behaviour) and return authored inverse bind poses in the `RigBake`.
-- `RigBake.v_shaped (..., V, 3)` is new and optional: the skinning rest mesh when the rig re-poses the
-  shaped mesh. `Body.bake` uses it in place of the blend-shape mesh, so pose correctives are added to
-  the re-posed mesh (SOMA re-poses its fitted skeleton to the template bind). `None` keeps the old behaviour.
+- `Rig` is an abstract class. A family implements `build_model(spec, *, frames)`, `bake(spec, model, *,
+  shaped_vertices, identity) -> RigBake`, `joint_ids(spec, model)` and `corrective_features(spec, model, *, q,
+  identity)`; `joint_transforms`, `stream_joint_basis` and `placements_from_rest` have defaults. Families are in-tree
+  (see Scope), so a change to this base changes every rig in the same commit.
+- `corrective_features` receives the identity group values `(I..., n)` of the bake (`Identity.values`), so a
+  shape-dependent corrective (STAR, SUPR) can read them.
+- `joint_transforms(spec, model, *, kinematics)` gives `(..., J, 3, 4)` world `[R | p]` of the native joints
+  (default: BR's). `HumanState.joint_transforms` memoises it and `joint_poses` and skinning derive from it, so a rig
+  can post-process rotations BR cannot model (SOMA twist helpers and world-aligned Hips). Positions must stay BR's
+  joint translations: `HumanState.joint_translations` reads those.
+- `RigBake` has no optional field: `joint_placements`, `rest_vertices` (the skinning rest mesh; SOMA re-poses its
+  fitted skeleton to the template bind, so pose correctives are added to the re-posed mesh),
+  `rest_joint_translations`, `inverse_bind_affines (I..., J, 3, 4)` and `root_offset`. Every rig skins through
+  `skin_affines(joint_transforms, inverse_bind_affines)` (record 0003): the SMPL family binds at `[I | -rest]`, MHR
+  folds its joint scales into the affines.
 
 ### Scope
 

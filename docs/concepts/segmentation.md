@@ -13,7 +13,7 @@ images make the difference visible.
 - **Authored closed-3D segmentation** (`PartTopology.from_closed_faces`). A vetted
   archive (`src/better_human/io/assets/smpl_segmentation.npz`, format
   [`better_human.segmentation`](../reference/formats/segmentation.md)) ships per-part face tables that index the concatenation
-  `[shaped_vertices; rest_joints]`: each part is a surface patch of the body
+  `[vertices; joints]` (the mesh and its joint positions): each part is a surface patch of the body
   mesh whose open boundary is closed by triangles fanning to a **rest joint used
   as a cap vertex**. Winding is fixed once from the rest geometry with
   BetterRobot's non-strict `orient_faces_by_component`, which tolerates the
