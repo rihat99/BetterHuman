@@ -10,7 +10,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, final
+from typing import TYPE_CHECKING, final
 
 import torch
 from better_robot import Model
@@ -38,10 +38,6 @@ class RigBake:
 
 class Rig(ABC):
     """The behaviour of a family: its BetterRobot model, its bake, its joint numbering and its corrective features."""
-
-    #: ``True`` when stream groups move joints (:meth:`stream_joint_basis` and :meth:`placements_from_rest`). Such a
-    #: rig binds every joint at its rest joint translation, so a stream shift of the rest joints shifts the binds.
-    moves_joints_with_streams: ClassVar[bool] = False
 
     @abstractmethod
     def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
@@ -79,7 +75,11 @@ class Rig(ABC):
         return kinematics.joint_transforms.index_select(-3, self.joint_ids(spec, model))
 
     def stream_joint_basis(self, spec: FamilySpec, name: str) -> torch.Tensor | None:
-        """``(J, 3, n)`` joint motion of stream group ``name``; ``None`` (the default) when it moves no joint."""
+        """``(J, 3, n)`` joint motion of stream group ``name``; ``None`` (the default) when it moves no joint.
+
+        A rig whose streams move joints (it returns a basis here and placements from :meth:`placements_from_rest`)
+        binds every joint at its rest joint translation, so a stream shift of the rest joints shifts the binds.
+        """
         return None
 
     def placements_from_rest(

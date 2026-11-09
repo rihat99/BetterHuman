@@ -216,7 +216,7 @@ class Identity:
             root_offset = root_offset + root[..., 0, :]
             placements = spec.rig.placements_from_rest(spec, model, rest_joint_translations=rest_joints)
             model = model.with_values(joint_placements=placements)
-            # A rig that moves joints with streams binds each joint at its rest translation (Rig docstring).
+            # A rig whose streams move joints binds each joint at its rest translation (Rig.stream_joint_basis).
             rotations = inverse_binds[..., :3]
             translations = -(rotations @ rest_joints[..., None])
             inverse_binds = torch.cat((rotations.expand(*translations.shape[:-1], 3), translations), dim=-1)

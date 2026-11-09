@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import ClassVar, NamedTuple, final
+from typing import NamedTuple, final
 
 import torch
 from better_robot import Model, ModelBuilder
@@ -25,8 +25,6 @@ class RegressedRig(Rig):
     Everything is root-centred: the root joint sits at the native origin and ``root_offset`` records the regressed
     root position, so a classic ``transl`` becomes ``transl + root_offset``.
     """
-
-    moves_joints_with_streams: ClassVar[bool] = True
 
     joint_regressor: torch.Tensor  #: ``(J, V)``
 

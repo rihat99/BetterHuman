@@ -69,11 +69,12 @@ categories), `Landmarks`, `up_axis` and `provenance`. Its one behavioural member
 | `stream_joint_basis(spec, name)` | `(J, 3, n)` joint motion of a stream group, or `None` (the default) |
 | `placements_from_rest(spec, model, *, rest_joint_translations)` | joint placements for stream-shifted rest joints, or `None` (the default) |
 
-Three rigs exist, each `@final`:
+Three rigs exist. `RegressedRig` is `@final`; `MhrRig` and `SomaRig` are not yet (they sit in
+`tests/contract/ratchets/abstract_or_final.json` until the families work closes them):
 
 - `RegressedRig` (`src/better_human/families/regressed_rig.py`, SMPL family). Joints come from a joint regressor
   `(J, V)` applied to the shaped vertices; every joint binds at its rest translation (`[I | -rest]`). The stream joint
-  basis is `J_regressor @ stream_blendshapes`, so it sets `moves_joints_with_streams`.
+  basis is `J_regressor @ stream_blendshapes`, so expression moves its joints.
 - `MhrRig` (`src/better_human/families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton: each native
   joint is a chain of revolutes, one per rotation entry of the parameter transform, with mimics for parameters that
   drive several entries. Proportions set the joint offsets and accumulated scales; the scales fold into the
