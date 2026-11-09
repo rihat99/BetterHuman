@@ -11,7 +11,7 @@ import torch
 from better_robot.lie import so3
 
 import better_human as bh
-from better_human.core.contact_frames import resolve_parents, vertex_normals
+from better_human.core.contact_frames import _resolve_parents, _vertex_normals
 from better_human.io import weight_path
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -70,7 +70,7 @@ def test_rest_pose_frames_sit_on_their_vertex_with_the_normal_as_z(body: bh.Huma
     vertices = torch.tensor(body.contact_frames.vertex_ids, dtype=torch.long)
     # Both sides are pelvis-centered: q_neutral puts the free-flyer root at the origin.
     assert torch.allclose(poses[:, :3], identity.rest_vertices[vertices], atol=1e-5)
-    normals = vertex_normals(identity.rest_vertices, body.spec.faces)[vertices]
+    normals = _vertex_normals(identity.rest_vertices, body.spec.faces)[vertices]
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
@@ -85,7 +85,7 @@ def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.HumanModel) ->
 
     poses = _frame_poses(shaped)
     assert torch.allclose(poses[:, :3], targets, atol=1e-5)
-    normals = vertex_normals(shaped.rest_vertices, body.spec.faces)[vertices]
+    normals = _vertex_normals(shaped.rest_vertices, body.spec.faces)[vertices]
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
@@ -113,7 +113,7 @@ def test_body_without_contact_frames_keeps_only_body_frames() -> None:
 @pytest.mark.licensed
 def test_unknown_explicit_joint_name_raises(body: bh.HumanModel) -> None:
     with pytest.raises(ValueError, match="'tip'.*unknown parent joint 'not_a_joint'"):
-        resolve_parents(
+        _resolve_parents(
             {"tip": (0, "not_a_joint")},
             body.spec.joint_names,
             body.spec.parts.ids,
@@ -130,12 +130,12 @@ def test_unknown_explicit_joint_name_raises(body: bh.HumanModel) -> None:
 def test_resolve_parents_refuses_a_vertex_outside_the_mesh(vertex: int) -> None:
     # The frame-set reader cannot know the mesh; the first place that does checks every id.
     with pytest.raises(ValueError, match=r"'tip': vertex id .* is not an int in \[0, 4\)"):
-        resolve_parents({"tip": (vertex, None)}, ["root"], torch.zeros(4, dtype=torch.long))
+        _resolve_parents({"tip": (vertex, None)}, ["root"], torch.zeros(4, dtype=torch.long))
 
 
 def test_resolve_parents_takes_any_integer_vertex_id() -> None:
     part_ids = torch.tensor([0, 1, 1, 0])
-    assert resolve_parents({"a": (np.int64(1), None), "b": (np.int32(3), "j1")}, ["j0", "j1"], part_ids) == [1, 1]
+    assert _resolve_parents({"a": (np.int64(1), None), "b": (np.int32(3), "j1")}, ["j0", "j1"], part_ids) == [1, 1]
 
 
 @pytest.mark.licensed

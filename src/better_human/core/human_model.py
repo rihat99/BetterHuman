@@ -27,7 +27,7 @@ from better_robot.lie import so3
 
 from better_human.mass import PartTopology, part_densities, part_inertias
 
-from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
+from .contact_frames import ContactFrames, _frame_local_placements, _resolve_parents
 from .skinning import blend_shapes, linear_blend_skinning, skin_affines
 from .rig import RigBake
 from .spec import FamilySpec
@@ -138,7 +138,7 @@ class HumanModel:
             model_values["body_inertias"] = inertias.index_copy(-2, self.part_body_ids, parts)
         if self.contact_frames is not None:
             frames = self.contact_frames
-            local = frame_local_placements(
+            local = _frame_local_placements(
                 bake.rest_vertices, bake.rest_joint_translations, spec.faces, frames.vertex_ids, frames.parent_joints
             )
             placements = local.new_zeros((*local.shape[:-2], self.model.nframes, 7))
@@ -330,9 +330,9 @@ def _attach(
 ) -> tuple[Model, ContactFrames]:
     """The model with the contact frames of ``source`` attached, and the frames resolved against it."""
     entries = dict(source)
-    parents = resolve_parents(entries, spec.joint_names, spec.parts.ids)
+    parents = _resolve_parents(entries, spec.joint_names, spec.parts.ids)
     vertex_ids = tuple(int(vertex) for vertex, _ in entries.values())
-    placements = frame_local_placements(
+    placements = _frame_local_placements(
         bake.rest_vertices, bake.rest_joint_translations, spec.faces, vertex_ids, parents
     )
     frames = [

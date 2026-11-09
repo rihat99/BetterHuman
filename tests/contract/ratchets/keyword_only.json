@@ -1,5 +1,3 @@
 {
-  "better_human.core.contact_frames.frame_local_placements": "five positional parameters; the contact-frame helpers move with the frozen HumanModel (records 0001, 0002)",
-  "better_human.core.contact_frames.resolve_parents": "three positional parameters; the contact-frame helpers move with the frozen HumanModel (records 0001, 0002)",
   "better_human.viz.human_layers.forces_layer": "three positional parameters; viz becomes one layers module of state-driven functions (record 0010)"
 }

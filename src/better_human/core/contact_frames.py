@@ -38,7 +38,7 @@ class ContactFrames:
     frame_ids: tuple[int, ...]
 
 
-def resolve_parents(
+def _resolve_parents(
     entries: Mapping[str, tuple[int, str | None]],
     joint_names: Sequence[str],
     part_ids: torch.Tensor,
@@ -46,13 +46,13 @@ def resolve_parents(
     """Resolve the parent joint index of every frame entry.
 
     An explicit joint name wins. ``None`` falls back to the vertex's dominant
-    skinning joint (``BodyStructure.part_ids``), which does not depend on shape.
+    skinning joint (``Parts.ids``), which does not depend on shape.
 
     :param entries: name -> ``(vertex_id, joint_name | None)``, e.g. from
         ``better_human.io.read_frame_set``; a vertex id is any integer type.
-    :param joint_names: the body's native reduced joint names.
+    :param joint_names: the spec's native joint names.
     :param part_ids: ``(V,)`` argmax skinning joint per vertex.
-    :returns: one native reduced-joint index per entry, in entry order.
+    :returns: one native joint index per entry, in entry order.
     :raises ~better_robot.exceptions.ArgumentError: for a vertex id outside ``[0, V)`` or an unknown joint name.
     """
     index_by_name = {name: index for index, name in enumerate(joint_names)}
@@ -69,7 +69,7 @@ def resolve_parents(
     return parents
 
 
-def vertex_normals(vertices: torch.Tensor, faces: torch.Tensor) -> torch.Tensor:
+def _vertex_normals(vertices: torch.Tensor, faces: torch.Tensor) -> torch.Tensor:
     """Outward per-vertex normals ``(..., V, 3)``.
 
     Each face normal has a magnitude proportional to the triangle area, so
@@ -102,9 +102,9 @@ def _basis_from_z(z: torch.Tensor) -> torch.Tensor:
     return torch.stack((x, y, z), dim=-1)
 
 
-def frame_local_placements(
-    v_shaped: torch.Tensor,
-    rest_joints: torch.Tensor,
+def _frame_local_placements(
+    rest_vertices: torch.Tensor,
+    rest_joint_translations: torch.Tensor,
     faces: torch.Tensor,
     vertex_ids: Sequence[int],
     parent_joints: Sequence[int],
@@ -114,23 +114,18 @@ def frame_local_placements(
     Rest-pose joint rotations are identity, so a parent-local direction is just
     the world direction and the translation is a plain difference.
 
-    :param v_shaped: ``(..., V, 3)`` rest-pose vertices.
-    :param rest_joints: ``(..., J, 3)`` rest-pose joints, in the same frame.
+    :param rest_vertices: ``(..., V, 3)`` rest-pose vertices.
+    :param rest_joint_translations: ``(..., J, 3)`` rest-pose joints, in the same frame.
     :param faces: ``(F, 3)`` triangle indices.
     :param vertex_ids: length-``N`` mesh vertex of each frame.
     :param parent_joints: length-``N`` parent joint of each frame.
     :returns: ``(..., N, 7)`` SE3 placements, ``[translation, quaternion xyzw]``.
     """
-    vertices = torch.as_tensor(vertex_ids, dtype=torch.long, device=v_shaped.device)
-    parents = torch.as_tensor(parent_joints, dtype=torch.long, device=v_shaped.device)
-    translation = v_shaped[..., vertices, :] - rest_joints[..., parents, :]
-    normals = vertex_normals(v_shaped, faces)[..., vertices, :]
+    vertices = torch.as_tensor(vertex_ids, dtype=torch.long, device=rest_vertices.device)
+    parents = torch.as_tensor(parent_joints, dtype=torch.long, device=rest_vertices.device)
+    translation = rest_vertices[..., vertices, :] - rest_joint_translations[..., parents, :]
+    normals = _vertex_normals(rest_vertices, faces)[..., vertices, :]
     return torch.cat((translation, so3.from_matrix(_basis_from_z(normals))), dim=-1)
 
 
-__all__ = [
-    "ContactFrames",
-    "frame_local_placements",
-    "resolve_parents",
-    "vertex_normals",
-]
+__all__ = ["ContactFrames"]
