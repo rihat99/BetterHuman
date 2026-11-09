@@ -8,6 +8,7 @@ expression of SMPL-X and FLAME is a stream group here, not shape state.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 import torch
 from better_robot.exceptions import ArgumentError, ShapeError
@@ -140,6 +141,7 @@ def _stream(identity: Identity, name: str, value: torch.Tensor | None, batch: tu
 # ----------------------------------------------------------------------------------------- SMPL
 
 
+@final
 @dataclass(frozen=True)
 class SMPLClassic:
     """Classic SMPL parameters with arbitrary leading batch dimensions."""
@@ -165,6 +167,7 @@ def smpl_to_classic(identity: Identity, q: torch.Tensor, stream: Stream | None =
 # --------------------------------------------------------------------------------------- SMPL-H
 
 
+@final
 @dataclass(frozen=True)
 class SMPLHClassic:
     """Classic SMPL+H parameters; hand poses are full 45-D axis-angle blocks."""
@@ -208,6 +211,7 @@ def smplh_to_classic(identity: Identity, q: torch.Tensor, stream: Stream | None 
 # --------------------------------------------------------------------------------------- SMPL-X
 
 
+@final
 @dataclass(frozen=True)
 class SMPLXClassic:
     """Classic SMPL-X parameters with arbitrary leading batch dimensions."""
@@ -277,6 +281,7 @@ def smplx_to_classic(
 # ----------------------------------------------------------------------------------------- MANO
 
 
+@final
 @dataclass(frozen=True)
 class MANOClassic:
     """Classic MANO parameters: ``hand_pose`` is ``(..., 45)`` or ``(..., num_pca_comps)``."""
@@ -306,6 +311,7 @@ def mano_to_classic(
 # ---------------------------------------------------------------------------------------- FLAME
 
 
+@final
 @dataclass(frozen=True)
 class FLAMEClassic:
     """Classic FLAME parameters (neck, jaw and eye axis-angles, expression stream)."""

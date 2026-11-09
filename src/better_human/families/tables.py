@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 
+@final
 @dataclass(frozen=True)
 class FamilyTable:
     """Authored metadata of one SMPL-family model (parents come from the weight file)."""

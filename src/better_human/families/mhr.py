@@ -1,6 +1,6 @@
 """MHR (Momentum Human Rig) family: loader, classic parameter container and converters.
 
-``mhr(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with an :class:`MhrRig`. Its identity group
+``mhr(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with an :class:`~better_human.families.mhr_rig.MHRRig`. Its identity group
 ``identity`` takes the 45 upstream ``identity_coeffs``; ``proportions`` (a zero mesh basis) carries the 73 proportion
 parameters to the rig. Upstream ``model_parameters`` enter through :func:`mhr_from_classic`.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 import torch
 from better_robot.exceptions import ArgumentError, DtypeMismatchError
@@ -25,7 +25,7 @@ from better_human.mass import segment_vertices
 
 from .densities import density_categories
 
-from .mhr_rig import ROOT_COUNT, MhrRig
+from .mhr_rig import ROOT_COUNT, MHRRig
 
 if TYPE_CHECKING:
     from better_human.core.human_model import HumanModel, Identity
@@ -91,7 +91,7 @@ def mhr(
     part_ids = joint_parts[segment_vertices(skin_weights, skin_indices)]
     if bool((part_ids < 0).any()):
         raise FormatError("MHR positive skin weights unexpectedly map to zero_weight")
-    rig = MhrRig.from_arrays(arrays, dtype=dtype, device=device)
+    rig = MHRRig.from_arrays(arrays, dtype=dtype, device=device)
     template = floats("template_vertices")
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     part_joints = tuple(joint_groups.index(group) for group in kept)
@@ -119,6 +119,7 @@ def mhr(
     )
 
 
+@final
 @dataclass(frozen=True)
 class MHRClassic:
     """Reference MHR parameters.
@@ -203,4 +204,4 @@ def _dense_weight_from_sparse(
     return dense_weight.index_put((sparse_indices[0], sparse_indices[1]), sparse_values)
 
 
-__all__ = ["MHRClassic", "MhrRig", "mhr", "mhr_from_classic", "mhr_to_classic"]
+__all__ = ["MHRClassic", "mhr", "mhr_from_classic", "mhr_to_classic"]

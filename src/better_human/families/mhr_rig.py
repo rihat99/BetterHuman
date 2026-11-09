@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, final
 
 import torch
 from better_robot import Model, ModelBuilder
@@ -34,8 +34,9 @@ ROOT_COUNT = 6  #: model parameters 0-5 drive the root: translation, then Euler 
 CHANNELS = 7  #: parameter-transform rows per joint: translation xyz, rotation xyz, log2 scale.
 
 
+@final
 @dataclass(frozen=True)
-class MhrRig(Rig):
+class MHRRig(Rig):
     """MHR rig tensors. ``J = 127`` native joints, ``N = 125`` pose and ``P = 73`` proportion parameters."""
 
     model: Model  #: BR model at zero proportions; ``bake`` re-places its ``origin_joints``.
@@ -56,7 +57,7 @@ class MhrRig(Rig):
     corrective_rows: torch.Tensor  #: ``(E, 3 (J - 2))`` one-hot Euler angle (x, y, z of joints 2..) of every entry.
 
     @classmethod
-    def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> MhrRig:
+    def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> MHRRig:
         """Rig from validated ``mhr_lod*.npz`` arrays (``tools/convert/mhr``), built in ``dtype`` on ``device``."""
         if any(parent >= joint for joint, parent in enumerate(arrays["joint_parents"].tolist())):
             raise FormatError("MHR joint parents must precede their children; convert the archive again")
@@ -150,7 +151,7 @@ def _joint_tree(
     dtype: torch.dtype,
     device: torch.device,
 ) -> dict[str, Any]:
-    """The BR tree and its :class:`MhrRig` bindings, from the rotation entries of the parameter transform.
+    """The BR tree and its :class:`MHRRig` bindings, from the rotation entries of the parameter transform.
 
     Keys: ``model``, ``native_joints``, ``origin_joints``, ``pose_columns``, ``host_weights``, ``corrective_entries``
     and ``corrective_rows``.
@@ -247,4 +248,4 @@ def _pose_feature_6d_from_euler(joint_euler_angles: torch.Tensor) -> torch.Tenso
     return (feature - identity).flatten(start_dim=-2)
 
 
-__all__ = ["MhrRig"]
+__all__ = ["MHRRig"]

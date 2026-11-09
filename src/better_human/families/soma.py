@@ -1,6 +1,6 @@
 """NVIDIA SOMA family (SOMA-X v0.3.4, mid LOD): loader, classic parameter container and converters.
 
-``soma(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with a :class:`SomaRig`. Its identity group
+``soma(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with a :class:`~better_human.families.soma_rig.SOMARig`. Its identity group
 ``shape`` takes the 128 upstream ``identity_coeffs``; upstream poses enter through :func:`soma_from_classic`.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 import torch
 from better_robot.exceptions import ArgumentError, DtypeMismatchError, ShapeError
@@ -22,7 +22,7 @@ from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
 from .densities import density_categories
-from .soma_rig import SomaRig
+from .soma_rig import SOMARig
 
 if TYPE_CHECKING:
     from better_human.core.human_model import HumanModel, Identity
@@ -89,13 +89,14 @@ def soma(
         identity_bases={"shape": floats("shape_basis")},
         stream_bases={},
         corrective=corrective,
-        rig=SomaRig.from_arrays(arrays, dtype=dtype, device=device),
+        rig=SOMARig.from_arrays(arrays, dtype=dtype, device=device),
         parts=Parts(part_ids, tuple(part_joints.tolist()), categories, density_tables),
         up_axis=str(arrays["up_axis"]),
         provenance={"archive": str(arrays["provenance"])},
     )
 
 
+@final
 @dataclass(frozen=True)
 class SOMAClassic:
     """Upstream ``SOMALayer`` inputs.
@@ -143,4 +144,4 @@ def soma_to_classic(identity: Identity, q: torch.Tensor) -> SOMAClassic:
     return SOMAClassic(shape.expand(*batch, SHAPE_COUNT), poses, q[..., :3].clone())
 
 
-__all__ = ["SOMAClassic", "SomaRig", "soma", "soma_from_classic", "soma_to_classic"]
+__all__ = ["SOMAClassic", "soma", "soma_from_classic", "soma_to_classic"]

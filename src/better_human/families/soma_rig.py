@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, final
 
 import torch
 from better_robot import Model, ModelBuilder
@@ -35,8 +35,9 @@ if TYPE_CHECKING:
 NEWTON_SCHULZ_STEPS = 30  #: upstream ``align_vectors`` iteration count.
 
 
+@final
 @dataclass(frozen=True)
-class SomaRig(Rig):
+class SOMARig(Rig):
     """SOMA rig tensors. ``P = 78`` public joints, ``J = 110`` native joints, ``T = 32`` twist helpers."""
 
     # Skeleton fit (upstream ``SkeletonTransfer``, ``rotation_method="auto"``) on the public joints.
@@ -77,7 +78,7 @@ class SomaRig(Rig):
     corrective_frames: torch.Tensor  #: ``(P, 3, 3)`` corrective bind transposed times T-pose local rotation (Hips: I).
 
     @classmethod
-    def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> SomaRig:
+    def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> SOMARig:
         """Rig from validated ``soma_mid.npz`` arrays (``tools/convert/soma``), derived in float64, built in ``dtype``.
 
         The archive's rotations are rounded to float32; they are projected onto the nearest rotations first.
@@ -386,4 +387,4 @@ def _segment_alignments(start_rotations: torch.Tensor, spans: torch.Tensor) -> t
     return so3.from_matrix(torch.stack((x, y / y.norm(dim=-1, keepdim=True), z), dim=-1))
 
 
-__all__ = ["SomaRig"]
+__all__ = ["SOMARig"]
