@@ -15,14 +15,14 @@ pytestmark = pytest.mark.licensed
 @pytest.fixture(scope="module")
 def body() -> bh.HumanModel:
     return bh.HumanModel.from_spec(
-        bh.families.smplh(weight_path("smplh", "smplh/neutral/model.npz"), dtype=torch.float64), density=None
+        bh.families.smplh(weight_path("smplh/smplh/neutral", "model.npz"), dtype=torch.float64), density=None
     )
 
 
 def test_joint_counts(body: bh.HumanModel) -> None:
     assert len(body.spec.joint_names) == 52
     reduced = bh.HumanModel.from_spec(
-        bh.families.smplh(weight_path("smplh", "smplh/neutral/model.npz"), hands=False, dtype=torch.float64),
+        bh.families.smplh(weight_path("smplh/smplh/neutral", "model.npz"), hands=False, dtype=torch.float64),
         density=None,
     )
     assert len(reduced.spec.joint_names) == 22

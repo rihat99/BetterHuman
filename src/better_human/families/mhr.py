@@ -1,6 +1,6 @@
 """MHR (Momentum Human Rig) family: loader, classic parameter container and converters.
 
-``mhr(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with an :class:`~better_human.families.mhr_rig.MHRRig`. Its identity group
+``mhr(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with an :class:`MHRRig`. Its identity group
 ``identity`` takes the 45 upstream ``identity_coeffs``; ``proportions`` (a zero mesh basis) carries the 73 proportion
 parameters to the rig. Upstream ``model_parameters`` enter through :func:`mhr_from_classic`.
 """
