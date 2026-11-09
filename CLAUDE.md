@@ -24,10 +24,23 @@ transparent huge pages stall those loads. The CPU release tier took 15 to 17 min
 
 ## Layering rule
 
-`better_robot` public API -> `core` -> `families` -> `terms` / `viz`. Lower layers never import
-higher ones. Import BetterRobot through its public surface only (`better_robot.Model`,
-`ModelBuilder`, `io.build_model`, `kinematics`, `dynamics`, `lie`, `spatial`, `viewer`).
-`tests/contract/test_br_imports.py` enforces this. Never edit BetterRobot from this repo.
+Each package imports only the packages of its row in decision record 0011's two edge tables, `ALLOWED` (among
+BetterHuman's packages) and `BR_ALLOWED` (into BetterRobot), which `tests/contract/test_layer_dependencies.py` holds
+and checks on every import; an edge that breaks them today sits in `tests/contract/ratchets/edges.json` until its fix
+lands:
+
+```text
+io, mass  -> nothing
+core      -> mass
+families  -> core io mass
+terms     -> core
+viz       -> core io
+studio    -> better_human core families io mass viz
+the root  -> core families io mass terms viz
+```
+
+BetterRobot is imported through the public modules of the importer's `BR_ALLOWED` row only. Never edit BetterRobot
+from this repo.
 
 ## Where things live
 
