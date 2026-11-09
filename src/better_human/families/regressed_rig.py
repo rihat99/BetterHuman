@@ -10,7 +10,7 @@ import torch
 from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
 
-from better_human.core.pipeline import pose_feature_rotmat_minus_identity, regress_joints
+from better_human.core.skinning import pose_feature_rotmat_minus_identity, regress_joints
 from better_human.core.reduction import reduce_joint_data
 from better_human.core.rig import Rig, RigBake, gravity
 from better_human.core.spec import Corrective, FamilySpec, Parts, top_k_skin

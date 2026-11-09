@@ -23,7 +23,7 @@ from better_robot.io import build_model
 from better_robot.kinematics import forward_kinematics, full_configuration
 from better_robot.lie import se3, so3
 
-from better_human.core.pipeline import pose_feature_6d_from_euler
+from better_human.core.skinning import pose_feature_6d_from_euler
 from better_human.core.rig import Rig, RigBake, gravity
 
 if TYPE_CHECKING:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from better_human.core.pipeline import linear_corrective, pose_feature_rotmat_minus_identity
+from better_human.core.skinning import linear_corrective, pose_feature_rotmat_minus_identity
 from better_human.core.reduction import reduce_joint_data, slice_parameter_basis
 
 NAMES = ("root", "branch", "leaf_a", "leaf_b")

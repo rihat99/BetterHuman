@@ -16,7 +16,7 @@ from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.mass import segment_vertices
-from better_human.core.pipeline import dense_weight_from_sparse
+from better_human.core.skinning import dense_weight_from_sparse
 from better_human.core.spec import Corrective, FamilySpec, Parts
 from better_human.io import weight_path
 from better_human.io.load import load_model_npz

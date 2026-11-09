@@ -20,7 +20,7 @@ from better_robot.lie import so3
 
 from .contact_frames import ContactFrames, frame_local_placements, resolve_parents
 from .mass import PartMeshTopology, body_inertias_from_shape, build_authored_topology, build_part_topology
-from .pipeline import blend_shapes, lbs_affines, skin_affines
+from .skinning import blend_shapes, lbs_affines, skin_affines
 from .rig import RigBake
 from .spec import FamilySpec
 

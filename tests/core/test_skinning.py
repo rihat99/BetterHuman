@@ -1,4 +1,4 @@
-"""Unit tests for the shared tensor pipeline."""
+"""Unit tests for the skinning path and the shared tensor stages."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import torch
 from better_robot.lie import se3, so3
 from torch.nn import functional
 
-from better_human.core.pipeline import (
+from better_human.core.skinning import (
     blend_shapes,
     dense_skinning_weights,
     dense_weight_from_sparse,

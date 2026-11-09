@@ -22,7 +22,7 @@ from better_robot import Model, ModelBuilder
 from better_robot.io import build_model
 from better_robot.lie import so3
 
-from better_human.core.pipeline import lbs_affines, regress_joints
+from better_human.core.skinning import lbs_affines, regress_joints
 from better_human.core.rig import Rig, RigBake, gravity
 
 if TYPE_CHECKING:
