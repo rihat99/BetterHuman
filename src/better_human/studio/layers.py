@@ -239,6 +239,7 @@ class BodyMeshLayer(Layer):
         # All providers: a mode switch changes ``mode`` before the viewer disposes the old nodes.
         for provider in (self.skin, self.segmentation, self.parts):
             provider.dispose()
+        super().dispose()
 
     def set_opacity(self, opacity: float) -> None:
         """Draw skin and segmentation at ``opacity`` in ``(0, 1]``, live and after a mode switch (parts stay opaque)."""
@@ -251,9 +252,9 @@ class BodyMeshLayer(Layer):
 class StudioLayers:
     """Owns the studio layers under viewer group ``"human"`` and keeps them in sync with ``session``.
 
-    Layers: the :class:`HumanView` mesh (and frames when the body has contact frames), a skeleton with
-    per-joint colours (selection highlight), :class:`SegmentationLayer`, :class:`PartsLayer` and the
-    edit-overlay :class:`PointsLayer`.
+    Layers: the body mesh (:class:`BodyMeshLayer`: skin, segmentation or parts), the authored frames, a skeleton
+    with per-joint colours (selection highlight) and the edit-overlay :class:`PointsLayer`. The viewer owns their
+    visibility (``viewer.set_visible`` and its Layers checkboxes).
     """
 
     def __init__(self, viewer: Any, session: StudioSession, *, theme: Theme = HUMAN_THEME) -> None:
@@ -278,11 +279,6 @@ class StudioLayers:
     frames = property(lambda self: self.layers["frames"])
     skeleton = property(lambda self: self.layers["skeleton"])
     edit = property(lambda self: self.layers["edit"])
-
-    @property
-    def visible(self) -> dict[str, bool]:
-        """Visibility of every layer by name; the viewer's Layers checkboxes own it."""
-        return {name: layer.visible for name, layer in self.layers.items()}
 
     def _specs(self) -> dict[str, tuple[type, tuple, dict]]:
         # Constructor arguments of every layer from the session; a body switch re-runs them on the same objects.
@@ -329,11 +325,6 @@ class StudioLayers:
         """Draw the body mesh in colour ``mode`` (``skin``, ``segmentation``, ``parts``) on the same layer."""
         self.mesh.mode = mode
         self.viewer.rebuild(self.mesh)
-
-    def set_visible(self, name: str, visible: bool) -> None:
-        """Show or hide one layer by name (``mesh``, ``skeleton``, ``frames``, ``segmentation``, ``parts``)."""
-        if name in self.layers:
-            self.viewer.set_visible(self.layers[name], visible)
 
     def set_highlight(self, joint: int | None, *, show: bool = True) -> None:
         """Colour native joint ``joint`` with the highlight colour (``None`` clears it)."""

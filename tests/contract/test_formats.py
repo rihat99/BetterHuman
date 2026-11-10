@@ -180,7 +180,7 @@ def test_a_format_without_its_version_is_refused() -> None:
         check_format({"format": FRAME_SET, "frames": {}}, format=FRAME_SET, version=LATEST[FRAME_SET])
 
 
-@pytest.mark.parametrize("version", ["1", 1.0, None])
+@pytest.mark.parametrize("version", ["1", 1.0, None, True])
 def test_a_version_that_is_not_an_integer_is_refused(version: object) -> None:
     with pytest.raises(FormatError, match=rf"format_version {version!r} is not an integer\. Write the file"):
         check_format({"format": FRAME_SET, "format_version": version}, format=FRAME_SET, version=LATEST[FRAME_SET])

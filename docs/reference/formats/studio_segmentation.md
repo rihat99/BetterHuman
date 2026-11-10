@@ -31,7 +31,7 @@ studio ships the SMPL and SMPL-X segmentations in this format (`better_human/stu
 | `parts.<name>` | non-empty array of integers >= 0 | the part's mesh vertices; range-checked against the mesh when the studio applies the file |
 
 The reader ignores a top-level key it does not know; the writer writes only the keys above, with two-space
-indentation and a trailing newline. A file of another format, a later version, or a part that is not a non-empty
+indentation and a trailing newline, and replaces the file atomically. A file of another format, a later version, or a part that is not a non-empty
 array of vertex ids is refused with `better_human.io.FormatError`, whose message ends "re-save it in the studio".
 
 ## Migration

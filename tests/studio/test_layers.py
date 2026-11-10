@@ -119,8 +119,13 @@ def test_pose_change_updates_arrays_in_place(smpl: bh.HumanModel) -> None:
 
 def test_visibility_defaults_and_body_reload(smpl: bh.HumanModel) -> None:
     session, layers, _ = _setup(smpl)
-    assert layers.visible == {"mesh": True, "frames": True, "skeleton": True, "edit": False}
-    layers.set_visible("mesh", False)
+    assert {name: layer.visible for name, layer in layers.layers.items()} == {
+        "mesh": True,
+        "frames": True,
+        "skeleton": True,
+        "edit": False,
+    }
+    layers.viewer.set_visible(layers.mesh, False)
     layers.set_mode("parts")
     layers.set_highlight(3)
     old = dict(layers.layers)
@@ -128,7 +133,7 @@ def test_visibility_defaults_and_body_reload(smpl: bh.HumanModel) -> None:
     # Each layer is rebuilt from the new body and takes its predecessor's place in the viewer.
     assert list(layers.layers) == list(old) and layers.viewer.layers == list(layers.layers.values())
     assert not any(layers.layers[name] is old[name] for name in old)
-    assert layers.highlight is None and layers.visible["mesh"] is False and layers.mesh.mode == "parts"
+    assert layers.highlight is None and layers.mesh.visible is False and layers.mesh.mode == "parts"
 
 
 def _mesh_nodes(server: FakeServer) -> list[str]:
@@ -147,7 +152,7 @@ def test_mode_switch_keeps_one_mesh_layer_and_visibility(smpl: bh.HumanModel) ->
         assert layers.mesh is mesh and [layer.name for layer in layers.viewer.layers].count("mesh") == 1
         assert mesh.visible and all(server.scene.nodes[name].visible for name in _mesh_nodes(server))
     assert _mesh_nodes(server) == [name for name in _mesh_nodes(server) if name.endswith("/mesh/mesh")]
-    layers.set_visible("mesh", False)
+    layers.viewer.set_visible(mesh, False)
     layers.set_mode("segmentation")
     assert not mesh.visible and _visible_parts(server) == 0 and len(_part_nodes(server, "mesh")) > 0
 
@@ -155,13 +160,13 @@ def test_mode_switch_keeps_one_mesh_layer_and_visibility(smpl: bh.HumanModel) ->
 def test_hidden_parts_stay_hidden_after_shape_and_segmentation_change(smpl: bh.HumanModel) -> None:
     session, layers, server = _setup(smpl)
     layers.set_mode("parts")
-    layers.set_visible("mesh", False)
+    layers.viewer.set_visible(layers.mesh, False)
     betas = session.shape_tensor("betas", [2.0] + [0.0] * (smpl.spec.identity_groups["betas"] - 1))
     session.set_shape(betas=betas)
     session.set_segmentation(("right", "left"), (session.vertices[:, 0] > 0).to(torch.long))
     assert _visible_parts(server) == 0
     assert layers.mesh.parts.stale and layers.mesh.segmentation.stale
-    layers.set_visible("mesh", True)
+    layers.viewer.set_visible(layers.mesh, True)
     assert not layers.mesh.parts.stale
     assert _visible_parts(server) == len(_part_nodes(server, "mesh")) == 2
 
@@ -172,7 +177,7 @@ def test_visible_parts_keep_visibility_through_viewer_rebuild(smpl: bh.HumanMode
     count = len(_part_nodes(server, "mesh"))
     session.set_shape(betas=session.shape_tensor("betas", [1.0] + [0.0] * (smpl.spec.identity_groups["betas"] - 1)))
     assert _visible_parts(server) == len(_part_nodes(server, "mesh")) == count
-    assert layers.visible["mesh"] is True
+    assert layers.mesh.visible is True
 
 
 def test_opacity_and_radius_keep_layer_objects_and_edit_replaces_its_layer(smpl: bh.HumanModel) -> None:
@@ -185,4 +190,4 @@ def test_opacity_and_radius_keep_layer_objects_and_edit_replaces_its_layer(smpl:
     assert layers.edit is not before["edit"] and layers.viewer.layers == list(layers.layers.values())
     assert all(layers.layers[name] is before[name] for name in before if name != "edit")
     assert server.scene.nodes[_mesh_nodes(server)[0]].opacity == 0.4
-    assert layers.edit.points.shape[1] == 5 and layers.visible["edit"]
+    assert layers.edit.points.shape[1] == 5 and layers.edit.visible

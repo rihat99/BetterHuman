@@ -28,7 +28,7 @@ studio's data root (`<data root>/poses/<model key>/<name>.json`), read by
 
 The studio loads a pose only onto a model with the same `joint_names`; any other model is refused naming the file.
 The reader ignores a top-level key it does not know; the writer writes only the keys above, with two-space
-indentation and a trailing newline. A file of another format or a later version, and a file that is not a JSON object,
+indentation and a trailing newline, and replaces the file atomically. A file of another format or a later version, and a file that is not a JSON object,
 are refused with `better_human.io.FormatError`, whose message ends "re-save it in the studio"; a `q` of another
 length than the model's `nq` is refused when the studio loads it.
 

@@ -98,7 +98,7 @@ def compact_segmentation(
 class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
-    def __init__(self, body: bh.HumanModel, model_key: str, frame_set: dict[str, int] | None = None) -> None:
+    def __init__(self, body: bh.HumanModel, model_key: str, frame_set: dict[str, FrameEntry] | None = None) -> None:
         # The one studio lock: every GUI callback, the gizmo worker and each mutation run under it (re-entrant: nested calls).
         self.lock = threading.RLock()
         self._subscribers: list[Callable[[ChangeKind], None]] = []

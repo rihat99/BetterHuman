@@ -160,8 +160,11 @@ def _json(path: Path) -> Any:
 
 
 def _write(path: Path, payload: Mapping[str, Any]) -> None:
+    # Replaced atomically, as io.write_frame_set does: a crash mid-write leaves the old file, never half a new one.
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2) + "\n")
+    temporary = path.with_name(f"{path.name}.tmp")
+    temporary.write_text(json.dumps(payload, indent=2) + "\n")
+    temporary.replace(path)
 
 
 def _parts(data: Any, *, source: str) -> dict[str, list[int]]:

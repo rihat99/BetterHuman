@@ -159,10 +159,14 @@ def _version(fields: Mapping[str, Any], *, format: str, source: str) -> int:
     """``fields["format_version"]`` as an int, 0 when absent; :class:`FormatError` when it is not an integer."""
     value = fields.get("format_version", 0)
     try:
-        return operator.index(value)
+        version = operator.index(value)
     except TypeError:
+        version = None
+    # operator.index reads a bool as 0 or 1, but a JSON true is not a version.
+    if version is None or isinstance(value, bool):
         fix = _fix(format, "write the file with this version's writer or converter").capitalize()
-        raise FormatError(f"{source}: {format} format_version {value!r} is not an integer. {fix}.") from None
+        raise FormatError(f"{source}: {format} format_version {value!r} is not an integer. {fix}.")
+    return version
 
 
 def _fix(format: str, converter: str) -> str:
