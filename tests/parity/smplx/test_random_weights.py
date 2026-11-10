@@ -23,6 +23,12 @@ from better_human.families import SMPLClassic, SMPLHClassic, SMPLXClassic
 ARCHIVES = Path(__file__).parents[2] / "support" / "random_weights"
 GOLDENS = Path(__file__).parent / "random"
 ATOL = 1e-6
+#: Least motion in metres per unit coefficient of every joint, the root included, with the first ten shape columns
+#: and the first ten expression columns (norm of its ``(3, 10)`` block of ``J_regressor @ shapedirs``): a joint that
+#: stays put would leave its shape-dependent pivot untested (the classic root pivots at ``transl + root_offset``).
+MIN_JOINT_SHAPE_MOTION = 1e-3
+#: First column of each blend group in an archive's ``shapedirs``; SMPL-X stores 300 shape then 100 expression columns.
+_GROUP_COLUMNS = {"smpl": {"betas": 0}, "smplh": {"betas": 0}, "smplx": {"betas": 0, "expression": 300}}
 _SMPL_GRID = (
     "beta_minus_two",
     "beta_plus_two",
@@ -91,6 +97,20 @@ def _options(golden: np.lib.npyio.NpzFile) -> dict[str, Any]:
 def test_random_weight_goldens_are_the_dump_grid(family: str) -> None:
     found = {path.stem for path in (GOLDENS / family).glob("*.npz")}
     assert found == set(FAMILIES[family][2]), f"random-weight goldens in {GOLDENS / family} are missing or unexpected"
+
+
+@pytest.mark.parametrize("family", FAMILIES)
+def test_every_random_weight_joint_moves_with_shape(family: str) -> None:
+    with np.load(ARCHIVES / f"{family}_random.npz", allow_pickle=False) as archive:
+        regressor, shapedirs = archive["J_regressor"].astype(np.float64), archive["shapedirs"]
+    for group, start in _GROUP_COLUMNS[family].items():
+        joint_bases = np.einsum("jv,vcs->jcs", regressor, shapedirs[..., start : start + 10])
+        motion = np.linalg.norm(joint_bases, axis=(1, 2))
+        still = np.flatnonzero(motion < MIN_JOINT_SHAPE_MOTION).tolist()
+        assert not still, (
+            f"{family}: joints {still} move less than {MIN_JOINT_SHAPE_MOTION} m per unit {group} coefficient, so the "
+            "random-weight gate cannot see their shape-dependent pivots; regenerate the archive"
+        )
 
 
 @pytest.mark.parametrize("dtype", [torch.float64, torch.float32], ids=["float64", "float32"])
