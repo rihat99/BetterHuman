@@ -23,8 +23,6 @@ from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 from better_human.mass import segment_vertices
 
-from .densities import density_categories
-
 from .mhr_rig import ROOT_COUNT, MHRRig
 
 if TYPE_CHECKING:
@@ -34,6 +32,29 @@ IDENTITY_COUNT = 45
 EXPRESSION_COUNT = 72
 PARAMETER_COUNT = 204
 LODS = tuple(range(7))
+#: The density category of each part, by its joint (decision record 0007). The categories are SMPL's part names, each
+#: named after the joint at its proximal end, so a part takes the SMPL part that covers the same body segment; the one
+#: spine part (c_spine0 to c_spine3) takes the lowest, spine1, and the hand part (wrist_twist) the palm, wrist.
+_DENSITY_CATEGORIES = {
+    "root": "pelvis",
+    "c_spine0": "spine1",
+    "c_neck": "neck",
+    "c_head": "head",
+    "c_jaw": "head",
+    **{
+        f"{prefix}_{segment}": f"{side}_{category}"
+        for prefix, side in (("l", "left"), ("r", "right"))
+        for segment, category in (
+            ("upleg", "hip"),
+            ("lowleg", "knee"),
+            ("foot", "ankle"),
+            ("clavicle", "collar"),
+            ("uparm", "shoulder"),
+            ("lowarm", "elbow"),
+            ("wrist_twist", "wrist"),
+        )
+    },
+}
 
 
 def mhr(
@@ -96,7 +117,7 @@ def mhr(
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     part_joints = tuple(joint_groups.index(group) for group in kept)
     density_tables = shipped_density_tables()
-    categories = density_categories([joint_names[joint] for joint in part_joints], density_tables)
+    categories = tuple(_DENSITY_CATEGORIES.get(joint_names[joint]) for joint in part_joints)
     return FamilySpec(
         name="mhr",
         template_vertices=template,

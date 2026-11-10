@@ -19,7 +19,6 @@ from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH
 from better_human.mass import segment_vertices
 
 from . import _tables
-from .densities import density_categories
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 
 SMPLX_SHAPE_DIM, SMPLX_EXPRESSION_DIM = 300, 100
@@ -61,6 +60,7 @@ def _load_family(
     streams: Mapping[str, int] = {},
     columns: Mapping[str, slice] | None = None,
     drop: Sequence[str] = (),
+    side: str | None = None,
     meta: Mapping[str, object] = {},
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
@@ -69,8 +69,9 @@ def _load_family(
 
     ``identity`` and ``streams`` give the requested width of each blend group; ``columns`` says
     where each group lives in ``shapedirs`` (default: one group ``betas`` spanning the file).
-    ``drop`` names terminal joints to remove (hands, face). The arrays are reduced in float64, then the spec is
-    built once in ``dtype`` on ``device``; ``meta`` (the hand pose PCA) must already be there.
+    ``drop`` names terminal joints to remove (hands, face); ``side`` fills MANO's ``{side}`` density categories. The
+    arrays are reduced in float64, then the spec is built once in ``dtype`` on ``device``; ``meta`` (the hand pose
+    PCA) must already be there.
     """
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
@@ -109,7 +110,7 @@ def _load_family(
             Parts(
                 segment_vertices(weights, indices),
                 tuple(range(joint_count)),
-                density_categories(table.joint_names, density_tables),
+                tuple(category.format(side=side) for category in table.density_categories),
                 density_tables,
                 closed_faces,
             ),
@@ -258,6 +259,7 @@ def mano(
         table,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, 10)},
+        side=side,
         meta=meta,
         dtype=dtype,
         device=device,

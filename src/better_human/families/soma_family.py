@@ -21,7 +21,6 @@ from better_human.io.load import load_model_npz
 from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
-from .densities import density_categories
 from .soma_rig import SOMARig
 
 if TYPE_CHECKING:
@@ -29,6 +28,46 @@ if TYPE_CHECKING:
 
 SHAPE_COUNT = 128
 POSE_JOINT_COUNT = 77  #: public joints after the virtual ``Root``; ``Hips`` first.
+#: The density category of each part, by its joint (decision record 0007). The categories are SMPL's part names, each
+#: named after the joint at its proximal end, so a part takes the SMPL part that covers the same body segment: SOMA's
+#: Shoulder is the clavicle (SMPL collar), Arm the upper arm (SMPL shoulder), Leg the thigh (SMPL hip), Hand the palm
+#: (SMPL wrist), Foot the foot (SMPL ankle) and ToeBase the toes (SMPL foot).
+_DENSITY_CATEGORIES = {
+    "Hips": "pelvis",
+    "Spine1": "spine1",
+    "Spine2": "spine2",
+    "Chest": "spine3",
+    "Neck1": "neck",
+    "Neck2": "neck",
+    "Head": "head",
+    "Jaw": "head",
+    **{
+        f"{side.title()}{segment}": f"{side}_{category}"
+        for side in ("left", "right")
+        for segment, category in (
+            ("Shoulder", "collar"),
+            ("Arm", "shoulder"),
+            ("ForeArm", "elbow"),
+            ("Hand", "wrist"),
+            ("Leg", "hip"),
+            ("Shin", "knee"),
+            ("Foot", "ankle"),
+            ("ToeBase", "foot"),
+        )
+    },
+    **{
+        f"{side.title()}Hand{finger}{segment}": f"{side}_hand"
+        for side in ("left", "right")
+        for finger, segments in (
+            ("Thumb", "123"),
+            ("Index", "1234"),
+            ("Middle", "1234"),
+            ("Ring", "1234"),
+            ("Pinky", "1234"),
+        )
+        for segment in (*segments, "End")
+    },
+}
 
 
 def soma(
@@ -76,7 +115,7 @@ def soma(
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     density_tables = shipped_density_tables()
-    categories = density_categories([joint_names[joint] for joint in part_joints.tolist()], density_tables)
+    categories = tuple(_DENSITY_CATEGORIES.get(joint_names[joint]) for joint in part_joints.tolist())
     return FamilySpec(
         name="soma",
         template_vertices=floats("shape_mean"),

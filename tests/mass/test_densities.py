@@ -1,7 +1,7 @@
 """One ``density`` parameter (decision record 0007): a table name by default; unknown names and mismatches raise at load.
 
-The load-level cases use a synthetic FLAME-shaped file (no weights), whose root part ``global`` has no density
-category until FLAME's table ships (H3).
+The load-level cases use a synthetic FLAME-shaped file (no weights) and replace its declared categories where a case
+needs a part without one.
 """
 
 from __future__ import annotations
@@ -32,8 +32,10 @@ def test_the_default_density_is_the_dempster_table() -> None:
 
 
 def test_a_part_without_category_raises_at_load_naming_it(flame: bh.FamilySpec) -> None:
+    categories = (None, "neck", "head", "head", "head")
+    spec = replace(flame, parts=replace(flame.parts, density_categories=categories))
     with pytest.raises(ArgumentError, match=r"1 of 5 parts have no density category: \['global'\]\. Pass density=None"):
-        bh.HumanModel.from_spec(flame)
+        bh.HumanModel.from_spec(spec)
 
 
 def test_an_unknown_table_raises_at_load(flame: bh.FamilySpec) -> None:
