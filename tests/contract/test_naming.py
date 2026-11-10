@@ -19,6 +19,7 @@ FIELDS = {
         "skin_matrix",
         "joint_ids",
         "part_body_ids",
+        "part_joint_ids",
         "density",
         "part_topology",
         "contact_frames",

@@ -36,6 +36,8 @@ line that 0.2.0 renames or removes, one table row each.
 - Random-weight SMPL, SMPL-H and SMPL-X archives and their goldens in the repository, so the full test tier and the
   examples run without licensed weights.
 - `tools/api_snapshot.py` and the tracked public API snapshot it checks.
+- `HumanModel.part_joint_ids` `(P,)` and `RegressedRig.parents` `(J - 1,)`: index tensors built once on the spec's
+  device, so an SMPL-family bake on CUDA copies no index from the host and fills no tensor from a Python scalar.
 
 ### Changed
 - `Identity` fields: `human`, `values`, `rest_vertices`, `rest_joint_translations`, `inverse_bind_affines`

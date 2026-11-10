@@ -29,6 +29,7 @@ class RegressedRig(Rig):
     """
 
     joint_regressor: torch.Tensor  #: ``(J, V)``
+    parents: torch.Tensor  #: ``(J - 1,)`` native parent of every joint after the root.
 
     def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
         builder = ModelBuilder(spec.name, gravity=gravity(spec.up_axis))
@@ -74,12 +75,11 @@ class RegressedRig(Rig):
         self, spec: FamilySpec, model: Model, *, rest_joint_translations: torch.Tensor
     ) -> torch.Tensor:
         rest = rest_joint_translations
-        parents = torch.tensor(spec.parents[1:], dtype=torch.long, device=rest.device)
-        offsets = torch.cat((torch.zeros_like(rest[..., :1, :]), rest[..., 1:, :] - rest[..., parents, :]), dim=-2)
+        offsets = torch.cat((torch.zeros_like(rest[..., :1, :]), rest[..., 1:, :] - rest[..., self.parents, :]), dim=-2)
         placements = torch.cat((torch.zeros_like(offsets[..., :1, :]), offsets), dim=-2)
-        quaternions = placements.new_zeros((*placements.shape[:-1], 4))
-        quaternions[..., 3] = 1.0
-        return torch.cat((placements, quaternions), dim=-1)
+        leading = placements.shape[:-1]
+        # The identity quaternion comes from constructors: a Python 1.0 written into a CUDA tensor is read on the host.
+        return torch.cat((placements, placements.new_zeros((*leading, 3)), placements.new_ones((*leading, 1))), dim=-1)
 
     def without_joints(self, spec: FamilySpec, dropped: Sequence[int]) -> FamilySpec:
         if not isinstance(spec.corrective, LinearCorrective):
@@ -103,7 +103,9 @@ class RegressedRig(Rig):
             skin_weights=reduced.skin_weights,
             skin_indices=reduced.skin_indices,
             corrective=LinearCorrective(reduced.posedirs),
-            rig=RegressedRig(reduced.joint_regressor),
+            rig=RegressedRig(
+                reduced.joint_regressor, torch.tensor(reduced.parents[1:], dtype=torch.long, device=spec.device)
+            ),
             parts=reduced.parts,
         )
 

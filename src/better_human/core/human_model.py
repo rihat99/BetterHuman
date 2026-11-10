@@ -48,6 +48,7 @@ class HumanModel:
     skin_matrix: torch.Tensor  #: ``(V, J)`` dense skin weights.
     joint_ids: torch.Tensor  #: ``(J,)`` BetterRobot joint id of each native joint.
     part_body_ids: torch.Tensor  #: ``(P,)`` BetterRobot body id carrying each part.
+    part_joint_ids: torch.Tensor  #: ``(P,)`` BetterRobot joint id of each part's joint (``spec.parts.joints``).
     density: torch.Tensor | None  #: ``()`` or ``(P,)`` kg/m³; ``None``: the baked models carry no inertias.
     part_topology: PartTopology | None  #: closed part meshes for the inertias; ``None`` without density.
     contact_frames: ContactFrames | None  #: frames attached to the model, or ``None``.
@@ -90,6 +91,7 @@ class HumanModel:
         frames = None
         if contact_frames is not None:
             model, frames = _attach(spec, contact_frames, zero)
+        part_joints = torch.as_tensor(spec.parts.joints, device=spec.device)
         topology = None
         if density is not None:
             closed = spec.parts.closed_faces
@@ -102,7 +104,6 @@ class HumanModel:
             )
             # Bakes integrate the parts without reading values (no host sync), so the density and the part meshes
             # are checked once, here, on the zero identity's rest mesh.
-            part_joints = torch.as_tensor(spec.parts.joints, device=spec.device)
             part_inertias(
                 zero.rest_vertices,
                 zero.rest_joint_translations.index_select(-2, part_joints),
@@ -117,12 +118,14 @@ class HumanModel:
                 if basis is not None:
                     stream_bases[name] = basis
         part_body_ids = [model.body_id(spec.joint_names[joint]) for joint in spec.parts.joints]
+        joint_ids = spec.rig.joint_ids(spec, model)
         return cls(
             spec=spec,
             model=model,
             skin_matrix=spec.skin_matrix(),
-            joint_ids=spec.rig.joint_ids(spec, model),
+            joint_ids=joint_ids,
             part_body_ids=torch.tensor(part_body_ids, dtype=torch.long, device=spec.device),
+            part_joint_ids=joint_ids.index_select(0, part_joints),
             density=density,
             part_topology=topology,
             contact_frames=frames,
@@ -149,8 +152,7 @@ class HumanModel:
             vertices = linear_blend_skinning(
                 bake.rest_vertices, skin_affines(transforms, bake.inverse_bind_affines), weights=self.skin_matrix
             )
-            part_joints = self.joint_ids.index_select(0, torch.as_tensor(spec.parts.joints, device=spec.device))
-            part_poses = neutral.joint_poses.index_select(-2, part_joints)
+            part_poses = neutral.joint_poses.index_select(-2, self.part_joint_ids)
             parts = part_inertias(vertices, part_poses, topology=self.part_topology, density=self.density)
             inertias = parts.new_zeros((*parts.shape[:-2], self.model.nbodies, 10))
             model_values["body_inertias"] = inertias.index_copy(-2, self.part_body_ids, parts)
