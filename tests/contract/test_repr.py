@@ -21,7 +21,7 @@ from better_robot.testing import public_objects
 
 import better_human as bh
 from better_human import core, families, viz
-from tests.support.random_archives import random_weight_spec
+from tests.support.random_archives import random_weight_smplx
 from tests.support.synthetic import flame_spec
 
 EXCEPTION = "an exception's repr is its message, which BetterRobot's error contract shapes"
@@ -38,18 +38,12 @@ NO_INSTANCE: dict[str, str] = {
 
 
 @cache
-def _human() -> bh.HumanModel:
-    frames = {"left_heel": (8846, None), "right_heel": (8635, None)}
-    return bh.HumanModel.from_spec(random_weight_spec("smplx"), contact_frames=frames)
-
-
-@cache
 def _identity() -> bh.Identity:
-    return _human().bake(betas=torch.zeros(2, _human().spec.identity_groups["betas"]))
+    return random_weight_smplx().bake(betas=torch.zeros(2, random_weight_smplx().spec.identity_groups["betas"]))
 
 
 def _state() -> bh.HumanState:
-    return _identity().forward(_human().model.q_neutral.expand(3, 2, -1))
+    return _identity().forward(random_weight_smplx().model.q_neutral.expand(3, 2, -1))
 
 
 def _filled(cls: type, shape: tuple[int, ...], **given: object) -> object:
@@ -59,31 +53,33 @@ def _filled(cls: type, shape: tuple[int, ...], **given: object) -> object:
 
 
 BUILDERS: dict[str, Callable[[], object]] = {
-    "better_human.core.ContactFrames": lambda: _human().contact_frames,
-    "better_human.core.FamilySpec": lambda: _human().spec,
-    "better_human.core.HumanModel": _human,
+    "better_human.core.ContactFrames": lambda: random_weight_smplx().contact_frames,
+    "better_human.core.FamilySpec": lambda: random_weight_smplx().spec,
+    "better_human.core.HumanModel": random_weight_smplx,
     "better_human.core.HumanState": _state,
     "better_human.core.Identity": _identity,
-    "better_human.core.Landmarks": lambda: _human().spec.landmarks,
-    "better_human.core.LinearCorrective": lambda: _human().spec.corrective,
+    "better_human.core.Landmarks": lambda: random_weight_smplx().spec.landmarks,
+    "better_human.core.LinearCorrective": lambda: random_weight_smplx().spec.corrective,
     "better_human.core.MLPCorrective": lambda: _filled(core.MLPCorrective, (64, 300)),
-    "better_human.core.Parts": lambda: _human().spec.parts,
+    "better_human.core.Parts": lambda: random_weight_smplx().spec.parts,
     "better_human.core.RigBake": lambda: _filled(core.RigBake, (2, 300, 3)),
     "better_human.families.FLAMEClassic": lambda: _filled(families.FLAMEClassic, (3, 100)),
     "better_human.families.MANOClassic": lambda: _filled(families.MANOClassic, (3, 100)),
     "better_human.families.MHRClassic": lambda: _filled(families.MHRClassic, (3, 100)),
     "better_human.families.MHRFormat": families.MHRFormat,
-    "better_human.families.MHRRig": lambda: _filled(families.MHRRig, (127, 3), model=_human().model),
-    "better_human.families.RegressedRig": lambda: _human().spec.rig,
+    "better_human.families.MHRRig": lambda: _filled(families.MHRRig, (127, 3), model=random_weight_smplx().model),
+    "better_human.families.RegressedRig": lambda: random_weight_smplx().spec.rig,
     "better_human.families.SMPLClassic": lambda: _filled(families.SMPLClassic, (3, 100)),
-    "better_human.families.SMPLFamilyFormat": lambda: _human().spec.classic,
+    "better_human.families.SMPLFamilyFormat": lambda: random_weight_smplx().spec.classic,
     "better_human.families.SMPLHClassic": lambda: _filled(families.SMPLHClassic, (3, 100)),
-    "better_human.families.SMPLXClassic": lambda: bh.to_classic(_identity(), _human().model.q_neutral),
+    "better_human.families.SMPLXClassic": lambda: bh.to_classic(_identity(), random_weight_smplx().model.q_neutral),
     "better_human.families.SOMAClassic": lambda: _filled(families.SOMAClassic, (3, 100)),
     "better_human.families.SOMAFormat": families.SOMAFormat,
     "better_human.families.SOMARig": lambda: _filled(families.SOMARig, (110, 78)),
-    "better_human.mass.PartTopology": lambda: _human().part_topology,
-    "better_human.viz.HumanView": lambda: viz.HumanView(_human().bake().forward(_human().model.q_neutral)),
+    "better_human.mass.PartTopology": lambda: random_weight_smplx().part_topology,
+    "better_human.viz.HumanView": lambda: viz.HumanView(
+        random_weight_smplx().bake().forward(random_weight_smplx().model.q_neutral)
+    ),
 }
 
 
