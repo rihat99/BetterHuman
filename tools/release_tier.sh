@@ -32,5 +32,8 @@ step uv run mkdocs build --strict -d "$(mktemp -d)"
 step on_gpu uv run pytest tests -q -m cuda
 step on_gpu uv run python benchmarks/run.py --device cuda --counters-only
 step uv run pytest tests -q -m "not cuda and not licensed"
+# tests/conftest.py leaves BetterRobot's internal checks at their default, off, so the full tier above ran as users
+# run it; this run turns them on.
+step env BETTER_ROBOT_INTERNAL_CHECKS=1 uv run pytest tests -q -m "not cuda and not licensed"
 step uv run pytest tests -q -m "licensed and not cuda"
 echo "== release tier passed"
