@@ -79,6 +79,11 @@ line that 0.2.0 renames or removes, one table row each.
 - The licensed parity goldens live in `$BETTERHUMAN_MODELS_DIR/goldens` and run in the release tier.
 - Licence Apache-2.0 (was MIT); Python 3.12 or newer; `scipy` moved to the `dev` group; the `studio` extra is
   BetterRobot's `viewer` extra.
+- `benchmarks/run.py` is the one benchmark runner: the full tier fails when a graph break, recompile, operator or
+  host sync of its counter rows (SMPL-X vertices, the SMPL bake and vertices with and without part inertias, on the
+  random-weight archives) exceeds `benchmarks/thresholds/torch-<version>.json`
+  (`tests/contract/test_compile_counters.py`); `--licensed` adds the sweep of SMPL, SMPL-X, MHR and SOMA, MHR's
+  TorchScript oracle and the load rows; wall time is recorded with the load average and page faults, never gated.
 
 ### Removed
 - `Body`: use `HumanModel` and `HumanModel.from_spec`.
@@ -149,6 +154,8 @@ line that 0.2.0 renames or removes, one table row each.
 - `viz.studio`: use `better_human.studio`; its 15 internal names (`StudioSession`, `GizmoController`, ...) and
   `DEFAULT_ROOT`: no replacement; they are the application's internals, and the data root is `--data-root`.
 - The `viewer` extra: use the `studio` extra.
+- The benchmark report script and the tracked benchmark results: no replacement; results are not tracked, and the
+  runner's JSON carries its own context.
 
 ### Fixed
 - `viz.skinned_layer` draws SOMA bodies where `HumanState.vertices` puts them: it inverts the identity's
