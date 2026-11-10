@@ -101,7 +101,8 @@ def test_correctives_toggle() -> None:
 def test_a_negated_root_quaternion_round_trips(body: HumanModel) -> None:
     """``to_classic`` puts a negative-scalar root quaternion on the Euler branch that ``from_classic`` maps back to it."""
     classic = dataclasses.replace(
-        _random_classic(torch.Generator().manual_seed(3), (4,)), expression=0.3 * torch.randn(4, 72)
+        _random_classic(torch.Generator().manual_seed(3), (4,)),
+        expression=0.3 * torch.randn(4, 72, generator=torch.Generator().manual_seed(4)),
     )
     identity, q, stream = from_classic(body, classic)
     root_quaternion = torch.arange(3, 7)

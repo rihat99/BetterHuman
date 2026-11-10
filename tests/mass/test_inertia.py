@@ -292,7 +292,8 @@ def test_argmax_fallback_integrates_smplx_parts() -> None:
 @FLOAT32_GRADCHECK
 @pytest.mark.licensed
 def test_float32_gradcheck_betas_to_total_mass(mass_body: bh.HumanModel) -> None:
-    betas = (torch.randn(GRADCHECK_BETAS, dtype=torch.float32) * 0.03).requires_grad_()
+    generator = torch.Generator().manual_seed(0)
+    betas = (torch.randn(GRADCHECK_BETAS, dtype=torch.float32, generator=generator) * 0.03).requires_grad_()
 
     def total_mass(value: torch.Tensor) -> torch.Tensor:
         return _parts(mass_body.bake(betas=value))[:, 0].sum()

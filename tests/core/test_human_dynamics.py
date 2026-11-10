@@ -48,7 +48,7 @@ def test_batched_shapes_drive_batched_dynamics(mass_body: bh.HumanModel) -> None
 
 
 def test_betas_to_inverse_dynamics_backward_is_finite_and_nonzero(mass_body: bh.HumanModel) -> None:
-    betas = (torch.randn(10, dtype=torch.float32) * 0.03).requires_grad_()
+    betas = (torch.randn(10, dtype=torch.float32, generator=torch.Generator().manual_seed(0)) * 0.03).requires_grad_()
     identity = mass_body.bake(betas=betas)
     q = identity.model.q_neutral
     velocity = torch.zeros(identity.model.nv, dtype=q.dtype)
