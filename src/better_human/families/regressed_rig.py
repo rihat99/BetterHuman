@@ -8,6 +8,7 @@ from typing import NamedTuple, final
 
 import torch
 from better_robot import Model, ModelBuilder
+from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.lie import so3
 
@@ -97,6 +98,9 @@ class _JointData(NamedTuple):
 def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
     """Spec without the terminal subtrees rooted at ``names`` (their skin weights go to the surviving ancestor).
 
+    Each dropped joint's part merges into its surviving ancestor's: authored closed parts (SMPL) join their faces and
+    lose the cap they shared, so the total volume is kept and every other part is unchanged.
+
     Only families with a regressed rig and a linear ``(R - I)`` corrective support this (SMPL family).
     """
     if not isinstance(spec.rig, RegressedRig) or not isinstance(spec.corrective, LinearCorrective):
@@ -153,6 +157,12 @@ def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
     part_ids = torch.tensor([old_to_new[int(ancestor[j])] for j in range(num_joints)], device=device)
     part_joints = tuple(old_to_new[j] for j in data.parts.joints if j in old_to_new)
     categories = data.parts.density_categories
+    closed_faces = None
+    if data.parts.closed_faces is not None:
+        closed_faces = {
+            new: _merged_closed_faces(data, [j for j in range(num_joints) if int(ancestor[j]) == old], old_to_new)
+            for new, old in enumerate(survivors)
+        }
     return _JointData(
         joint_names,
         parents,
@@ -161,7 +171,6 @@ def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
         weights,
         indices,
         posedirs.reshape(num_vertices * 3, -1).T,
-        # Authored closed faces cap parts with joints by their old numbering: the reduced parts close from ids.
         Parts(
             part_ids[data.parts.ids],
             part_joints,
@@ -169,8 +178,32 @@ def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
                 category for joint, category in zip(data.parts.joints, categories, strict=True) if joint in old_to_new
             ),
             data.parts.density_tables,
+            closed_faces,
         ),
     )
+
+
+def _merged_closed_faces(data: _JointData, members: Sequence[int], old_to_new: Mapping[int, int]) -> torch.Tensor:
+    """The authored closed faces of the parts ``members`` merged into one part, its cap joints renumbered.
+
+    A cap two merged parts share appears once in each (as the same three indices) and closes neither part any more,
+    so both copies go; the rest is the union's closed surface. Raises
+    :class:`~better_robot.exceptions.ArgumentError` for a cap left at a dropped joint.
+    """
+    num_vertices = data.skin_weights.shape[0]
+    faces = torch.cat([data.parts.closed_faces[member] for member in members])
+    _, inverse, counts = torch.unique(faces.sort(dim=1).values, dim=0, return_inverse=True, return_counts=True)
+    faces = faces[counts[inverse] == 1]
+    renumbered = torch.full((len(data.joint_names),), -1, dtype=faces.dtype, device=faces.device)
+    for old, new in old_to_new.items():
+        renumbered[old] = new
+    caps = faces >= num_vertices
+    joints = renumbered[(faces - num_vertices).clamp(min=0)]
+    if bool((caps & (joints < 0)).any()):
+        raise ArgumentError(
+            f"drop_joints: the authored part of {data.joint_names[members[0]]} keeps a dropped joint cap"
+        )
+    return torch.where(caps, num_vertices + joints, faces)
 
 
 def _pose_feature_rotmat_minus_identity(joint_quaternions: torch.Tensor) -> torch.Tensor:

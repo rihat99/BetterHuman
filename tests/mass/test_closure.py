@@ -56,3 +56,28 @@ def test_parts_are_closed_and_their_volumes_sum_to_the_mesh(family: str, options
     mesh_volume = _volume(mesh_vertices, mesh_faces)
     part_volume = sum(_volume(vertices, faces) for vertices, faces in meshes)
     assert abs(part_volume - mesh_volume) / mesh_volume <= tolerance
+
+
+@pytest.mark.parametrize(
+    "dropped", [["left_hand", "right_hand"], ["left_elbow", "left_wrist", "left_hand"]], ids=["hands", "left-forearm"]
+)
+def test_drop_joints_merges_authored_parts_and_conserves_mass(dropped: list[str]) -> None:
+    """The baked total mass is kept; each untouched part's closed mesh integrates bitwise as before.
+
+    The baked inertias of untouched parts differ from the full model's in the last bits (about 4e-14 relative): the
+    bake skins the rest mesh into the neutral pose with the reduced skin weights, whose sums round differently.
+    """
+    spec = bh.families.smpl(dtype=torch.float64)
+    reduced = bh.families.drop_joints(spec, dropped)
+    totals, parts = [], []
+    for current in (spec, reduced):
+        human = bh.HumanModel.from_spec(current, density=1000.0)
+        identity = human.bake()
+        totals.append(float(identity.model.body_inertias[..., 0].sum()))
+        meshes = human.part_topology.meshes(identity.rest_vertices, identity.rest_joint_translations)
+        names = [current.joint_names[joint] for joint in current.parts.joints]
+        parts.append({name: inertia_of_mesh(*mesh, density=1000.0) for name, mesh in zip(names, meshes, strict=True)})
+    assert abs(totals[1] - totals[0]) / totals[0] <= 1e-6
+    full, merged = parts
+    ancestors = {spec.joint_names[spec.parents[spec.joint_id(name)]] for name in dropped} - set(dropped)
+    assert {name for name in merged if not torch.equal(merged[name], full[name])} <= ancestors
