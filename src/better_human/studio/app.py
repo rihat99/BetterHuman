@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -38,28 +37,27 @@ class HumanStudio:
     """Pose, shape, segment and frame-edit one body family in the browser.
 
     Click modes: ``"pose"`` (pick a joint, drag its gizmo), ``"segment"`` (sphere-brush painting) and
-    ``"frames"`` (add a frame on the nearest vertex). ``server`` injects a viser-compatible server (tests).
+    ``"frames"`` (add a frame on the nearest vertex). ``data_root`` is the directory the studio reads and writes its
+    segmentations, frame sets and poses in; the weights come from ``better_human.io.models_dir()``. ``server`` injects
+    a viser-compatible server (tests).
     """
 
     def __init__(
         self,
         *,
+        data_root: str | Path,
         family: str = "smpl",
         gender: str = "neutral",
         lod: int = 1,
         port: int = 8080,
         host: str = "127.0.0.1",
-        models_dir: str | Path | None = None,
-        data_dir: str | Path | None = None,
         density: float | None = None,
         server: Any = None,
     ) -> None:
-        if models_dir is not None:
-            os.environ["BETTERHUMAN_MODELS_DIR"] = str(Path(models_dir).expanduser())
         self.family, self.gender, self.lod = family.lower(), gender, lod
         self.density = 1000.0 if density is None else float(density)
         self._uniform_density, self.opacity = self.density, 1.0
-        self.paths = persistence.StudioPaths(persistence.DEFAULT_ROOT if data_dir is None else Path(data_dir))
+        self.paths = persistence.StudioPaths(Path(data_root).expanduser())
         self.mode = "pose"
         self.status = ""
         started = time.perf_counter()

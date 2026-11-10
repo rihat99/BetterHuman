@@ -1,4 +1,4 @@
-"""Command-line entry point: ``python -m better_human.studio``."""
+"""Command-line entry point: ``python -m better_human.studio --data-root DIR``; weights come from ``io.models_dir()``."""
 
 from __future__ import annotations
 
@@ -13,11 +13,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--gender", default="neutral", choices=("neutral", "male", "female"))
     parser.add_argument("--lod", type=int, default=1, help="MHR level of detail")
     parser.add_argument("--port", type=int, default=8080)
-    parser.add_argument("--data-dir", default=None, help="Root for authored data (default: the repo's studio_data)")
     parser.add_argument(
-        "--models-dir",
-        default=None,
-        help="Weights directory; default $BETTERHUMAN_MODELS_DIR, read by io.models_dir(); neither set is an error",
+        "--data-root", required=True, help="Directory the studio reads and writes its segmentations, frames and poses"
     )
     parser.add_argument("--host", default="127.0.0.1")
     return parser.parse_args()
@@ -32,8 +29,7 @@ def main() -> None:
         lod=args.lod,
         port=args.port,
         host=args.host,
-        data_dir=args.data_dir,
-        models_dir=args.models_dir,
+        data_root=args.data_root,
     )
 
 

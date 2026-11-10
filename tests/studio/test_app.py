@@ -18,7 +18,7 @@ from tests.studio.fake_server import FakeHandle, FakeServer
 
 @pytest.fixture
 def studio(tmp_path: Path):
-    return HumanStudio(server=FakeServer(), data_dir=tmp_path)
+    return HumanStudio(server=FakeServer(), data_root=tmp_path)
 
 
 def _click(studio, origin, target) -> None:
@@ -201,7 +201,7 @@ def test_frames_layer_follows_frame_set(tmp_path: Path) -> None:
     frames = tmp_path / "frames" / "smplx_neutral"
     frames.mkdir(parents=True)
     shutil.copy(Path(__file__).parents[1] / "support" / "contacts.json", frames)
-    studio = HumanStudio(family="smplx", server=FakeServer(), data_dir=tmp_path)
+    studio = HumanStudio(family="smplx", server=FakeServer(), data_root=tmp_path)
     studio.frames.load("contacts")
     count = len(studio.session.frame_set)
     assert count > 0 and studio.layers.frames.poses.shape == (1, count, 7)
@@ -239,7 +239,7 @@ def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
     """Regression: viser's tab-group remove() raised when the Model tab rebuilt the tabs."""
     server = viser.ViserServer(host="127.0.0.1", port=8097, verbose=False)
     try:
-        studio = HumanStudio(server=server, data_dir=tmp_path)
+        studio = HumanStudio(server=server, data_root=tmp_path)
         studio.load_model("smpl", gender="neutral")
         assert studio.status.startswith("smpl_neutral loaded")
     finally:

@@ -2,15 +2,15 @@
 
 HumanStudio is a browser app (viser) for authoring data on SMPL, SMPL-X and MHR bodies: shape and pose,
 mass density, vertex segmentations (body parts) and named contact frames. Everything it saves is a plain
-JSON/NPZ file under `studio_data/`, so scripts can load the same data without the app.
+versioned JSON file under the data root you pass, so scripts can load the same data without the app.
 
 ![HumanStudio, segmentation colours](images/studio_segmentation.png)
 
 ## Launch
 
 ```bash
-cd BetterHuman
-BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.studio --family smplx
+uv sync --extra studio
+BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.studio --data-root ~/studio_data --family smplx
 # open http://127.0.0.1:8080
 ```
 
@@ -20,10 +20,11 @@ BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.studio --family
 | `--gender` | `neutral` | `neutral`, `male`, `female` |
 | `--lod` | `1` | MHR level of detail |
 | `--port` / `--host` | `8080` / `127.0.0.1` | where viser listens; keep the host local |
-| `--models-dir` | `$BETTERHUMAN_MODELS_DIR` | weights directory, read through `better_human.io.models_dir()`; with neither set the load fails naming the variable, nothing is guessed |
-| `--data-dir` | `<repo>/studio_data` | root for everything the studio saves |
+| `--data-root` | required | the directory everything the studio saves goes to; there is no default |
 
-From Python, `better_human.studio.launch(family="smplx", port=8080)` does the same and blocks;
+The weights come from `$BETTERHUMAN_MODELS_DIR` through `better_human.io.models_dir()`; unset, the load fails naming
+the variable. From Python, `better_human.studio.launch(data_root="~/studio_data", family="smplx")` does the same and
+blocks;
 `HumanStudio(..., server=viser.ViserServer(...))` builds the app without blocking.
 
 ## The sidebar
@@ -80,7 +81,7 @@ Named frames (for example foot contact points) are attached to a parent joint wi
 ## Data layout
 
 ```text
-<repo>/studio_data/
+<data root>/
   segmentations/<key>/<name>.json   # part name -> vertex ids
   frames/<key>/<name>.json          # frame set: {format, format_version, frames: {name: {vertex_id, joint_name}}}
   poses/<key>/<name>.npz            # joint rotations and root
