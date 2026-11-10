@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+This file lists every notable change to this project.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Each release groups its entries by change type;
 every removal names its replacement. The [migration page](migration-0.2.0.md) maps every public name of the 0.1
 line that 0.2.0 renames or removes, one table row each.
