@@ -7,7 +7,8 @@ format are refused naming both, and ``docs/reference/formats/<name>.md`` specifi
 The fixtures are synthetic and frozen: ``tests/support/formats/make_fixtures.py`` wrote them (every field a distinct
 constant; the v1 archives as the converters wrote them before record 0012), ``SHA256SUMS`` there lists them, and a
 rerun writes the same bytes. Each
-spec page's field tables equal the reader's schema, field by field.
+spec page's field tables equal the reader's schema, field by field, and each ``json`` example of a spec page names
+its format at the latest version and reads through the format's reader.
 """
 
 from __future__ import annotations
@@ -238,6 +239,23 @@ def _spec_page(format: str) -> Path:
 def test_every_format_has_a_spec_page(format: str) -> None:
     page = _spec_page(format)
     assert page.is_file(), f"{format} has no spec page {page.relative_to(REPO)}"
+
+
+JSON_FORMATS = [name for name, (suffix, _) in READERS.items() if suffix == "json"]
+
+
+@pytest.mark.parametrize("format", JSON_FORMATS)
+def test_each_json_example_of_a_spec_page_is_read_by_its_reader(format: str, tmp_path: Path) -> None:
+    """Another repository copies a spec page's example: each ``json`` fence names its format at the latest version,
+    and the format's reader reads it."""
+    examples = re.findall(r"^```json\n(.*?)^```$", _spec_page(format).read_text(), re.MULTILINE | re.DOTALL)
+    assert examples, f"{_spec_page(format).name} shows no json example"
+    for index, example in enumerate(examples):
+        fields = json.loads(example)
+        assert (fields.get("format"), fields.get("format_version")) == (format, LATEST[format])
+        path = tmp_path / f"example_{index}.json"
+        path.write_text(example)
+        READERS[format][1](path)
 
 
 def _spec_fields(page: Path) -> dict[str, tuple[str, str]]:
