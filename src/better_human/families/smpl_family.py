@@ -1,4 +1,8 @@
-"""One loader for the SMPL family (SMPL, SMPL-H, SMPL-X, MANO, FLAME): a weight file plus a table."""
+"""One loader for the SMPL family (SMPL, SMPL-H, SMPL-X, MANO, FLAME): a weight file plus a table.
+
+Each loader builds in ``dtype`` torch.float32 or torch.float64 and raises
+:class:`~better_robot.exceptions.DtypeMismatchError` for another, as ``better_human.load`` does.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import torch
-from better_robot.exceptions import ArgumentError, UnknownNameError
+from better_robot.exceptions import ArgumentError, DtypeMismatchError, UnknownNameError
 
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
@@ -37,6 +41,14 @@ def _check_width(name: str, value: int, limit: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 1 or value > limit:
         raise ArgumentError(f"{name} must be an int in [1, {limit}], got {value!r}")
     return value
+
+
+def _check_dtype(dtype: torch.dtype) -> None:
+    if dtype not in (torch.float32, torch.float64):
+        raise DtypeMismatchError(
+            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
+            "pass dtype=torch.float32 or dtype=torch.float64"
+        )
 
 
 def _parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
@@ -154,6 +166,7 @@ def smpl(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL (24 joints, 6890 vertices)."""
+    _check_dtype(dtype)
     gender = _gender(gender)
     path = weight_path(_tables.SMPL.folder, _tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
     return _load_family(
@@ -175,6 +188,7 @@ def smplh(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL+H (52 joints; the hand pose is given per joint, the file ships no hand PCA)."""
+    _check_dtype(dtype)
     gender = _gender(gender)
     table = _tables.SMPLH
     path = weight_path(table.folder, table.file_pattern.format(gender_lower=gender), path=path)
@@ -202,6 +216,7 @@ def smplx(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL-X (55 joints, 10475 vertices). Expression is a stream group; ``face=False`` drops it and the face joints."""
+    _check_dtype(dtype)
     gender = _gender(gender)
     table = _tables.SMPLX
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
@@ -250,6 +265,7 @@ def mano(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """MANO hand (16 joints, 778 vertices) with its PCA pose space in ``meta``."""
+    _check_dtype(dtype)
     if side not in {"left", "right"}:
         raise UnknownNameError("side", side, ["left", "right"])
     table = _tables.MANO
@@ -282,6 +298,7 @@ def flame(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """FLAME head (5 joints, 5023 vertices); expression is a stream group like SMPL-X."""
+    _check_dtype(dtype)
     table = _tables.FLAME
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
     return _load_family(

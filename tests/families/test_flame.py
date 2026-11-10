@@ -8,6 +8,8 @@ import numpy as np
 import pytest
 import torch
 
+from better_robot.exceptions import DtypeMismatchError
+
 import better_human as bh
 from better_human.families.classic import FLAMEClassic, flame_from_classic, flame_to_classic
 
@@ -54,6 +56,12 @@ def test_widths_slice_and_validate(flame_path: Path) -> None:
         bh.families.flame(flame_path, num_betas=301)
     with pytest.raises(ValueError):
         bh.families.flame(flame_path, num_expression=101)
+
+
+def test_dtype_follows_load(flame_path: Path) -> None:
+    for dtype in (torch.float16, torch.int64):
+        with pytest.raises(DtypeMismatchError, match="torch.float32 or torch.float64"):
+            bh.families.flame(flame_path, dtype=dtype)
 
 
 def test_expression_stream_moves_vertices_and_joints(flame_path: Path) -> None:
