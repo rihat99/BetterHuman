@@ -137,3 +137,4 @@ nav:
           - 0017 Models directory: contracts/decisions/0017-models-directory.md
           - 0018 Apache-2.0 licence: contracts/decisions/0018-bh-apache-licence.md
           - 0019 viz imports core only: contracts/decisions/0019-viz-imports-core-only.md
+          - 0020 Public names of viz and the studio: contracts/decisions/0020-public-names-of-the-viz-and-studio-rewrite.md
