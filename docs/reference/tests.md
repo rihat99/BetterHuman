@@ -57,7 +57,7 @@ rule each one enforces.
 | `test_vocabulary.py` | one name per thing, acronyms in capitals, no vague module name, every word of every public name in a glossary |
 | `test_naming.py` | the field tables of `HumanModel`, `Identity` and `HumanState`, field by field |
 | `test_keyword_only.py` | public callables take at most two positional parameters |
-| `test_frozen.py` | public dataclasses are frozen; the three tensor records compare by identity; mapping fields are read-only |
+| `test_frozen.py` | public dataclasses are frozen; every one that holds tensors compares and hashes by identity; mapping fields are read-only |
 | `test_caches.py` | `HumanState._memo` and `Identity._frame_placements` are the only caches (record [0028](../contracts/decisions/0028-identity-frame-placements-cache.md)): each reached by one function, empty after `dataclasses.replace`, keyed by the grad mode; no module-level store and no unreasoned `functools` cache |
 | `test_repr.py` | the reprs of `HumanModel`, `Identity` and `HumanState` are one short line each |
 | `test_abstract_or_final.py` | every class in `src` is abstract or `@final` |

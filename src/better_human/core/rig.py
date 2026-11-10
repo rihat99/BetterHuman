@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class RigBake:
     """Identity-dependent kinematic values of one bake; leading dims are the identity batch ``I...``."""
 

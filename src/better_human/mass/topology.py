@@ -21,7 +21,7 @@ from better_robot.spatial import orient_faces_by_component
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class PartTopology:
     """Static topology of one closed mesh per part; built once per ``HumanModel``, applied to every shape.
 

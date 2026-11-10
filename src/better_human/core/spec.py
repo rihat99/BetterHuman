@@ -30,7 +30,7 @@ class Corrective(ABC):
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class LinearCorrective(Corrective):
     """``offsets = feature @ posedirs`` with ``posedirs (P, V * 3)`` (the SMPL family)."""
 
@@ -41,7 +41,7 @@ class LinearCorrective(Corrective):
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class MLPCorrective(Corrective):
     """``offsets = relu(feature @ first_layer.T) @ output`` with ``first_layer (H, P)``, ``output (H, V * 3)``."""
 
@@ -66,7 +66,7 @@ def _offsets(feature: torch.Tensor, matrix: torch.Tensor, vertex_ids: torch.Tens
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Parts:
     """Vertex segmentation into rigid parts for mass properties.
 
@@ -95,7 +95,7 @@ class Parts:
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Landmarks:
     """Named points of the mesh: landmark ``names[l]`` is vertex ``vertex_ids[l]`` (``(L,)`` long)."""
 
@@ -104,7 +104,7 @@ class Landmarks:
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class FamilySpec:
     """One body family on one dtype and device. Pure data except for ``rig``.
 

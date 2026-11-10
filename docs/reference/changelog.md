@@ -55,6 +55,10 @@ line that 0.2.0 renames or removes, one table row each.
 - `core.Rig` is an abstract base and `core.Corrective` an abstract base of `core.LinearCorrective` and
   `core.MLPCorrective`; the rig hooks take their arguments by keyword; `Rig.build_model` builds in the spec's dtype
   and device. `HumanModel`, `Identity` and `HumanState` are frozen, compare by identity and print one line.
+- Every public record that holds tensors compares and hashes by identity (`eq=False`): `FamilySpec`, `core.Parts`,
+  `core.Landmarks`, `core.LinearCorrective`, `core.MLPCorrective`, `core.RigBake`, `mass.PartTopology`,
+  `families.RegressedRig`, `families.MHRRig`, `families.SOMARig` and the seven `*Classic` records; `==` on two
+  loads of one archive raised, and `hash` raised or hashed the tensors' identities.
 - `load(family, path=None, *, dtype, device, density, contact_frames, stream_joints)`: family options go through
   the family loader; the family name is exact, and an unknown one raises `UnknownNameError`.
 - The root's `__all__` lists every subpackage, `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio`, then

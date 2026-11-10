@@ -35,7 +35,7 @@ CHANNELS = 7  #: parameter-transform rows per joint: translation xyz, rotation x
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class MHRRig(Rig):
     """MHR rig tensors. ``J = 127`` native joints, ``N = 125`` pose and ``P = 73`` proportion parameters."""
 

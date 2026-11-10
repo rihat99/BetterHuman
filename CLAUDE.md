@@ -77,7 +77,8 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   model is a loader option (`tests/contract/test_abstract_or_final.py`); `load` dispatches to every family loader
   (`tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`).
 - No `to` method: dtype and device are chosen at load, and a tensor in another dtype raises
-  (`tests/contract/test_dtype_device.py`); no mutable public dataclass (`tests/contract/test_frozen.py`).
+  (`tests/contract/test_dtype_device.py`); no mutable public dataclass, and none that holds tensors compares by
+  value (`tests/contract/test_frozen.py`).
 - No cache beyond `HumanState._memo` and `Identity._frame_placements` (record 0028), and no `functools` cache outside
   the reasoned `FUNCTOOLS_CACHES` (`tests/contract/test_caches.py`).
 - No public function, constructor (dataclass fields included), method, class method or static method with more

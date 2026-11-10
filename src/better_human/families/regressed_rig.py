@@ -20,7 +20,7 @@ from better_human.core.spec import FamilySpec, LinearCorrective, Parts
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class RegressedRig(Rig):
     """SMPL-family rig: ``J = joint_regressor @ v_shaped``, root free-flyer + one spherical joint per joint.
 

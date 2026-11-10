@@ -34,7 +34,7 @@ NEWTON_SCHULZ_STEPS = 30  #: upstream ``align_vectors`` iteration count.
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class SOMARig(Rig):
     """SOMA rig tensors. ``P = 78`` public joints, ``J = 110`` native joints, ``T = 32`` twist helpers."""
 

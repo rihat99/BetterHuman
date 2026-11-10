@@ -30,7 +30,7 @@ _SOMA_POSE_JOINT_COUNT = 77  # public joints after the virtual Root, Hips first
 
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SMPLClassic:
     """Classic SMPL parameters (the smplx package's ``SMPL`` inputs) with arbitrary leading batch dimensions."""
 
@@ -41,7 +41,7 @@ class SMPLClassic:
 
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SMPLHClassic:
     """Classic SMPL+H parameters; hand poses are full axis-angle blocks (the file ships no hand PCA)."""
 
@@ -54,7 +54,7 @@ class SMPLHClassic:
 
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SMPLXClassic:
     """Classic SMPL-X parameters; the hand PCA width is the model's (``families.smplx(..., num_pca_comps=)``)."""
 
@@ -71,7 +71,7 @@ class SMPLXClassic:
 
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class MANOClassic:
     """Classic MANO parameters; the hand PCA width is the model's (``families.mano(..., num_pca_comps=)``)."""
 
@@ -82,7 +82,7 @@ class MANOClassic:
 
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class FLAMEClassic:
     """Classic FLAME parameters (neck, jaw and eye axis-angles, the expression stream)."""
 
@@ -97,7 +97,7 @@ class FLAMEClassic:
 
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class MHRClassic:
     """The MHR reference inputs."""
 
@@ -107,7 +107,7 @@ class MHRClassic:
 
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SOMAClassic:
     """The upstream ``SOMALayer`` inputs."""
 
