@@ -138,8 +138,8 @@ Add `--check` to build the scene and exit (used in CI).
 ## Benchmarks
 
 ```bash
-uv run python benchmarks/run.py --device cpu --threads 8 --batches 1 64 1024 8192 \
-  --out benchmarks/results/p4_bodies_cpu.json
+uv run python benchmarks/run.py --counters-only          # the CPU counter gate, no weights needed
+uv run python benchmarks/run.py --licensed --threads 8   # the sweep and the load rows on the licensed weights
 ```
 
 Measured numbers are in `docs/contracts/bh-addendum.md`.

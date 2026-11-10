@@ -23,7 +23,7 @@ studio = ["better-robot[viewer]"]  # the browser viewer (better_human.viz) and H
 dev = [
     "better-robot[viewer]",  # tests/studio/test_app.py runs the studio on a real viser server
     "pytest>=8.0",
-    "scipy>=1.11",  # tests/io run tools/convert/smpl/convert_chumpy.py; benchmarks/run.py builds sparse regressors
+    "scipy>=1.11",  # tests/io run tools/convert/smpl/convert_chumpy.py
     "ruff",
     "pre-commit>=3.7",
     "matplotlib>=3.8",  # docs/render_segmentation.py draws the segmentation figures

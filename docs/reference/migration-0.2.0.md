@@ -206,6 +206,6 @@ Import from the package; the modules under it are internal.
 | parity goldens in `tests/parity/goldens` | `$BETTERHUMAN_MODELS_DIR/goldens` | release tier, provenance stamped |
 | `BETTERHUMAN_MODELS_DIR` read by `resolve_model_path`; the studio set it from `--models-dir` | `io.models_dir` | the one reader; `io.AssetNotFoundError`, a `FileNotFoundError`, names the fix |
 | `better-human[viewer]`, `better-human[studio]` with `viser>=1.0` | `better-human[studio]` | one extra, BetterRobot's `viewer`, for `viz` and the studio |
-| the `scipy` dependency | the dev dependency group | only the chumpy converter, its tests and the benchmarks use it |
+| the `scipy` dependency | the dev dependency group | only the chumpy converter and its tests use it |
 | MIT licence | Apache-2.0 | |
 | Python 3.10 and 3.11 | Python 3.12 or newer | |
