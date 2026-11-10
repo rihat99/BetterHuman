@@ -66,6 +66,7 @@ rule each one enforces.
 | `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
 | `test_license.py` | the licence file, `pyproject.toml` and the README agree on Apache-2.0 |
 | `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited |
+| `test_repository_layout.py` | the tracked top-level entries are the standard set; each `src` package has its `tests/` folder and every other `tests/` folder is a named suite; no tracked symlink and no tracked file over 1 MiB (record [0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)); no directory under `src/`, `tests/` or `tools/` without a tracked file |
 | `test_decision_records.py` | every decision record follows the template, has an allowed status and an index row, and an accepted record keeps its accepted text |
 | `test_no_skips.py` | no test module spells a skip or an xfail, the deselected ones included |
 | `test_pytest_config.py` | pytest runs strictly, with exactly the tier markers |
@@ -76,10 +77,11 @@ that removes it; it only shrinks, and the fix removes its entry.
 
 ## Docs tests
 
-`tests/docs/` keeps the pages true:
+`tests/docs/` keeps the pages and the README true:
 
 | Test | Guards |
 |------|--------|
 | `test_snippets.py` | every `python` fence runs and every `output` fence equals what it prints (`better_robot.testing.snippets`); every referenced image exists |
+| `test_readme_first_screen.py` | the README's first `python` fence has its `output` fence docked under it, closing by line 40: the first screen runs an example and shows its output (principle 7.2) |
 | `test_codemap.py` | the package map of the [architecture page](../concepts/architecture.md#the-package-map) equals the edge tables `ALLOWED` and `BR_ALLOWED` |
 | `test_contract_matrix.py` | the [enforcement matrix](../contracts/index.md#enforcement-matrix) equals the rules' `Enforcement:` paragraphs; every rule has an enforcer that exists; every contract test is in the index; a strength word stands only in a rule heading |

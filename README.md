@@ -1,148 +1,99 @@
 # BetterHuman
 
-BetterHuman is a PyTorch library of parametric human body models on a
-robotics core. It gives human body models one API while BetterRobot supplies
-the configuration manifold, kinematics, dynamics, optimization, and viewer.
-Shape is baked into an immutable body model; pose remains a batched,
-differentiable robotics query.
+Parametric human body models (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR and SOMA) as batched, differentiable
+[BetterRobot](https://github.com/rihat99/BetterRobot) models: bake a subject's shape once, then pose whole batches
+with BetterRobot's kinematics, dynamics, optimisers and browser viewer.
 
-BetterHuman is currently alpha software. APIs may change, and model weights
-are not distributed with the library.
+![A body in HumanStudio, BetterHuman's browser editor, with contact frames and its skeleton](docs/images/studio_frames_skeleton.png)
 
-## Get started
+Documentation: [docs/](docs/index.md), served as a site by `uv run mkdocs serve`.
 
-BetterHuman depends on [BetterRobot](https://github.com/rihat99/BetterRobot);
-`pyproject.toml` points at its GitHub repository, so `uv sync` fetches the commit
-pinned in `uv.lock`. Create the environment with [uv](https://docs.astral.sh/uv/):
+## Install with [uv](https://docs.astral.sh/uv/)
 
 ```bash
-cd BetterHuman
-uv sync
+git clone https://github.com/rihat99/BetterRobot  # pyproject.toml takes BetterRobot from ../BetterRobot
+git clone https://github.com/rihat99/BetterHuman && cd BetterHuman
+uv sync --extra studio  # the package, the browser viewer and HumanStudio, and the dev group
 ```
 
-Install the optional browser viewer for the demos and HumanStudio:
+## Pose four SMPL bodies at once
 
-```bash
-uv sync --extra studio
-```
-
-## Supply model weights
-
-Register at the official [SMPL](https://smpl.is.tue.mpg.de/) or
-[SMPL-X](https://smpl-x.is.tue.mpg.de/) site, accept the applicable license,
-and download those weights there. Obtain MHR from its author release.
-BetterHuman never downloads or redistributes model files.
-
-Converted files use this layout:
-
-```text
-models/
-├── smpl/
-│   ├── SMPL_FEMALE.npz
-│   ├── SMPL_MALE.npz
-│   └── SMPL_NEUTRAL.npz
-├── smplx/
-│   ├── SMPLX_FEMALE.npz
-│   ├── SMPLX_MALE.npz
-│   └── SMPLX_NEUTRAL.npz
-├── SOMA/
-│   └── soma_mid.npz
-└── MHR/
-    ├── assets/                     # original author release
-    └── converted/
-        ├── mhr_lod0.npz
-        ├── mhr_lod1.npz           # default
-        └── ... mhr_lod6.npz
-```
-
-Point BetterHuman at the containing directory:
-
-```bash
-export BETTERHUMAN_MODELS_DIR="$PWD/models"
-```
-
-`better_human.io.models_dir()` reads this variable and raises with the fix when it is unset; loaders find
-a file as `io.weight_path(folder, filename)` under it. An explicit `path` argument
-(`bh.load("smpl", path)`) always takes precedence.
-
-Legacy Chumpy-backed SMPL pickles can be converted without installing Chumpy:
-
-```bash
-mkdir -p models/smpl
-uv run tools/convert/smpl/convert_chumpy.py \
-  /path/to/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl \
-  models/smpl/SMPL_NEUTRAL.npz \
-  --model smpl
-```
-
-SMPL-X is supplied as NPZ and does not use this legacy converter.
-
-The upstream MHR repository states Apache-2.0, but the downloaded asset
-directory used here contains no separate `LICENSE` or `NOTICE`. Verify the
-terms accompanying the exact release archive before redistributing its assets.
-Convert the author files with `tools/convert/mhr/convert_mhr.py`; the runtime
-does not import `pymomentum`.
-Convert SOMA-X v0.3.4 (Hugging Face `nvidia/soma-x`, Apache 2.0) with `tools/convert/soma/convert_soma.py`.
-
-## Quick start
+This needs no licensed weights: it reads the random-weight SMPL archive the tests use. Real bodies need yours
+([Supply the weights](#supply-the-weights)).
 
 ```python
 import torch
+import better_robot as br
 import better_human as bh
-from better_human.viz import HUMAN_THEME, HumanView
 
-human = bh.load("smpl")                          # one BetterRobot model per family
-identity = human.bake(betas=torch.zeros(1, 10))   # bake shape once (mass, joints, contact frames)
-q = identity.model.q_neutral.expand(4, -1).clone()     # (B, nq): free-flyer root + spherical joints
-q[:, 1] = 1.0                                    # root 1 m up (y-up, metres)
-state = identity.forward(q)                      # HumanState for 4 poses
-print(state.vertices.shape, state.joint_translations.shape)  # (4, 6890, 3) (4, 24, 3)
-
-view = HumanView(identity.forward(identity.model.q_neutral))   # viewer layers, updated in place
-# from better_robot import Viewer
-# viewer = Viewer(theme=HUMAN_THEME); viewer.add(view, group="human")   # +y up
-# view.update(state_for_next_frame); viewer.show()
+human = bh.load("smpl", "tests/support/random_weights/smpl_random.npz")
+subject = human.bake(betas=torch.zeros(10))  # the shape, baked once into a BetterRobot Model with part masses
+q = subject.model.q_neutral.expand(4, -1).clone()  # (4, nq): a free-flyer root and 23 ball joints
+q[:, 1] = torch.linspace(0.0, 1.5, 4)  # lift the root by 0 to 1.5 m (y up)
+state = subject.forward(q)  # one batched forward-kinematics query for the four poses
+print(tuple(state.vertices.shape), tuple(state.joint_translations.shape))
+print(br.center_of_mass(subject.model, state.kinematics)[:, 1])  # BetterRobot dynamics on the baked masses
+```
+```output
+(4, 6890, 3) (4, 24, 3)
+tensor([0.1660, 0.6660, 1.1660, 1.6660])
 ```
 
-Per-frame groups such as SMPL-X expression go to `forward`:
-`identity.forward(q, streams={"expression": torch.zeros(B, 10)})`.
-See `docs/concepts/architecture.md` for the design, shapes and units and `docs/reference/tests.md` for the gates.
+The first line is the skinned mesh and the joint positions of the four poses; the second, the height in metres of
+the body's centre of mass, which rises with the root. The archive holds random numbers in SMPL's layout, so the body
+looks like noise, but every call, name and shape is the one the licensed SMPL file gives. `subject.model` is a plain
+BetterRobot `Model`, and `state.kinematics` its `KinematicState`: Jacobians, dynamics and solvers apply unchanged.
 
-## Supported families
+## Supply the weights
+
+BetterHuman never downloads or ships body-model weights. Register at the [SMPL](https://smpl.is.tue.mpg.de/) or
+[SMPL-X](https://smpl-x.is.tue.mpg.de/) site and download the files there; take MHR and SOMA from their authors'
+releases. Put the files in one folder in the layout of [Load a family](docs/guides/load-a-family.md) and name it:
+
+```bash
+export BETTERHUMAN_MODELS_DIR=/path/to/models
+```
+
+`bh.load("smpl")` then reads `$BETTERHUMAN_MODELS_DIR/smpl/SMPL_NEUTRAL.npz`; an explicit path, as above, always
+wins. [Convert weights](docs/guides/convert-weights.md) turns the SMPL Chumpy pickle and the MHR and SOMA releases
+into the files the loaders read.
 
 | family | loader | identity groups | stream groups |
 |---|---|---|---|
 | SMPL | `bh.load("smpl")` | `betas` | |
 | SMPL-H | `bh.load("smplh")` | `betas` | |
-| SMPL-X | `bh.families.smplx(hands=, face=)` | `betas` | `expression` |
+| SMPL-X | `bh.load("smplx")`; `bh.families.smplx(hands=, face=)` | `betas` | `expression` |
 | MANO | `bh.load("mano")` | `betas` | |
-| FLAME | `bh.load("flame")` (no asset tested here) | `betas` | `expression` |
-| MHR | `bh.load("mhr")` (LOD 1; `bh.families.mhr(lod=)`) | `identity`, `proportions` | `expression` |
-| SOMA | `bh.load("soma")` (mid LOD) | `shape` | |
+| FLAME | `bh.load("flame")` | `betas` | `expression` |
+| MHR | `bh.load("mhr")` (level of detail 1; `bh.families.mhr(lod=)`) | `identity`, `proportions` | `expression` |
+| SOMA | `bh.load("soma")` (mid level of detail) | `shape` | |
 
-Options `density`, `contact_frames` and `stream_joints` go to `HumanModel.from_spec`; the rest go to the loader.
-`contact_frames` takes a mapping `name -> (vertex_id, joint | None)`: `bh.io.read_frame_set(path)` reads a frame-set
-file and `bh.io.shipped_frame_set("smplx_contacts")` returns the 35 SMPL-X contact points BetterHuman ships.
+Identity groups go to `bake`, stream groups to `forward` (`subject.forward(q, streams={"expression": ...})`).
 
-## Run the examples
+## Where next
+
+- [Your first human](docs/getting-started/first-human.md): load, bake, pose and view a body, one step at a time.
+- [Architecture](docs/concepts/architecture.md): the packages, and how a family becomes a BetterRobot model.
+- [Scope](docs/contracts/scope.md): what BetterHuman computes, what it leaves out, and the bar for a new feature.
+- [Examples](examples/): `uv run python examples/01_smpl_shape_pose.py` opens SMPL with shape sliders in the
+  browser viewer; 02 to 04 show partial SMPL-X, a reaching IK solve and MHR. They read your weights; 01 to 03 take
+  `--model-path` to read a random-weight archive instead, and each takes `--check` to build its scene and exit.
+- [Use the studio](docs/guides/use-the-studio.md): HumanStudio paints parts and places contact frames.
+- Upgrading from 0.1: [Migrating to 0.2.0](docs/reference/migration-0.2.0.md) maps every public name that 0.2.0
+  renames or removes, and the [changelog](docs/reference/changelog.md) says what changed.
+
+## Development
 
 ```bash
-uv run python examples/01_smpl_shape_pose.py    # SMPL shape sliders and pose
-uv run python examples/02_smplx_partial.py      # full SMPL-X next to body-only SMPL-X
-uv run python examples/03_ik_reach.py           # drag a target, the left wrist follows (LM solve)
-uv run python examples/04_mhr_shape_pose.py     # MHR LOD1 identity sliders and arm swing
+uv run pytest tests/contract -q -m "not slow and not licensed"  # fast tier
+uv run pytest tests -q -m "not cuda and not licensed"           # full tier, no weights needed
+uv run ruff check . && uv run ruff format --check .
+uv run mkdocs build --strict
 ```
 
-Add `--check` to build the scene and exit (used in CI).
-
-## Benchmarks
-
-```bash
-uv run python benchmarks/run.py --counters-only          # the CPU counter gate, no weights needed
-uv run python benchmarks/run.py --licensed --threads 8   # the sweep and the load rows on the licensed weights
-```
-
-Measured numbers are in `docs/reference/benchmarks.md`.
+[Run the tests](docs/guides/run-the-tests.md) gives every tier, its time and what it needs, and [Run the
+benchmarks](docs/guides/run-the-benchmarks.md) the counter gate and the timing sweep. Parity tests against each
+family's upstream code (`tests/parity/`) are the numerical oracle.
 
 ## License
 

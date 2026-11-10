@@ -690,9 +690,6 @@ def _bind_and_convention_data(character: Any, fbx_path: Path) -> dict[str, np.nd
         "scale_encoding": np.asarray("exp2", dtype=np.str_),
         "axis_metadata_source": np.asarray("fbx_global_settings", dtype=np.str_),
         "up_axis": np.asarray(_signed_axis(int(properties["UpAxis"]), int(properties["UpAxisSign"])), dtype=np.str_),
-        "forward_axis": np.asarray(
-            _signed_axis(int(properties["FrontAxis"]), int(properties["FrontAxisSign"])), dtype=np.str_
-        ),
         "coordinate_axis": np.asarray(
             _signed_axis(int(properties["CoordAxis"]), int(properties["CoordAxisSign"])), dtype=np.str_
         ),

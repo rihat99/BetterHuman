@@ -47,8 +47,8 @@ Lengths are metres, rotations are quaternions `[qx, qy, qz, qw]`, the up axis is
 | `corrective_first_layer_mask` | bool | `(3000, 750)` | its dense mask |
 | `corrective_output_weights` | float32 | `(3000, V * 3)` | the MLP's output layer |
 
-The converter writes further fields (conversion checks, upstream metadata, `forward_axis`); the reader ignores every
-field it does not list here. `correctives=False` and `expression=False` skip the corrective and expression fields.
+The converter writes further fields (conversion checks, upstream metadata); the reader ignores every field it does
+not list here. `correctives=False` and `expression=False` skip the corrective and expression fields.
 
 ## Migration
 

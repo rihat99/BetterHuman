@@ -1,8 +1,12 @@
-"""Public BetterHuman API: families as data, identities baked once, poses streamed."""
+"""Public BetterHuman API: families as data, identities baked once, poses streamed.
+
+``__version__`` is the installed distribution's version.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from importlib import metadata as _metadata
 from pathlib import Path
 from typing import Literal
 
@@ -13,7 +17,7 @@ from . import core, families, io, mass, studio, terms, viz
 from .core import FamilySpec, HumanModel, HumanState, Identity
 from .core.classic import from_classic, to_classic
 
-__version__ = "0.1.0.dev0"
+__version__ = _metadata.version("better-human")
 
 _LOADERS: dict[str, Callable[..., FamilySpec]] = {
     "flame": families.flame,

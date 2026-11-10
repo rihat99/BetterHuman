@@ -1,10 +1,9 @@
 # Regenerate MHR converted weights and parity goldens
 
-Use this pinned, CPU-only tools environment to convert the local MHR release
-assets and run the upstream `pymomentum` oracle. BetterHuman never imports
-`pymomentum` at runtime. Pixi is not installed on the target box, so this uses
-the documented conda fallback. `trimesh` is the one pip dependency because the
-requested 4.9.0 release was not available from conda-forge when verified.
+Use this pinned, CPU-only conda environment (`environment.yml`) to convert the MHR
+release assets and run the upstream `pymomentum` oracle. BetterHuman never imports
+`pymomentum` at runtime. `trimesh` is the one pip dependency: its pinned release
+is not on conda-forge.
 
 1. Create the environment from the repository root:
 
@@ -34,9 +33,8 @@ requested 4.9.0 release was not available from conda-forge when verified.
 4. Dump the deterministic oracle grid (`--reference-dir`, default
    `references/parametric_body/MHR`, is the read-only checkout of the reference
    `mhr` package, https://github.com/facebookresearch/MHR at commit
-   `aaa8507aa0c2c660c8085c3a454650ebcb04e6ed` (`v1.0.1-5-gaaa8507`). The
-   checkout was cloned on 2026-07-16 and has not moved since (its reflog), so
-   the goldens of 2026-07-21 come from this commit; the provenance field names
+   `aaa8507aa0c2c660c8085c3a454650ebcb04e6ed` (`v1.0.1-5-gaaa8507`), the source
+   of the goldens in `$BETTERHUMAN_MODELS_DIR/goldens/`; the provenance field names
    only the pymomentum version, so the oracle's source is recorded here):
 
    ```bash
@@ -72,6 +70,6 @@ cd "$BETTERHUMAN_MODELS_DIR/MHR/assets" && sha256sum compact_v6_1.model \
   corrective_activation.npz corrective_blendshapes_lod1.npz lod1.fbx | sha256sum
 ```
 
-For the goldens stamped on 2026-11-06, `asset_sha256` hashes the asset files
-present at stamp time, not at dump time (decision record 0014, note); a golden
-written by the dump script hashes the files that dump read.
+A golden written by the dump script hashes the files that dump read; a golden
+stamped after its dump hashes the files present when it was stamped (decision
+record 0025, proposed).

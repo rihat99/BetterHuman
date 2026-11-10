@@ -46,7 +46,7 @@ joints, `T = 32` twist helpers; `F`, `K`, `C`, `H` and `N` follow the file. Tran
 | `corrective_output_shape` | int64 | `(2,)` | the output layer's dense shape |
 | `corrective_tanh` | bool | `()` | must be false |
 
-The converter also writes `lod = "mid"`, `unit = "m"` and `forward_axis = "+z"`; the reader ignores every field it does not list here. `correctives=False`
+The converter also writes `lod = "mid"`; the reader ignores every field it does not list here. `correctives=False`
 skips `corrective_first_layer` and the output layer.
 
 ## Migration

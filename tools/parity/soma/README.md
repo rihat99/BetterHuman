@@ -30,5 +30,5 @@ cd "$BETTERHUMAN_MODELS_DIR/SOMA/assets" && sha256sum SOMA_neutral.npz SOMA_proc
     SOMA_template_rig.usda correctives_model.pt | sha256sum
 ```
 
-For the goldens stamped on 2026-11-06, `asset_sha256` hashes the asset files present at stamp time, not at dump time
-(decision record 0014, note); a golden written by the dump script hashes the files that dump read.
+A golden written by the dump script hashes the files that dump read; a golden stamped after its dump hashes the
+files present when it was stamped (decision record 0025, proposed).

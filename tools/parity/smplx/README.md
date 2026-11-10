@@ -4,11 +4,10 @@ The goldens are outputs of licensed weights, so they live in the models director
 0015): `$BETTERHUMAN_MODELS_DIR/goldens/smpl_neutral/` (13 cases) and `$BETTERHUMAN_MODELS_DIR/goldens/smplx_neutral/`
 (29 cases). The release tier runs `tests/parity/smplx/` against them. Regenerate them only when the oracle or the
 weights change, into a new directory `$OUT`, and compare every array with the current files before copying them over:
-a regenerated number can hide a regression. A re-dump is not bit for bit: on 2026-11-10 the inputs and provenance
-came back identical, but vertices and joints differed from the stored goldens in the last few bits (up to 6 ulp,
-7.8e-16 m), most likely because another CPU or BLAS path computed the stored files. Compare with a tolerance far
-below the gates, not for equality. The random-weight goldens below re-dumped bit for bit on the machine that wrote
-them.
+a regenerated number can hide a regression. A re-dump of the licensed goldens is not bit for bit: the inputs and
+provenance come back identical, but vertices and joints can differ from the stored goldens in the last few bits
+(up to 6 ulp, 7.8e-16 m), as another CPU or BLAS path computes them. Compare with a tolerance far below the gates,
+not for equality.
 
 1. Materialize the pinned oracle environment (`smplx==0.1.28`, locked in `uv.lock`):
 
@@ -37,8 +36,8 @@ SMPL-X:
 cd "$BETTERHUMAN_MODELS_DIR/smplx" && sha256sum SMPLX_NEUTRAL.npz | sha256sum
 ```
 
-For the goldens stamped on 2026-11-06, `asset_sha256` hashes the asset files present at stamp time, not at dump time
-(decision record 0014, note); a golden written by the dump script hashes the files that dump read.
+A golden written by the dump script hashes the files that dump read; a golden stamped after its dump hashes the
+files present when it was stamped (decision record 0025, proposed).
 
 ## Random-weight archives and goldens
 

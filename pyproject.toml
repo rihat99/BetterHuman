@@ -26,7 +26,7 @@ dev = [
     "scipy>=1.11",  # tests/io run tools/convert/smpl/convert_chumpy.py
     "ruff",
     "pre-commit>=3.7",
-    "matplotlib>=3.8",  # docs/render_segmentation.py draws the segmentation figures
+    "matplotlib>=3.8",  # tools/render_segmentation.py draws the segmentation figures
     "mkdocs>=1.6,<2",
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.26",

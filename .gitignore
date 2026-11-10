@@ -15,15 +15,25 @@ htmlcov/
 # Local editor settings
 .vscode/
 
-# Local, untracked project data
+# mkdocs build output
+site/
+
+# benchmarks/run.py writes here by default; results are cited by command and commit, never tracked
+benchmarks/results/
+
+# Local, untracked project data: the licensed weights (both forms: `models/` matches only a directory), upstream
+# reference checkouts, scratch output
 models
 models/
 references
 temp/
-benchmarks/results/
 
-# autoresearch
+# Agent settings: the shared settings, rules and skills are tracked, the rest is per machine
+.claude/*
+!.claude/settings.json
+!.claude/rules/
+!.claude/skills/
+
+# Agent task scratch
 trash/
-.claude/
-site/
 agent_notes/

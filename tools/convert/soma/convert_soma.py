@@ -323,9 +323,7 @@ def main() -> None:
                 "format_version": np.asarray(2, dtype=np.int64),
                 "provenance": np.asarray(_provenance(args.assets_dir)),
                 "lod": np.asarray("mid"),
-                "unit": np.asarray("m"),
                 "up_axis": np.asarray("+y"),
-                "forward_axis": np.asarray("+z"),
                 **_shape_data(neutral),
                 **_rig_data(usd_rig, neutral["triangles"]),
             }

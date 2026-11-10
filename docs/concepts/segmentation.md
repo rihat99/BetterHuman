@@ -72,6 +72,9 @@ format [`better_human.studio.segmentation`](../reference/formats/studio_segmenta
 colour the intact surface; MHR has none. SMPL-X's closed topology still comes from argmax because its per-vertex
 labeling is not a closed-3D asset.
 
+The images below show each body at zero shape, drawn from the licensed weights by `tools/render_segmentation.py`;
+`uv run python tools/render_segmentation.py` redraws them.
+
 ## SMPL
 
 The authored surface colors the mesh by the named per-vertex parts; the authored

@@ -8,7 +8,7 @@ scratch directory, and copy the new files over)::
 Every archive field is a distinct constant (its position in ``WRITTEN``, the field order the fixtures were frozen with)
 at the schema's shape: the axes a schema binds keep its sizes (SOMA's 18056 vertices), the free ones are small
 (``FREE``). Numbering by the frozen order, not the live schema's, keeps a rerun byte-identical to ``SHA256SUMS`` when a
-schema drops a field the converters still write (``unit`` and ``forward_axis``, BH record 0008). The v1 archives are
+schema drops a field the converters once wrote (``unit`` and ``forward_axis``, BH record 0008). The v1 archives are
 written as the converters wrote them before decision record 0012: no ``format`` and no ``provenance``; MHR's
 ``coordinate_axis``, SOMA's ``lod`` and its provenance JSON ``source``. The frame sets hold the same three frames in
 both versions, and the studio's segmentation the same two parts in both (version 0 as the pre-format studio wrote it:

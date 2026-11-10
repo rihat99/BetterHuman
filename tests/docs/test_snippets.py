@@ -1,4 +1,4 @@
-"""Run every Python fence of ``docs/**/*.md`` once and compare every ``output`` fence in full.
+"""Run every Python fence of ``docs/**/*.md`` and ``README.md`` once and compare every ``output`` fence in full.
 
 ``better_robot.testing.snippets.check_page`` does the run and the comparison (its docstring has the rules: seeded,
 CPU only, a fake viser server, floats to half a unit of their last printed digit, an opt-out only with a reason).
@@ -41,7 +41,7 @@ LICENSED_TIMEOUT_S = 600.0
 
 
 def _pages() -> list[Path]:
-    return sorted(DOCS.rglob("*.md"))
+    return [*sorted(DOCS.rglob("*.md")), REPO / "README.md"]
 
 
 def _name(page: Path) -> str:
@@ -95,7 +95,7 @@ def test_index_has_runnable_snippet() -> None:
     assert re.search(r"^```python\n", (DOCS / "index.md").read_text(), re.MULTILINE)
 
 
-@pytest.mark.parametrize("page", [*_pages(), REPO / "README.md"], ids=lambda p: p.relative_to(REPO).as_posix())
+@pytest.mark.parametrize("page", _pages(), ids=_name)
 def test_referenced_images_exist(page: Path) -> None:
     """Every ``![...](path)`` and ``figures/*.svg`` / ``images/*`` reference of the docs and README resolves."""
     text = page.read_text()
