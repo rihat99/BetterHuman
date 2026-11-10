@@ -193,7 +193,9 @@ every tensor in one place, so a format holds no validation. Three formats exist,
 `families.drop_joints(spec, names) -> FamilySpec` removes terminal joint subtrees (their skin weights go to the
 surviving ancestor) through the spec's rig, `Rig.without_joints`; only `RegressedRig` can, with a linear corrective
 that `src/better_human/core/reduction.py` slices, and another rig raises `ArgumentError`. Loaders expose the common cases: `smplx(hands=False, face=False)` drops the hand and face joints and
-the expression group. Converting a pose that uses a dropped joint raises.
+the expression group. Converting a pose that uses a dropped joint raises. A dropped part merges into its survivor's
+and takes the survivor's density: the total volume is kept, the total mass only where the merged parts share a
+density (the loaders' drops do).
 
 ## Mass pipeline (`src/better_human/mass/`)
 
