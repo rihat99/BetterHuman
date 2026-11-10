@@ -83,3 +83,29 @@ def test_drop_joints_merges_authored_parts_and_conserves_mass(dropped: list[str]
     full, merged = parts
     ancestors = {spec.joint_names[spec.parents[spec.joint_id(name)]] for name in dropped} - set(dropped)
     assert {name for name in merged if not torch.equal(merged[name], full[name])} <= ancestors
+
+
+def test_drop_joints_keeps_the_volume_and_gives_the_merged_volume_the_survivor_density() -> None:
+    """At a non-uniform density the merged part keeps its survivor's density (H3 review L2).
+
+    The total volume is kept; the total mass changes by each dropped part's volume times its density difference to
+    the survivor: SMPL's left forearm and hand (Dempster 1130 and 1160 kg/m³) join the upper arm (1070), -0.085 kg.
+    Measured residuals (2026-11-10): volume 0, mass 2.4e-16 relative.
+    """
+    spec = bh.families.smpl(dtype=torch.float64)
+    dropped = ["left_elbow", "left_wrist", "left_hand"]
+    volumes, densities, masses = [], [], []
+    for current in (spec, bh.families.drop_joints(spec, dropped)):
+        human = bh.HumanModel.from_spec(current, density="Dempster")
+        identity = human.bake()
+        meshes = human.part_topology.meshes(identity.rest_vertices, identity.rest_joint_translations)
+        names = [current.joint_names[joint] for joint in current.parts.joints]
+        volumes.append(dict(zip(names, (_volume(*mesh) for mesh in meshes), strict=True)))
+        densities.append(dict(zip(names, human.density.tolist(), strict=True)))
+        masses.append(float(identity.model.body_inertias[..., 0].sum()))
+    (full, reduced), (full_density, reduced_density) = volumes, densities
+    assert abs(sum(reduced.values()) - sum(full.values())) <= 1e-12 * sum(full.values())
+    assert reduced_density["left_shoulder"] == full_density["left_shoulder"]
+    change = sum(full[name] * (full_density["left_shoulder"] - full_density[name]) for name in dropped)
+    assert change < -0.08
+    assert abs((masses[1] - masses[0]) - change) <= 1e-12 * masses[0]
