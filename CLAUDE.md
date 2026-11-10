@@ -12,6 +12,7 @@ uv run pytest tests -q -m "not cuda and not licensed"           # full tier, no 
 uv run pytest tests -q -m "licensed and not cuda"               # release tier on CPU, 2.5 min; fails without weights
 uv run pytest tests -q -m cuda                                  # release tier on a free GPU, 10 s
 uv run ruff check src tests examples benchmarks                 # lint (line length 120)
+node ../BetterRobot/tools/docs_screenshots.mjs temp/shots --repo .  # every docs page as light/dark PNGs (BETTER_ROBOT_CHROME)
 uv run python examples/01_smpl_shape_pose.py --check            # each example 01-04 supports --check
 uv run python benchmarks/run.py --device cpu --threads 8 --out ./temp/bench_cpu.json  # temp/ is ignored
 ```
