@@ -1,4 +1,7 @@
-"""SMPL-X loader on the new core: reduced bodies, hand PCA and expression streams."""
+"""SMPL-X loader on the new core: reduced bodies, the hand mean and expression streams.
+
+Classic round trips (hand PCA, reduced bodies) run through the shared checker, tests/families/test_classic_formats.py.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +9,7 @@ import pytest
 import torch
 
 import better_human as bh
-from better_human.families.classic import SMPLXClassic, smplx_from_classic, smplx_to_classic
+from better_human.families import SMPLXClassic
 from better_human.io import weight_path
 
 pytestmark = pytest.mark.licensed
@@ -27,7 +30,7 @@ def test_reduced_bodies_drop_joints(hands: bool, face: bool, count: int) -> None
         return
     pose = {"jaw_pose": torch.ones(3, dtype=F64)} if not face else {"left_hand_pose": torch.ones(45, dtype=F64)}
     with pytest.raises(ValueError):
-        smplx_from_classic(body.bake(), SMPLXClassic(**pose))
+        bh.from_classic(body, SMPLXClassic(**pose))
 
 
 def test_repeated_drop_joints_keeps_file_joint_ids() -> None:
@@ -36,23 +39,9 @@ def test_repeated_drop_joints_keeps_file_joint_ids() -> None:
     torch.testing.assert_close(twice.file_joint_ids, spec.file_joint_ids[:-1], rtol=0, atol=0)
 
 
-@pytest.mark.parametrize("flat_hand_mean", [False, True])
-def test_pca_hand_round_trip(flat_hand_mean: bool) -> None:
-    identity = _body(flat_hand_mean=flat_hand_mean).bake()
-    generator = torch.Generator().manual_seed(0)
-    left, right = (torch.randn(2, 6, generator=generator, dtype=F64) for _ in range(2))
-    classic = SMPLXClassic(left_hand_pose=left, right_hand_pose=right, num_pca_comps=6)
-    q, stream = smplx_from_classic(identity, classic)
-    back = smplx_to_classic(identity, q, stream, num_pca_comps=6)
-    torch.testing.assert_close(back.left_hand_pose, left, atol=1e-8, rtol=0)
-    torch.testing.assert_close(back.right_hand_pose, right, atol=1e-8, rtol=0)
-
-
 def test_zero_hand_pose_uses_mean_unless_flat_hand_mean() -> None:
-    mean = _body().bake()
-    flat = _body(flat_hand_mean=True).bake()
-    q_mean, _ = smplx_from_classic(mean, SMPLXClassic())
-    q_flat, _ = smplx_from_classic(flat, SMPLXClassic())
+    _, q_mean, _ = bh.from_classic(_body(), SMPLXClassic())
+    flat, q_flat, _ = bh.from_classic(_body(flat_hand_mean=True), SMPLXClassic())
     assert not torch.allclose(q_mean, q_flat)
     torch.testing.assert_close(q_flat[7:], flat.model.q_neutral[7:], atol=1e-12, rtol=0)
 
@@ -64,12 +53,3 @@ def test_expression_width_is_validated() -> None:
         identity.forward(identity.model.q_neutral, {"expression": torch.zeros(11, dtype=F64)})
     with pytest.raises(ValueError):
         bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), num_expression=1000)
-
-
-def test_body_without_hands_round_trips_classic() -> None:
-    identity = _body(hands=False).bake()
-    q, stream = smplx_from_classic(identity, SMPLXClassic(body_pose=0.3 * torch.ones(63, dtype=F64)))
-    classic = smplx_to_classic(identity, q, stream)
-    assert classic.left_hand_pose is None and classic.right_hand_pose is None
-    q_again, _ = smplx_from_classic(identity, classic)
-    torch.testing.assert_close(q_again, q)

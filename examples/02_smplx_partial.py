@@ -12,7 +12,7 @@ from pathlib import Path
 import torch
 
 import better_human as bh
-from better_human.families.classic import SMPLXClassic, smplx_from_classic
+from better_human.families import SMPLXClassic
 from better_human.viz import human_layers
 from better_robot.viewer import LIGHT, GroundLayer, Viewer
 
@@ -24,7 +24,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    full = bh.HumanModel.from_spec(bh.families.smplx(args.model_path, num_betas=10, num_expression=10), density=None)
+    full = bh.HumanModel.from_spec(
+        bh.families.smplx(args.model_path, num_betas=10, num_expression=10, num_pca_comps=6), density=None
+    )
     partial = bh.HumanModel.from_spec(
         bh.families.smplx(args.model_path, num_betas=10, hands=False, face=False), density=None
     )
@@ -43,15 +45,12 @@ def main() -> None:
         (
             full,
             "full",
-            SMPLXClassic(
-                body_pose=body_pose, left_hand_pose=hands, right_hand_pose=hands, expression=expression, num_pca_comps=6
-            ),
+            SMPLXClassic(body_pose=body_pose, left_hand_pose=hands, right_hand_pose=hands, expression=expression),
             (-0.5, 0.0, 0.0),
         ),
         (partial, "body only", SMPLXClassic(body_pose=body_pose), (0.5, 0.0, 0.0)),
     ):
-        identity = body.bake()
-        q, stream = smplx_from_classic(identity, classic)
+        identity, q, stream = bh.from_classic(body, classic)
         viewer.add(human_layers(identity.forward(q, stream)), group=name, offset=offset)
     if args.check:
         viewer.show(45)

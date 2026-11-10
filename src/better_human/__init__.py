@@ -11,6 +11,7 @@ from better_robot.exceptions import DtypeMismatchError, UnknownNameError
 
 from . import families, io
 from .core import FamilySpec, HumanModel, HumanState, Identity
+from .core.classic import from_classic, to_classic
 
 __version__ = "0.1.0.dev0"
 
@@ -55,4 +56,15 @@ def load(
     return HumanModel.from_spec(spec, density=density, contact_frames=contact_frames, stream_joints=stream_joints)
 
 
-__all__ = ["FamilySpec", "HumanModel", "HumanState", "Identity", "__version__", "families", "io", "load"]
+__all__ = [
+    "FamilySpec",
+    "HumanModel",
+    "HumanState",
+    "Identity",
+    "__version__",
+    "families",
+    "from_classic",
+    "io",
+    "load",
+    "to_classic",
+]

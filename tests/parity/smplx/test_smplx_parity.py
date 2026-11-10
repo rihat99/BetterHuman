@@ -9,7 +9,7 @@ import pytest
 import torch
 
 import better_human as bh
-from better_human.families.classic import SMPLXClassic, smplx_from_classic
+from better_human.families import SMPLXClassic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
 
@@ -40,7 +40,7 @@ EXPECTED_GOLDENS = {
 }
 FLOAT64_ATOL = 1e-6
 FLOAT32_ATOL = 1e-6
-_BODY_CACHE: dict[tuple[torch.dtype, int, int, bool, bool], bh.Body] = {}
+_BODY_CACHE: dict[tuple[torch.dtype, int, int, bool, int | None, bool], bh.HumanModel] = {}
 
 
 @pytest.fixture(scope="module")
@@ -53,15 +53,21 @@ def smplx_goldens() -> Path:
 
 
 def _body(
-    dtype: torch.dtype, num_betas: int, num_expression: int, flat_hand_mean: bool, stream_joints: bool = True
+    dtype: torch.dtype,
+    num_betas: int,
+    num_expression: int,
+    flat_hand_mean: bool,
+    num_pca_comps: int | None,
+    stream_joints: bool = True,
 ) -> bh.HumanModel:
-    key = (dtype, num_betas, num_expression, flat_hand_mean, stream_joints)
+    key = (dtype, num_betas, num_expression, flat_hand_mean, num_pca_comps, stream_joints)
     if key not in _BODY_CACHE:
         spec = bh.families.smplx(
             weight_path("smplx", "SMPLX_NEUTRAL.npz"),
             num_betas=num_betas,
             num_expression=num_expression,
             flat_hand_mean=flat_hand_mean,
+            num_pca_comps=num_pca_comps,
             dtype=dtype,
         )
         _BODY_CACHE[key] = bh.HumanModel.from_spec(spec, density=None, stream_joints=stream_joints)
@@ -79,12 +85,12 @@ def _evaluate(
     flat_hand_mean = bool(golden["flat_hand_mean"].item())
     stored_pca = int(golden["num_pca_comps"].item())
     num_pca_comps = None if stored_pca < 0 else stored_pca
-    body = _body(dtype, num_betas, num_expression, flat_hand_mean, stream_joints)
+    body = _body(dtype, num_betas, num_expression, flat_hand_mean, num_pca_comps, stream_joints)
     expression = torch.from_numpy(golden["expression"]).to(dtype=dtype)
-    identity = body.bake(betas=torch.from_numpy(golden["betas"]).to(dtype=dtype))
-    q, stream = smplx_from_classic(
-        identity,
+    identity, q, stream = bh.from_classic(
+        body,
         SMPLXClassic(
+            betas=torch.from_numpy(golden["betas"]).to(dtype=dtype),
             global_orient=torch.from_numpy(golden["global_orient"]).to(dtype=dtype),
             body_pose=torch.from_numpy(golden["body_pose"]).to(dtype=dtype),
             jaw_pose=torch.from_numpy(golden["jaw_pose"]).to(dtype=dtype),
@@ -94,7 +100,6 @@ def _evaluate(
             right_hand_pose=torch.from_numpy(golden["right_hand_pose"]).to(dtype=dtype),
             expression=expression,
             transl=torch.from_numpy(golden["transl"]).to(dtype=dtype),
-            num_pca_comps=num_pca_comps,
         ),
     )
     state = identity.forward(q, stream)

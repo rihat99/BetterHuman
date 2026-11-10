@@ -1,124 +1,111 @@
-"""Pure validation and conversion helpers for classic body-model poses."""
+"""Classic parameters, the upstream libraries' own inputs, to and from ``(identity, q, streams)`` (decision record 0004).
+
+Every family's spec carries one :class:`ClassicFormat` (``FamilySpec.classic``). :func:`from_classic` and
+:func:`to_classic` are the one way in and out for every family: they check every tensor in one place, so a format maps
+checked tensors only.
+"""
 
 from __future__ import annotations
 
+import dataclasses
+from abc import ABC, abstractmethod
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any
+
 import torch
-from better_robot import Model
-from better_robot.lie import so3
+from better_robot.exceptions import ArgumentError, UnknownNameError
+
+from .human_model import _checked, _checked_groups
+
+if TYPE_CHECKING:
+    from .human_model import HumanModel, Identity
+    from .spec import FamilySpec
 
 
-def axis_angle_to_quaternion(axis_angle: torch.Tensor) -> torch.Tensor:
-    """Convert ``(..., 3)`` axis-angle vectors to scalar-last quaternions."""
-    if axis_angle.shape[-1:] != (3,):
-        raise ValueError(f"axis_angle must have shape (..., 3); got {tuple(axis_angle.shape)}")
-    return so3.exp(axis_angle)
+class ClassicFormat(ABC):
+    """How one family's ``*Classic`` dataclass maps to ``(identity, q, streams)`` and back (decision record 0004).
 
-
-def quaternion_to_axis_angle(quaternion: torch.Tensor) -> torch.Tensor:
-    """Convert scalar-last quaternions to sign-preserving axis angles.
-
-    Unlike a principal SO(3) logarithm, this converter preserves both halves
-    of the unit-quaternion sphere: negative-scalar quaternions map to angles
-    in ``(pi, 2*pi]`` so converting back reproduces the input quaternion,
-    not merely the same rotation.
+    ``classic_type`` is that dataclass; each of its fields is a tensor or ``None`` (zero). The hooks see checked
+    tensors only.
     """
-    if quaternion.shape[-1:] != (4,):
-        raise ValueError(f"quaternion must have shape (..., 4); got {tuple(quaternion.shape)}")
-    quaternion = so3.normalize(quaternion)
-    vector = quaternion[..., :3]
-    scalar = quaternion[..., 3:4]
-    sin_half = vector.norm(dim=-1, keepdim=True)
-    positive_singularity = (sin_half < 1e-7) & (scalar >= 0)
-    safe_sin_half = torch.where(positive_singularity, torch.ones_like(sin_half), sin_half)
-    angle = 2.0 * torch.atan2(safe_sin_half, scalar)
-    full_factor = angle / safe_sin_half.clamp(min=1e-30)
-    taylor_factor = 2.0 + (2.0 / 3.0) * sin_half.square()
-    axis_angle = torch.where(positive_singularity, taylor_factor, full_factor) * vector
 
-    negative_singularity = (sin_half < 1e-7) & (scalar < 0)
-    fallback = torch.zeros_like(axis_angle)
-    fallback[..., 0] = 2.0 * torch.pi
-    return torch.where(negative_singularity.expand_as(axis_angle), fallback, axis_angle)
+    classic_type: type
+
+    @abstractmethod
+    def field_shapes(self, spec: FamilySpec) -> dict[str, tuple[int, ...]]:
+        """Trailing shape of every field a model of ``spec`` takes; a field left out was not loaded and stays ``None``."""
+
+    @abstractmethod
+    def from_fields(
+        self, human: HumanModel, fields: Mapping[str, torch.Tensor]
+    ) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
+        """``(identity, q (..., nq), streams)`` of ``fields`` ``(..., *shape)``; an omitted field arrives as zeros."""
+
+    @abstractmethod
+    def to_fields(
+        self, identity: Identity, q: torch.Tensor, *, streams: Mapping[str, torch.Tensor]
+    ) -> dict[str, torch.Tensor | None]:
+        """The fields of ``q (..., nq)`` and every stream group ``(..., n)``, all at one batch that covers the identity's."""
 
 
-def classic_root_to_free_flyer(
-    global_orient: torch.Tensor,
-    transl: torch.Tensor,
-    pelvis_offset: torch.Tensor,
-) -> torch.Tensor:
-    """Convert the SMPL pelvis-pivoted root to a free-flyer pose.
+def from_classic(human: HumanModel, classic: Any) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
+    """``(identity, q (..., nq), streams)`` of a family's ``*Classic`` parameters; the identity is baked from them.
 
-    All inputs have trailing shape ``(3,)``. The result has shape
-    ``(..., 7)`` and stores the pelvis world position followed by a
-    scalar-last quaternion.
+    An omitted field is zero. Raises :class:`~better_robot.exceptions.ArgumentError` when ``classic`` is not the
+    family's ``*Classic`` or sets a field the model was loaded without (``hands=False``, ``face=False``,
+    ``expression=False``); :class:`~better_robot.exceptions.ShapeError`,
+    :class:`~better_robot.exceptions.DtypeMismatchError` or :class:`~better_robot.exceptions.DeviceMismatchError`
+    for a field of another trailing shape, dtype or device; ``TypeError`` for a field that is not a floating tensor.
     """
-    if any(value.shape[-1:] != (3,) for value in (global_orient, transl, pelvis_offset)):
-        raise ValueError("global_orient, transl, and pelvis_offset must each have shape (..., 3)")
-    global_orient, transl, pelvis_offset = torch.broadcast_tensors(global_orient, transl, pelvis_offset)
-    return torch.cat((transl + pelvis_offset, axis_angle_to_quaternion(global_orient)), dim=-1)
-
-
-def free_flyer_to_classic_root(
-    free_flyer: torch.Tensor,
-    pelvis_offset: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Convert a free-flyer pelvis pose to SMPL ``global_orient, transl``."""
-    if free_flyer.shape[-1:] != (7,):
-        raise ValueError(f"free_flyer must have shape (..., 7); got {tuple(free_flyer.shape)}")
-    if pelvis_offset.shape[-1:] != (3,):
-        raise ValueError(f"pelvis_offset must have shape (..., 3); got {tuple(pelvis_offset.shape)}")
-    batch_shape = torch.broadcast_shapes(free_flyer.shape[:-1], pelvis_offset.shape[:-1])
-    free_flyer = free_flyer.expand(*batch_shape, 7)
-    pelvis_offset = pelvis_offset.expand(*batch_shape, 3)
-    global_orient = quaternion_to_axis_angle(free_flyer[..., 3:7])
-    transl = free_flyer[..., :3] - pelvis_offset
-    return global_orient, transl
-
-
-def classic_tensor(
-    name: str,
-    value: torch.Tensor | None,
-    width: int,
-    exemplar: torch.Tensor,
-) -> torch.Tensor | None:
-    """Validate one optional classic tensor at a converter boundary."""
-    if value is None:
-        return None
-    if not isinstance(value, torch.Tensor) or not value.is_floating_point():
-        raise TypeError(f"{name} must be a floating torch.Tensor or None")
-    if value.shape[-1:] != (width,):
-        raise ValueError(f"{name} must have shape (..., {width}); got {tuple(value.shape)}")
-    if value.dtype != exemplar.dtype or value.device != exemplar.device:
-        raise ValueError(
-            f"{name} must use dtype={exemplar.dtype} and device={exemplar.device}; "
-            f"got dtype={value.dtype}, device={value.device}"
+    spec = human.spec
+    classic_format = spec.classic
+    if not isinstance(classic, classic_format.classic_type):
+        raise ArgumentError(
+            f"from_classic: a {spec.name} model takes {classic_format.classic_type.__name__}, "
+            f"got {type(classic).__name__}"
         )
-    return value
+    shapes = classic_format.field_shapes(spec)
+    exemplar = spec.template_vertices
+    fields = {}
+    for name in (field.name for field in dataclasses.fields(classic)):
+        value = getattr(classic, name)
+        if name in shapes:
+            fields[name] = (
+                exemplar.new_zeros(shapes[name]) if value is None else _checked(name, value, shapes[name], exemplar)
+            )
+        elif value is not None:
+            raise ArgumentError(
+                f"from_classic: this {spec.name} model was loaded without {name} (hands=False, face=False or "
+                "expression=False); leave it None"
+            )
+    return classic_format.from_fields(human, fields)
 
 
-def broadcast_configuration(
-    q: torch.Tensor,
-    robot: Model,
-    exemplar: torch.Tensor,
-) -> tuple[torch.Tensor, tuple[int, ...]]:
-    """Validate ``q`` and broadcast it against shape-baked value axes."""
-    if not isinstance(q, torch.Tensor) or not q.is_floating_point():
-        raise TypeError("q must be a floating torch.Tensor")
-    if q.shape[-1:] != (robot.nq,):
-        raise ValueError(f"q must have shape (..., {robot.nq}); got {tuple(q.shape)}")
-    if q.dtype != exemplar.dtype or q.device != exemplar.device:
-        raise ValueError(
-            f"q must use dtype={exemplar.dtype} and device={exemplar.device}; got dtype={q.dtype}, device={q.device}"
-        )
-    batch_shape = torch.broadcast_shapes(q.shape[:-1], exemplar.shape[:-1])
-    return q.expand(*batch_shape, robot.nq), batch_shape
+def to_classic(identity: Identity, q: torch.Tensor, *, streams: Mapping[str, torch.Tensor] | None = None) -> Any:
+    """The family's ``*Classic`` parameters of ``identity`` posed at ``q (..., nq)`` with stream groups ``(..., n)``.
+
+    Every field comes back at the batch of ``q``, the streams and the identity broadcast together; an omitted stream
+    group is zero, and a field the model was loaded without is ``None``. Raises
+    :class:`~better_robot.exceptions.UnknownNameError` for a stream group the family does not have, and the errors of
+    :func:`from_classic` for ``q`` or a stream of another shape, dtype or device.
+    """
+    spec = identity.human.spec
+    exemplar = spec.template_vertices
+    streams = dict(streams or {})
+    for name in streams:
+        if name not in spec.stream_bases:
+            raise UnknownNameError("stream group", name, list(spec.stream_bases))
+    q = _checked("q", q, (identity.model.nq,), exemplar)
+    streams = _checked_groups(streams, spec.stream_groups, exemplar, require_all=False)
+    batch = torch.broadcast_shapes(
+        q.shape[:-1], identity.root_offset.shape[:-1], *(value.shape[:-1] for value in streams.values())
+    )
+    streams = {
+        name: streams[name].expand(*batch, width) if name in streams else exemplar.new_zeros((*batch, width))
+        for name, width in spec.stream_groups.items()
+    }
+    fields = spec.classic.to_fields(identity, q.expand(*batch, identity.model.nq), streams=streams)
+    return spec.classic.classic_type(**fields)
 
 
-__all__ = [
-    "axis_angle_to_quaternion",
-    "broadcast_configuration",
-    "classic_tensor",
-    "classic_root_to_free_flyer",
-    "free_flyer_to_classic_root",
-    "quaternion_to_axis_angle",
-]
+__all__ = ["ClassicFormat", "from_classic", "to_classic"]

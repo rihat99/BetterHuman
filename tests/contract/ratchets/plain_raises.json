@@ -1,10 +1,4 @@
 {
-  "src/better_human/core/classic.py::axis_angle_to_quaternion": "raises a builtin; the classic API rewrite (H4, record 0004) converts it",
-  "src/better_human/core/classic.py::broadcast_configuration": "raises a builtin; the classic API rewrite (H4, record 0004) converts it",
-  "src/better_human/core/classic.py::classic_root_to_free_flyer": "raises a builtin; the classic API rewrite (H4, record 0004) converts it",
-  "src/better_human/core/classic.py::classic_tensor": "raises a builtin; the classic API rewrite (H4, record 0004) converts it",
-  "src/better_human/core/classic.py::free_flyer_to_classic_root": "raises a builtin; the classic API rewrite (H4, record 0004) converts it",
-  "src/better_human/core/classic.py::quaternion_to_axis_angle": "raises a builtin; the classic API rewrite (H4, record 0004) converts it",
   "src/better_human/viz/human_layers.py::__init__": "raises a builtin; the viz and studio rewrite (H6) converts it",
   "src/better_human/viz/human_layers.py::_frames": "raises a builtin; the viz and studio rewrite (H6) converts it",
   "src/better_human/viz/human_layers.py::human_layers": "raises a builtin; the viz and studio rewrite (H6) converts it",

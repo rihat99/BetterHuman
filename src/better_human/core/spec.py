@@ -17,6 +17,7 @@ import torch
 from better_robot.exceptions import ShapeError, UnknownNameError
 
 if TYPE_CHECKING:
+    from .classic import ClassicFormat
     from .rig import Rig
 
 
@@ -110,11 +111,8 @@ class FamilySpec:
     Shapes: ``template_vertices (V, 3)``, ``faces (F, 3)``, ``skin_weights``/``skin_indices (V, K)`` (top-K
     influences, rows sum to one), blend groups ``(V, 3, n)``, ``file_joint_ids (J,)`` (the weight file's number of
     every kept joint; ``Rig.joint_ids`` is the BetterRobot numbering). ``identity_bases`` groups are baked once per
-    subject (``HumanModel.bake``); ``stream_bases`` groups change per frame (``Identity.forward``).
-
-    ``meta`` holds only the SMPL-family hand pose PCA until it moves to the SMPL-family classic format (record 0004):
-    ``hand_joints`` ``set[str]`` (sides whose hand joints survived loading), ``hand_mean`` ``{side: (45,)}``,
-    ``hand_components`` ``{side: (C, 45)}`` and ``side`` ``str`` (MANO).
+    subject (``HumanModel.bake``); ``stream_bases`` groups change per frame (``Identity.forward``). ``classic`` maps
+    the family's classic parameters (``better_human.from_classic``, decision record 0004).
     """
 
     name: str
@@ -130,13 +128,13 @@ class FamilySpec:
     corrective: Corrective | None
     rig: Rig
     parts: Parts
+    classic: ClassicFormat
     landmarks: Landmarks | None = None
     up_axis: Literal["+x", "-x", "+y", "-y", "+z", "-z"] = "+y"
     provenance: Mapping[str, str] = field(default_factory=dict)
-    meta: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        for name in ("identity_bases", "stream_bases", "provenance", "meta"):
+        for name in ("identity_bases", "stream_bases", "provenance"):
             object.__setattr__(self, name, _read_only(getattr(self, name)))
         num_vertices, num_joints = self.template_vertices.shape[0], len(self.joint_names)
         if self.template_vertices.shape != (num_vertices, 3) or self.faces.ndim != 2 or self.faces.shape[1] != 3:

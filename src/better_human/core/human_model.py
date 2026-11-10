@@ -393,19 +393,25 @@ def _checked_groups(
             if require_all:
                 out[name] = exemplar.new_zeros((width,))
             continue
-        if not isinstance(value, torch.Tensor) or not value.is_floating_point():
-            raise TypeError(f"{name} must be a floating torch.Tensor")
-        if value.shape[-1:] != (width,):
-            raise ShapeError(f"{name} must have shape (..., {width}); got {tuple(value.shape)}")
-        if value.dtype != exemplar.dtype:
-            raise DtypeMismatchError(f"{name} is {value.dtype}; pass it in the model's dtype, {exemplar.dtype}")
-        if value.device != exemplar.device:
-            raise DeviceMismatchError(f"{name} is on {value.device}; pass it on the model's device, {exemplar.device}")
-        out[name] = value
+        out[name] = _checked(name, value, (width,), exemplar)
     if require_all and out:
         batch = torch.broadcast_shapes(*(value.shape[:-1] for value in out.values()))
         out = {name: value.expand(*batch, widths[name]) for name, value in out.items()}
     return out
+
+
+def _checked(name: str, value: object, shape: tuple[int, ...], exemplar: torch.Tensor) -> torch.Tensor:
+    """``value`` when it is a floating tensor ``(..., *shape)`` on ``exemplar``'s dtype and device: the one validator of
+    every tensor a caller hands BetterHuman (identity and stream groups, classic fields, a classic ``q``)."""
+    if not isinstance(value, torch.Tensor) or not value.is_floating_point():
+        raise TypeError(f"{name} must be a floating torch.Tensor")
+    if value.shape[-len(shape) :] != shape:
+        raise ShapeError(f"{name} must have shape (..., {', '.join(map(str, shape))}); got {tuple(value.shape)}")
+    if value.dtype != exemplar.dtype:
+        raise DtypeMismatchError(f"{name} is {value.dtype}; pass it in the model's dtype, {exemplar.dtype}")
+    if value.device != exemplar.device:
+        raise DeviceMismatchError(f"{name} is on {value.device}; pass it on the model's device, {exemplar.device}")
+    return value
 
 
 def _density(density: str | float | torch.Tensor, spec: FamilySpec) -> torch.Tensor:

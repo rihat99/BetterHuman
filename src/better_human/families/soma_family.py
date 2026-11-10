@@ -1,33 +1,26 @@
-"""NVIDIA SOMA family (SOMA-X v0.3.4, mid LOD): loader, classic parameter container and converters.
+"""NVIDIA SOMA family (SOMA-X v0.3.4, mid LOD) loader.
 
 ``soma(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with a :class:`SOMARig`. Its identity group
-``shape`` takes the 128 upstream ``identity_coeffs``; upstream poses enter through :func:`soma_from_classic`.
+``shape`` takes the 128 upstream ``identity_coeffs``; upstream poses enter through ``better_human.from_classic`` with a
+:class:`~better_human.families.SOMAClassic`.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, final
 
 import torch
-from better_robot.exceptions import ArgumentError, DtypeMismatchError, ShapeError
-from better_robot.lie import so3
+from better_robot.exceptions import ArgumentError, DtypeMismatchError
 
-from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import FormatError, weight_path
 from better_human.io.load import load_model_npz
 from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
+from .classic import SOMAFormat
 from .soma_rig import SOMARig
 
-if TYPE_CHECKING:
-    from better_human.core.human_model import HumanModel, Identity
-
-SHAPE_COUNT = 128
-POSE_JOINT_COUNT = 77  #: public joints after the virtual ``Root``; ``Hips`` first.
 #: The density category of each part, by its joint (decision record 0007). The categories are SMPL's part names, each
 #: named after the joint at its proximal end, so a part takes the SMPL part that covers the same body segment: SOMA's
 #: Shoulder is the clavicle (SMPL collar), Arm the upper arm (SMPL shoulder), Leg the thigh (SMPL hip), Hand the palm
@@ -130,57 +123,10 @@ def soma(
         corrective=corrective,
         rig=SOMARig.from_arrays(arrays, dtype=dtype, device=device),
         parts=Parts(part_ids, tuple(part_joints.tolist()), categories, density_tables),
+        classic=SOMAFormat(),
         up_axis=str(arrays["up_axis"]),
         provenance={"archive": str(arrays["provenance"])},
     )
 
 
-@final
-@dataclass(frozen=True)
-class SOMAClassic:
-    """Upstream ``SOMALayer`` inputs.
-
-    ``identity_coeffs (..., 128)``; ``poses (..., 77, 3)`` axis-angle per public joint relative to its T-pose
-    orientation, ``Hips`` first; ``transl (..., 3)`` world position of the ``Hips`` joint in metres.
-    """
-
-    identity_coeffs: torch.Tensor
-    poses: torch.Tensor
-    transl: torch.Tensor
-
-
-def soma_from_classic(
-    human: HumanModel, classic: SOMAClassic
-) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
-    """``(Identity, q (..., 311), {})`` for ``human`` (a :class:`~better_human.core.human_model.HumanModel` of ``soma``).
-
-    The identity bakes over ``identity_coeffs``' own batch and ``q`` broadcasts with it. ``q`` holds the world-aligned
-    Hips free flyer ``(transl, exp(a_Hips))`` then ``exp(orient_j^T a_j)`` per public joint, ``orient_j`` its T-pose
-    world rotation, so ``q_neutral`` is the T-pose.
-    """
-    exemplar = human.spec.template_vertices
-    identity = classic_tensor("identity_coeffs", classic.identity_coeffs, SHAPE_COUNT, exemplar)
-    poses = classic_tensor("poses", classic.poses, 3, exemplar)
-    transl = classic_tensor("transl", classic.transl, 3, exemplar)
-    if identity is None or poses is None or transl is None:
-        raise TypeError("identity_coeffs, poses and transl must be floating torch.Tensors")
-    if poses.shape[-2:] != (POSE_JOINT_COUNT, 3):
-        raise ShapeError(f"poses must have shape (..., {POSE_JOINT_COUNT}, 3); got {tuple(poses.shape)}")
-    orient = human.spec.rig.t_pose_rotations[2:]
-    rotations = so3.exp(torch.cat((poses[..., :1, :], (orient.mT @ poses[..., 1:, :, None]).squeeze(-1)), dim=-2))
-    batch = torch.broadcast_shapes(transl.shape[:-1], rotations.shape[:-2])
-    q = torch.cat((transl.expand(*batch, 3), rotations.expand(*batch, POSE_JOINT_COUNT, 4).flatten(-2)), dim=-1)
-    return human.bake(shape=identity), q, {}
-
-
-def soma_to_classic(identity: Identity, q: torch.Tensor) -> SOMAClassic:
-    """Classic parameters for a baked SOMA ``identity`` and ``q (..., 311)``; angles on the principal branch."""
-    shape = identity.values["shape"]
-    q, batch = broadcast_configuration(q, identity.model, shape)
-    orient = identity.human.spec.rig.t_pose_rotations[2:]
-    rotations = so3.log(so3.normalize(q[..., 3:].unflatten(-1, (POSE_JOINT_COUNT, 4))))
-    poses = torch.cat((rotations[..., :1, :], (orient @ rotations[..., 1:, :, None]).squeeze(-1)), dim=-2)
-    return SOMAClassic(shape.expand(*batch, SHAPE_COUNT), poses, q[..., :3].clone())
-
-
-__all__ = ["SOMAClassic", "soma", "soma_from_classic", "soma_to_classic"]
+__all__ = ["soma"]
