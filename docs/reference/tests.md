@@ -53,7 +53,7 @@ rule each one enforces.
 | `test_studio_boundary.py` | the studio reads only public BetterHuman and BetterRobot names and writes no environment variable |
 | `test_public_surface.py` | no module shares a name with an exported function; no public function takes a joint index |
 | `test_api_snapshot.py` | the public API equals its snapshot, `tests/contract/public_api.json` |
-| `test_changelog.py` | the changelog groups changes by type and names every added public name, and every removed public name is on the migration page |
+| `test_changelog.py` | the changelog groups changes by type and names every added public name, and every removed public name and every breaking signature change is on the migration page |
 | `test_vocabulary.py` | one name per thing, acronyms in capitals, no vague module name, every word of every public name in a glossary |
 | `test_naming.py` | the field tables of `HumanModel`, `Identity` and `HumanState`, field by field |
 | `test_keyword_only.py` | public callables take at most two positional parameters |

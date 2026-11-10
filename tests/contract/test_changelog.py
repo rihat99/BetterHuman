@@ -1,5 +1,5 @@
-"""The changelog groups changes by type, names every added public path, and every removal reaches the migration
-page (principle 7.10).
+"""The changelog groups changes by type, names every added public path, and every removal or breaking change
+reaches the migration page (principle 7.10).
 
 ``docs/reference/changelog.md`` opens with ``## Unreleased``; under it and under each ``## vX.Y.Z (YYYY-MM-DD)``
 release, every ``###`` heading is one of the six change types, and every Removed or Deprecated entry names its
@@ -15,9 +15,10 @@ plus each dataclass field. The current tree is ``public_objects("better_human")`
 root lists every subpackage). A path of the old tree that the current tree does not resolve
 (as a path, a dataclass field or an inherited member) is removed. A backticked old name covers a removed path when
 the name's dotted parts end it (``Body`` covers ``better_human.core.Body``); the members of a removed class or
-module are covered with it. Every backticked name in the second column exists in the current tree, or in
-BetterRobot's when written in full (``better_robot.lie.so3.exp``), and a row without one (``—``) says why in its
-note; a keyword (``streams=``) or an expression is not a name.
+module are covered with it. A path of both trees whose line in ``public_api.json`` differs is changed, and an old
+name covers it the same way unless ``NOT_BREAKING`` gives the reason no caller breaks. Every backticked name in the
+second column exists in the current tree, or in BetterRobot's when written in full (``better_robot.lie.so3.exp``),
+and a row without one (``—``) says why in its note; a keyword (``streams=``) or an expression is not a name.
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ REPO = Path(__file__).resolve().parents[2]
 CHANGELOG = REPO / "docs" / "reference" / "changelog.md"
 MIGRATION_PAGE = REPO / "docs" / "reference" / "migration-0.2.0.md"
 BEFORE = Path(__file__).resolve().parent / "public_api_before_0.2.0.json"
+AFTER = Path(__file__).resolve().parent / "public_api.json"
 
 CHANGE_TYPES = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")
 RELEASE = re.compile(r"Unreleased|v\d+\.\d+\.\d+ \(\d{4}-\d{2}-\d{2}\)")
@@ -41,6 +43,15 @@ MIGRATES = re.compile(r"(?:^|[:;.] )(?:[Uu]se [^`]*`[^`]+`|[Nn]o replacement; \S
 NAME = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
 CURRENT = public_objects("better_human")
 BETTER_ROBOT = public_objects("better_robot")
+_PCA = "gains the keyword-only `num_pca_comps=None`; every call of 0.1 works as before"
+NOT_BREAKING: dict[str, str] = {
+    "better_human.families.mano": _PCA,
+    "better_human.families.smplx": _PCA,
+    "better_human.core.Corrective.apply": (
+        "returns a tensor, never `None`: a family without correctives has `FamilySpec.corrective = None` instead; "
+        "a caller's `None` check still holds"
+    ),
+}
 
 
 def _sections(text: str) -> list[tuple[str, str, list[str]]]:
@@ -148,6 +159,24 @@ def test_every_added_public_path_has_a_changelog_line() -> None:
 
     missing = sorted(path for path in added if not covered(path))
     assert missing == [], f"name these in {CHANGELOG.name} (an Added line):\n  " + "\n  ".join(missing)
+
+
+def test_every_breaking_signature_change_is_on_the_migration_page() -> None:
+    """Each path whose snapshot line changed since 0.1 is covered by an old name of a migration table, unless
+    ``NOT_BREAKING`` says why no caller breaks; every entry of that list names a changed path."""
+    before, after = json.loads(BEFORE.read_text()), json.loads(AFTER.read_text())
+    changed = {path for path, line in before.items() if path in after and after[path] != line}
+    old_names = {name for row in _rows(MIGRATION_PAGE.read_text()) for name in _names(row[0])}
+    assert changed
+    missing = sorted(
+        path
+        for path in changed - NOT_BREAKING.keys()
+        if not any(tuple(path.split("."))[-len(name) :] == name for name in old_names)
+    )
+    assert missing == [], f"add these to {MIGRATION_PAGE.name}, or to NOT_BREAKING with the reason:\n  " + (
+        "\n  ".join(missing)
+    )
+    assert sorted(NOT_BREAKING.keys() - changed) == []
 
 
 def test_every_new_name_on_the_migration_page_exists() -> None:
