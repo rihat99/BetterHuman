@@ -43,7 +43,6 @@ appears outside a rule's heading on a contracts page.
 | C-API-2 arguments after the second are keyword-only: every function, constructor (dataclass fields included), method, class method and static method of the `__all__` tree, a `*args` counting as three; today's sites in the counted ratchet `tests/contract/ratchets/positional_parameters.json` | `tests/contract/test_keyword_only.py` |
 | C-STATE-1 frozen records (record [0001](decisions/0001-human-model.md)) | `tests/contract/test_frozen.py`, `tests/contract/test_repr.py` |
 | C-STATE-3 never mutate an input tensor: `from_spec`, `bake`, `forward`, every `HumanState` output, the classic conversions and every term | `tests/contract/test_no_inplace.py` |
-| principle 1.5, one owner per memo: `HumanState._memo` and `Identity._frame_placements` appear only as `self.<memo>` in their own class | `tests/contract/test_memo_writes.py` |
 | C-EXT-2 every class abstract or `@final` (records [0002](decisions/0002-rig-abstract-base.md), [0008](decisions/0008-typed-family-spec.md)) | `tests/contract/test_abstract_or_final.py` |
 | C-EXT-6 pre-1.0 versioning, the public API snapshot (BetterRobot 0024) | `tests/contract/test_api_snapshot.py`, `tests/contract/test_changelog.py` |
 | C-ERR-2 errors from the `BetterRobotError` tree (BetterRobot 0031) | `tests/contract/test_error_tree.py` |
@@ -61,7 +60,7 @@ appears outside a rule's heading on a contracts page.
 | principles 9.1, 9.2, 9.3 and 9.6, one repository layout: the standard top-level entries, a `tests/` folder per package, no tracked symlink or file over 1 MiB (record [0015](decisions/0015-licensed-goldens-out-of-git.md)), no ghost directory | `tests/contract/test_repository_layout.py` |
 | principles 10.1, 10.2 and 10.3, the agent files: one `CLAUDE.md` of at most 200 lines, a nested one of at most 60, a one-line `AGENTS.md`, no capitals for emphasis, the shared `.claude/` files tracked | `tests/contract/test_agent_files.py` |
 | principle 8.2, an accepted record changes only through a new record (BetterRobot's records test) | `tests/contract/test_decision_records.py` |
-| principles 5.6 and 11.6, caches: `HumanState._memo` and `Identity._frame_placements` only, each owned by one function and keyed by the grad mode (record [0028](decisions/0028-identity-frame-placements-cache.md)) | `tests/contract/test_caches.py` |
+| principles 1.5, 5.6 and 11.6, caches: `HumanState._memo` and `Identity._frame_placements` only, each owned by one function of its class and keyed by the grad mode (record [0028](decisions/0028-identity-frame-placements-cache.md)) | `tests/contract/test_caches.py` |
 
 Every test module under `tests/contract/` is in one of the two tables (`tests/docs/test_contract_matrix.py` checks
 it).

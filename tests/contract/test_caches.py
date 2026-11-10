@@ -23,7 +23,7 @@ REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src" / "better_human"
 HUMAN_MODEL = "src/better_human/core/human_model.py"
 CACHES = {
-    "Identity._frame_placements": (HUMAN_MODEL, "contact_frame_poses"),
+    "Identity._frame_placements": (HUMAN_MODEL, "_contact_placements"),
     "HumanState._memo": (HUMAN_MODEL, "_memoised"),
 }
 FUNCTOOLS_CACHE_NAMES = {"cache", "lru_cache", "cached_property"}

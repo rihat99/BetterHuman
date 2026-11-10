@@ -85,12 +85,12 @@ def test_citation_ratchet_has_no_stale_entries() -> None:
 
 def test_no_plan_code_in_tracked_text() -> None:
     """Tracked text states a reason, never a plan code such as ``wp/H9``, ``H3 review L7``, ``ruling R-3`` or a
-    review finding; this module is not read, since its pattern spells the codes."""
+    review finding; this module and the docs-text lint are not read, since their patterns spell the codes."""
     listing = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, capture_output=True, text=True, check=True).stdout
     found = [
         f"{path}: {match[0]}"
         for path in listing.split("\0")
-        if path.endswith(TEXT_SUFFIXES) and path != THIS
+        if path.endswith(TEXT_SUFFIXES) and path not in (THIS, "tests/docs/test_docs_text.py")
         for match in PLAN_CODE.finditer((REPO / path).read_text())
     ]
     assert not found, "write the reason instead of the plan code:\n  " + "\n  ".join(found)
