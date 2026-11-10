@@ -40,6 +40,7 @@ The root exports `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState`, `
 
 | 0.1 | 0.2.0 | note |
 |---|---|---|
+| `Identity(body, params, v_shaped, ...)`, `HumanState(identity, q, stream, ...)` | `HumanModel.bake`, `Identity.forward` | the constructors take the fields the rows below rename; `human.bake(**identity)` builds an identity and `identity.forward(q, streams)` a state |
 | `Identity.body` | `Identity.human` | |
 | `Identity.params` | `Identity.values` | identity group to coefficients |
 | `Identity.v_shaped` | `Identity.rest_vertices` | |
@@ -60,6 +61,7 @@ The root exports `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState`, `
 
 | 0.1 | 0.2.0 | note |
 |---|---|---|
+| `FamilySpec(name, vertices, faces, ...)` | `FamilySpec` | the constructor takes the fields the rows below rename, and `file_joint_ids`, `classic` and `provenance`; a family loader of `families` builds it |
 | `FamilySpec.vertices` | `FamilySpec.template_vertices` | `HumanState.vertices` is the posed mesh |
 | `FamilySpec.identity`, `FamilySpec.streams` | `FamilySpec.identity_bases`, `FamilySpec.stream_bases` | |
 | `FamilySpec.landmarks` (a mapping of named vertex sets) | `FamilySpec.landmarks`, `core.Landmarks` | a `Landmarks(names, vertex_ids)` record, or `None` |
@@ -74,6 +76,7 @@ The root exports `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState`, `
 
 | 0.1 | 0.2.0 | note |
 |---|---|---|
+| `RigBake(joint_placements, rest_joints, rest_poses, pelvis, ...)` | `RigBake`, `Rig.bake` | five required fields, `joint_placements`, `rest_vertices`, `rest_joint_translations`, `inverse_bind_affines` and `root_offset`; a rig's `bake` returns it |
 | `Rig` (a `Protocol`) | `core.Rig` | an abstract base: a rig subclasses it and implements `build_model`, `bake`, `joint_ids` and `corrective_features`; the other hooks have defaults |
 | `Rig.native_joint_ids` | `Rig.joint_ids` | |
 | `Rig.build_model(spec, *, frames, dtype, device)`, `FrameSpec` (in `core.rig`) | `Rig.build_model(spec, *, frames)` | builds in the spec's dtype and device; `frames` are `(name, parent joint name, placement (7,))` tuples |

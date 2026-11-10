@@ -46,6 +46,13 @@ def test_pose_round_trip_keeps_joint_names(tmp_path: Path) -> None:
     assert persistence.read_pose(path) == pose
 
 
+def test_a_saved_file_is_one_name_in_its_directory(tmp_path: Path) -> None:
+    assert persistence.saved_path(tmp_path, "wave") == tmp_path / "wave.json"
+    for name in ("", ".", "..", "../x", "a/b", "a\\b", str(tmp_path / "x"), "x/"):
+        with pytest.raises(ArgumentError, match="is not one file name"):
+            persistence.saved_path(tmp_path, name)
+
+
 def test_list_saved_sorted_and_missing(tmp_path: Path) -> None:
     assert persistence.list_saved(tmp_path / "nope") == {}
     directory = tmp_path / "poses" / "smpl_neutral"

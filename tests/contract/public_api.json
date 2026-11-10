@@ -222,7 +222,7 @@
   "better_human.studio.HumanStudio.set_opacity": "function(self, opacity: 'float') -> 'None'",
   "better_human.studio.HumanStudio.set_status": "function(self, message: 'str') -> 'None'",
   "better_human.studio.HumanStudio.start_marquee": "function(self) -> 'None'",
-  "better_human.studio.launch": "function(*, data_root: 'str | Path', generator: 'np.random.Generator', family: 'str' = 'smpl', gender: 'str' = 'neutral', lod: 'int' = 1, port: 'int' = 8080, host: 'str' = '127.0.0.1', density: 'float | None' = None) -> 'HumanStudio'",
+  "better_human.studio.launch": "function(*, data_root: 'str | Path', generator: 'np.random.Generator', family: 'str' = 'smpl', gender: 'str' = 'neutral', lod: 'int' = 1, port: 'int' = 8080, host: 'str' = '127.0.0.1', density: 'float | None' = None) -> 'None'",
   "better_human.terms": "module",
   "better_human.terms.baked_identity": "function(human: 'HumanModel', *groups: 'str') -> 'TermFn'",
   "better_human.terms.ground": "function(vertex_ids: 'Sequence[int] | torch.Tensor | None' = None, *, height: 'float' = 0.0, up: 'Sequence[float] | None' = None, hinge: 'bool' = True, state: 'str' = 'state') -> 'TermFn'",

@@ -70,6 +70,18 @@ def model_key(name: str, *, gender: str | None = None, lod: int | None = None) -
     return name
 
 
+def saved_path(directory: Path, name: str) -> Path:
+    """``<directory>/<name>.json``, the file a name typed in the studio saves to or loads from.
+
+    Raises :class:`~better_robot.exceptions.ArgumentError` unless ``name`` is one file name: an empty name, ``.``,
+    ``..``, an absolute path or a name holding ``/`` or ``\\`` would put the file outside the layout of rule
+    H-STUDIO-2.
+    """
+    if name in ("", ".", "..") or Path(name).name != name or "/" in name or "\\" in name:
+        raise ArgumentError(f"the name {name!r} is not one file name; type a name without '/', '\\' or '..'")
+    return directory / f"{name}.json"
+
+
 def list_saved(directory: Path) -> dict[str, Path]:
     """Saved ``*.json`` files of ``directory`` by stem, sorted by name; empty when the directory does not exist."""
     if not directory.is_dir():

@@ -20,11 +20,12 @@ import pytest
 import torch
 import viser
 
-from better_robot.exceptions import ArgumentError, ShapeError
+from better_robot.exceptions import ArgumentError, ShapeError, UnknownNameError
 from better_robot.kinematics import integrate
 from better_robot.lie import so3
 from better_robot.testing import FakeServer
 
+from better_human.studio import app, launch
 from better_human.studio import state as studio_state
 from better_human.studio.__main__ import main
 from better_human.studio.app import HumanStudio
@@ -39,13 +40,19 @@ SMPL_RANDOM = Path(__file__).parents[1] / "support" / "random_weights" / "smpl_r
 
 
 @pytest.fixture
-def random_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> HumanStudio:
-    """The app on the random SMPL archive, placed where ``families.smpl`` looks for the neutral and female models."""
+def random_models(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The random SMPL archive placed where ``families.smpl`` looks for the neutral and female models."""
     models = tmp_path / "models"
     (models / "smpl").mkdir(parents=True)
     for gender in ("NEUTRAL", "FEMALE"):
         shutil.copy(SMPL_RANDOM, models / "smpl" / f"SMPL_{gender}.npz")
     monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(models))
+    return models
+
+
+@pytest.fixture
+def random_studio(tmp_path: Path, random_models: Path) -> HumanStudio:
+    """The app on the random SMPL archive."""
     return HumanStudio(server=FakeServer(), data_root=tmp_path / "data", generator=np.random.default_rng(0))
 
 
@@ -379,6 +386,58 @@ def test_a_refused_file_shows_on_the_status_line(
     loader = {"pose": studio.load_pose, "segment": studio.segment.load, "frames": studio.frames.load}[load]
     studio.locked(lambda _event: loader("bad"))(None)
     assert re.match(match, studio.status), studio.status
+
+
+@pytest.mark.parametrize("name", ["../x", "absolute", ""], ids=["parent", "absolute", "empty"])
+def test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing(
+    random_studio: HumanStudio, tmp_path: Path, name: str
+) -> None:
+    """Rule H-STUDIO-2: each Save button refuses a name that would leave ``<data root>/<kind>/<model key>/``."""
+    studio = random_studio
+    name = str(tmp_path / "outside" / "x") if name == "absolute" else name
+    studio.segment.load_builtin()
+    studio.frames.add_at(studio.session.vertices[100].detach().numpy())
+    for field, button in (
+        (studio.pose_name, "Save pose"),
+        (studio.segment.save_name, "Save segmentation"),
+        (studio.frames.save_name, "Save frames"),
+    ):
+        field.value = name
+        studio.set_status("")
+        _control(studio, button).fire()
+        assert studio.status.startswith(f"ArgumentError: the name {name!r} is not one file name"), studio.status
+    assert sorted(tmp_path.rglob("*.json")) == []
+
+
+@pytest.mark.parametrize("family", ["soma", "mano", "nope"])
+def test_a_family_the_studio_does_not_edit_is_an_unknown_name(
+    random_studio: HumanStudio, tmp_path: Path, family: str
+) -> None:
+    with pytest.raises(UnknownNameError, match="unknown studio family"):
+        HumanStudio(server=FakeServer(), data_root=tmp_path, generator=np.random.default_rng(0), family=family)
+    random_studio.locked(lambda _event: random_studio.load_model(family))(None)
+    assert random_studio.status.startswith("UnknownNameError: ") and random_studio.session.model_key == "smpl_neutral"
+
+
+def test_launch_and_the_command_line_serve_the_studio(
+    random_models: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+) -> None:
+    """``studio.launch`` and ``python -m better_human.studio`` build the app, print its URL and block in ``run``; here
+    on the stand-in server, with ``run`` returning at once."""
+    built: list[HumanStudio] = []
+
+    def on_the_stand_in(**arguments: Any) -> HumanStudio:
+        built.append(HumanStudio(server=FakeServer(), **arguments))
+        return built[-1]
+
+    monkeypatch.setattr(app, "HumanStudio", on_the_stand_in)
+    monkeypatch.setattr(HumanStudio, "run", lambda self: None)
+    launch(data_root=tmp_path / "launched", generator=np.random.default_rng(0), gender="female")
+    monkeypatch.setattr(sys, "argv", ["python -m better_human.studio", "--data-root", str(tmp_path / "cli")])
+    main()
+    assert [studio.session.model_key for studio in built] == ["smpl_female", "smpl_neutral"]
+    assert [studio.paths.root for studio in built] == [tmp_path / "launched", tmp_path / "cli"]
+    assert capsys.readouterr().out.splitlines() == [f"HumanStudio at {studio.viewer.url}" for studio in built]
 
 
 def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:

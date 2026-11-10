@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, final
 import numpy as np
 import torch
 from better_robot import Viewer
-from better_robot.exceptions import ArgumentError, BetterRobotError
+from better_robot.exceptions import ArgumentError, BetterRobotError, UnknownNameError
 from better_robot.viewer.tools import CameraFrustum, nearest_on_ray, ray_hit, vertices_in_rect
 
 import better_human as bh
@@ -31,6 +31,15 @@ _GENDERS = ("neutral", "male", "female")
 _MHR_LODS = 7
 
 
+def _family(name: str) -> str:
+    """``name`` in lower case; raises :class:`~better_robot.exceptions.UnknownNameError` for a family the studio does
+    not edit."""
+    family = name.lower()
+    if family not in _FAMILIES:
+        raise UnknownNameError("studio family", name, valid=list(_FAMILIES))
+    return family
+
+
 #: Where viser listens unless told otherwise: this machine only, BetterRobot's viewer port.
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8080
@@ -42,8 +51,9 @@ class HumanStudio:
 
     Click modes: ``"pose"`` (pick a joint, drag its gizmo), ``"segment"`` (sphere-brush painting) and
     ``"frames"`` (add a frame on the nearest vertex). ``data_root`` is the directory the studio reads and writes its
-    segmentations, frame sets and poses in; the weights come from ``better_human.io.models_dir()``. ``generator``
-    draws the random shapes. ``server`` injects a viser-compatible server (tests).
+    segmentations, frame sets and poses in; the weights come from ``better_human.io.models_dir()``. ``family`` is
+    ``"smpl"``, ``"smplx"`` or ``"mhr"``; another raises :class:`~better_robot.exceptions.UnknownNameError`.
+    ``generator`` draws the random shapes. ``server`` injects a viser-compatible server (tests).
     """
 
     def __init__(
@@ -59,7 +69,7 @@ class HumanStudio:
         density: float | None = None,
         server: Any = None,
     ) -> None:
-        self.family, self.gender, self.lod = family.lower(), gender, lod
+        self.family, self.gender, self.lod = _family(family), gender, lod
         self.generator = generator
         self.density = 1000.0 if density is None else float(density)
         self._uniform_density, self.opacity = self.density, 1.0
@@ -88,8 +98,10 @@ class HumanStudio:
     def _load_body(self) -> bh.HumanModel:
         if self.family == "mhr":
             spec = bh.families.mhr(lod=self.lod)
+        elif self.family == "smplx":
+            spec = bh.families.smplx(gender=self.gender)
         else:
-            spec = getattr(bh.families, self.family)(gender=self.gender)
+            spec = bh.families.smpl(gender=self.gender)
         return bh.HumanModel.from_spec(spec, density=self.density)
 
     @staticmethod
@@ -119,8 +131,7 @@ class HumanStudio:
         self._tab_list = [tabs.add_tab(label) for label in ("Model", "Body", "Display", "Segment", "Frames")]
         model_tab, body_tab, display_tab, segment_tab, frames_tab = self._tab_list
         with model_tab:
-            families = tuple(dict.fromkeys((*_FAMILIES, self.family)))
-            self.family_input = gui.add_dropdown("Family", options=families, initial_value=self.family)
+            self.family_input = gui.add_dropdown("Family", options=_FAMILIES, initial_value=self.family)
             self.gender_input = gui.add_dropdown(
                 "Gender", options=_GENDERS, initial_value=self.gender, disabled=self.family == "mhr"
             )
@@ -205,7 +216,7 @@ class HumanStudio:
         """Switch to another body (``family``, SMPL-family ``gender`` or MHR ``lod``) and rebuild the tabs."""
         started = time.perf_counter()
         self.set_mode("pose")
-        self.family, self.gender, self.lod = family.lower(), gender, lod
+        self.family, self.gender, self.lod = _family(family), gender, lod
         self.density = self._uniform_density  # density tables are per family; start uniform
         body = self._load_body()
         self.session.load_body(body, self._key(), self._default_frames(body))
@@ -221,14 +232,11 @@ class HumanStudio:
     def set_status(self, message: str) -> None:
         """Show ``message`` on the status line."""
         self.status = message
-        if hasattr(self, "status_text"):
-            self.status_text.content = message
+        self.status_text.content = message
         # The frames editor reports every frame selection through this line, so the selection label follows it here.
         self._show_selection()
 
     def _show_selection(self) -> None:
-        if not hasattr(self, "selection_text"):
-            return
         model = f"{self.family} {self.gender if self.family != 'mhr' else f'lod {self.lod}'}"
         joint = self.gizmo.joint
         joint_name = "—" if joint is None else self.session.body.spec.joint_names[joint]
@@ -372,8 +380,8 @@ class HumanStudio:
         return tuple(persistence.list_saved(self.paths.pose_dir(self.session.model_key))) or ("(none)",)
 
     def save_pose(self, name: str) -> Path:
-        """Save ``q`` to ``<data>/poses/<model_key>/<name>.json``."""
-        path = self.paths.pose_dir(self.session.model_key) / f"{name}.json"
+        """Save ``q`` to ``<data>/poses/<model_key>/<name>.json``; ``name`` is one file name."""
+        path = persistence.saved_path(self.paths.pose_dir(self.session.model_key), name)
         model = self.session.identity.model
         persistence.write_pose(path, persistence.Pose(joint_names=model.joint_names, q=tuple(self.session.q.tolist())))
         self.saved_poses.options = self._pose_options()
@@ -383,7 +391,7 @@ class HumanStudio:
 
     def load_pose(self, name: str) -> None:
         """Load a saved pose by name."""
-        path = self.paths.pose_dir(self.session.model_key) / f"{name}.json"
+        path = persistence.saved_path(self.paths.pose_dir(self.session.model_key), name)
         if not path.is_file():
             self.set_status(f"no saved pose {name!r}")
             return
@@ -418,8 +426,7 @@ class HumanStudio:
 
     def _update_mass(self) -> None:
         mass = self.session.total_mass
-        if hasattr(self, "mass_text"):
-            self.mass_text.content = "mass: n/a" if mass is None else f"mass: {float(mass):.2f} kg"
+        self.mass_text.content = "mass: n/a" if mass is None else f"mass: {float(mass):.2f} kg"
 
     def run(self) -> None:
         """Block until interrupted."""
@@ -437,8 +444,9 @@ def launch(
     port: int = DEFAULT_PORT,
     host: str = DEFAULT_HOST,
     density: float | None = None,
-) -> HumanStudio:
-    """Build a :class:`HumanStudio` (the arguments are its constructor's), print the URL it serves and block."""
+) -> None:
+    """Build a :class:`HumanStudio` (the arguments are its constructor's), print the URL it serves and block until
+    interrupted."""
     studio = HumanStudio(
         data_root=data_root,
         family=family,
@@ -451,4 +459,3 @@ def launch(
     )
     print(f"HumanStudio at {studio.viewer.url}")  # noqa: T201 - the launcher's one line: where to open it
     studio.run()
-    return studio

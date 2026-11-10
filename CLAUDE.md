@@ -48,11 +48,10 @@ before a push, once installed (`uv run pre-commit install`). `docs/guides/run-th
 Never skip, xfail, loosen a tolerance or delete an assertion to get green; report the number instead. Gate data (a
 tolerance, a counter threshold, a golden) changes only in a commit of its own that says why.
 
-- SMPL and SMPL-X against the `smplx` package, 1e-6 m in float32 and float64, expression streamed: 85 tests in
-  `tests/parity/smplx/test_smpl_parity.py` and `tests/parity/smplx/test_smplx_parity.py`, release tier; current
-  worst 5.1e-7 m.
-- SMPL, SMPL-H and SMPL-X on the random-weight archives, the same 1e-6 m: 120 tests, full tier
-  (`tests/parity/smplx/test_random_weights.py`); current worst 6.0e-7 m.
+- SMPL and SMPL-X against the `smplx` package, 1e-6 m in float32 and float64, expression streamed:
+  `tests/parity/smplx/test_smpl_parity.py` and `tests/parity/smplx/test_smplx_parity.py`, release tier.
+- SMPL, SMPL-H and SMPL-X on the random-weight archives, the same 1e-6 m: `tests/parity/smplx/test_random_weights.py`,
+  full tier.
 - SMPL-X with `stream_joints=False`: the joint error stays in (1e-5, 2e-3) m.
 - MHR at levels of detail 0 to 6 against `pymomentum` and against its TorchScript model; SOMA mid on 14 goldens and
   their identity batch, all 110 skin joints, float32 and float64. Their tolerances are `PARITY_ATOLS` and the
@@ -77,6 +76,8 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   (`tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`).
 - No `to` method: dtype and device are chosen at load, and a tensor in another dtype raises
   (`tests/contract/test_dtype_device.py`); no mutable public dataclass (`tests/contract/test_frozen.py`).
+- No cache beyond `HumanState._memo` and `Identity._frame_placements` (record 0028), and no `functools` cache outside
+  the reasoned `FUNCTOOLS_CACHES` (`tests/contract/test_caches.py`).
 - No public callable with more than two positional parameters (`tests/contract/test_keyword_only.py`); no public
   function takes a joint index, and no module shares a name with an exported function
   (`tests/contract/test_public_surface.py`).
@@ -93,6 +94,8 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   `tests/contract/test_vocabulary.py`).
 - No skip or xfail spelled in a test module, deselected ones included (`tests/contract/test_no_skips.py`).
 - No dead path citation and no line-number citation in tracked text (`tests/contract/test_citations.py`).
+- No plan code and no history on a docs page outside the changelog, the migration pages and the records
+  (`tests/docs/test_docs_text.py`).
 - No tracked symlink, file over 1 MiB, or directory without a tracked file (`tests/contract/test_repository_layout.py`).
 - No agent file over its length and no capitals for emphasis (`tests/contract/test_agent_files.py`).
 

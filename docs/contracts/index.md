@@ -29,7 +29,7 @@ BetterRobot's numerical contracts win.
 | H-PARITY-1 | `tests/parity/smplx/test_smpl_parity.py`, `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/smplx/test_random_weights.py`, `tests/parity/mhr/test_mhr_parity.py`, `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py` |
 | H-PARITY-2 | `tests/contract/test_golden_provenance.py` |
 | H-STUDIO-1 | `tests/contract/test_studio_boundary.py` |
-| H-STUDIO-2 | `tests/studio/test_persistence.py::test_studio_paths_layout`, `tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server` |
+| H-STUDIO-2 | `tests/studio/test_persistence.py::test_studio_paths_layout`, `tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server`, `tests/studio/test_app.py::test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing` |
 | H-LICENSE-1 | `tests/contract/test_license.py` |
 
 This table repeats the `Enforcement:` paragraphs of [Rules](rules.md), and `tests/docs/test_contract_matrix.py`
@@ -59,6 +59,7 @@ appears outside a rule's heading on a contracts page.
 | principles 9.1, 9.2, 9.3 and 9.6, one repository layout: the standard top-level entries, a `tests/` folder per package, no tracked symlink or file over 1 MiB (record [0015](decisions/0015-licensed-goldens-out-of-git.md)), no ghost directory | `tests/contract/test_repository_layout.py` |
 | principles 10.1, 10.2 and 10.3, the agent files: one `CLAUDE.md` of at most 200 lines, a nested one of at most 60, a one-line `AGENTS.md`, no capitals for emphasis, the shared `.claude/` files tracked | `tests/contract/test_agent_files.py` |
 | principle 8.2, an accepted record changes only through a new record (BetterRobot's records test) | `tests/contract/test_decision_records.py` |
+| principles 5.6 and 11.6, caches: `HumanState._memo` and `Identity._frame_placements` only, each owned by one function and keyed by the grad mode (record [0028](decisions/0028-identity-frame-placements-cache.md)) | `tests/contract/test_caches.py` |
 
 Every test module under `tests/contract/` is in one of the two tables (`tests/docs/test_contract_matrix.py` checks
 it).
@@ -72,13 +73,18 @@ behaviour, so each repository keeps a byte-identical copy instead of reading pac
 
 ## When to write a decision record
 
-Write a record under `decisions/` when a change does any of the following:
+Write a record under `decisions/` before a change of one of the six kinds of principle 11.6:
 
-- adds, removes or re-orders a unit in the edge tables, or an edge into BetterRobot;
-- changes a public data layout (the pose `q`, a state's shapes, a file format's fields);
-- adds a family, a rig hook, or a way to extend BetterHuman;
-- adds an optional dependency, or replaces one the public API exposes;
-- rejects a contract rule for a whole package.
+- a change to the public surface that is not an addition: a public name removed or renamed, a signature or a public
+  data layout changed (the pose `q`, a state's shapes);
+- an added dependency, optional or not;
+- an added file format or format version;
+- a change to the coupling standard (`docs/contracts/coupling-standard.md`);
+- an added edge in the edge tables: a unit added, removed or re-ordered, or an edge into BetterRobot;
+- a second backend, a custom kernel, a compile wrapper or a cache.
+
+BetterHuman also writes one for a new family, a rig hook or another way to extend it, and for a contract rule
+rejected for a whole package.
 
 Only the owner accepts a record: one an agent or the integrator writes is `Proposed (integrator, awaiting owner)`
 until then. An accepted record changes only in its Status line; a new record supersedes it or amends part of it.

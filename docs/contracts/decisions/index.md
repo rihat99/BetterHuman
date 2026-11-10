@@ -34,6 +34,7 @@ line names it. File name `NNNN-kebab-title.md`.
 | [0025](0025-golden-asset-hash-at-stamp-time.md) | A stamped golden's `asset_sha256` is the hash of the assets at stamp time | Proposed |
 | [0026](0026-rig-hooks-and-properties.md) | `Rig` has four hooks with defaults, and its property holds in two forms | Proposed |
 | [0027](0027-formats-beyond-betterrobot-0030.md) | BetterHuman's coupling page lists all seven formats it versions | Proposed |
+| [0028](0028-identity-frame-placements-cache.md) | An identity caches the placements of each contact-frame set it is asked for | Proposed |
 
 ## Records that live in BetterRobot
 

@@ -1,10 +1,12 @@
 """The repository's tree: its top-level entries, a tests folder per src package, no tracked symlink or large file, no
 ghost directory (principles 9.1, 9.2, 9.3, 9.6; decision record 0015).
 
-Each kind of file has one home, so a second home fails here. A tracked symlink over an ignored directory replaces
+The top-level entries are fixed and every tests folder is a src package's or a suite's, so a second home for the
+tests or a new top-level folder fails here; a second image folder under ``docs/`` does not. A tracked symlink over an ignored directory replaces
 that directory on checkout (``models`` holds the licensed weights), and a large file weighs on every clone forever:
 a file that truly cannot shrink goes in ``LARGE_ON_PURPOSE`` with its reason. A directory with no tracked file in it
-(only ``__pycache__`` or stale output) looks like a package to ``ls`` and ``grep``.
+(only ``__pycache__`` or stale output), anywhere in the working tree outside the ignored ones, looks like a package
+to ``ls`` and ``grep``.
 """
 
 from __future__ import annotations
@@ -47,7 +49,6 @@ SUITES = {
     "benchmarks": "the smoke test of benchmarks/run.py",
     "support": "fixtures, random-weight archives and helpers that only these tests import, never collected",
 }
-GHOST_ROOTS = ("src", "tests", "tools")
 
 
 def _tracked() -> list[tuple[str, str]]:
@@ -97,15 +98,31 @@ def test_no_symlinks_and_size() -> None:
     )
 
 
+def _ignored_directories() -> set[str]:
+    """Directories that an ignore rule names itself (``.venv/``, ``site/``), not those that only hold ignored files."""
+    listing = subprocess.run(
+        ["git", "ls-files", "--others", "--ignored", "--exclude-standard", "--directory"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    folders = "\n".join(path for path in listing.splitlines() if path.endswith("/"))
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--stdin"], cwd=REPO, input=folders, capture_output=True, text=True, check=False
+    ).stdout
+    return {path.rstrip("/") for path in ignored.splitlines()}
+
+
 def test_no_ghost_directories() -> None:
-    """Every directory under ``src/``, ``tests/`` and ``tools/`` on disk, ``__pycache__`` aside, holds a tracked file."""
+    """Every directory of the working tree on disk, ignored ones and ``.git`` aside, holds a tracked file."""
     holding = {str(Path(path).parent) for path in _tracked_paths()}
     holding |= {str(parent) for folder in list(holding) for parent in Path(folder).parents}
+    skipped = _ignored_directories() | {".git"}
     ghosts = []
-    for root in GHOST_ROOTS:
-        for folder, subfolders, _ in os.walk(REPO / root):
-            subfolders[:] = [name for name in subfolders if name != "__pycache__"]
-            relative = Path(folder).relative_to(REPO).as_posix()
-            if relative not in holding:
-                ghosts.append(relative)
+    for folder, subfolders, _ in os.walk(REPO):
+        relative = Path(folder).relative_to(REPO).as_posix()
+        subfolders[:] = [name for name in subfolders if Path(relative, name).as_posix() not in skipped]
+        if relative not in holding:
+            ghosts.append(relative)
     assert not ghosts, f"move these directories, which hold no tracked file, to the trash (principle 9.6): {ghosts}"

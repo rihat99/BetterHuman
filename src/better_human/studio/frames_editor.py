@@ -64,8 +64,7 @@ class FramesEditor:
 
     def refresh(self) -> None:
         """Re-sync the frame dropdown with the session frame set."""
-        if hasattr(self, "frame_dropdown"):
-            self.frame_dropdown.options = self._names()
+        self.frame_dropdown.options = self._names()
 
     def set_adding(self, enabled: bool) -> None:  # noqa: FBT001 - the switch is the main operand
         """Enter or leave add-frame mode; it is exclusive with the other click modes."""
@@ -127,8 +126,8 @@ class FramesEditor:
         self.refresh()
 
     def save(self, name: str) -> None:
-        """Write the frame set to ``<data>/frames/<model_key>/<name>.json``."""
-        path = self.studio.paths.frame_dir(self.session.model_key) / f"{name}.json"
+        """Write the frame set to ``<data>/frames/<model_key>/<name>.json``; ``name`` is one file name."""
+        path = persistence.saved_path(self.studio.paths.frame_dir(self.session.model_key), name)
         path.parent.mkdir(parents=True, exist_ok=True)
         write_frame_set(path, contact_frames(self.session.frame_set, self.session.body.spec.joint_names))
         self.saved.options = self._saved_options()
@@ -137,7 +136,7 @@ class FramesEditor:
 
     def load(self, name: str) -> None:
         """Load a saved frame set by name."""
-        path = self.studio.paths.frame_dir(self.session.model_key) / f"{name}.json"
+        path = persistence.saved_path(self.studio.paths.frame_dir(self.session.model_key), name)
         if not path.exists():
             self.studio.set_status(f"no saved frame set {name!r}")
             return
