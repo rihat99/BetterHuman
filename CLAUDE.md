@@ -6,14 +6,13 @@ models. This file holds what the code cannot tell. `AGENTS.md` sends every other
 ## Commands
 
 From the repository root, with BetterRobot checked out beside it (`[tool.uv.sources]` in `pyproject.toml`). Wall
-times measured on a shared 384-thread AMD EPYC host at load average 17 to 96, with `NUMPY_MADVISE_HUGEPAGE=0` (below).
+times measured on a shared 384-thread AMD EPYC host at load average 16 to 113, with `NUMPY_MADVISE_HUGEPAGE=0` (below).
 
 ```bash
 uv sync --extra studio                                           # the environment and the dev group, under a second
-uv run pytest tests/contract -q -m "not slow and not licensed"   # fast tier, about 10 s
+uv run pytest tests/contract -q -m "not slow and not cuda and not licensed"   # fast tier, about 10 s
 uv run pytest tests -q -m "not cuda and not licensed"            # full tier, about 2 min
-uv run pytest tests -q -m "licensed and not cuda"                # release tier on CPU, needs the weights, about 3 min
-CUDA_VISIBLE_DEVICES=<index> uv run pytest tests -q -m cuda      # release tier on a GPU nobody else uses, about 8 s
+bash tools/release_tier.sh --gpu <index>                         # release tier, weights and a free GPU, about 7.5 min
 uv run pytest tests/docs -q -m "not licensed"                    # every docs snippet against its output, about 25 s
 uv run mkdocs build --strict                                     # the docs site into site/, about 3 s
 uv run ruff check . && uv run ruff format --check .              # lint and format, under a second
