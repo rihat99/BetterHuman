@@ -113,6 +113,7 @@ nav:
   - Contracts:
       - Index: contracts/index.md
       - BetterHuman addendum: contracts/bh-addendum.md
+      - Coupling standard: contracts/coupling-standard.md
       - Decision records:
           - Index: contracts/decisions/index.md
           - 0001 HumanModel: contracts/decisions/0001-human-model.md
