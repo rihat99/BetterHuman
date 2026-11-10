@@ -3,14 +3,15 @@
 BetterRobot's test of the same name, on BetterHuman's records. A record is a file ``NNNN-kebab-title.md`` in the
 decisions folder; the numbers run from 0001 without a gap. Its Status line is, in full,
 ``**Status:** WORD[ (WHO)][; amended by NNNN, ...][; amendment proposed in NNNN, ...]`` then ``.`` or `` ·`` and the
-``**Date:**``: WORD is ``Proposed``, ``Accepted`` or ``Superseded by NNNN``, WHO is ``owner``, ``integrator, awaiting
-owner`` or ``integrator ruling R-n, YYYY-MM-DD``, and every number it points at is a later record: one that amends is
-not Proposed, one that proposes an amendment is. Accepted is the owner's word (principle 8.2): a record whose status
-was owner-accepted or superseded in any commit (no ``integrator`` in it) never returns to Proposed and keeps the text
-of that first commit, Status line aside. A record accepted now keeps the text it had when its current acceptance began
-(the first commit after its last Proposed one), Status line aside: a change is a new record. Every BetterHuman record
-follows the template, so none is exempt; the resolver test (``tests/contract/test_citations.py``) checks the paths
-every record cites.
+``**Date:**``: WORD is ``Proposed``, ``Accepted`` or ``Superseded by NNNN``, WHO is ``integrator, awaiting owner``
+for a Proposed record and ``owner`` for the others (only the owner accepts), and every number it points at is a later
+record: the one that supersedes is not Proposed, one that amends is not Proposed, one that proposes an amendment is.
+Accepted is the owner's word (principle 8.2): a record whose status was accepted or superseded in any commit never
+returns to Proposed and keeps the text of that first commit, Status line aside. A record accepted now keeps the text
+it had when its current acceptance began (the first commit after its last Proposed one), Status line aside: a change
+is a new record. A record's history is looked up by its number, so a rename does not start a fresh one. Every
+BetterHuman record follows the template, so none is exempt; the resolver test (``tests/contract/test_citations.py``)
+checks the paths every record cites.
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ TEMPLATE = (
 )
 STATUS = re.compile(
     r"^\*\*Status:\*\* (?P<word>Proposed|Accepted|Superseded by (?P<by>\d{4}))"
-    r"(?: \((?:owner|integrator, awaiting owner|integrator ruling R-\d+, \d{4}-\d{2}-\d{2})\))?"
+    r"(?: \((?P<who>owner|integrator, awaiting owner)\))?"
     r"(?:; amended by (?P<amended>\d{4}(?:, \d{4})*))?"
     r"(?:; amendment proposed in (?P<proposed>\d{4}(?:, \d{4})*))?"
     r"(?:\.| ·) \*\*Date:\*\* \d{4}-\d{2}-\d{2}(?: \(recorded; decision taken earlier\))?$"
@@ -65,6 +66,12 @@ def test_every_status_is_allowed_and_points_at_later_records() -> None:
     for number, path in records.items():
         match = STATUS.match(_status_line(path.read_text()))
         assert match, f"{path.name}: status must be Proposed, Accepted[; amended by NNNN] or Superseded by NNNN"
+        owners = {"Proposed": (None, "integrator, awaiting owner")}.get(match["word"], (None, "owner"))
+        assert match["who"] in owners, f"{path.name}: {match['word']} with ({match['who']}); only the owner accepts"
+        if match["by"]:
+            assert match["by"] in records and not _proposed(records[match["by"]].read_text()), (
+                f"{path.name}: superseded by {match['by']}, which is still Proposed"
+            )
         made = match["amended"].split(", ") if match["amended"] else []
         proposed = match["proposed"].split(", ") if match["proposed"] else []
         for target in ([match["by"]] if match["by"] else []) + made + proposed:
@@ -106,18 +113,19 @@ def _owner_decided(text: str) -> bool:
 
 
 def _history(path: Path) -> list[str]:
-    """The record's committed texts, oldest first, then its text now."""
-    relative = path.relative_to(REPO).as_posix()
-    log = subprocess.run(
-        ["git", "log", "--reverse", "--format=%H", "--", relative], cwd=REPO, capture_output=True, text=True, check=True
-    )
+    """The committed texts of every file numbered like ``path`` (a rename keeps its history), oldest first, then its
+    text now."""
+    folder = path.parent.relative_to(REPO).as_posix()
+    number = path.name[:4]
+
+    def git(*arguments: str) -> str:
+        return subprocess.run(["git", *arguments], cwd=REPO, capture_output=True, text=True, check=True).stdout
+
     texts = []
-    for commit in log.stdout.split():
-        shown = subprocess.run(
-            ["git", "show", f"{commit}:{relative}"], cwd=REPO, capture_output=True, text=True, check=False
-        )
-        if shown.returncode == 0:
-            texts.append(shown.stdout)
+    for commit in git("log", "--reverse", "--format=%H", "--", f":(glob){folder}/{number}-*.md").split():
+        for name in git("ls-tree", "--name-only", f"{commit}:{folder}").split():
+            if name.startswith(f"{number}-") and name.endswith(".md"):
+                texts.append(git("show", f"{commit}:{folder}/{name}"))
     return [*texts, path.read_text()]
 
 
