@@ -1,6 +1,7 @@
 # Local hooks only: each runs through `uv run --locked`, so ruff and pytest are the lockfile's versions and a lockfile
 # that no longer matches pyproject.toml fails the hook instead of being rewritten by it.
-# pre-commit: lint, format check and the fast tier; pre-push: the full tier. The release tier runs by hand.
+# pre-commit: lint, format check and the fast tier; pre-push: the full tier. The release tier runs by hand:
+# `bash tools/release_tier.sh --gpu <index>`. Not installed by default; `uv run pre-commit install` installs both stages.
 default_install_hook_types: [pre-commit, pre-push]
 repos:
   - repo: local
@@ -18,13 +19,13 @@ repos:
         pass_filenames: false
         stages: [pre-commit]
       - id: fast-tier
-        name: fast tier (tests/contract, not slow, not licensed)
-        entry: uv run --locked pytest tests/contract -q -m "not slow and not licensed"
+        name: fast tier
+        entry: uv run --locked pytest tests/contract -q -m "not slow and not cuda and not licensed"
         language: system
         pass_filenames: false
         stages: [pre-commit]
       - id: full-tier
-        name: full tier (not cuda, not licensed)
+        name: full tier
         entry: uv run --locked pytest tests -q -m "not cuda and not licensed"
         language: system
         pass_filenames: false
