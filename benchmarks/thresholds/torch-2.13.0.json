@@ -1,0 +1,82 @@
+{
+ "meta": {
+  "commit": "d78b904",
+  "dirty": false,
+  "command": "benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json",
+  "better_robot_file": "../BetterRobot-frozen/src/better_robot/__init__.py",
+  "torch": "2.13.0+cu129",
+  "python": "3.12.14",
+  "device": "cpu",
+  "device_name": "AMD EPYC 9654 96-Core Processor",
+  "threads": 1,
+  "affinity": [
+   163
+  ],
+  "dtype": "torch.float32",
+  "env": {
+   "MALLOC_MMAP_THRESHOLD_": null,
+   "MALLOC_TRIM_THRESHOLD_": null,
+   "NUMPY_MADVISE_HUGEPAGE": "0"
+  },
+  "date": "2026-11-10T14:50:07",
+  "loadavg_start": "108.82 115.93 99.60 10/21341 3882416",
+  "loadavg_end": "94.90 110.26 98.40 7/21051 3884100",
+  "total_s": 46.7
+ },
+ "rows": [
+  {
+   "row": "fk_vertices/smplx/B1",
+   "batch": 1,
+   "loadavg": "108.82 115.93 99.60 198/21015 3882432",
+   "ops": 118,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 1
+  },
+  {
+   "row": "fk_vertices/smplx/B64",
+   "batch": 64,
+   "loadavg": "108.82 115.93 99.60 11/21030 3882477",
+   "ops": 118,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 2
+  },
+  {
+   "row": "bake_forward/smpl/B1",
+   "batch": 1,
+   "loadavg": "100.75 114.14 99.11 6/20874 3882662",
+   "ops": 241,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 1
+  },
+  {
+   "row": "bake_forward/smpl/B64",
+   "batch": 64,
+   "loadavg": "100.75 114.14 99.11 196/21062 3882895",
+   "ops": 241,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 2
+  },
+  {
+   "row": "bake_forward_dempster/smpl/B1",
+   "batch": 1,
+   "loadavg": "108.54 115.53 99.64 6/21060 3883160",
+   "ops": 3597,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 1
+  },
+  {
+   "row": "bake_forward_dempster/smpl/B64",
+   "batch": 64,
+   "loadavg": "86.68 110.35 98.20 14/20803 3883478",
+   "ops": 3597,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 2
+  }
+ ]
+}
