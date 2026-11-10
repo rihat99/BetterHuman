@@ -1,8 +1,4 @@
 {
-  "src/better_human/viz/human_layers.py::__init__": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/human_layers.py::_frames": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/human_layers.py::human_layers": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/human_layers.py::skinned_layer": "raises a builtin; the viz and studio rewrite (H6) converts it",
   "src/better_human/viz/studio/persistence.py::_checked_vertex_id": "raises a builtin; the viz and studio rewrite (H6) converts it",
   "src/better_human/viz/studio/persistence.py::_validate_segmentation": "raises a builtin; the viz and studio rewrite (H6) converts it",
   "src/better_human/viz/studio/persistence.py::load_pose": "raises a builtin; the viz and studio rewrite (H6) converts it",
