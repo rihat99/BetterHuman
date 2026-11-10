@@ -384,8 +384,8 @@ def _axis_angle(quaternion: torch.Tensor) -> torch.Tensor:
     axis_angle = torch.where(positive_singularity, taylor_factor, full_factor) * vector
 
     negative_singularity = (sin_half < 1e-7) & (scalar < 0)
-    fallback = torch.zeros_like(axis_angle)
-    fallback[..., 0] = 2.0 * torch.pi
+    # Built without an item assignment: on CUDA, `fallback[..., 0] = x` fills through a host read of x.
+    fallback = torch.nn.functional.pad(torch.full_like(sin_half, 2.0 * torch.pi), (0, 2))
     return torch.where(negative_singularity.expand_as(axis_angle), fallback, axis_angle)
 
 
