@@ -93,8 +93,8 @@ def make_arrays(family: str, seed: int = SEED) -> dict[str, np.ndarray]:
     num_vertices, num_joints = layout.num_vertices, sum(layout.groups)
     blended = np.sort(rng.choice(num_vertices, size=BLENDED_VERTICES, replace=False))
 
-    def blend_shapes(columns: int) -> np.ndarray:
-        basis = np.zeros((num_vertices, 3, columns))
+    def blend_shapes(columns: int, dtype: type[np.floating]) -> np.ndarray:
+        basis = np.zeros((num_vertices, 3, columns), dtype=dtype)
         basis[blended] = _steps(rng, (blended.size, 3, columns), step=2**-8, largest=4)
         return basis
 
@@ -107,8 +107,8 @@ def make_arrays(family: str, seed: int = SEED) -> dict[str, np.ndarray]:
     faces[1::2, :2] = faces[1::2, 1::-1]  # every other face reversed: neighbours cross their shared edge oppositely
     arrays = {
         "v_template": _steps(rng, (num_vertices, 3), step=2**-8, largest=128).astype(layout.floats),
-        "shapedirs": blend_shapes(layout.shape_columns).astype(layout.shapedirs),
-        "posedirs": blend_shapes((num_joints - 1) * 9).astype(layout.floats),
+        "shapedirs": blend_shapes(layout.shape_columns, layout.shapedirs),
+        "posedirs": blend_shapes((num_joints - 1) * 9, layout.floats),
         "J_regressor": regressor.astype(layout.floats),
         "weights": _convex_rows(rng, num_vertices, num_joints, counts=(1, 2, 3, 4), total=16).astype(layout.floats),
         "kintree_table": np.array([[root, *parents[1:]], range(num_joints)], dtype=layout.kintree),
