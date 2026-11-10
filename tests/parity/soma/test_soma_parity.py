@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from better_human import HumanModel, HumanState, families
-from better_human.families.soma import SOMAClassic, soma_from_classic
+from better_human.families.soma_family import SOMAClassic, soma_from_classic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
 

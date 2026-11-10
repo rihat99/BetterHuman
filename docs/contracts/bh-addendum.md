@@ -29,7 +29,7 @@ A family loader (`smpl`, `smplh`, `smplx`, `mano`, `flame`, `mhr`) returns a `Hu
 *what* they are through a `FamilySpec` (`src/better_human/core/spec.py`); the *how* (LBS, blend shapes, correctives, regressors)
 lives once in `core`. Partial models are loader parameters (`hands=False`), never subclasses.
 Rationale: one forward pass to test and keep in parity; see principles 6 and 7 below.
-Example: `src/better_human/families/smpl_family.py::load_family` serves all five SMPL-family loaders.
+Example: `src/better_human/families/smpl_family.py::_load_family` serves all five SMPL-family loaders.
 Enforcement: review; parity gates below.
 
 ## H-API-2 Arguments after the second are keyword-only (SHOULD)
@@ -49,7 +49,7 @@ Enforcement: review.
 ## H-ASSET-2 Weights resolve from an explicit path, else `io.models_dir()` (MUST)
 
 An explicit `path` argument wins; otherwise the file is `io.weight_path(folder, filename)`, that is
-`io.models_dir() / <folder> / <file_pattern>` with the patterns of `src/better_human/families/tables.py` (table under "Weight-file
+`io.models_dir() / <folder> / <file_pattern>` with the patterns of `src/better_human/families/_tables.py` (table under "Weight-file
 layout"). `io.models_dir()` is the one reader of `$BETTERHUMAN_MODELS_DIR` and raises with the fix when it is unset
 or names no directory; a missing or malformed file raises a clear error naming the path; nothing guesses a default.
 Example: `src/better_human/io/load.py::models_dir`, `src/better_human/io/load.py::weight_path`.
@@ -132,7 +132,7 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 - `<family>_from_classic(identity, classic) -> (q, stream)` and
   `<family>_to_classic(identity, q, stream=None) -> <Family>Classic` in `src/better_human/families/classic.py`.
   MHR: `mhr_from_classic(body, classic) -> (identity, q, stream)` and
-  `mhr_to_classic(identity, q, stream=None)` in `src/better_human/families/mhr.py`.
+  `mhr_to_classic(identity, q, stream=None)` in `src/better_human/families/mhr_family.py`.
 - Hand PCA (SMPL-H, SMPL-X, MANO): `num_pca_comps` must be in `[1, 45]` or `None` (full axis-angle).
   `to_classic` raises `ValueError` when the hand pose leaves the requested PCA subspace.
 - Dropped joints: a hand pose given to a body loaded with `hands=False` raises `ValueError`;
@@ -169,7 +169,7 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 ### Weight-file layout
 
 Files live under `io.models_dir() / <folder> / <file_pattern>` (`$BETTERHUMAN_MODELS_DIR`); an explicit `path`
-argument wins. Patterns are in `src/better_human/families/tables.py`:
+argument wins. Patterns are in `src/better_human/families/_tables.py`:
 
 | family | folder | file pattern |
 |---|---|---|

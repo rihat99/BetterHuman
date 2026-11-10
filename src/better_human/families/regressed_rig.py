@@ -80,6 +80,32 @@ class RegressedRig(Rig):
         quaternions[..., 3] = 1.0
         return torch.cat((placements, quaternions), dim=-1)
 
+    def without_joints(self, spec: FamilySpec, dropped: Sequence[int]) -> FamilySpec:
+        if not isinstance(spec.corrective, LinearCorrective):
+            raise ArgumentError("drop_joints needs a linear (R - I) corrective, as the SMPL family loaders build")
+        data = _JointData(
+            spec.joint_names,
+            spec.parents,
+            spec.file_joint_ids,
+            self.joint_regressor,
+            spec.skin_weights,
+            spec.skin_indices,
+            spec.corrective.posedirs,
+            spec.parts,
+        )
+        reduced = _reduce_joints(data, dropped)
+        return replace(
+            spec,
+            joint_names=reduced.joint_names,
+            parents=reduced.parents,
+            file_joint_ids=reduced.file_joint_ids,
+            skin_weights=reduced.skin_weights,
+            skin_indices=reduced.skin_indices,
+            corrective=LinearCorrective(reduced.posedirs),
+            rig=RegressedRig(reduced.joint_regressor),
+            parts=reduced.parts,
+        )
+
 
 @final
 class _JointData(NamedTuple):
@@ -101,32 +127,14 @@ def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
     Each dropped joint's part merges into its surviving ancestor's: authored closed parts (SMPL) join their faces and
     lose the cap they shared, so the total volume is kept and every other part is unchanged.
 
-    Only families with a regressed rig and a linear ``(R - I)`` corrective support this (SMPL family).
+    The spec's rig drops the joints (``Rig.without_joints``); of the shipped rigs only the SMPL family's
+    ``RegressedRig`` can. Raises :class:`~better_robot.exceptions.ArgumentError` for a rig that cannot and
+    :class:`~better_robot.exceptions.UnknownNameError` for an unknown name.
     """
-    if not isinstance(spec.rig, RegressedRig) or not isinstance(spec.corrective, LinearCorrective):
-        raise ValueError("drop_joints needs a regressed rig with a linear corrective")
-    data = _JointData(
-        spec.joint_names,
-        spec.parents,
-        spec.file_joint_ids,
-        spec.rig.joint_regressor,
-        spec.skin_weights,
-        spec.skin_indices,
-        spec.corrective.posedirs,
-        spec.parts,
-    )
-    reduced = _reduce_joints(data, [spec.joint_id(name) for name in names])
-    return replace(
-        spec,
-        joint_names=reduced.joint_names,
-        parents=reduced.parents,
-        file_joint_ids=reduced.file_joint_ids,
-        skin_weights=reduced.skin_weights,
-        skin_indices=reduced.skin_indices,
-        corrective=LinearCorrective(reduced.posedirs),
-        rig=RegressedRig(reduced.joint_regressor),
-        parts=reduced.parts,
-    )
+    reduced = spec.rig.without_joints(spec, [spec.joint_id(name) for name in names])
+    if reduced is None:
+        raise ArgumentError(f"drop_joints: {type(spec.rig).__name__} cannot drop joints; the SMPL family's rig can")
+    return reduced
 
 
 def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
@@ -137,7 +145,7 @@ def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
     if not dropped:
         return data
     if data.parts.joints != tuple(range(len(data.joint_names))):
-        raise ValueError("drop_joints expects one part per joint")
+        raise ArgumentError("drop_joints expects one part per joint")
     num_joints, device = len(data.joint_names), data.skin_weights.device
     num_vertices = data.skin_weights.shape[0]
     dense = data.skin_weights.new_zeros((num_vertices, num_joints)).scatter_add_(

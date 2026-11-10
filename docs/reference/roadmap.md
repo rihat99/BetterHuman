@@ -97,8 +97,8 @@ BetterRobot's roadmap.
 - The [studio](../studio.md) registers pointer tools through BetterRobot's
   `Viewer.on_pointer` / `clear_pointer` and picking helper, and resets the
   active frame on a model switch.
-- The MHR runtime is a loader (`src/better_human/families/mhr.py`) and a rig (`src/better_human/families/mhr_rig.py`,
-  `MhrRig`) that builds its float64 BR model once and casts it per body; the
+- The MHR runtime is a loader (`src/better_human/families/mhr_family.py`) and a rig (`src/better_human/families/mhr_rig.py`,
+  `MHRRig`) that builds its float64 BR model once and casts it per body; the
   proportion-rig constants left `FamilySpec.meta` for the rig.
 
 ### Families and bodies

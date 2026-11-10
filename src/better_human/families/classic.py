@@ -8,8 +8,10 @@ expression of SMPL-X and FLAME is a stream group here, not shape state.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 import torch
+from better_robot.exceptions import ArgumentError, ShapeError
 
 from better_human.core.human_model import Identity
 from better_human.core.classic import (
@@ -20,7 +22,7 @@ from better_human.core.classic import (
     quaternion_to_axis_angle,
 )
 
-from . import tables
+from . import _tables
 
 HAND_DIM = 45
 Stream = dict[str, torch.Tensor]
@@ -30,7 +32,7 @@ def _pca_width(num_pca_comps: int | None) -> int:
     if num_pca_comps is None:
         return HAND_DIM
     if not isinstance(num_pca_comps, int) or isinstance(num_pca_comps, bool) or not 1 <= num_pca_comps <= HAND_DIM:
-        raise ValueError(f"num_pca_comps must be in [1, {HAND_DIM}] or None")
+        raise ArgumentError(f"num_pca_comps must be an int in [1, {HAND_DIM}] or None, got {num_pca_comps!r}")
     return num_pca_comps
 
 
@@ -51,7 +53,7 @@ def _hand_axes(
     width = _pca_width(num_pca_comps)
     if side not in meta.get("hand_joints", {side}):  # hands dropped at load: no mean, no pose
         if pose is not None:
-            raise ValueError(f"{side} hand pose given for a body loaded with hands=False")
+            raise ArgumentError(f"{side} hand pose given for a body loaded with hands=False; load it with hands=True")
         return exemplar.new_zeros((*batch, 15, 3))
     delta = _zeros(pose, batch, width, exemplar)
     if num_pca_comps is not None:
@@ -70,7 +72,9 @@ def _hand_pose(identity: Identity, side: str, axes: torch.Tensor, num_pca_comps:
     components = meta["hand_components"][side][: _pca_width(num_pca_comps)]
     pose = delta @ torch.linalg.pinv(components)
     if not torch.allclose(pose @ components, delta, rtol=2e-5, atol=2e-5):
-        raise ValueError(f"{side} hand pose is outside the first {num_pca_comps} PCA components")
+        raise ArgumentError(
+            f"{side} hand pose is outside the first {num_pca_comps} PCA components; pass num_pca_comps=None"
+        )
     return pose
 
 
@@ -97,7 +101,9 @@ def _assemble(
         keep = torch.zeros(axes.shape[-2], dtype=torch.bool, device=axes.device)
         keep[native_ids[1:] - 1] = True
         if bool(axes[..., ~keep, :].any()):
-            raise ValueError("pose given for joints this body was loaded without (hands=False / face=False)")
+            raise ArgumentError(
+                "pose given for joints this body was loaded without (hands=False / face=False); leave them zero"
+            )
     root = classic_root_to_free_flyer(global_orient, transl, pelvis.expand(*batch, 3))
     return torch.cat((root, axis_angle_to_quaternion(reduced).flatten(-2)), dim=-1), stream
 
@@ -107,7 +113,7 @@ def _disassemble(
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """``(global_orient, axes (..., J_native - 1, 3), transl)`` from ``q``; dropped joints read zero."""
     if q.shape[-1:] != (identity.model.nq,):
-        raise ValueError(f"q must have shape (..., {identity.model.nq}); got {tuple(q.shape)}")
+        raise ShapeError(f"q must have shape (..., {identity.model.nq}); got {tuple(q.shape)}")
     batch = torch.broadcast_shapes(q.shape[:-1], identity.root_offset.shape[:-1])
     q = q.expand(*batch, identity.model.nq)
     pelvis = identity.root_offset
@@ -127,7 +133,7 @@ def _stream(identity: Identity, name: str, value: torch.Tensor | None, batch: tu
     width = identity.human.spec.stream_groups.get(name)
     if width is None:
         if value is not None:
-            raise ValueError(f"{name} requires a body loaded with that stream group")
+            raise ArgumentError(f"{name} requires a body loaded with the {name!r} stream group")
         return {}
     return {name: _zeros(classic_tensor(name, value, width, identity.root_offset), batch, width, identity.root_offset)}
 
@@ -135,6 +141,7 @@ def _stream(identity: Identity, name: str, value: torch.Tensor | None, batch: tu
 # ----------------------------------------------------------------------------------------- SMPL
 
 
+@final
 @dataclass(frozen=True)
 class SMPLClassic:
     """Classic SMPL parameters with arbitrary leading batch dimensions."""
@@ -160,6 +167,7 @@ def smpl_to_classic(identity: Identity, q: torch.Tensor, stream: Stream | None =
 # --------------------------------------------------------------------------------------- SMPL-H
 
 
+@final
 @dataclass(frozen=True)
 class SMPLHClassic:
     """Classic SMPL+H parameters; hand poses are full 45-D axis-angle blocks."""
@@ -203,6 +211,7 @@ def smplh_to_classic(identity: Identity, q: torch.Tensor, stream: Stream | None 
 # --------------------------------------------------------------------------------------- SMPL-X
 
 
+@final
 @dataclass(frozen=True)
 class SMPLXClassic:
     """Classic SMPL-X parameters with arbitrary leading batch dimensions."""
@@ -221,7 +230,7 @@ class SMPLXClassic:
 
 def smplx_from_classic(identity: Identity, classic: SMPLXClassic) -> tuple[torch.Tensor, Stream]:
     exemplar = identity.root_offset
-    table = tables.SMPLX
+    table = _tables.SMPLX
     hand_width = _pca_width(classic.num_pca_comps)
     fields = {
         "body_pose": (classic.body_pose, 63),
@@ -272,6 +281,7 @@ def smplx_to_classic(
 # ----------------------------------------------------------------------------------------- MANO
 
 
+@final
 @dataclass(frozen=True)
 class MANOClassic:
     """Classic MANO parameters: ``hand_pose`` is ``(..., 45)`` or ``(..., num_pca_comps)``."""
@@ -301,6 +311,7 @@ def mano_to_classic(
 # ---------------------------------------------------------------------------------------- FLAME
 
 
+@final
 @dataclass(frozen=True)
 class FLAMEClassic:
     """Classic FLAME parameters (neck, jaw and eye axis-angles, expression stream)."""

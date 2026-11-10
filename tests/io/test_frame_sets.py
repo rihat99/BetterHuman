@@ -11,7 +11,7 @@ import pytest
 from better_robot.exceptions import ArgumentError, UnknownNameError
 
 import better_human as bh
-from better_human.families import tables
+from better_human.families import _tables as tables
 from better_human.io import FormatError
 
 FIXTURE = Path(__file__).parents[1] / "support" / "contacts.json"

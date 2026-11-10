@@ -8,8 +8,9 @@ import pytest
 import torch
 
 from better_human import HumanModel, families
-from better_human.families.mhr import MHRClassic, mhr_from_classic, mhr_to_classic
+from better_human.families.mhr_family import MHRClassic, mhr_from_classic, mhr_to_classic
 from better_human.io import weight_path
+from better_robot.exceptions import ArgumentError, DtypeMismatchError
 from better_robot.kinematics import full_configuration
 
 pytestmark = pytest.mark.licensed
@@ -24,7 +25,7 @@ def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> 
 
 @pytest.fixture(scope="module")
 def body() -> HumanModel:
-    return HumanModel.from_spec(families.mhr(weight_path("MHR", "converted/mhr_lod1.npz"), lod=1))
+    return HumanModel.from_spec(families.mhr(weight_path("MHR/converted", "mhr_lod1.npz"), lod=1))
 
 
 def test_configuration_sizes(body: HumanModel) -> None:
@@ -37,7 +38,7 @@ def test_configuration_sizes(body: HumanModel) -> None:
 
 
 def test_mimic_expansion_matches_all_spine_twist_weights(body: HumanModel) -> None:
-    with np.load(weight_path("MHR", "converted/mhr_lod1.npz"), allow_pickle=False) as arrays:
+    with np.load(weight_path("MHR/converted", "mhr_lod1.npz"), allow_pickle=False) as arrays:
         parameter_index = arrays["model_parameter_names"].tolist().index("spine_twist0")
         rows = torch.from_numpy(arrays["parameter_transform_rows"])
         columns = torch.from_numpy(arrays["parameter_transform_columns"])
@@ -58,7 +59,7 @@ def test_mimic_expansion_matches_all_spine_twist_weights(body: HumanModel) -> No
 
 
 def test_expression_toggle() -> None:
-    path = weight_path("MHR", "converted/mhr_lod6.npz")
+    path = weight_path("MHR/converted", "mhr_lod6.npz")
     with_expression = HumanModel.from_spec(families.mhr(path, lod=6, correctives=False))
     without_expression = HumanModel.from_spec(families.mhr(path, lod=6, expression=False, correctives=False))
     classic = _random_classic(torch.Generator().manual_seed(0))
@@ -84,7 +85,7 @@ def test_expression_toggle() -> None:
 
 
 def test_correctives_toggle() -> None:
-    path = weight_path("MHR", "converted/mhr_lod6.npz")
+    path = weight_path("MHR/converted", "mhr_lod6.npz")
     classic = _random_classic(torch.Generator().manual_seed(2))
     zero_pose = MHRClassic(classic.identity_coeffs, torch.zeros(204))
     vertices = {}
@@ -153,16 +154,18 @@ def test_mass_lives_on_part_bodies_only(body: HumanModel) -> None:
 
 
 def test_spec_and_classic_validation() -> None:
-    path = weight_path("MHR", "converted/mhr_lod6.npz")
-    with pytest.raises(TypeError, match="torch.float32 or torch.float64"):
+    path = weight_path("MHR/converted", "mhr_lod6.npz")
+    with pytest.raises(DtypeMismatchError, match="torch.float32 or torch.float64"):
         families.mhr(path, lod=6, dtype=torch.float16)
     for lod in (-1, 7, 1.0, True):
-        with pytest.raises(ValueError, match="lod must be one of"):
+        with pytest.raises(ArgumentError, match="lod must be one of"):
             families.mhr(path, lod=lod)
-    with pytest.raises(TypeError, match="must be bool"):
+    with pytest.raises(ArgumentError, match="must be bool"):
         families.mhr(path, lod=6, expression=1)
     body = HumanModel.from_spec(families.mhr(path, lod=6, correctives=False, device="cpu"))
     assert body.spec.device == torch.device("cpu")
+    with pytest.raises(ArgumentError, match="MHRRig cannot drop joints"):
+        families.drop_joints(body.spec, [body.spec.joint_names[-1]])
     with pytest.raises(ValueError, match=r"\(\.\.\., 45\)"):
         mhr_from_classic(body, MHRClassic(torch.zeros(44), torch.zeros(204)))
     with pytest.raises(TypeError, match="floating"):

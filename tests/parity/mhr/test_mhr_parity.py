@@ -11,7 +11,7 @@ import torch
 
 from better_human import families
 from better_human.core.human_model import HumanModel
-from better_human.families.mhr import MHRClassic, mhr_from_classic
+from better_human.families.mhr_family import MHRClassic, mhr_from_classic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
 

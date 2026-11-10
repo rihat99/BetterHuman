@@ -28,4 +28,11 @@ categories (shipped: SMPL's 24 joint names, `pelvis` to `right_hand`).
 | `categories` | str | `(C,)` | density categories |
 | `densities` | float64 | `(T, C)` | `densities[t, c]`: table `t`'s density of category `c`, kg/m³ |
 
+## Fields the reader does not read
+
+`sources` (str, `(T, C)`) says where `densities[t, c]` comes from, in one of three forms: a publication, its table and
+the segment, for a number read in that publication; `unverified (cited from memory): <citation>` for a citation not
+yet checked against the publication; or `assumed: <reason>` for a value no publication gives. It was added to version
+1 on 2026-11-10 (owner ruling: every shipped density names its source); `shipped_density_tables()` does not return it.
+
 The reader ignores a field it does not know. A later version is refused with both versions named.

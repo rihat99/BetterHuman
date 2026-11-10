@@ -1,6 +1,6 @@
 """NVIDIA SOMA family (SOMA-X v0.3.4, mid LOD): loader, classic parameter container and converters.
 
-``soma(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with a :class:`SomaRig`. Its identity group
+``soma(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with a :class:`SOMARig`. Its identity group
 ``shape`` takes the 128 upstream ``identity_coeffs``; upstream poses enter through :func:`soma_from_classic`.
 """
 
@@ -8,26 +8,66 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 
 import torch
+from better_robot.exceptions import ArgumentError, DtypeMismatchError, ShapeError
 from better_robot.lie import so3
 
 from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
-from better_human.io import weight_path
+from better_human.io import FormatError, weight_path
 from better_human.io.load import load_model_npz
 from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
-from .densities import density_categories
-from .soma_rig import SomaRig
+from .soma_rig import SOMARig
 
 if TYPE_CHECKING:
     from better_human.core.human_model import HumanModel, Identity
 
 SHAPE_COUNT = 128
 POSE_JOINT_COUNT = 77  #: public joints after the virtual ``Root``; ``Hips`` first.
+#: The density category of each part, by its joint (decision record 0007). The categories are SMPL's part names, each
+#: named after the joint at its proximal end, so a part takes the SMPL part that covers the same body segment: SOMA's
+#: Shoulder is the clavicle (SMPL collar), Arm the upper arm (SMPL shoulder), Leg the thigh (SMPL hip), Hand the palm
+#: (SMPL wrist), Foot the foot (SMPL ankle) and ToeBase the toes (SMPL foot).
+_DENSITY_CATEGORIES = {
+    "Hips": "pelvis",
+    "Spine1": "spine1",
+    "Spine2": "spine2",
+    "Chest": "spine3",
+    "Neck1": "neck",
+    "Neck2": "neck",
+    "Head": "head",
+    "Jaw": "head",
+    **{
+        f"{side.title()}{segment}": f"{side}_{category}"
+        for side in ("left", "right")
+        for segment, category in (
+            ("Shoulder", "collar"),
+            ("Arm", "shoulder"),
+            ("ForeArm", "elbow"),
+            ("Hand", "wrist"),
+            ("Leg", "hip"),
+            ("Shin", "knee"),
+            ("Foot", "ankle"),
+            ("ToeBase", "foot"),
+        )
+    },
+    **{
+        f"{side.title()}Hand{finger}{segment}": f"{side}_hand"
+        for side in ("left", "right")
+        for finger, segments in (
+            ("Thumb", "123"),
+            ("Index", "1234"),
+            ("Middle", "1234"),
+            ("Ring", "1234"),
+            ("Pinky", "1234"),
+        )
+        for segment in (*segments, "End")
+    },
+}
 
 
 def soma(
@@ -37,16 +77,19 @@ def soma(
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """Load ``SOMA/soma_mid.npz`` (``tools/convert/soma``): 18056 vertices, 110 skin joints, ``shape (V, 3, 128)``.
+    """Load ``$BETTERHUMAN_MODELS_DIR/SOMA/soma_mid.npz`` (``tools/convert/soma``): 18056 vertices, 110 skin joints.
 
-    The 78 public joints are posable; the 32 twist helpers follow their limb segments. ``correctives=False`` drops
-    the pose-corrective MLP. The spec is built once in ``dtype`` on ``device``
-    (decision record 0005).
+    The identity basis is ``shape (V, 3, 128)``. The 78 public joints are posable; the 32 twist helpers follow their
+    limb segments. ``correctives=False`` drops the pose-corrective MLP. The spec is built once in ``dtype`` on
+    ``device`` (decision record 0005).
     """
     if not isinstance(correctives, bool):
-        raise TypeError("correctives must be bool")
+        raise ArgumentError(f"correctives must be bool, got {correctives!r}")
     if dtype not in (torch.float32, torch.float64):
-        raise TypeError(f"dtype must be torch.float32 or torch.float64, got {dtype}")
+        raise DtypeMismatchError(
+            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
+            "pass dtype=torch.float32 or dtype=torch.float64"
+        )
     device = torch.device("cpu" if device is None else device)
     arrays = load_model_npz(
         weight_path("SOMA", "soma_mid.npz", path=path),
@@ -60,7 +103,9 @@ def soma(
     corrective = None
     if correctives:
         if bool(arrays["corrective_tanh"]):
-            raise ValueError("SOMA correctives with a tanh hidden layer are not supported")
+            raise FormatError(
+                "SOMA correctives with a tanh hidden layer are not supported; load with correctives=False"
+            )
         rows, columns = arrays["corrective_output_indices"].to(device)
         values = floats("corrective_output_values")
         output = values.new_zeros(arrays["corrective_output_shape"].tolist()).index_put_((rows, columns), values)
@@ -70,7 +115,7 @@ def soma(
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     density_tables = shipped_density_tables()
-    categories = density_categories([joint_names[joint] for joint in part_joints.tolist()], density_tables)
+    categories = tuple(_DENSITY_CATEGORIES.get(joint_names[joint]) for joint in part_joints.tolist())
     return FamilySpec(
         name="soma",
         template_vertices=floats("shape_mean"),
@@ -83,13 +128,14 @@ def soma(
         identity_bases={"shape": floats("shape_basis")},
         stream_bases={},
         corrective=corrective,
-        rig=SomaRig.from_arrays(arrays, dtype=dtype, device=device),
+        rig=SOMARig.from_arrays(arrays, dtype=dtype, device=device),
         parts=Parts(part_ids, tuple(part_joints.tolist()), categories, density_tables),
         up_axis=str(arrays["up_axis"]),
         provenance={"archive": str(arrays["provenance"])},
     )
 
 
+@final
 @dataclass(frozen=True)
 class SOMAClassic:
     """Upstream ``SOMALayer`` inputs.
@@ -119,7 +165,7 @@ def soma_from_classic(
     if identity is None or poses is None or transl is None:
         raise TypeError("identity_coeffs, poses and transl must be floating torch.Tensors")
     if poses.shape[-2:] != (POSE_JOINT_COUNT, 3):
-        raise ValueError(f"poses must have shape (..., {POSE_JOINT_COUNT}, 3); got {tuple(poses.shape)}")
+        raise ShapeError(f"poses must have shape (..., {POSE_JOINT_COUNT}, 3); got {tuple(poses.shape)}")
     orient = human.spec.rig.t_pose_rotations[2:]
     rotations = so3.exp(torch.cat((poses[..., :1, :], (orient.mT @ poses[..., 1:, :, None]).squeeze(-1)), dim=-2))
     batch = torch.broadcast_shapes(transl.shape[:-1], rotations.shape[:-2])
@@ -137,4 +183,4 @@ def soma_to_classic(identity: Identity, q: torch.Tensor) -> SOMAClassic:
     return SOMAClassic(shape.expand(*batch, SHAPE_COUNT), poses, q[..., :3].clone())
 
 
-__all__ = ["SOMAClassic", "SomaRig", "soma", "soma_from_classic", "soma_to_classic"]
+__all__ = ["SOMAClassic", "soma", "soma_from_classic", "soma_to_classic"]

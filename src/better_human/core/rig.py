@@ -1,8 +1,9 @@
 """``Rig``: how identity turns into joint placements and how a configuration feeds the corrective.
 
 A rig is the one behavioural part of a :class:`~better_human.core.spec.FamilySpec`. The families define three:
-``RegressedRig`` (SMPL family), ``MhrRig`` and ``SomaRig``. A rig implements the four abstract members; the three
-hooks below have defaults for rigs whose streams move no joint and whose native joint frames are BetterRobot's.
+``RegressedRig`` (SMPL family), ``MHRRig`` and ``SOMARig``. A rig implements the four abstract members; the four
+hooks below have defaults for rigs whose streams move no joint, whose native joint frames are BetterRobot's and that
+cannot drop joints.
 """
 
 from __future__ import annotations
@@ -86,6 +87,13 @@ class Rig(ABC):
         self, spec: FamilySpec, model: Model, *, rest_joint_translations: torch.Tensor
     ) -> torch.Tensor | None:
         """``(..., nj, 7)`` placements for shifted rest joints; ``None`` (the default) when streams move no joint."""
+        return None
+
+    def without_joints(self, spec: FamilySpec, dropped: Sequence[int]) -> FamilySpec | None:
+        """``spec`` without the terminal subtrees rooted at native joints ``dropped``, or ``None`` (the default).
+
+        ``None`` means the rig cannot drop joints; ``families.drop_joints`` then raises.
+        """
         return None
 
 

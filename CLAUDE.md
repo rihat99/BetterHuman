@@ -51,11 +51,11 @@ from this repo.
 | `src/better_human/core/human_model.py` | `HumanModel.from_spec` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
 | `src/better_human/core/skinning.py` | blend shapes and skinning |
 | `src/better_human/mass/` | part topology, densities and inertias; its data are versioned archives read by `src/better_human/io/mass_data.py` |
-| `src/better_human/families/smpl_family.py`, `src/better_human/families/tables.py` | SMPL-family loaders; file patterns and joint names |
+| `src/better_human/families/smpl_family.py`, `src/better_human/families/_tables.py` | SMPL-family loaders; file patterns and joint names |
 | `src/better_human/families/regressed_rig.py` | `RegressedRig` (SMPL family), `drop_joints` |
-| `src/better_human/families/classic.py`, `src/better_human/families/mhr.py` | classic converters; MHR loader and converters |
-| `src/better_human/families/mhr_rig.py` | `MhrRig` |
-| `src/better_human/families/soma.py`, `src/better_human/families/soma_rig.py` | SOMA loader and converters; `SomaRig` |
+| `src/better_human/families/classic.py`, `src/better_human/families/mhr_family.py` | classic converters; MHR loader and converters |
+| `src/better_human/families/mhr_rig.py` | `MHRRig` |
+| `src/better_human/families/soma_family.py`, `src/better_human/families/soma_rig.py` | SOMA loader and converters; `SOMARig` |
 | `src/better_human/io/load.py`, `src/better_human/io/schema.py` | weight paths (`models_dir`, `weight_path`); internal archive reader and schemas |
 | `src/better_human/io/formats.py`, `src/better_human/io/frame_sets.py` | file formats, `check_format`, the migrations (spec: `docs/reference/formats/`); frame sets |
 | `src/better_human/terms/`, `src/better_human/viz/human_layers.py` | optimisation terms (state, fitting, physics); viewer layers and `HumanView` |

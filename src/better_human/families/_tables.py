@@ -1,10 +1,12 @@
-"""Static per-family tables: joint names, landmark vertex ids, subtree index groups, asset file names."""
+"""Static per-family tables: joint names, density categories, landmark vertex ids, subtree index groups, file names."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 
+@final
 @dataclass(frozen=True)
 class FamilyTable:
     """Authored metadata of one SMPL-family model (parents come from the weight file)."""
@@ -13,6 +15,9 @@ class FamilyTable:
     joint_names: tuple[str, ...]
     file_pattern: str  #: file under ``$BETTERHUMAN_MODELS_DIR/<folder>/``; ``{gender}`` / ``{side}`` placeholders.
     folder: str
+    #: The density category of each joint's part (decision record 0007): one of the shipped tables' categories, which
+    #: are SMPL's 24 part names; ``{side}`` is MANO's side. Fingers take the hand, face joints and eyes the head.
+    density_categories: tuple[str, ...]
     keypoint_names: tuple[str, ...] = ()
     keypoint_vertex_ids: tuple[int, ...] = ()
     #: Terminal subtrees that can be dropped at load, by native joint index.
@@ -47,36 +52,39 @@ KEYPOINT_NAMES = (
     "RHeel",
 )
 
+SMPL_JOINT_NAMES = (
+    "pelvis",
+    "left_hip",
+    "right_hip",
+    "spine1",
+    "left_knee",
+    "right_knee",
+    "spine2",
+    "left_ankle",
+    "right_ankle",
+    "spine3",
+    "left_foot",
+    "right_foot",
+    "neck",
+    "left_collar",
+    "right_collar",
+    "head",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hand",
+    "right_hand",
+)
+
 SMPL = FamilyTable(
     name="smpl",
-    joint_names=(
-        "pelvis",
-        "left_hip",
-        "right_hip",
-        "spine1",
-        "left_knee",
-        "right_knee",
-        "spine2",
-        "left_ankle",
-        "right_ankle",
-        "spine3",
-        "left_foot",
-        "right_foot",
-        "neck",
-        "left_collar",
-        "right_collar",
-        "head",
-        "left_shoulder",
-        "right_shoulder",
-        "left_elbow",
-        "right_elbow",
-        "left_wrist",
-        "right_wrist",
-        "left_hand",
-        "right_hand",
-    ),
+    joint_names=SMPL_JOINT_NAMES,
     file_pattern="SMPL_{gender}.npz",
     folder="smpl",
+    density_categories=SMPL_JOINT_NAMES,
     keypoint_names=KEYPOINT_NAMES,
     keypoint_vertex_ids=(
         332,
@@ -143,6 +151,7 @@ SMPLH = FamilyTable(
     ),
     file_pattern="smplh/{gender_lower}/model.npz",
     folder="smplh",
+    density_categories=SMPL_JOINT_NAMES[:22] + ("left_hand",) * 15 + ("right_hand",) * 15,
     keypoint_names=KEYPOINT_NAMES,
     keypoint_vertex_ids=SMPL.keypoint_vertex_ids,
     left_hand_joints=tuple(range(22, 37)),
@@ -210,6 +219,7 @@ SMPLX = FamilyTable(
     ),
     file_pattern="SMPLX_{gender}.npz",
     folder="smplx",
+    density_categories=SMPL_JOINT_NAMES[:22] + ("head",) * 3 + ("left_hand",) * 15 + ("right_hand",) * 15,
     keypoint_names=KEYPOINT_NAMES,
     keypoint_vertex_ids=(
         9120,
@@ -261,6 +271,7 @@ MANO = FamilyTable(
     ),
     file_pattern="MANO_{side}.npz",
     folder="mano",
+    density_categories=("{side}_wrist",) + ("{side}_hand",) * 15,
 )
 
 FLAME = FamilyTable(
@@ -268,6 +279,7 @@ FLAME = FamilyTable(
     joint_names=("global", "neck", "jaw", "left_eye", "right_eye"),
     file_pattern="{gender}_model.npz",
     folder="flame",
+    density_categories=("head", "neck", "head", "head", "head"),  # FLAME's root part "global" is the head
 )
 
-__all__ = ["FLAME", "KEYPOINT_NAMES", "MANO", "SMPL", "SMPLH", "SMPLX", "FamilyTable"]
+__all__ = ["FLAME", "KEYPOINT_NAMES", "MANO", "SMPL", "SMPLH", "SMPLX", "SMPL_JOINT_NAMES", "FamilyTable"]

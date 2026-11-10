@@ -1,4 +1,8 @@
-"""One loader for the SMPL family (SMPL, SMPL-H, SMPL-X, MANO, FLAME): a weight file plus a table."""
+"""One loader for the SMPL family (SMPL, SMPL-H, SMPL-X, MANO, FLAME): a weight file plus a table.
+
+Each loader builds in ``dtype`` torch.float32 or torch.float64 and raises
+:class:`~better_robot.exceptions.DtypeMismatchError` for another, as ``better_human.load`` does.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import torch
+from better_robot.exceptions import ArgumentError, DtypeMismatchError, UnknownNameError
 
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
@@ -17,8 +22,7 @@ from better_human.io.mass_data import shipped_density_tables, shipped_segmentati
 from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA
 from better_human.mass import segment_vertices
 
-from . import tables
-from .densities import density_categories
+from . import _tables
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 
 SMPLX_SHAPE_DIM, SMPLX_EXPRESSION_DIM = 300, 100
@@ -29,17 +33,25 @@ HAND_DIM = 45
 def _gender(gender: str) -> str:
     normalized = gender.lower()
     if normalized not in {"female", "male", "neutral"}:
-        raise ValueError("gender must be 'female', 'male' or 'neutral'")
+        raise UnknownNameError("gender", gender, ["female", "male", "neutral"])
     return normalized
 
 
 def _check_width(name: str, value: int, limit: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 1 or value > limit:
-        raise ValueError(f"{name} must be in [1, {limit}], got {value!r}")
+        raise ArgumentError(f"{name} must be an int in [1, {limit}], got {value!r}")
     return value
 
 
-def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
+def _check_dtype(dtype: torch.dtype) -> None:
+    if dtype not in (torch.float32, torch.float64):
+        raise DtypeMismatchError(
+            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
+            "pass dtype=torch.float32 or dtype=torch.float64"
+        )
+
+
+def _parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
     """Resolve a two-row native-id kintree table to column parent indices."""
     joint_ids = [int(value) for value in kintree_table[1].tolist()]
     columns_by_id = {joint_id: column for column, joint_id in enumerate(joint_ids)}
@@ -47,19 +59,20 @@ def parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
     for column in range(1, len(joint_ids)):
         parent_id = int(kintree_table[0, column])
         if parent_id not in columns_by_id:
-            raise ValueError(f"kintree parent id {parent_id} for joint column {column} does not exist")
+            raise FormatError(f"kintree parent id {parent_id} for joint column {column} does not exist")
         parents.append(columns_by_id[parent_id])
     return tuple(parents)
 
 
-def load_family(
-    table: tables.FamilyTable,
+def _load_family(
+    table: _tables.FamilyTable,
     arrays: Mapping[str, torch.Tensor],
     *,
     identity: Mapping[str, int],
     streams: Mapping[str, int] = {},
     columns: Mapping[str, slice] | None = None,
     drop: Sequence[str] = (),
+    side: str | None = None,
     meta: Mapping[str, object] = {},
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
@@ -68,12 +81,16 @@ def load_family(
 
     ``identity`` and ``streams`` give the requested width of each blend group; ``columns`` says
     where each group lives in ``shapedirs`` (default: one group ``betas`` spanning the file).
-    ``drop`` names terminal joints to remove (hands, face). The arrays are reduced in float64, then the spec is
-    built once in ``dtype`` on ``device``; ``meta`` (the hand pose PCA) must already be there.
+    ``drop`` names terminal joints to remove (hands, face); ``side`` fills MANO's ``{side}`` density categories. The
+    arrays are reduced in float64, then the spec is built once in ``dtype`` on ``device``; ``meta`` (the hand pose
+    PCA) must already be there.
     """
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
-        raise ValueError(f"{table.name} weights hold {joint_count} joints; expected {len(table.joint_names)}")
+        raise FormatError(
+            f"{table.name} weights hold {joint_count} joints; expected {len(table.joint_names)}. "
+            f"Pass an unmodified {table.name} file."
+        )
     device = torch.device("cpu" if device is None else device)
     shapedirs = arrays["shapedirs"]
     columns = columns or {"betas": slice(0, shapedirs.shape[-1])}
@@ -96,7 +113,7 @@ def load_family(
     data = _reduce_joints(
         _JointData(
             table.joint_names,
-            parents_from_kintree(arrays["kintree_table"]),
+            _parents_from_kintree(arrays["kintree_table"]),
             torch.arange(joint_count),
             arrays["J_regressor"].to(torch.float64),
             weights,
@@ -105,7 +122,7 @@ def load_family(
             Parts(
                 segment_vertices(weights, indices),
                 tuple(range(joint_count)),
-                density_categories(table.joint_names, density_tables),
+                tuple(category.format(side=side) for category in table.density_categories),
                 density_tables,
                 closed_faces,
             ),
@@ -114,6 +131,12 @@ def load_family(
     )
     landmarks = None
     if table.keypoint_vertex_ids:
+        num_vertices, last = arrays["v_template"].shape[0], max(table.keypoint_vertex_ids)
+        if last >= num_vertices:
+            raise FormatError(
+                f"{table.name} weights hold {num_vertices} vertices; the {table.name} landmarks index vertex {last}. "
+                f"Pass an unmodified {table.name} file."
+            )
         landmarks = Landmarks(table.keypoint_names, torch.tensor(table.keypoint_vertex_ids, device=device))
     return FamilySpec(
         name=table.name,
@@ -143,10 +166,11 @@ def smpl(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL (24 joints, 6890 vertices)."""
+    _check_dtype(dtype)
     gender = _gender(gender)
-    path = weight_path(tables.SMPL.folder, tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
-    return load_family(
-        tables.SMPL,
+    path = weight_path(_tables.SMPL.folder, _tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
+    return _load_family(
+        _tables.SMPL,
         load_model_npz(path, SMPL_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         dtype=dtype,
@@ -164,11 +188,12 @@ def smplh(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL+H (52 joints; the hand pose is given per joint, the file ships no hand PCA)."""
+    _check_dtype(dtype)
     gender = _gender(gender)
-    table = tables.SMPLH
+    table = _tables.SMPLH
     path = weight_path(table.folder, table.file_pattern.format(gender_lower=gender), path=path)
     drop = () if hands else tuple(table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints))
-    return load_family(
+    return _load_family(
         table,
         load_model_npz(path, SMPLH_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
@@ -191,8 +216,9 @@ def smplx(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL-X (55 joints, 10475 vertices). Expression is a stream group; ``face=False`` drops it and the face joints."""
+    _check_dtype(dtype)
     gender = _gender(gender)
-    table = tables.SMPLX
+    table = _tables.SMPLX
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
     arrays = load_model_npz(path, SMPLX_SCHEMA)
 
@@ -213,7 +239,7 @@ def smplx(
         drop += [table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints)]
     hand_meta["hand_joints"] = {"left", "right"} if hands else set()
     streams = {"expression": _check_width("num_expression", num_expression, SMPLX_EXPRESSION_DIM)} if face else {}
-    return load_family(
+    return _load_family(
         table,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, SMPLX_SHAPE_DIM)},
@@ -239,9 +265,10 @@ def mano(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """MANO hand (16 joints, 778 vertices) with its PCA pose space in ``meta``."""
+    _check_dtype(dtype)
     if side not in {"left", "right"}:
-        raise ValueError("side must be 'left' or 'right'")
-    table = tables.MANO
+        raise UnknownNameError("side", side, ["left", "right"])
+    table = _tables.MANO
     path = weight_path(table.folder, table.file_pattern.format(side=side.upper()), path=path)
     arrays = load_model_npz(path, MANO_SCHEMA)
     mean = arrays["hands_mean"].to(device=device, dtype=dtype)
@@ -250,10 +277,11 @@ def mano(
         "hand_components": {side: arrays["hands_components"].to(device=device, dtype=dtype)},
         "hand_mean": {side: torch.zeros_like(mean) if flat_hand_mean else mean},
     }
-    return load_family(
+    return _load_family(
         table,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, 10)},
+        side=side,
         meta=meta,
         dtype=dtype,
         device=device,
@@ -270,9 +298,10 @@ def flame(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """FLAME head (5 joints, 5023 vertices); expression is a stream group like SMPL-X."""
-    table = tables.FLAME
+    _check_dtype(dtype)
+    table = _tables.FLAME
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
-    return load_family(
+    return _load_family(
         table,
         load_model_npz(path, FLAME_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, FLAME_SHAPE_DIM)},
@@ -286,4 +315,4 @@ def flame(
     )
 
 
-__all__ = ["flame", "load_family", "mano", "parents_from_kintree", "smpl", "smplh", "smplx"]
+__all__ = ["flame", "mano", "smpl", "smplh", "smplx"]

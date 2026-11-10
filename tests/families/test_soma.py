@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import pytest
 import torch
+from better_robot.exceptions import ArgumentError, DtypeMismatchError, ShapeError
 from better_robot.lie import so3
 
 from better_human import HumanModel, families, load
-from better_human.families.soma import SOMAClassic, soma_from_classic, soma_to_classic
+from better_human.families.soma_family import SOMAClassic, soma_from_classic, soma_to_classic
 from better_human.io import weight_path
 
 pytestmark = pytest.mark.licensed
@@ -24,8 +25,7 @@ def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> 
 
 @pytest.fixture(scope="module")
 def body() -> HumanModel:
-    # density=1000.0 until SOMA's density table ships (H3): "Dempster" covers 68 of its 72 parts (record 0007).
-    return load("soma", str(weight_path("SOMA", "soma_mid.npz")), density=1000.0)
+    return load("soma", str(weight_path("SOMA", "soma_mid.npz")))
 
 
 def test_sizes_parts_and_mass(body: HumanModel) -> None:
@@ -119,12 +119,12 @@ def test_gradients_match_finite_differences() -> None:
 
 
 def test_spec_and_classic_validation(body: HumanModel) -> None:
-    with pytest.raises(TypeError, match="torch.float32 or torch.float64"):
+    with pytest.raises(DtypeMismatchError, match="torch.float32 or torch.float64"):
         families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=torch.float16)
-    with pytest.raises(TypeError, match="must be bool"):
+    with pytest.raises(ArgumentError, match="must be bool"):
         families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=1)
     zero = SOMAClassic(torch.zeros(128), torch.zeros(77, 3), torch.zeros(3))
-    with pytest.raises(ValueError, match=r"\(\.\.\., 77, 3\)"):
+    with pytest.raises(ShapeError, match=r"\(\.\.\., 77, 3\)"):
         soma_from_classic(body, SOMAClassic(zero.identity_coeffs, torch.zeros(78, 3), zero.transl))
     with pytest.raises(TypeError, match="floating"):
         soma_from_classic(body, SOMAClassic(zero.identity_coeffs, zero.poses, None))
