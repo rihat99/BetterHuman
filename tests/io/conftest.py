@@ -36,7 +36,6 @@ def mhr_data() -> dict[str, np.ndarray]:
         "identity_basis": np.zeros((vertex_count, 3, 45), dtype=np.float32),
         "expression_basis": np.zeros((vertex_count, 3, 72), dtype=np.float32),
         "up_axis": np.asarray("+y", dtype="<U2"),
-        "forward_axis": np.asarray("+z", dtype="<U2"),
         "bind_matrices": np.zeros((127, 4, 4), dtype=np.float32),
         "inverse_bind_matrices": np.zeros((127, 4, 4), dtype=np.float32),
         "corrective_first_layer_indices": np.zeros((2, 53136), dtype=np.int64),

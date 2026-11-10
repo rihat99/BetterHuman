@@ -19,8 +19,8 @@ One converted MHR level of detail, `$BETTERHUMAN_MODELS_DIR/MHR/converted/mhr_lo
 
 ## Fields the reader reads
 
-Lengths are metres, rotations are quaternions `[qx, qy, qz, qw]`, the up axis is `+y` and the forward axis `+z`
-(both stored, `up_axis` and `forward_axis`). `V` and `F` are the LOD's vertex and face counts.
+Lengths are metres, rotations are quaternions `[qx, qy, qz, qw]`, the up axis is `+y` (stored, `up_axis`). `V` and
+`F` are the LOD's vertex and face counts.
 
 | field | dtype | shape | meaning |
 |---|---|---|---|
@@ -40,15 +40,15 @@ Lengths are metres, rotations are quaternions `[qx, qy, qz, qw]`, the up axis is
 | `skin_indices`, `skin_weights` | int64, float32 | `(V, 8)` each | padded skinning, rows sum to 1 |
 | `identity_basis` | float32 | `(V, 3, 45)` | identity blend shapes |
 | `expression_basis` | float32 | `(V, 3, 72)` | expression blend shapes |
-| `up_axis`, `forward_axis` | `<U2` | `()` | `"+y"`, `"+z"` |
+| `up_axis` | `<U2` | `()` | `"+y"`; sets gravity |
 | `bind_matrices`, `inverse_bind_matrices` | float32 | `(127, 4, 4)` | bind poses and their inverses |
 | `corrective_first_layer_indices` | int64 | `(2, 53136)` | sparse first layer of the pose-corrective MLP |
 | `corrective_first_layer_weights` | float32 | `(53136,)` | its values |
 | `corrective_first_layer_mask` | bool | `(3000, 750)` | its dense mask |
 | `corrective_output_weights` | float32 | `(3000, V * 3)` | the MLP's output layer |
 
-The converter writes further fields (conversion checks, upstream metadata); the reader ignores every field it does
-not list here. `correctives=False` and `expression=False` skip the corrective and expression fields.
+The converter writes further fields (conversion checks, upstream metadata, `forward_axis`); the reader ignores every
+field it does not list here. `correctives=False` and `expression=False` skip the corrective and expression fields.
 
 ## Migration
 
