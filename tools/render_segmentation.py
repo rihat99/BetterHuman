@@ -8,7 +8,7 @@ so re-runs are byte-stable.
 
 Regenerate with::
 
-    uv run python docs/render_segmentation.py
+    uv run python tools/render_segmentation.py
 
 Weights come from ``better_human.io.models_dir()``, that is ``$BETTERHUMAN_MODELS_DIR`` (``--models-dir``
 sets it for this run); nothing is guessed. A body whose weights are missing fails to load with the
