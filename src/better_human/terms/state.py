@@ -18,7 +18,7 @@ def baked_identity(human: HumanModel, *groups: str) -> TermFn:
     """
     for name in groups:
         if name not in human.spec.identity_bases:
-            raise UnknownNameError("identity group", name, list(human.spec.identity_bases))
+            raise UnknownNameError("identity group", name, valid=list(human.spec.identity_bases))
     names = groups or tuple(human.spec.identity_groups)
     return TermFn(fn=lambda *values: human.bake(**dict(zip(names, values, strict=True))), reads=names)
 
@@ -41,7 +41,7 @@ def human_state(
         known = identity.human.spec.stream_bases
         for name in streams:
             if name not in known:
-                raise UnknownNameError("stream group", name, list(known))
+                raise UnknownNameError("stream group", name, valid=list(known))
 
     def fixed(pose: torch.Tensor, *values: torch.Tensor) -> HumanState:
         return identity.forward(pose, dict(zip(streams, values, strict=True)))

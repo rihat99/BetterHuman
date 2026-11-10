@@ -46,7 +46,7 @@ def load(
     ``torch.float32`` or ``torch.float64``, the floating dtypes BetterRobot computes in.
     """
     if family not in _LOADERS:
-        raise UnknownNameError("family", family, list(_LOADERS))
+        raise UnknownNameError("family", family, valid=list(_LOADERS))
     spec = _LOADERS[family](path, dtype=dtype, device=device)
     return HumanModel.from_spec(spec, density=density, contact_frames=contact_frames, stream_joints=stream_joints)
 

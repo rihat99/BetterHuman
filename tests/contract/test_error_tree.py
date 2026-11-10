@@ -86,14 +86,14 @@ def human(tmp_path: Path) -> bh.HumanModel:
 
 @pytest.mark.slow
 def test_a_misspelled_identity_group_raises_naming_the_groups(human: bh.HumanModel) -> None:
-    with pytest.raises(UnknownNameError, match=r"unknown identity group 'beta'; valid identity groups: \['betas'\]"):
+    with pytest.raises(UnknownNameError, match=r"unknown identity group 'beta' \(valid names: \['betas'\]\)"):
         human.bake(beta=torch.zeros(100, dtype=torch.float64))
 
 
 @pytest.mark.slow
 def test_a_misspelled_stream_group_raises_naming_the_groups(human: bh.HumanModel) -> None:
     streams = {"expresion": torch.zeros(50, dtype=torch.float64)}
-    with pytest.raises(UnknownNameError, match=r"unknown stream group 'expresion'; valid stream groups"):
+    with pytest.raises(UnknownNameError, match=r"unknown stream group 'expresion' \(valid names: \['expression'\]\)"):
         human.bake().forward(human.model.q_neutral, streams)
 
 

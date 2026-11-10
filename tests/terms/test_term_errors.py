@@ -33,7 +33,7 @@ def test_a_family_without_landmarks_raises_an_argument_error(human: bh.HumanMode
 
 
 def test_misspelled_groups_raise_when_the_term_is_built(human: bh.HumanModel) -> None:
-    with pytest.raises(UnknownNameError, match=r"unknown identity group 'beta'; valid identity groups: \['betas'\]"):
+    with pytest.raises(UnknownNameError, match=r"unknown identity group 'beta' \(valid names: \['betas'\]\)"):
         terms.baked_identity(human, "beta")
     with pytest.raises(UnknownNameError, match=r"unknown stream group 'expresion'.*\['expression'\]"):
         terms.human_state(human.bake(), streams=["expresion"])

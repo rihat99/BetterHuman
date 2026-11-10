@@ -183,7 +183,7 @@ class FamilySpec:
     def joint_id(self, name: str) -> int:
         """Native index of joint ``name``; :class:`~better_robot.exceptions.UnknownNameError` for another name."""
         if name not in self.joint_names:
-            raise UnknownNameError("joint", name, self.joint_names)
+            raise UnknownNameError("joint", name, valid=self.joint_names)
         return self.joint_names.index(name)
 
     def skin_matrix(self) -> torch.Tensor:

@@ -109,7 +109,7 @@ def to_classic(identity: Identity, q: torch.Tensor, *, streams: Mapping[str, tor
     streams = dict(streams or {})
     for name in streams:
         if name not in spec.stream_bases:
-            raise UnknownNameError("stream group", name, list(spec.stream_bases))
+            raise UnknownNameError("stream group", name, valid=list(spec.stream_bases))
     q = _checked("q", q, (identity.model.nq,), exemplar)
     streams = _checked_groups(streams, spec.stream_groups, exemplar, require_all=False)
     batch = _broadcast(

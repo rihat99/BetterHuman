@@ -138,7 +138,7 @@ class HumanModel:
         spec = self.spec
         for name in identity:
             if name not in spec.identity_bases:
-                raise UnknownNameError("identity group", name, list(spec.identity_bases))
+                raise UnknownNameError("identity group", name, valid=list(spec.identity_bases))
         values = _checked_groups(identity, spec.identity_groups, spec.template_vertices)
         bake = _bake(spec, self.model, values)
         model = self.model.with_values(joint_placements=bake.joint_placements)
@@ -207,7 +207,7 @@ class Identity:
         streams = dict(streams or {})
         for name in streams:
             if name not in spec.stream_bases:
-                raise UnknownNameError("stream group", name, list(spec.stream_bases))
+                raise UnknownNameError("stream group", name, valid=list(spec.stream_bases))
         streams = _checked_groups(streams, spec.stream_groups, spec.template_vertices, require_all=False)
         offsets = None
         delta = None

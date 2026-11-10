@@ -53,7 +53,5 @@ def test_a_dtype_that_is_not_float32_or_float64_raises_in_the_loader(family: str
 
 @pytest.mark.parametrize("family", list(GENDERS))
 def test_an_unknown_gender_raises_listing_the_family_genders(family: str, tmp_path: Path) -> None:
-    with pytest.raises(
-        UnknownNameError, match=re.escape(f"unknown gender 'nuetral'; valid genders: {GENDERS[family]}")
-    ):
+    with pytest.raises(UnknownNameError, match=re.escape(f"unknown gender 'nuetral' (valid names: {GENDERS[family]})")):
         getattr(bh.families, family)(tmp_path / "missing.npz", gender="nuetral")

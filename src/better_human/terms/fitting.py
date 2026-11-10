@@ -26,7 +26,7 @@ def joints(*, target: str, state: str = "state", joint_names: Sequence[str] | No
             known = human.identity.human.spec.joint_names
             for name in names:
                 if name not in known:
-                    raise UnknownNameError("joint", name, known)
+                    raise UnknownNameError("joint", name, valid=known)
             ids = torch.tensor([known.index(name) for name in names], device=positions.device)
             positions = positions.index_select(-2, ids)
         return (positions - goal).flatten(-2)
