@@ -60,7 +60,7 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   `benchmarks/thresholds/torch-2.13.0.json` (rule C-PERF-3, `tests/contract/test_compile_counters.py`, full tier).
 - Ratchets in `tests/contract/ratchets/` only shrink; the test that reads each one fails on a stale entry, so an
   entry leaves in the commit that fixes it. Open today: dead_citations 5, positional_parameters 12 (the public
-  records' positional fields and `terms.baked_identity`'s `*groups`, both parked with the owner); the other five are
+  records' positional fields and `terms.baked_identity`'s `*groups`, both parked with the owner); the other four are
   empty.
 - The public API equals `tests/contract/public_api.json` (`tests/contract/test_api_snapshot.py`); an intended change
   is recorded with `uv run python tools/api_snapshot.py --write` and an entry in `docs/reference/changelog.md`
