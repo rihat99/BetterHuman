@@ -2,7 +2,8 @@
 
 Every exception class under ``better_human`` derives from ``BetterRobotError``; ``src`` raises a builtin
 ``ValueError``, ``TypeError``, ``RuntimeError``, ``KeyError``, ``IndexError`` or ``AssertionError`` (called or bare,
-``raise ValueError``) only where ``PLAIN_RAISES`` (permanent, reasoned) or the ratchet
+``raise ValueError``, or under another name: ``_Plain = ValueError``, ``from builtins import ValueError as _Plain``)
+only where ``PLAIN_RAISES`` (permanent, reasoned) or the ratchet
 ``tests/contract/ratchets/plain_raises.json`` (shrinks as the classic, families and viz rewrites land) allows.
 """
 
@@ -44,12 +45,31 @@ def _exception_classes() -> list[type]:
     return found
 
 
-def _raised_builtin(node: ast.AST) -> str | None:
-    """The ``BUILTIN_RAISES`` class ``node`` raises, called (``raise KeyError(x)``) or bare (``raise ValueError``)."""
+def _name(node: ast.AST) -> str | None:
+    return node.id if isinstance(node, ast.Name) else getattr(node, "attr", None)
+
+
+def _builtin_aliases(tree: ast.AST) -> dict[str, str]:
+    """Every other name a file gives a ``BUILTIN_RAISES`` class: ``_Plain = ValueError`` or an import from builtins."""
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "builtins":
+            aliases.update({item.asname or item.name: item.name for item in node.names if item.name in BUILTIN_RAISES})
+        elif isinstance(node, ast.Assign | ast.AnnAssign) and node.value is not None:
+            builtin = _name(node.value)
+            if builtin in BUILTIN_RAISES:
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                aliases.update({target.id: builtin for target in targets if isinstance(target, ast.Name)})
+    return aliases
+
+
+def _raised_builtin(node: ast.AST, aliases: dict[str, str]) -> str | None:
+    """The ``BUILTIN_RAISES`` class ``node`` raises, called (``raise KeyError(x)``), bare (``raise ValueError``) or
+    under one of the file's ``aliases``."""
     if not (isinstance(node, ast.Raise) and node.exc is not None):
         return None
-    callee = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
-    name = callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", None)
+    name = _name(node.exc.func if isinstance(node.exc, ast.Call) else node.exc)
+    name = aliases.get(name, name)
     return name if name in BUILTIN_RAISES else None
 
 
@@ -57,16 +77,17 @@ def _builtin_raise_sites() -> set[str]:
     """``path::function`` of every raise of a ``BUILTIN_RAISES`` class under ``src``."""
     sites: set[str] = set()
 
-    def visit(node: ast.AST, file: Path, owner: str) -> None:
+    def visit(node: ast.AST, file: Path, owner: str, aliases: dict[str, str]) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             owner = node.name
-        if _raised_builtin(node):
+        if _raised_builtin(node, aliases):
             sites.add(f"{file.relative_to(REPO).as_posix()}::{owner}")
         for child in ast.iter_child_nodes(node):
-            visit(child, file, owner)
+            visit(child, file, owner, aliases)
 
     for file in SRC.rglob("*.py"):
-        visit(ast.parse(file.read_text()), file, "<module>")
+        tree = ast.parse(file.read_text())
+        visit(tree, file, "<module>", _builtin_aliases(tree))
     return sites
 
 
@@ -96,10 +117,14 @@ def test_src_raises_the_error_tree_only() -> None:
         ("raise IndexError(index)", "IndexError"),
         ("raise AssertionError", "AssertionError"),
         ("raise builtins.RuntimeError", "RuntimeError"),
+        ("_Plain = ValueError\nraise _Plain('x')", "ValueError"),
+        ("from builtins import TypeError as _Plain\nraise _Plain", "TypeError"),
     ],
 )
 def test_every_form_of_a_builtin_raise_is_found(statement: str, builtin: str) -> None:
-    assert [_raised_builtin(node) for node in ast.walk(ast.parse(statement)) if _raised_builtin(node)] == [builtin]
+    tree = ast.parse(statement)
+    aliases = _builtin_aliases(tree)
+    assert [_raised_builtin(node, aliases) for node in ast.walk(tree) if _raised_builtin(node, aliases)] == [builtin]
 
 
 @pytest.fixture
