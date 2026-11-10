@@ -20,10 +20,10 @@ cd BetterHuman
 uv sync
 ```
 
-Install the optional browser viewer for the demos:
+Install the optional browser viewer for the demos and HumanStudio:
 
 ```bash
-uv sync --extra viewer
+uv sync --extra studio
 ```
 
 ## Supply model weights

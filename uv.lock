@@ -60,9 +60,6 @@ dependencies = [
 studio = [
     { name = "better-robot", extra = ["viewer"] },
 ]
-viewer = [
-    { name = "better-robot", extra = ["viewer"] },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -81,11 +78,10 @@ dev = [
 requires-dist = [
     { name = "better-robot", editable = "../BetterRobot" },
     { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", editable = "../BetterRobot" },
-    { name = "better-robot", extras = ["viewer"], marker = "extra == 'viewer'", editable = "../BetterRobot" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
 ]
-provides-extras = ["viewer", "studio"]
+provides-extras = ["studio"]
 
 [package.metadata.requires-dev]
 dev = [

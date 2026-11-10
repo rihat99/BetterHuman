@@ -12,7 +12,7 @@ commit pinned in `uv.lock` from GitHub. To develop against a local BetterRobot c
 
 ```bash
 cd BetterHuman
-uv sync                      # add --extra viewer for the browser viewer, --extra studio for HumanStudio
+uv sync                      # add --extra studio for the browser viewer and HumanStudio
 export BETTERHUMAN_MODELS_DIR=$PWD/models
 ```
 

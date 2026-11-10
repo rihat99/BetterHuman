@@ -17,8 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-viewer = ["better-robot[viewer]"]
-studio = ["better-robot[viewer]"]
+studio = ["better-robot[viewer]"]  # the browser viewer (better_human.viz) and HumanStudio
 
 [dependency-groups]
 dev = [
