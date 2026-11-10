@@ -66,7 +66,26 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["B006", "E", "F", "PLC", "PLE", "PLR", "PLW", "SLF001"]
+# BetterRobot's select, so both repositories hold one rule set; SLF001 is this repository's own (record 0009).
+select = ["E", "F", "PLC", "PLE", "PLR", "PLW", "B006", "B008", "T201", "E722", "TID251",
+          "FBT001", "FBT002", "BLE001", "ERA001", "ANN201", "S102", "S307"]
+extend-select = ["SLF001"]
 ignore = ["E501", "PLR0913", "PLR2004"]
-# Record 0009 holds the studio to public names; tests and tools may reach into what they check.
-per-file-ignores = { "!src/better_human/studio/**" = ["SLF001"] }
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN201", "FBT001", "FBT002"]
+"examples/**" = ["T201"]
+"benchmarks/**" = ["T201"]  # scripts that report on stdout, as the examples do
+"tools/render_segmentation.py" = ["T201"]  # reports the figures it writes
+"!src/better_human/studio/**" = ["SLF001"]  # record 0009 binds the studio; tests and tools may reach in
+"!src/**" = ["TID251"]  # C-DEP-3 binds the library; a test, tool or benchmark may seed torch or pin its threads
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"torch.set_default_dtype".msg = "C-DEP-3: no process-wide torch settings inside the library"
+"torch.set_default_device".msg = "C-DEP-3: no process-wide torch settings inside the library"
+"torch.set_grad_enabled".msg = "C-DEP-3: no global autograd switches inside the library"
+"torch.use_deterministic_algorithms".msg = "C-DEP-3: no process-wide torch settings inside the library"
+"torch.set_float32_matmul_precision".msg = "C-DEP-3: no process-wide torch settings inside the library"
+"torch.manual_seed".msg = "C-DEP-3: no process-wide RNG seeding inside the library; take a generator"
+"torch.set_num_threads".msg = "C-DEP-3: no process-wide thread settings inside the library"
+"torch.set_num_interop_threads".msg = "C-DEP-3: no process-wide thread settings inside the library"

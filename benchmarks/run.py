@@ -352,7 +352,7 @@ def measure_sweep(cases: list[Case], args: argparse.Namespace, sync: Callable[[]
             continue
         try:
             rows.append(measure(case, args, sync))
-        except Exception as exc:  # one row's failure (memory at a large batch) is recorded, not fatal
+        except Exception as exc:  # noqa: BLE001 - one row's failure (memory at a large batch) is recorded, not fatal
             rows.append({"row": case.row, "batch": case.batch, **case.fields, "error": f"{type(exc).__name__}: {exc}"})
             print(f"{case.row:<48} ERROR {rows[-1]['error'][:80]}")
             continue

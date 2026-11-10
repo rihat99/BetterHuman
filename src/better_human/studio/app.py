@@ -449,6 +449,6 @@ def launch(
         generator=generator,
         density=density,
     )
-    print(f"HumanStudio at {studio.viewer.url}")
+    print(f"HumanStudio at {studio.viewer.url}")  # noqa: T201 - the launcher's one line: where to open it
     studio.run()
     return studio
