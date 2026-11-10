@@ -67,6 +67,11 @@ CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], flo
         SMPLFamilyFormat,
         1e-9,
     ),
+    "mano-without-index3": (
+        lambda path: bh.families.drop_joints(bh.families.mano(_mano_file(path), dtype=F64), ["index3"]),
+        SMPLFamilyFormat,
+        1e-9,
+    ),
     "mano-pca6-weights": (
         _licensed(lambda: bh.families.mano(weight_path("mano", "MANO_RIGHT.npz"), num_pca_comps=6, dtype=F64)),
         SMPLFamilyFormat,
@@ -96,6 +101,15 @@ CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], flo
         SMPLFamilyFormat,
         1e-8,
     ),
+    "smplx-without-left_index3": (
+        _licensed(
+            lambda: bh.families.drop_joints(
+                bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), dtype=F64), ["left_index3"]
+            )
+        ),
+        SMPLFamilyFormat,
+        1e-10,
+    ),
     "smplx-body-only": (
         _licensed(
             lambda: bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), hands=False, face=False, dtype=F64)
@@ -119,7 +133,7 @@ CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], flo
         1e-12,
     ),
 }
-SYNTHETIC = ("flame", "flame-without-jaw", "mano-pca6", "mano-flat")
+SYNTHETIC = ("flame", "flame-without-jaw", "mano-pca6", "mano-flat", "mano-without-index3")
 
 
 def check_round_trip(human: bh.HumanModel, generator: torch.Generator, atol: float) -> None:
@@ -127,7 +141,8 @@ def check_round_trip(human: bh.HumanModel, generator: torch.Generator, atol: flo
 
     Every field the model takes is drawn ``(*BATCH, *shape)`` and comes back, an identity field exactly; every field of
     an empty classic comes back as zeros; a field the model was loaded without must raise when set and come back
-    ``None``; another family's classic must raise.
+    ``None``, and so must a joint the model was loaded without in a field it keeps (drawn zero, read zero); another
+    family's classic must raise.
     """
     spec = human.spec
     classic_type = spec.classic.classic_type
@@ -138,6 +153,16 @@ def check_round_trip(human: bh.HumanModel, generator: torch.Generator, atol: flo
         for name in names
         if name in shapes
     }
+    dropped_entries = {}  # field -> its axis-angle entries of joints the model was loaded without
+    pose_fields = spec.classic.pose_fields if isinstance(spec.classic, SMPLFamilyFormat) else {}
+    for name, joints in pose_fields.items():
+        dropped = torch.tensor([joint not in spec.joint_names for joint in joints]).repeat_interleave(3)
+        if name in values and bool(dropped.any()):
+            dropped_entries[name] = dropped
+            values[name] = values[name].masked_fill(dropped, 0.0)
+    for name, dropped in dropped_entries.items():
+        with pytest.raises(ArgumentError, match="loaded without"):
+            bh.from_classic(human, classic_type(**{name: values[name].masked_fill(dropped, 0.3)}))
     identity, q, streams = bh.from_classic(human, classic_type(**values))
     back = bh.to_classic(identity, q, streams=streams)
     empty_identity, empty_q, empty_streams = bh.from_classic(human, classic_type())
@@ -215,6 +240,14 @@ def test_smpl_family_axis_angles_keep_the_quaternion_sign(tmp_path: Path) -> Non
     negated = torch.cat((q[:7], -q[7:]))
     _, q_back, _ = bh.from_classic(human, bh.to_classic(identity, negated, streams=streams))
     torch.testing.assert_close(q_back, negated, rtol=0, atol=1e-12)
+
+
+def test_a_hand_pca_field_cannot_lose_some_of_its_joints(tmp_path: Path) -> None:
+    """A PCA coefficient moves every joint of the hand, so dropping one finger joint raises with the fix."""
+    for flat_hand_mean in (False, True):
+        spec = bh.families.mano(_mano_file(tmp_path), num_pca_comps=6, flat_hand_mean=flat_hand_mean, dtype=F64)
+        with pytest.raises(ArgumentError, match=r"\['index3'\] cannot be left out; load the model with num_pca_comps"):
+            bh.families.drop_joints(spec, ["index3"])
 
 
 @pytest.mark.parametrize("num_pca_comps", (0, 46, 6.0, True))

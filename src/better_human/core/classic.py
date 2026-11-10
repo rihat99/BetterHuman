@@ -33,7 +33,10 @@ class ClassicFormat(ABC):
 
     @abstractmethod
     def field_shapes(self, spec: FamilySpec) -> dict[str, tuple[int, ...]]:
-        """Trailing shape of every field a model of ``spec`` takes; a field left out was not loaded and stays ``None``."""
+        """Trailing shape of every field a model of ``spec`` takes; a field left out was not loaded and stays ``None``.
+
+        Raises :class:`~better_robot.exceptions.ArgumentError` when the format cannot map ``spec``'s joints.
+        """
 
     @abstractmethod
     def from_fields(

@@ -132,9 +132,10 @@ def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
     "Dempster", dropping SMPL's left forearm (``["left_elbow", "left_wrist", "left_hand"]``) loses 0.085 kg.
 
     The spec's rig drops the joints (``Rig.without_joints``); of the shipped rigs only the SMPL family's
-    ``RegressedRig`` can. Raises :class:`~better_robot.exceptions.ArgumentError` for a rig that cannot, for a bare
-    string (pass a list) and for a repeated name, and :class:`~better_robot.exceptions.UnknownNameError` for an
-    unknown name.
+    ``RegressedRig`` can. Raises :class:`~better_robot.exceptions.ArgumentError` for a rig that cannot, for joints
+    the spec's classic format cannot leave out (some joints of a hand PCA field: load with ``num_pca_comps=None``),
+    for a bare string (pass a list) and for a repeated name, and :class:`~better_robot.exceptions.UnknownNameError`
+    for an unknown name.
     """
     if isinstance(names, str):
         raise ArgumentError(f"drop_joints takes a list of joint names, got the string {names!r}; pass [{names!r}]")
@@ -144,6 +145,7 @@ def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
     reduced = spec.rig.without_joints(spec, [spec.joint_id(name) for name in names])
     if reduced is None:
         raise ArgumentError(f"drop_joints: {type(spec.rig).__name__} cannot drop joints; the SMPL family's rig can")
+    reduced.classic.field_shapes(reduced)  # raises here, at the drop, for joints the classic fields cannot lose
     return reduced
 
 
