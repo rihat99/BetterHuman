@@ -1,6 +1,7 @@
 """``HumanModel`` (a family ready to bake), ``Identity`` (one subject, baked once), ``HumanState`` (one posed batch).
 
-All three are frozen and compare by identity (``eq=False``): they hold tensors, whose ``==`` is elementwise.
+All three are frozen and compare by identity (``eq=False``): they hold tensors, whose ``==`` is elementwise. Their
+mapping fields are read-only copies (``MappingProxyType``).
 ``HumanState`` computes its outputs on first use and keeps them in ``_memo``, keyed by the output and the grad mode
 (``"<key>/<torch.is_grad_enabled()>"``): ``joint_transforms``, ``skin_affines``, ``corrective_features``,
 ``vertices``. A value computed under ``no_grad`` never serves a grad-enabled caller.
@@ -30,7 +31,7 @@ from better_human.mass import PartTopology, part_densities, part_inertias
 from .contact_frames import ContactFrames, _frame_local_placements, _resolve_parents
 from .skinning import blend_shapes, linear_blend_skinning, skin_affines
 from .rig import RigBake
-from .spec import FamilySpec
+from .spec import FamilySpec, _read_only
 
 Tensors = Mapping[str, torch.Tensor]
 
@@ -52,6 +53,13 @@ class HumanModel:
     part_topology: PartTopology | None  #: closed part meshes for the inertias; ``None`` without density.
     contact_frames: ContactFrames | None  #: frames attached to the model, or ``None``.
     stream_joint_bases: Tensors  #: stream group -> ``(J, 3, n)`` joint motion; groups that move no joint are absent.
+
+    def __post_init__(self) -> None:
+        if (self.density is None) != (self.part_topology is None):
+            raise ArgumentError(
+                "HumanModel: density and part_topology are both None or both set; build it with HumanModel.from_spec"
+            )
+        object.__setattr__(self, "stream_joint_bases", _read_only(self.stream_joint_bases))
 
     @classmethod
     def from_spec(
@@ -187,6 +195,9 @@ class Identity:
     root_offset: torch.Tensor  #: ``(I..., 3)`` root from the native origin; ``transl + root_offset`` places the root.
     model: Model  #: placements, inertias and contact frames baked.
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "values", _read_only(self.values))
+
     def forward(self, q: torch.Tensor, streams: Tensors | None = None) -> HumanState:
         """Pose ``q (B..., nq)`` with optional stream groups ``(B..., n)``; ``B...`` broadcasts with ``I...``.
 
@@ -216,7 +227,7 @@ class Identity:
             root_offset = root_offset + root[..., 0, :]
             placements = spec.rig.placements_from_rest(spec, model, rest_joint_translations=rest_joints)
             model = model.with_values(joint_placements=placements)
-            # A rig that moves joints with streams binds each joint at its rest translation (Rig docstring).
+            # A rig whose streams move joints binds each joint at its rest translation (Rig.stream_joint_basis).
             rotations = inverse_binds[..., :3]
             translations = -(rotations @ rest_joints[..., None])
             inverse_binds = torch.cat((rotations.expand(*translations.shape[:-1], 3), translations), dim=-1)
@@ -243,6 +254,9 @@ class HumanState:
     stream_offsets: torch.Tensor | None  #: ``(..., V, 3)`` stream vertex offsets, if any.
     # init=False: dataclasses.replace (e.g. a new identity) starts a fresh memo instead of sharing the old one.
     _memo: dict[str, torch.Tensor] = field(default_factory=dict, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "streams", _read_only(self.streams))
 
     @property
     def joint_poses(self) -> torch.Tensor:
@@ -310,8 +324,17 @@ class HumanState:
         return linear_blend_skinning(self.rest_vertices(vertex_ids), self.skin_affines, weights=skin)
 
     def landmarks(self) -> torch.Tensor:
-        """``(..., L, 3)`` posed landmarks of the family (``spec.landmarks``)."""
-        return self.points(self.identity.human.spec.landmarks.vertex_ids)
+        """``(..., L, 3)`` posed landmarks of the family (``spec.landmarks``).
+
+        Raises :class:`~better_robot.exceptions.ArgumentError` for a family without landmarks (MHR, SOMA).
+        """
+        spec = self.identity.human.spec
+        if spec.landmarks is None:
+            raise ArgumentError(
+                f"the {spec.name} family has no landmarks (spec.landmarks is None); name vertices instead: "
+                "state.points(vertex_ids), terms.points, or terms.reprojection(vertex_ids=...) or (joints=True)"
+            )
+        return self.points(spec.landmarks.vertex_ids)
 
     @property
     def frame_poses(self) -> torch.Tensor:

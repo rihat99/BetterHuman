@@ -23,8 +23,12 @@ images make the difference visible.
 - **Argmax fallback** (`PartTopology.from_part_ids`). For models without an authored
   asset, each vertex is assigned to its strongest-weighted skinning joint
   (`segment_vertices`), a face joins the part held by at least two of its
-  vertices, and every resulting open boundary loop is closed by a reverse-wound
-  triangle fan about that loop's **centroid**. MHR maps the winning native joint
+  vertices, and every open boundary loop (split into simple loops at a pinch) is closed by reverse-wound
+  triangle fans. A loop that borders one neighbouring part is fanned about its **centroid**; a loop that borders
+  several is cut into one run per neighbour, each fanned about the run's centroid over the run and the chord
+  between its end junctions, and three or more junctions are fanned about their centroid. A neighbour that cuts
+  the seam at the same junctions computes each centroid from the same vertices, so their caps coincide. MHR maps
+  the winning native joint
   through the converted reference segmentation to 19 grouped parts before this
   step. This is the generic path; SMPL-X and MHR use it because neither ships an
   authored closed-3D asset.
@@ -34,35 +38,36 @@ with respect to shape through the cap vertices. `mass.part_inertias` integrates 
 default the `"Dempster"` table, each part at the density of the category its family declares
 (`Parts.density_categories`, [density tables](../reference/formats/density_tables.md)).
 
-## Why the authored partition preserves volume
+## Why the parts sum back to the body
 
-The authored caps are the reason the parts sum back to the whole body. Where two
-parts meet at a joint, both close their shared opening by fanning to the **same**
-rest-joint position, so the cap surface one part adds is the exact reverse of the
-cap its neighbour adds. Summed over the body, those internal caps cancel in
-signed volume and the 24 closed parts telescope back to the original surface.
-
-Three SMPL parts — `spine3`, `left_collar`, `right_collar` — are genuinely open
-and non-manifold at the shoulder-girdle seam, so their individual absolute
-volumes are origin-dependent. `inertia_of_mesh` integrates each part about its
-own mean, which makes the *aggregate* exact even though those three parts are
-open. Measured on the neutral SMPL fixture at 1000 kg/m³:
+Shared caps are the reason the parts sum back to the whole body. Where two parts meet, both close their shared
+opening with the **same** cap: the authored parts fan to the same rest joint, the argmax parts to the same
+centroid of the same vertices. The cap surface one part adds is then the exact reverse of the cap its neighbour
+adds, so the internal caps cancel in signed volume and the closed parts telescope back to the original surface.
+Every part is a closed, consistently wound mesh; `PartTopology` raises for one that is not. Measured on the
+neutral SMPL fixture at 1000 kg/m³ (24 parts each):
 
 | Quantity | Authored closed-3D | Argmax fallback |
 |---|---|---|
-| 24-part volume sum vs whole mesh | within **+0.0055 %** (+54 ppm) | **+1.78 %** |
-| Total part mass (whole mesh 74.76 kg) | **74.76 kg** | 73.43 kg |
-| Aggregate vs whole-mesh COM separation | **0.02 mm** | 2.47 mm |
+| 24-part volume sum vs whole mesh | **-0.0071 %** (-71 ppm) | **0** (exact up to rounding) |
+| Total part mass (whole mesh 74.761 kg) | 74.755 kg | 74.761 kg |
+| Aggregate vs whole-mesh COM separation | 0.03 mm | 0.00 mm |
 
-The authored partition closes the 1.78 % gap the centroid-capped argmax path
-carries, which is why it is preferred wherever the asset exists.
+The authored residual sits at the shoulders: where `spine3` meets a collar, three authored cap triangles and the
+shoulder face that both parts once listed (dropped so that both parts close) leave a 2.6 mL sliver in no part.
+The argmax closure leaves a residual where caps do not coincide: at a junction polygon (three or more parts
+meeting on one loop), at a seam that a third part touches at one vertex (a junction for one side only), and at a
+mesh hole that two parts cap with two runs and a chord. SMPL-H's hands give -4.1 ppm and SMPL-X's mouth -17 ppm;
+`tests/mass/test_closure.py` holds the bound for each family. The ragged seams of MHR's coarse levels of detail and
+of SOMA leave much more (MHR LOD 0 -79 ppm, LOD 2 -0.6 %, LOD 6 -16 %; SOMA -2.4 % of the volume). The two segmentations cut the body in different
+places, so their part masses differ even where both conserve the total.
 
 ## When each is used
 
-The authored closed-3D segmentation is the SMPL-family default: it is the
-volume-preserving choice and needs no runtime boundary tracing. The argmax
+The authored closed-3D segmentation is SMPL's: it is an
+anatomical cut and needs no runtime boundary tracing. The argmax
 fallback is the generic path for any model that ships no authored asset —
-SMPL-X and MHR today, and every future model until an authored asset is added
+SMPL-H, SMPL-X and MHR today, and every future model until an authored asset is added
 for it. SMPL and SMPL-X also have authored **per-vertex** labelings
 (`*_vert_segmentation.json`) used only to color the intact surface; MHR does
 not. SMPL-X's closed topology still comes from argmax because its per-vertex
@@ -81,8 +86,7 @@ centroid-capped parts.
 | ![SMPL authored split](../segmentation/smpl_authored_split.png) | ![SMPL argmax split](../segmentation/smpl_argmax_split.png) |
 
 The authored split parts are closed volumes (note the solid caps at every
-joint); the argmax split parts are closed by centroid fans and carry the 1.78 %
-volume gap above.
+joint); the argmax split parts are closed by centroid fans that their neighbours share.
 
 ## SMPL-X
 
@@ -112,7 +116,7 @@ centroid-capped solids that feed MHR inertias.
 |---|---|
 | ![MHR grouped argmax surface](../segmentation/mhr_argmax_surface.png) | ![MHR grouped argmax split](../segmentation/mhr_argmax_split.png) |
 
-An authored volume-preserving partition remains roadmap work.
+An authored partition remains roadmap work.
 
 ## Regenerate the images
 

@@ -11,6 +11,7 @@ import inspect
 import json
 import pkgutil
 from pathlib import Path
+from typing import final
 
 import pytest
 
@@ -31,13 +32,26 @@ def _classes() -> list[tuple[str, type]]:
 
 
 def _undecided(cls: type) -> bool:
-    return not (inspect.isabstract(cls) or getattr(cls, "__final__", False))
+    # The class's own __dict__: a subclass of a @final class inherits __final__ without being final itself.
+    return not (inspect.isabstract(cls) or cls.__dict__.get("__final__", False))
 
 
 @pytest.mark.parametrize(("qualname", "cls"), _classes(), ids=[qualname for qualname, _ in _classes()])
 def test_class_is_abstract_or_final(qualname: str, cls: type) -> None:
     ratchet = json.loads(RATCHET.read_text())
     assert not _undecided(cls) or qualname in ratchet, f"{qualname} is neither abstract nor @final"
+
+
+def test_a_subclass_of_a_final_class_is_undecided() -> None:
+    @final
+    class Sealed:
+        pass
+
+    class Inheritor(Sealed):  # type: ignore[misc]
+        pass
+
+    assert not _undecided(Sealed)
+    assert _undecided(Inheritor)
 
 
 def test_ratchet_names_only_undecided_classes() -> None:

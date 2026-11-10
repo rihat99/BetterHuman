@@ -11,9 +11,10 @@ Licensed weights are never downloaded or cached by BetterHuman.
 from __future__ import annotations
 
 import os
+import zipfile
 from collections.abc import Collection
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 import numpy as np
 import torch
@@ -109,7 +110,7 @@ def load_model_npz(
     names = set(selected_schema.fields)
     if schema.format is not None:
         names |= set(header(schema.format))  # read even when excluded: the version selects the migrations
-    with np.load(model_path, allow_pickle=False) as archive:
+    with model_path.open("rb") as file, _open_archive(file, model_path, schema.name) as archive:
         arrays = _read_archive_arrays(archive, names, schema.name, model_path)
         if schema.format is not None:
             for name in past_fields(arrays, format=schema.format, source=str(model_path)):
@@ -119,6 +120,23 @@ def load_model_npz(
         arrays = upgrade(arrays, format=schema.format, source=str(model_path))
     validate(arrays, selected_schema, source=str(model_path))
     return {name: _to_loaded_value(np.asarray(arrays[name])) for name in selected_schema.fields}
+
+
+def _open_archive(file: BinaryIO, model_path: Path, schema_name: str) -> np.lib.npyio.NpzFile:
+    # The caller owns the open file: np.load leaks the file it opened itself when the zip directory is unreadable.
+    try:
+        archive = np.load(file, allow_pickle=False)
+    except (zipfile.BadZipFile, ValueError, OSError, EOFError) as error:
+        cause = type(error).__name__
+    else:
+        if isinstance(archive, np.lib.npyio.NpzFile):
+            return archive
+        cause = "a single .npy array"
+    # Raised outside the except clause: numpy's ValueError for a non-archive advises loading it unsafely.
+    raise FormatError(
+        f"{model_path}: not a readable .npz archive ({cause}); the file is truncated, corrupt or of another kind. "
+        f"Copy or reconvert it again, or pass a valid {schema_name} .npz file."
+    )
 
 
 def _to_loaded_value(array: np.ndarray) -> torch.Tensor | np.ndarray:

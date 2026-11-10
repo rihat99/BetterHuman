@@ -32,13 +32,19 @@ FIX = "Write frame sets with better_human.io.write_frame_set (spec: docs/referen
 def read_frame_set(path: str | Path) -> dict[str, tuple[int, str | None]]:
     """The frames of a frame-set file: name -> ``(vertex_id, joint_name | None)``, in authored order.
 
-    Raises :class:`~better_human.io.FormatError` for a file that is not JSON, another format, a later version, or a
+    Raises :class:`~better_robot.exceptions.ArgumentError` when ``path`` is not a file, and
+    :class:`~better_human.io.FormatError` for a file that is not UTF-8 JSON, another format, a later version, or a
     file or entry that is not frame-shaped.
     """
     path = Path(path)
+    if not path.is_file():
+        raise ArgumentError(
+            f"read_frame_set: {path} is not a file; pass the path of a frame-set file, or read a shipped one with "
+            "better_human.io.shipped_frame_set(name)"
+        )
     try:
-        data = json.loads(path.read_text())
-    except json.JSONDecodeError as error:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
         raise FormatError(f"{path}: not a JSON file ({error}). {FIX}") from error
     return _frames(data, source=str(path))
 

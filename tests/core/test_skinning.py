@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
+from pathlib import Path
+
 import pytest
 import torch
 from better_robot.lie import so3
@@ -9,6 +12,7 @@ from torch.nn import functional
 
 from better_human.core.skinning import blend_shapes, linear_blend_skinning, skin_affines
 from tests.support.marks import FLOAT32_GRADCHECK
+from tests.support.synthetic import flame_spec
 
 
 def test_blend_shapes_preserves_batch_axes() -> None:
@@ -38,6 +42,24 @@ def test_float32_gradcheck_skin_affines_and_linear_blend_skinning() -> None:
         rtol=3e-2,
         fast_mode=True,
     )
+
+
+def test_duplicate_skin_influences_accumulate(tmp_path: Path) -> None:
+    spec = flame_spec(tmp_path)
+    num_vertices = spec.num_vertices
+    weights = torch.full((num_vertices, 2), 0.5, dtype=spec.dtype)
+    weights[1] = torch.tensor([0.25, 0.75], dtype=spec.dtype)
+    indices = torch.ones((num_vertices, 2), dtype=torch.long)
+    indices[0], indices[1] = torch.tensor([0, 0]), torch.tensor([0, 2])  # vertex 0 lists joint 0 twice
+    matrix = dataclasses.replace(spec, skin_weights=weights, skin_indices=indices).skin_matrix()
+    assert torch.equal(matrix[0], torch.tensor([1.0, 0.0, 0.0, 0.0, 0.0], dtype=spec.dtype))
+    assert torch.equal(matrix[1], torch.tensor([0.25, 0.0, 0.75, 0.0, 0.0], dtype=spec.dtype))
+
+    affines = _affine(_random_world_poses(1, 5, spec.dtype))[0]
+    rest = spec.template_vertices
+    skinned = linear_blend_skinning(rest, affines, weights=matrix)
+    expected = sum(weights[:, slot, None] * _apply(affines[indices[:, slot]], rest) for slot in range(2))
+    torch.testing.assert_close(skinned, expected, rtol=0, atol=1e-14)
 
 
 def _random_world_poses(batch: int, joints: int, dtype: torch.dtype) -> torch.Tensor:
