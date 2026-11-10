@@ -3,7 +3,9 @@
 ``better_robot.testing.snippets.check_page`` does the run and the comparison (its docstring has the rules: seeded,
 CPU only, a fake viser server, floats to half a unit of their last printed digit, an opt-out only with a reason).
 A page runs on the random-weight archives of ``tests/support/random_weights/`` (decision record 0016) with
-``$BETTERHUMAN_MODELS_DIR`` unset, so a fence that reaches for licensed weights fails; a page that needs them is a
+``$BETTERHUMAN_MODELS_DIR`` unset and an audit hook (``WEIGHTS_GUARD``, installed in the runner's interpreter through
+a ``sitecustomize``) that refuses to open a weights file outside ``tests/support/`` and the packaged assets, so a
+fence that reaches for licensed weights fails, by the variable or by an explicit path; a page that needs them is a
 key of ``LICENSED``, with its reason, and runs in the release tier. A decision record's fences never run: an accepted
 record keeps its text (principle 8.2), so its example shows the API as decided, not as it is now. This module also
 checks that output fences dock under a Python fence and that every referenced image exists.
@@ -11,6 +13,7 @@ checks that output fences dock under a Python fence and that every referenced im
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -35,6 +38,24 @@ FOLDER_REASONS = {
 LICENSED = {
     "docs/guides/load-a-family.md": "it teaches loading every family's licensed weights from $BETTERHUMAN_MODELS_DIR",
 }
+#: The folders an unlisted page may read weights from: the random-weight archives and the package data.
+WEIGHT_FOLDERS = (REPO / "tests" / "support", REPO / "src" / "better_human" / "io" / "assets")
+#: The runner's ``sitecustomize``: an open of a ``.npz``, ``.pkl`` or ``.pt`` file outside ``WEIGHT_FOLDERS`` raises.
+WEIGHTS_GUARD = """
+import os, sys
+
+_ALLOWED = tuple(os.path.realpath(folder) + os.sep for folder in os.environ["BH_DOCS_WEIGHT_FOLDERS"].split(os.pathsep))
+
+
+def _guard(event, args):
+    if event == "open" and isinstance(args[0], (str, bytes, os.PathLike)):
+        path = os.fsdecode(args[0])
+        if path.endswith((".npz", ".pkl", ".pt")) and not os.path.realpath(path).startswith(_ALLOWED):
+            raise PermissionError(f"{path}: a page outside LICENSED reads weights from tests/support/ only")
+
+
+sys.addaudithook(_guard)
+"""
 # Loading MHR, SOMA and SMPL-X from licensed files takes about a minute on a host whose transparent huge pages stall
 # large reads (docs/guides/run-the-tests.md); a page that does it gets the time.
 LICENSED_TIMEOUT_S = 600.0
@@ -56,10 +77,15 @@ def _name(page: Path) -> str:
         if not p.is_relative_to(RECORDS)
     ],
 )
-def test_page_fences_run_and_print_their_output_fences(page: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_page_fences_run_and_print_their_output_fences(
+    page: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """Every fence runs once; every output fence is compared in full; only a ``LICENSED`` page sees the weights."""
     if _name(page) not in LICENSED:
         monkeypatch.delenv("BETTERHUMAN_MODELS_DIR", raising=False)
+        (tmp_path / "sitecustomize.py").write_text(WEIGHTS_GUARD)
+        monkeypatch.setenv("PYTHONPATH", os.pathsep.join(filter(None, [str(tmp_path), os.environ.get("PYTHONPATH")])))
+        monkeypatch.setenv("BH_DOCS_WEIGHT_FOLDERS", os.pathsep.join(map(str, WEIGHT_FOLDERS)))
     timeout_s = LICENSED_TIMEOUT_S if _name(page) in LICENSED else 120.0
     compared = check_page(page, root=REPO, folder_reasons=FOLDER_REASONS, timeout_s=timeout_s)
     assert compared == len(OUTPUT_FENCE.findall(page.read_text())), f"{page.name}: an output fence went unchecked"
