@@ -1,8 +1,9 @@
 """One error tree (BR decision record 0031): BetterHuman raises BetterRobot's exception classes and its own subclasses.
 
 Every exception class under ``better_human`` derives from ``BetterRobotError``; ``src`` raises a builtin
-``ValueError``, ``TypeError``, ``RuntimeError`` or ``KeyError`` only where ``PLAIN_RAISES`` (permanent, reasoned) or the
-ratchet ``tests/contract/ratchets/plain_raises.json`` (shrinks as the classic, families and viz rewrites land) allows.
+``ValueError``, ``TypeError``, ``RuntimeError``, ``KeyError``, ``IndexError`` or ``AssertionError`` (called or bare,
+``raise ValueError``) only where ``PLAIN_RAISES`` (permanent, reasoned) or the ratchet
+``tests/contract/ratchets/plain_raises.json`` (shrinks as the classic, families and viz rewrites land) allows.
 """
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ from tests.support.synthetic import flame_spec
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src" / "better_human"
 PLAIN_RAISES_RATCHET = REPO / "tests" / "contract" / "ratchets" / "plain_raises.json"
-BUILTIN_RAISES = {"ValueError", "TypeError", "RuntimeError", "KeyError"}
+BUILTIN_RAISES = {"ValueError", "TypeError", "RuntimeError", "KeyError", "IndexError", "AssertionError"}
 _NOT_A_TENSOR = "a value that is not a floating torch.Tensor is a Python TypeError; the tree has no node for it"
 PLAIN_RAISES: dict[str, str] = {
     "src/better_human/core/human_model.py::_checked": _NOT_A_TENSOR,
@@ -43,18 +44,24 @@ def _exception_classes() -> list[type]:
     return found
 
 
+def _raised_builtin(node: ast.AST) -> str | None:
+    """The ``BUILTIN_RAISES`` class ``node`` raises, called (``raise KeyError(x)``) or bare (``raise ValueError``)."""
+    if not (isinstance(node, ast.Raise) and node.exc is not None):
+        return None
+    callee = node.exc.func if isinstance(node.exc, ast.Call) else node.exc
+    name = callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", None)
+    return name if name in BUILTIN_RAISES else None
+
+
 def _builtin_raise_sites() -> set[str]:
-    """``path::function`` of every ``raise ValueError/TypeError/RuntimeError/KeyError(...)`` under ``src``."""
+    """``path::function`` of every raise of a ``BUILTIN_RAISES`` class under ``src``."""
     sites: set[str] = set()
 
     def visit(node: ast.AST, file: Path, owner: str) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             owner = node.name
-        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call):
-            callee = node.exc.func
-            name = callee.id if isinstance(callee, ast.Name) else getattr(callee, "attr", None)
-            if name in BUILTIN_RAISES:
-                sites.add(f"{file.relative_to(REPO).as_posix()}::{owner}")
+        if _raised_builtin(node):
+            sites.add(f"{file.relative_to(REPO).as_posix()}::{owner}")
         for child in ast.iter_child_nodes(node):
             visit(child, file, owner)
 
@@ -79,6 +86,20 @@ def test_src_raises_the_error_tree_only() -> None:
     assert unexpected == [], f"raise better_robot.exceptions classes instead of a builtin: {unexpected}"
     stale = sorted((set(PLAIN_RAISES) | set(ratchet)) - sites)
     assert stale == [], f"drop these entries with the fix that removed the raise: {stale}"
+
+
+@pytest.mark.parametrize(
+    ("statement", "builtin"),
+    [
+        ("raise ValueError", "ValueError"),
+        ("raise KeyError(name)", "KeyError"),
+        ("raise IndexError(index)", "IndexError"),
+        ("raise AssertionError", "AssertionError"),
+        ("raise builtins.RuntimeError", "RuntimeError"),
+    ],
+)
+def test_every_form_of_a_builtin_raise_is_found(statement: str, builtin: str) -> None:
+    assert [_raised_builtin(node) for node in ast.walk(ast.parse(statement)) if _raised_builtin(node)] == [builtin]
 
 
 @pytest.fixture

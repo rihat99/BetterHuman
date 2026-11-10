@@ -1,11 +1,13 @@
-"""Tests, examples, tools and benchmarks find weights only through ``better_human.io``.
+"""The package, tests, examples, tools, benchmarks and docs scripts find weights only through ``better_human.io``.
 
 Decision record 0017 (one way to find the weights): ``io.models_dir()`` is the one reader of
 ``$BETTERHUMAN_MODELS_DIR`` and ``io.weight_path`` the one way to name a file under it. A second lookup rule comes
-back through a ``models`` path joined onto a base built from ``__file__`` or the working directory (``cwd()``,
-``getcwd()``), directly or through a name assigned from one, with ``/``, ``+``, ``joinpath``, ``os.path.join``,
-``Path(base, ...)`` or an f-string; through a relative ``Path("models/...")`` or ``os.path.join("models", ...)``; or
-through ``__file__`` of ``better_human`` or one of its modules. The scan rejects each of these.
+back through a ``models`` path joined onto a base built from ``__file__``, the working directory (``cwd()``,
+``getcwd()``) or the home directory (``home()``, ``expanduser``), directly or through a name assigned from one, with
+``/``, ``+``, ``joinpath``, ``os.path.join``, ``Path(base, ...)`` or an f-string; through a relative or home-relative
+``Path("models/...")``, ``Path("~/models/...")`` or ``os.path.join("models", ...)``; through ``__file__`` of
+``better_human`` or one of its modules; or through a read of the variable itself (``os.environ[...]``, ``.get``,
+``getenv``) anywhere but ``src/better_human/io/load.py``. The scan rejects each of these.
 """
 
 from __future__ import annotations
@@ -15,9 +17,13 @@ from itertools import pairwise
 from pathlib import Path
 
 REPO = Path(__file__).parents[2]
-SCANNED = ("tests", "examples", "tools", "benchmarks")
-CWD_CALLS = {"cwd", "getcwd"}
-JOIN_CALLS = {"Path", "PurePath", "join"}
+SCANNED = ("src", "tests", "examples", "tools", "benchmarks", "docs")
+#: The one module that reads the variable: ``io.models_dir``.
+READER = Path("src/better_human/io/load.py")
+BASE_CALLS = {"cwd", "getcwd", "home", "expanduser"}
+JOIN_CALLS = {"Path", "PurePath", "join", "expanduser"}
+#: The variable's name and the constant ``better_human.io.load`` spells it with.
+MODELS_ENV_SPELLINGS = {"BETTERHUMAN_MODELS_DIR", "MODELS_ENV"}
 
 
 def _call_name(node: ast.AST) -> str:
@@ -27,21 +33,22 @@ def _call_name(node: ast.AST) -> str:
 
 
 def _is_base(node: ast.AST, derived: set[str]) -> bool:
-    """Whether ``node`` uses ``__file__``, the working directory, or a name assigned from either."""
+    """Whether ``node`` uses ``__file__``, the working or home directory, or a name assigned from one of them."""
     return any(
-        (isinstance(sub, ast.Name) and (sub.id == "__file__" or sub.id in derived)) or _call_name(sub) in CWD_CALLS
+        (isinstance(sub, ast.Name) and (sub.id == "__file__" or sub.id in derived)) or _call_name(sub) in BASE_CALLS
         for sub in ast.walk(node)
     )
 
 
 def _is_models(node: ast.AST) -> bool:
-    """Whether ``node`` is a string (or an f-string's leading text) whose first path part is ``models``."""
+    """Whether ``node`` is a string (or an f-string's leading text) whose first path part, after ``./`` or ``~/``, is
+    ``models``."""
     if isinstance(node, ast.JoinedStr) and node.values:
         node = node.values[0]
     return (
         isinstance(node, ast.Constant)
         and isinstance(node.value, str)
-        and node.value.lstrip("./").split("/")[0] == "models"
+        and node.value.lstrip("./~").split("/")[0] == "models"
     )
 
 
@@ -92,9 +99,26 @@ def _builds_weights_path(node: ast.AST, aliases: set[str], derived: set[str]) ->
     return any(_is_base(left, derived) and _is_models(right) for left, right in pairwise(_joined_parts(node)))
 
 
-def _offences(tree: ast.AST) -> list[tuple[int, str]]:
+def _names_models_env(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Constant) and node.value in MODELS_ENV_SPELLINGS) or (
+        getattr(node, "id", getattr(node, "attr", None)) in MODELS_ENV_SPELLINGS
+    )
+
+
+def _reads_models_env(node: ast.AST) -> bool:
+    """Whether ``node`` reads the variable: ``environ[...]`` (not an assignment), ``.get(...)``, ``getenv(...)``."""
+    if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load):
+        return _names_models_env(node.slice)
+    return _call_name(node) in ("get", "getenv") and bool(node.args) and _names_models_env(node.args[0])
+
+
+def _offences(tree: ast.AST, reader: bool = False) -> list[tuple[int, str]]:
     aliases, derived = _names(tree)
-    return [(node.lineno, ast.unparse(node)) for node in ast.walk(tree) if _builds_weights_path(node, aliases, derived)]
+    return [
+        (node.lineno, ast.unparse(node))
+        for node in ast.walk(tree)
+        if _builds_weights_path(node, aliases, derived) or (not reader and _reads_models_env(node))
+    ]
 
 
 def test_weights_are_found_through_io() -> None:
@@ -102,7 +126,7 @@ def test_weights_are_found_through_io() -> None:
         f"{path.relative_to(REPO)}:{line}: {what}"
         for folder in SCANNED
         for path in sorted((REPO / folder).rglob("*.py"))
-        for line, what in _offences(ast.parse(path.read_text()))
+        for line, what in _offences(ast.parse(path.read_text()), reader=path.relative_to(REPO) == READER)
     ]
     assert not offences, "weights paths built by hand (use better_human.io.weight_path):\n" + "\n".join(offences)
 
@@ -118,5 +142,9 @@ def test_the_scan_sees_every_spelling() -> None:
         "m = os.path.join('models', 'smpl')\nn = Path(os.getcwd(), './models')\n"
         "fine = Path(tmp) / 'models'\nfine = Path(tmp).joinpath('models')\nfine = f'{tmp}/models'\n"
         "fine = ', '.join(['models'])\nfine = Path(__file__).parent / 'goldens.py'\n"
+        "o = Path.home() / 'models' / 'smpl'\np = Path('~/models/smpl').expanduser()\n"
+        "q = os.path.expanduser('~/models')\nr = Path(os.environ['BETTERHUMAN_MODELS_DIR'])\n"
+        "s = os.environ.get(io.load.MODELS_ENV)\nt = os.getenv(MODELS_ENV)\n"
+        "fine = os.environ['HOME']\nos.environ['BETTERHUMAN_MODELS_DIR'] = str(tmp)\n"
     )
-    assert sorted(line for line, _ in _offences(ast.parse(source))) == [6, *range(9, 21)]
+    assert sorted({line for line, _ in _offences(ast.parse(source))}) == [6, *range(9, 21), *range(26, 32)]

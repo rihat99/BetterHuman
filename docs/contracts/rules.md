@@ -11,7 +11,8 @@ BetterRobot's `C-API-2` under a second name, which BetterHuman now cites directl
 Each unit of `better_human` imports only the units of its row in `ALLOWED`, and only the BetterRobot packages of
 its row in `BR_ALLOWED` (`tests/contract/test_layer_dependencies.py`; decision record
 [0011](decisions/0011-human-package-layout.md) and the records that amend it). The [architecture
-page](../concepts/architecture.md#the-package-map) shows both tables.
+page](../concepts/architecture.md#the-package-map) shows both tables. No module imports a BetterHuman or BetterRobot
+module by a computed name (`importlib.import_module`, `__import__`), which the import walker cannot see.
 
 Rationale: the body model (`core`) and the file readers (`io`) stay usable without any family table or viewer, and
 each BetterRobot package a unit uses is a decision, not an accident.
@@ -140,13 +141,14 @@ another.
 Rationale: scripts read the same files without the app.
 Example: `src/better_human/studio/persistence.py::StudioPaths`.
 
-Enforcement: `tests/studio/test_persistence.py::test_studio_paths_layout`.
+Enforcement: `tests/studio/test_persistence.py::test_studio_paths_layout`,
+`tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server`.
 
 ## H-LICENSE-1 One licence, Apache-2.0 (MUST)
 
-The `LICENSE` text, the `pyproject.toml` licence and the README's licence line all say Apache-2.0, and the README
-keeps that body-model weights and data derived from them have their own terms (decision record
-[0018](decisions/0018-bh-apache-licence.md)).
+The `LICENSE` text, the `pyproject.toml` licence and the README's licence line all say Apache-2.0, neither the
+README nor `pyproject.toml` names another code licence, and the README keeps that body-model weights and data derived
+from them have their own terms (decision record [0018](decisions/0018-bh-apache-licence.md)).
 
 Rationale: the code's licence is stated once and agrees everywhere it is stated.
 Example: `pyproject.toml` declares `license = "Apache-2.0"`.

@@ -15,6 +15,7 @@ and why it goes); the ratchet only shrinks, and the fix that removes an edge rem
 
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
@@ -67,6 +68,36 @@ def _forbidden_edges(src: Path) -> set[str]:
     }
 
 
+def _dynamic_imports(src: Path) -> list[str]:
+    """``"<path>, line <n>"`` of every ``import_module`` or ``__import__`` call the static walker cannot resolve.
+
+    A call is flagged when its module name is not a string constant, or names ``better_human``, ``better_robot`` or a
+    relative module: such an import makes an edge that ``imported_packages`` never sees.
+    """
+    found = []
+    for path in sorted((src / ROOT).rglob("*.py")):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if not (isinstance(node, ast.Call) and node.args):
+                continue
+            callee = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+            if callee not in ("import_module", "__import__"):
+                continue
+            name = node.args[0]
+            if not (isinstance(name, ast.Constant) and isinstance(name.value, str)) or name.value.startswith(
+                (ROOT, "better_robot", ".")
+            ):
+                found.append(f"{path.relative_to(src)}, line {node.lineno}")
+    return found
+
+
+def test_no_dynamic_import_hides_an_edge() -> None:
+    """``importlib.import_module("better_human.families")`` would make an edge the tables never see."""
+    found = _dynamic_imports(SRC)
+    assert not found, "dynamic imports of BetterHuman or BetterRobot units: import them statically:\n  " + "\n  ".join(
+        found
+    )
+
+
 def test_imports_follow_the_edge_tables() -> None:
     """Every import between units, and into BetterRobot, is in a table or, until its fix lands, in the ratchet."""
     new = sorted(_forbidden_edges(SRC) - EDGE_RATCHET.keys())
@@ -96,3 +127,7 @@ def test_a_planted_import_is_a_forbidden_edge(tmp_path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(source)
     assert _forbidden_edges(tmp_path) == {"core -> viz", "io -> better_robot.lie"}
+    (tmp_path / ROOT / "terms.py").write_text(
+        "import importlib\nfamilies = importlib.import_module('better_human.families')\nnp = __import__('numpy')\n"
+    )
+    assert _dynamic_imports(tmp_path) == [f"{ROOT}/terms.py, line 2"]
