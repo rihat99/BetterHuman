@@ -11,15 +11,15 @@ the viser front end (``app.py``) and the deformation core.
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
-from typing import NamedTuple
+from collections.abc import Callable, Mapping, Sequence
+from typing import NamedTuple, final
 
 import torch
+from better_robot.exceptions import ArgumentError
 from better_robot.lie import so3
 
 from better_human.core.human_model import HumanModel, HumanState, Identity
-from better_human.mass import segment_vertices
-from better_human.mass.topology import _majority_face_parts
+from better_human.mass import PartTopology, segment_vertices
 
 from .posing import JointHandle, apply_local_rotation, joint_handles
 
@@ -27,16 +27,26 @@ from .posing import JointHandle, apply_local_rotation, joint_handles
 ChangeKind = str  # "pose" | "shape" | "body" | "segmentation" | "frames"
 
 
+@final
 class FrameEntry(NamedTuple):
     """A named frame: an anchor vertex and an optional parent-joint override.
 
     ``joint`` is a native joint index that overrides the default parent (the
-    frame vertex's strongest-weighted skinning joint); ``None`` selects that
-    argmax default.  Resolve it with :meth:`StudioSession.resolved_joint`.
+    one ``HumanModel.from_spec(contact_frames=...)`` picks); ``None`` selects that default.
     """
 
     vertex: int
     joint: int | None = None
+
+
+def contact_frames(
+    frame_set: Mapping[str, FrameEntry], joint_names: Sequence[str]
+) -> dict[str, tuple[int, str | None]]:
+    """``frame_set`` as ``HumanModel.from_spec(contact_frames=...)`` takes it: name -> ``(vertex, joint name | None)``."""
+    return {
+        name: (entry.vertex, None if entry.joint is None else joint_names[entry.joint])
+        for name, entry in frame_set.items()
+    }
 
 
 def _vertex_native_joints(body: HumanModel) -> torch.Tensor:
@@ -73,7 +83,7 @@ def compact_segmentation(
     names = list(part_names)
     while True:
         num_parts = len(names)
-        face_parts = _majority_face_parts(faces, ids)
+        face_parts = PartTopology.face_parts(faces, ids)
         present = sorted({int(part) for part in face_parts.unique().tolist() if 0 <= part < num_parts})
         if len(present) == num_parts:
             return ids, tuple(names)
@@ -84,6 +94,7 @@ def compact_segmentation(
         names = [names[original] for original in present]
 
 
+@final
 class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
@@ -131,10 +142,11 @@ class StudioSession:
         self.part_names = tuple(joint_names[rep] for rep in representatives)
 
     def _recompute(self) -> None:
-        """Refresh the posed state, vertices ``(V, 3)`` and native world joint poses ``(J, 7)``."""
+        """Refresh the posed state, vertices ``(V, 3)``, native world joint poses ``(J, 7)`` and frame poses ``(F, 7)``."""
         self.state: HumanState = self.identity.forward(self.q)
         self.vertices = self.state.vertices
         self.joint_poses = self.state.joint_poses
+        self.frame_poses = self.state.contact_frame_poses(contact_frames(self.frame_set, self.body.spec.joint_names))
 
     # -- pose ----------------------------------------------------------------
 
@@ -159,7 +171,7 @@ class StudioSession:
         rotation ``R_new R_old^-1`` left-multiplies the free-flyer quaternion.
         """
         if handle.kind != "free_flyer":
-            raise ValueError(f"move_root requires a free_flyer handle, got {handle.kind!r}")
+            raise ArgumentError(f"move_root requires a free_flyer handle, got {handle.kind!r}")
         with self.lock:
             q = self.q.clone()
             idx = handle.idx_q
@@ -191,7 +203,7 @@ class StudioSession:
         """
         width = self.body.spec.identity_groups[group]
         if len(values) != width:
-            raise ValueError(f"shape group {group!r} expects {width} values, got {len(values)}")
+            raise ArgumentError(f"shape group {group!r} expects {width} values, got {len(values)}")
         return torch.tensor(values, dtype=self.body.spec.dtype, device=self.body.spec.device)
 
     @property
@@ -217,9 +229,14 @@ class StudioSession:
             self._notify("segmentation")
 
     def set_frame_set(self, frame_set: dict[str, FrameEntry]) -> None:
-        """Install a new active frame set and notify a frames change."""
+        """Install a new active frame set and notify a frames change.
+
+        A frame set the body refuses (MHR and SOMA take none) raises before anything changes.
+        """
         with self.lock:
+            poses = self.state.contact_frame_poses(contact_frames(frame_set, self.body.spec.joint_names))
             self.frame_set = dict(frame_set)
+            self.frame_poses = poses
             self._notify("frames")
 
     def set_frame_joint(self, name: str, joint: int | None) -> None:
@@ -228,14 +245,7 @@ class StudioSession:
             entry = self.frame_set.get(name)
             if entry is None:
                 return
-            self.frame_set[name] = FrameEntry(entry.vertex, joint)
-            self._notify("frames")
-
-    def resolved_joint(self, entry: FrameEntry) -> int:
-        """Return a frame's parent joint: its override, else the argmax joint."""
-        if entry.joint is not None:
-            return entry.joint
-        return int(self.vertex_native_joints[entry.vertex])
+            self.set_frame_set({**self.frame_set, name: FrameEntry(entry.vertex, joint)})
 
     # -- subscription --------------------------------------------------------
 
@@ -246,6 +256,3 @@ class StudioSession:
     def _notify(self, kind: ChangeKind) -> None:
         for callback in self._subscribers:
             callback(kind)
-
-
-__all__ = ["ChangeKind", "FrameEntry", "StudioSession"]

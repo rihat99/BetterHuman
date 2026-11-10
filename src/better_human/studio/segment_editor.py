@@ -2,22 +2,25 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, final
 
 import numpy as np
 import torch
 from better_robot.viewer.tools import vertices_in_sphere
 
 from better_human.mass import PartTopology, part_inertias
-from better_human.viz.studio import persistence
+from better_human.studio import persistence
 
 if TYPE_CHECKING:
-    from better_human.viz.studio.app import HumanStudio
+    from pathlib import Path
 
-_BUILTIN = {"smpl": "smpl_vert_segmentation.json", "smplx": "smplx_vert_segmentation.json"}
+    from better_human.studio.app import HumanStudio
+    from better_human.studio.state import StudioSession
+
 _UNASSIGNED = "(unassigned)"
 
 
+@final
 class SegmentEditor:
     """Owns the Segment tab; paints through :meth:`paint` (sphere brush) and :meth:`assign` (marquee)."""
 
@@ -27,45 +30,39 @@ class SegmentEditor:
         self.part = _UNASSIGNED
 
     @property
-    def session(self):  # noqa: ANN201
+    def session(self) -> StudioSession:
         return self.studio.session
 
-    def build(self, gui) -> None:  # noqa: ANN001
+    def build(self, gui: Any) -> None:
         """Add the Segment tab controls to ``gui`` (a viser tab or the GUI root)."""
         layers = self.studio.layers
         self.color_mode = gui.add_dropdown(
             "Colour", options=("skin", "segmentation", "parts"), initial_value=layers.mesh.mode
         )
-        self.color_mode.on_update(self.studio._locked(lambda _event: layers.set_mode(self.color_mode.value)))
+        self.color_mode.on_update(self.studio.locked(lambda _event: layers.set_mode(self.color_mode.value)))
         self.part_dropdown = gui.add_dropdown("Part", options=self._options(), initial_value=_UNASSIGNED)
-        self.part_dropdown.on_update(
-            self.studio._locked(lambda _event: setattr(self, "part", self.part_dropdown.value))
-        )
+        self.part_dropdown.on_update(self.studio.locked(lambda _event: setattr(self, "part", self.part_dropdown.value)))
         self.new_part = gui.add_text("New part", initial_value="")
-        gui.add_button("Add part").on_click(self.studio._locked(lambda _event: self.add_part(self.new_part.value)))
+        gui.add_button("Add part").on_click(self.studio.locked(lambda _event: self.add_part(self.new_part.value)))
         self.paint_toggle = gui.add_checkbox("Paint (click mesh)", initial_value=False)
-        self.paint_toggle.on_update(
-            self.studio._locked(lambda _event: self.set_painting(bool(self.paint_toggle.value)))
-        )
+        self.paint_toggle.on_update(self.studio.locked(lambda _event: self.set_painting(bool(self.paint_toggle.value))))
         self.brush = gui.add_slider("Brush radius", min=0.005, max=0.2, step=0.005, initial_value=0.03)
-        gui.add_button("Marquee select").on_click(self.studio._locked(lambda _event: self.studio.start_marquee()))
+        gui.add_button("Marquee select").on_click(self.studio.locked(lambda _event: self.studio.start_marquee()))
         self.saved = gui.add_dropdown("Saved", options=self._saved_options(), initial_value=self._saved_options()[0])
         self.save_name = gui.add_text("Save as", initial_value="custom")
-        gui.add_button("Save segmentation").on_click(
-            self.studio._locked(lambda _event: self.save(self.save_name.value))
-        )
-        gui.add_button("Load segmentation").on_click(self.studio._locked(lambda _event: self.load(self.saved.value)))
-        gui.add_button("Load built-in").on_click(self.studio._locked(lambda _event: self.load_builtin()))
+        gui.add_button("Save segmentation").on_click(self.studio.locked(lambda _event: self.save(self.save_name.value)))
+        gui.add_button("Load segmentation").on_click(self.studio.locked(lambda _event: self.load(self.saved.value)))
+        gui.add_button("Load built-in").on_click(self.studio.locked(lambda _event: self.load_builtin()))
         gui.add_button("Reset to skinning").on_click(
-            self.studio._locked(lambda _event: self.session.reset_segmentation())
+            self.studio.locked(lambda _event: self.session.reset_segmentation())
         )
-        gui.add_button("Build bodies").on_click(self.studio._locked(lambda _event: self.build_bodies()))
+        gui.add_button("Build bodies").on_click(self.studio.locked(lambda _event: self.build_bodies()))
         self.mass_table = gui.add_markdown("")
 
     def _options(self) -> tuple[str, ...]:
         return (_UNASSIGNED, *self.session.part_names)
 
-    def _directory(self):  # noqa: ANN202
+    def _directory(self) -> Path:
         return self.studio.paths.segmentation_dir(self.session.model_key)
 
     def _saved_options(self) -> tuple[str, ...]:
@@ -113,7 +110,10 @@ class SegmentEditor:
         parts = {name: torch.nonzero(ids == k).flatten().tolist() for k, name in enumerate(self.session.part_names)}
         return {name: vertices for name, vertices in parts.items() if vertices}
 
-    def _apply(self, parts: dict[str, list[int]]) -> None:
+    def _apply(self, parts: dict[str, list[int]], *, source: str) -> None:
+        persistence.check_vertex_ids(
+            (vertex for ids in parts.values() for vertex in ids), self.session.vertices.shape[0], source=source
+        )
         part_ids = torch.full((self.session.vertices.shape[0],), -1, dtype=torch.long)
         for k, vertices in enumerate(parts.values()):
             part_ids[torch.as_tensor(vertices, dtype=torch.long)] = k
@@ -123,7 +123,7 @@ class SegmentEditor:
     def save(self, name: str) -> None:
         """Write the current segmentation to ``<data>/segmentations/<model_key>/<name>.json``."""
         path = self._directory() / f"{name}.json"
-        persistence.save_segmentation(path, self._as_parts())
+        persistence.write_segmentation(path, self._as_parts())
         self.refresh()
         self.studio.set_status(f"saved segmentation {path}")
 
@@ -133,15 +133,12 @@ class SegmentEditor:
         if path is None:
             self.studio.set_status(f"no saved segmentation {name!r}")
             return
-        self._apply(persistence.load_segmentation(path, self.session.vertices.shape[0]))
+        self._apply(persistence.read_segmentation(path), source=str(path))
 
     def load_builtin(self) -> None:
         """Load the shipped vertex segmentation of SMPL / SMPL-X."""
-        filename = _BUILTIN.get(self.studio.family)
-        if filename is None:
-            self.studio.set_status(f"no built-in segmentation for {self.studio.family!r}")
-            return
-        self._apply(persistence.load_builtin_segmentation(filename, self.session.vertices.shape[0]))
+        family = self.studio.family
+        self._apply(persistence.builtin_segmentation(family), source=f"built-in segmentation {family!r}")
 
     def build_bodies(self) -> list[tuple[str, float]]:
         """Close each part mesh, integrate its mass at the session density and fill the mass table.
@@ -162,9 +159,9 @@ class SegmentEditor:
         density = session.body.density
         if density.numel() != num_parts:
             density = density.mean().expand(num_parts)
-        masses = part_inertias(session.identity.rest_vertices.detach(), poses, topology=topology, density=density)[
-            :, 0
-        ].tolist()
+        masses = part_inertias(
+            session.identity.rest_vertices.detach(), poses, topology=topology, density=density, check_mesh=True
+        )[:, 0].tolist()
         rows = [*zip(session.part_names, masses, strict=True), ("total", float(sum(masses)))]
         table = "\n".join(f"| {name} | {mass:.2f} |" for name, mass in rows)
         self.mass_table.content = f"| part | kg |\n|---|---|\n{table}"

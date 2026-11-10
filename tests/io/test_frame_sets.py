@@ -168,6 +168,6 @@ def test_shipped_frame_names_are_not_body_names() -> None:
 
 def test_unknown_shipped_name_lists_the_shipped_names() -> None:
     with pytest.raises(
-        UnknownNameError, match=r"unknown shipped frame set 'nope'; valid shipped frame sets: \['smplx_contacts'\]"
+        UnknownNameError, match=r"unknown shipped frame set 'nope' \(valid names: \['smplx_contacts'\]\)"
     ):
         bh.io.shipped_frame_set("nope")

@@ -30,5 +30,5 @@ def test_drop_joints_takes_a_list_of_distinct_names(tmp_path: Path) -> None:
 
 
 def test_an_unknown_contact_frame_joint_raises_at_from_spec(tmp_path: Path) -> None:
-    with pytest.raises(UnknownNameError, match=r"unknown parent joint 'nekc'; valid parent joints: \['global'"):
+    with pytest.raises(UnknownNameError, match=r"unknown parent joint 'nekc' \(valid names: \['global'"):
         bh.HumanModel.from_spec(flame_spec(tmp_path), density=None, contact_frames={"tip": (0, "nekc")})

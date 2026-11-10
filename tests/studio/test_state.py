@@ -5,15 +5,15 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import torch
-from better_robot.viewer import Viewer
+from better_robot import Viewer
 
 import better_human as bh
 from better_human.io import weight_path
-from better_human.viz.studio.gizmo import GizmoController
-from better_human.viz.studio.layers import StudioLayers
-from better_human.viz.studio.state import FrameEntry, StudioSession
+from better_human.studio.gizmo import GizmoController
+from better_human.studio.layers import StudioLayers
+from better_human.studio.state import FrameEntry, StudioSession
 
-from .studio_fake_server import FakeServer
+from .fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 
@@ -39,7 +39,7 @@ def test_session_pose_shape_and_notify(body: bh.HumanModel) -> None:
     assert torch.equal(session.q, session.identity.model.q_neutral)
     assert kinds == ["pose", "shape", "pose"]
     session.set_frame_set({"heel": FrameEntry(10)})
-    assert session.resolved_joint(session.frame_set["heel"]) == int(session.vertex_native_joints[10])
+    assert kinds[-1] == "frames" and session.frame_poses.shape == (1, 7)
 
 
 def test_gizmo_and_layers_follow_the_session(body: bh.HumanModel) -> None:

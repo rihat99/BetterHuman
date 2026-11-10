@@ -24,7 +24,15 @@ SEGMENTATION = "better_human.segmentation"
 DENSITY_TABLES = "better_human.density_tables"
 
 #: The version each format's readers read and its writers write.
-LATEST = {MHR: 2, SOMA: 2, FRAME_SET: 1, SEGMENTATION: 1, DENSITY_TABLES: 1}
+LATEST = {
+    MHR: 2,
+    SOMA: 2,
+    FRAME_SET: 1,
+    SEGMENTATION: 1,
+    DENSITY_TABLES: 1,
+    "better_human.studio.segmentation": 1,  # better_human.studio reads and writes it (record 0009)
+    "better_human.studio.pose": 1,  # better_human.studio reads and writes it (record 0009)
+}
 
 
 def header(format: str) -> dict[str, Any]:

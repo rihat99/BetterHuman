@@ -35,7 +35,7 @@ HAND_DIM = 45
 def _gender(gender: str, choices: tuple[str, ...] = ("female", "male", "neutral")) -> str:
     normalized = gender.lower()
     if normalized not in choices:
-        raise UnknownNameError("gender", gender, list(choices))
+        raise UnknownNameError("gender", gender, valid=list(choices))
     return normalized
 
 
@@ -300,7 +300,7 @@ def mano(
     check_flags(flat_hand_mean=flat_hand_mean)
     check_dtype(dtype)
     if side not in {"left", "right"}:
-        raise UnknownNameError("side", side, ["left", "right"])
+        raise UnknownNameError("side", side, valid=["left", "right"])
     if num_pca_comps is not None:
         _check_width("num_pca_comps", num_pca_comps, HAND_DIM)
     table = _tables.MANO

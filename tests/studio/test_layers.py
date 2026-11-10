@@ -7,15 +7,16 @@ from collections import Counter
 import numpy as np
 import pytest
 import torch
-from better_robot.viewer import Viewer
+from better_robot import Viewer
+from better_robot.exceptions import ArgumentError
 
 import better_human as bh
 from better_human.io import weight_path
-from better_human.viz.studio import layers as studio_layers
-from better_human.viz.studio.layers import StudioLayers
-from better_human.viz.studio.state import StudioSession
+from better_human.studio import layers as studio_layers
+from better_human.studio.layers import StudioLayers
+from better_human.studio.state import StudioSession
 
-from .studio_fake_server import FakeServer
+from .fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 
@@ -69,7 +70,7 @@ def test_parts_are_closed_meshes(smpl: bh.HumanModel) -> None:
 
 def test_parts_fall_back_to_open_submeshes(smpl: bh.HumanModel, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
-        raise ValueError("no closed topology")
+        raise ArgumentError("part 3 owns no surface faces")
 
     monkeypatch.setattr(studio_layers.PartTopology, "from_part_ids", fail)
     session, layers, server = _setup(smpl)

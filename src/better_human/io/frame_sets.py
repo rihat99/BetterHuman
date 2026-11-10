@@ -83,7 +83,7 @@ def shipped_frame_set(name: str) -> dict[str, tuple[int, str | None]]:
     assets = resources.files(__package__) / "assets"
     shipped = sorted(entry.name.removesuffix(".json") for entry in assets.iterdir() if entry.name.endswith(".json"))
     if name not in shipped:
-        raise UnknownNameError("shipped frame set", name, shipped)
+        raise UnknownNameError("shipped frame set", name, valid=shipped)
     return _frames(json.loads((assets / f"{name}.json").read_text()), source=f"shipped frame set {name!r}")
 
 

@@ -65,7 +65,7 @@ def _resolve_parents(
             parents.append(int(part_ids[int(vertex)]))
             continue
         if joint not in index_by_name:
-            raise UnknownNameError("parent joint", joint, joint_names)
+            raise UnknownNameError("parent joint", joint, valid=joint_names)
         parents.append(index_by_name[joint])
     return parents
 

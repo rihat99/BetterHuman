@@ -29,7 +29,7 @@ def shipped_segmentation(family: str) -> tuple[int, dict[int, torch.Tensor]]:
     """
     shipped = sorted(path.name.removesuffix("_segmentation.npz") for path in _ASSETS.glob("*_segmentation.npz"))
     if family not in shipped:
-        raise UnknownNameError("shipped segmentation", family, shipped)
+        raise UnknownNameError("shipped segmentation", family, valid=shipped)
     path = _ASSETS / f"{family}_segmentation.npz"
     fields = load_model_npz(path, SEGMENTATION_SCHEMA)
     faces, offsets = fields["faces"], fields["part_offsets"].tolist()

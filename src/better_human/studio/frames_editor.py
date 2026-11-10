@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, final
 
 import numpy as np
 
-from better_human.viz.studio import persistence
-from better_human.viz.studio.state import FrameEntry
+from better_human.io import read_frame_set, write_frame_set
+from better_human.studio import persistence
+from better_human.studio.state import FrameEntry, contact_frames
 
 if TYPE_CHECKING:
-    from better_human.viz.studio.app import HumanStudio
+    from better_human.studio.app import HumanStudio
+    from better_human.studio.state import StudioSession
 
 _DEFAULT_JOINT = "(skinning default)"
 
 
+@final
 class FramesEditor:
     """Owns the Frames tab; :meth:`add_at` places a frame on the vertex nearest a clicked point."""
 
@@ -25,30 +28,30 @@ class FramesEditor:
         self.snippet = ""
 
     @property
-    def session(self):  # noqa: ANN201
+    def session(self) -> StudioSession:
         return self.studio.session
 
-    def build(self, gui) -> None:  # noqa: ANN001
+    def build(self, gui: Any) -> None:
         """Add the Frames tab controls to ``gui``."""
         self.add_toggle = gui.add_checkbox("Add frames (click mesh)", initial_value=False)
-        self.add_toggle.on_update(self.studio._locked(lambda _event: self.set_adding(bool(self.add_toggle.value))))
+        self.add_toggle.on_update(self.studio.locked(lambda _event: self.set_adding(bool(self.add_toggle.value))))
         self.frame_dropdown = gui.add_dropdown("Frame", options=self._names(), initial_value=self._names()[0])
-        self.frame_dropdown.on_update(self.studio._locked(lambda _event: self.select_frame(self.frame_dropdown.value)))
+        self.frame_dropdown.on_update(self.studio.locked(lambda _event: self.select_frame(self.frame_dropdown.value)))
         self.rename_text = gui.add_text("Name", initial_value="")
         gui.add_button("Rename").on_click(
-            self.studio._locked(lambda _event: self.rename(self.active, self.rename_text.value))
+            self.studio.locked(lambda _event: self.rename(self.active, self.rename_text.value))
         )
         joints = (_DEFAULT_JOINT, *self.session.body.spec.joint_names)
         self.joint_dropdown = gui.add_dropdown("Parent joint", options=joints, initial_value=_DEFAULT_JOINT)
         self.joint_dropdown.on_update(
-            self.studio._locked(lambda _event: self.set_joint(self.active, self.joint_dropdown.value))
+            self.studio.locked(lambda _event: self.set_joint(self.active, self.joint_dropdown.value))
         )
-        gui.add_button("Delete").on_click(self.studio._locked(lambda _event: self.delete(self.active)))
+        gui.add_button("Delete").on_click(self.studio.locked(lambda _event: self.delete(self.active)))
         self.saved = gui.add_dropdown("Saved", options=self._saved_options(), initial_value=self._saved_options()[0])
-        gui.add_button("Load frames").on_click(self.studio._locked(lambda _event: self.load(self.saved.value)))
+        gui.add_button("Load frames").on_click(self.studio.locked(lambda _event: self.load(self.saved.value)))
         self.save_name = gui.add_text("Save as", initial_value="frames")
-        gui.add_button("Save frames").on_click(self.studio._locked(lambda _event: self.save(self.save_name.value)))
-        gui.add_button("Export as config").on_click(self.studio._locked(lambda _event: self.export()))
+        gui.add_button("Save frames").on_click(self.studio.locked(lambda _event: self.save(self.save_name.value)))
+        gui.add_button("Export as config").on_click(self.studio.locked(lambda _event: self.export()))
         self.export_box = gui.add_markdown("")
 
     def _saved_options(self) -> tuple[str, ...]:
@@ -91,11 +94,10 @@ class FramesEditor:
         entry = self.session.frame_set[name]
         self.frame_dropdown.value = name
         self.rename_text.value = name
-        self.joint_dropdown.value = (
-            _DEFAULT_JOINT if entry.joint is None else self.session.body.spec.joint_names[entry.joint]
-        )
+        joint = _DEFAULT_JOINT if entry.joint is None else self.session.body.spec.joint_names[entry.joint]
+        self.joint_dropdown.value = joint
         self.studio.layers.set_edit_vertices([entry.vertex])
-        self.studio.set_status(f"frame {name!r}: vertex {entry.vertex}, joint {self.session.resolved_joint(entry)}")
+        self.studio.set_status(f"frame {name!r}: vertex {entry.vertex}, joint {joint}")
 
     def rename(self, old: str | None, new: str) -> None:
         """Rename a frame, keeping its position in the authored order."""
@@ -122,17 +124,11 @@ class FramesEditor:
         self.studio.layers.set_edit_vertices([])
         self.refresh()
 
-    def _as_io(self) -> dict[str, tuple[int, str | None]]:
-        names = self.session.body.spec.joint_names
-        return {
-            key: (entry.vertex, None if entry.joint is None else names[entry.joint])
-            for key, entry in self.session.frame_set.items()
-        }
-
     def save(self, name: str) -> None:
         """Write the frame set to ``<data>/frames/<model_key>/<name>.json``."""
         path = self.studio.paths.frame_dir(self.session.model_key) / f"{name}.json"
-        persistence.save_frame_set(path, self._as_io())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_frame_set(path, contact_frames(self.session.frame_set, self.session.body.spec.joint_names))
         self.saved.options = self._saved_options()
         self.saved.value = name
         self.studio.set_status(f"saved frames {path}")
@@ -143,7 +139,10 @@ class FramesEditor:
         if not path.exists():
             self.studio.set_status(f"no saved frame set {name!r}")
             return
-        raw = persistence.load_frame_set(path, self.session.vertices.shape[0])
+        raw = read_frame_set(path)
+        persistence.check_vertex_ids(
+            (vertex for vertex, _ in raw.values()), self.session.vertices.shape[0], source=str(path)
+        )
         names = self.session.body.spec.joint_names
         self.session.set_frame_set(
             {
@@ -155,6 +154,8 @@ class FramesEditor:
 
     def export(self) -> str:
         """Render the frame set as a ``contact_frames={...}`` argument for ``bh.load`` and show it."""
-        self.snippet = persistence.frame_config_snippet(self._as_io())
+        self.snippet = persistence.frame_config_snippet(
+            contact_frames(self.session.frame_set, self.session.body.spec.joint_names)
+        )
         self.export_box.content = f"```python\n{self.snippet}\n```"
         return self.snippet

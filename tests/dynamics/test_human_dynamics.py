@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 import torch
-from better_robot.dynamics import inverse_dynamics, mass_matrix
-from better_robot.kinematics import forward_kinematics
+from better_robot import forward_kinematics, inverse_dynamics, mass_matrix
 
 import better_human as bh
 from better_human.io import weight_path

@@ -5,10 +5,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import torch
-from better_robot import Model
-from better_robot.dynamics import inverse_dynamics
+from better_robot import KinematicState, Model, forward_kinematics, inverse_dynamics
 from better_robot.exceptions import ShapeError
-from better_robot.kinematics import KinematicState, difference, forward_kinematics
+from better_robot.kinematics import difference
 from better_robot.optim import TermFn
 
 from better_human.core import Identity

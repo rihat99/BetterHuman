@@ -60,9 +60,6 @@ dependencies = [
 studio = [
     { name = "better-robot", extra = ["viewer"] },
 ]
-viewer = [
-    { name = "better-robot", extra = ["viewer"] },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -81,11 +78,10 @@ dev = [
 requires-dist = [
     { name = "better-robot", editable = "../BetterRobot" },
     { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", editable = "../BetterRobot" },
-    { name = "better-robot", extras = ["viewer"], marker = "extra == 'viewer'", editable = "../BetterRobot" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
 ]
-provides-extras = ["viewer", "studio"]
+provides-extras = ["studio"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -121,13 +117,14 @@ requires-dist = [
     { name = "mujoco", marker = "extra == 'mjcf'", specifier = ">=3.1" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pillow", marker = "extra == 'viewer'", specifier = ">=10" },
+    { name = "pytest", marker = "extra == 'testing'", specifier = ">=8.0" },
     { name = "robot-descriptions", marker = "extra == 'demos'", specifier = ">=1.0.0" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
     { name = "trimesh", marker = "extra == 'meshes'", specifier = ">=4.0.0" },
     { name = "viser", marker = "extra == 'viewer'", specifier = ">=1.0.30" },
     { name = "yourdfpy", specifier = ">=0.0.14" },
 ]
-provides-extras = ["viewer", "mjcf", "meshes", "demos"]
+provides-extras = ["viewer", "mjcf", "meshes", "demos", "testing"]
 
 [package.metadata.requires-dev]
 dev = [

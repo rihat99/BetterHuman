@@ -27,7 +27,7 @@ def part_densities(
     lacks, and :class:`~better_robot.exceptions.ArgumentError` naming the parts without a category.
     """
     if name not in tables:
-        raise UnknownNameError("density table", name, sorted(tables))
+        raise UnknownNameError("density table", name, valid=sorted(tables))
     uncovered = [part for part, category in zip(part_names, categories, strict=True) if category is None]
     if uncovered:
         raise ArgumentError(
@@ -38,5 +38,5 @@ def part_densities(
     table = tables[name]
     for category in categories:
         if category not in table:
-            raise UnknownNameError(f"{name} category name", category, list(table))
+            raise UnknownNameError(f"{name} category name", category, valid=list(table))
     return torch.tensor([table[category] for category in categories], dtype=dtype, device=device)

@@ -39,14 +39,14 @@ def test_a_part_without_category_raises_at_load_naming_it(flame: bh.FamilySpec) 
 
 
 def test_an_unknown_table_raises_at_load(flame: bh.FamilySpec) -> None:
-    with pytest.raises(UnknownNameError, match=r"unknown density table 'Nope'; valid density tables: \['Chandler'"):
+    with pytest.raises(UnknownNameError, match=r"unknown density table 'Nope' \(valid names: \['Chandler'"):
         bh.HumanModel.from_spec(flame, density="Nope")
 
 
 def test_an_unknown_category_raises_at_load(flame: bh.FamilySpec) -> None:
     categories = ("pelvis", "neck", "head", "head", "eyebrow")
     spec = replace(flame, parts=replace(flame.parts, density_categories=categories))
-    with pytest.raises(UnknownNameError, match=r"unknown Dempster category name 'eyebrow'; 24 Dempster category names"):
+    with pytest.raises(UnknownNameError, match=r"unknown Dempster category name 'eyebrow' \(24 valid names\)"):
         bh.HumanModel.from_spec(spec)
 
 

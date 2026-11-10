@@ -1,4 +1,4 @@
-"""Visualisation: human layers for the BetterRobot viewer and the studio app."""
+"""Visualisation: human layers for the BetterRobot viewer."""
 
 from .layers import (
     HUMAN_THEME,

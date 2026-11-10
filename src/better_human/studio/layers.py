@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import colorsys
-from typing import Any, Literal
+from typing import Any, Literal, final
 
 import numpy as np
 import torch
-from better_robot.viewer import LIGHT, FramesLayer, Layer, PointsLayer, SkeletonLayer, Theme
+from better_robot.exceptions import ArgumentError
+from better_robot.lie import so3
+from better_robot.viewer import FramesLayer, Layer, PointsLayer, SkeletonLayer, Theme
 
 from better_human.mass import PartTopology
-from better_human.mass.topology import _majority_face_parts
-from better_human.viz import mesh_layer
+from better_human.viz import HUMAN_THEME, mesh_layer
 
 from .state import ChangeKind, StudioSession, compact_segmentation
 
@@ -25,29 +26,12 @@ def part_colors(num_parts: int) -> np.ndarray:
     return np.array([colorsys.hsv_to_rgb((0.61803 * p) % 1.0, 0.55, 0.9) for p in range(num_parts)], np.float32)
 
 
-def _quat_matrix(quat: np.ndarray) -> np.ndarray:
-    """Rotation matrix ``(3, 3)`` of a scalar-last unit quaternion ``(4,)``."""
-    x, y, z, w = quat
-    return np.array(
-        [
-            [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
-            [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
-            [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
-        ]
-    )
-
-
 def frame_poses(session: StudioSession) -> np.ndarray:
-    """Authored frames as ``(1, F, 7)`` poses: vertex position, parent-joint orientation (``session.frame_set`` order)."""
-    entries = list(session.frame_set.values())
-    poses = np.zeros((1, len(entries), 7), np.float32)
-    if entries:
-        joint_poses = session.state.joint_poses.detach().cpu().numpy().reshape(-1, 7)
-        poses[0, :, :3] = session.vertices.detach().cpu().numpy()[[entry.vertex for entry in entries]]
-        poses[0, :, 3:] = joint_poses[[session.resolved_joint(entry) for entry in entries], 3:]
-    return poses
+    """Authored frames as ``(1, F, 7)`` poses, as the model's contact frames (``session.frame_set`` order)."""
+    return session.frame_poses.detach().cpu().numpy().astype(np.float32).reshape(1, -1, 7)
 
 
+@final
 class SegmentationLayer(Layer):
     """One coloured submesh per part plus one for unassigned faces; :meth:`rebuild` after a segmentation edit.
 
@@ -68,7 +52,7 @@ class SegmentationLayer(Layer):
 
     def face_groups(self) -> list[tuple[np.ndarray, tuple[float, float, float]]]:
         """Return ``(faces (F_p, 3), rgb)`` per part, then the unassigned faces; empty groups are omitted."""
-        face_parts = _majority_face_parts(self.session.body.spec.faces, self.session.part_ids).cpu().numpy()
+        face_parts = PartTopology.face_parts(self.session.body.spec.faces, self.session.part_ids).cpu().numpy()
         colors = part_colors(len(self.session.part_names))
         groups = [(self.faces[face_parts == p], tuple(colors[p])) for p in range(len(self.session.part_names))]
         groups.append((self.faces[(face_parts < 0) | (face_parts >= len(colors))], _UNASSIGNED))
@@ -110,6 +94,7 @@ class SegmentationLayer(Layer):
         self._fade(opacity)
 
 
+@final
 class PartsLayer(Layer):
     """Closed part meshes posed rigidly by each part's dominant native joint, pushed apart by ``explode``.
 
@@ -140,7 +125,9 @@ class PartsLayer(Layer):
         try:
             topology = PartTopology.from_part_ids(faces, ids, num_parts=len(names))
             meshes = topology.meshes(rest_vertices)
-        except ValueError:
+        except ArgumentError:
+            # Labels that close into no part meshes (a part without faces, an unwalkable seam) still draw: as open
+            # submeshes, flagged by ``closed``; Build bodies reports the reason.
             self.closed = False
         else:
             self.closed = True
@@ -148,7 +135,7 @@ class PartsLayer(Layer):
                 (kept[p], used.cpu().numpy(), vertices.detach().cpu().numpy(), part_faces.cpu().numpy())
                 for p, (used, (vertices, part_faces)) in enumerate(zip(topology.vertex_ids, meshes, strict=True))
             ]
-        face_parts = _majority_face_parts(faces, session.part_ids).cpu().numpy()
+        face_parts = PartTopology.face_parts(faces, session.part_ids).cpu().numpy()
         faces_np, rest_np = faces.cpu().numpy(), rest_vertices.detach().cpu().numpy()
         meshes_open = []
         for part in range(len(session.part_names)):
@@ -163,12 +150,13 @@ class PartsLayer(Layer):
         session = self.session
         rest = session.identity.forward(session.identity.model.q_neutral)
         rest_poses = rest.joint_poses.detach().cpu().numpy()
+        rotations = so3.to_matrix(rest.joint_poses[..., 3:]).detach().cpu().numpy()
         joints = session.vertex_native_joints.cpu().numpy()
         colors = part_colors(len(session.part_names))
         self._handles_by_part = []
         for part, used, vertices, faces in self.part_meshes(rest.vertices.detach().cpu()):
             joint = int(np.bincount(joints[used]).argmax())
-            local = (vertices - rest_poses[joint, :3]) @ _quat_matrix(rest_poses[joint, 3:])
+            local = (vertices - rest_poses[joint, :3]) @ rotations[joint]
             handle = scene.add_mesh_simple(
                 f"{root}/part_{part}",
                 local.astype(np.float32),
@@ -191,10 +179,11 @@ class PartsLayer(Layer):
 
     def set_step(self, step: int) -> None:
         poses = self.session.joint_poses.detach().cpu().numpy()
+        rotations = so3.to_matrix(self.session.joint_poses[..., 3:]).detach().cpu().numpy()
         center = poses[:, :3].mean(axis=0)
         for joint, handle, local_center in self._handles_by_part:
             pose = poses[joint]
-            world_center = _quat_matrix(pose[3:]) @ local_center + pose[:3]
+            world_center = rotations[joint] @ local_center + pose[:3]
             handle.position = pose[:3] + self.explode * (world_center - center)
             handle.wxyz = np.array([pose[6], pose[3], pose[4], pose[5]])
 
@@ -202,6 +191,7 @@ class PartsLayer(Layer):
 MeshMode = Literal["skin", "segmentation", "parts"]
 
 
+@final
 class BodyMeshLayer(Layer):
     """The one body mesh, drawn in colour ``mode``: ``skin``, ``segmentation`` (a submesh per part) or ``parts``.
 
@@ -257,6 +247,7 @@ class BodyMeshLayer(Layer):
         self.segmentation.set_opacity(opacity)
 
 
+@final
 class StudioLayers:
     """Owns the studio layers under viewer group ``"human"`` and keeps them in sync with ``session``.
 
@@ -265,7 +256,7 @@ class StudioLayers:
     edit-overlay :class:`PointsLayer`.
     """
 
-    def __init__(self, viewer: Any, session: StudioSession, *, theme: Theme = LIGHT) -> None:
+    def __init__(self, viewer: Any, session: StudioSession, *, theme: Theme = HUMAN_THEME) -> None:
         self.viewer = viewer
         self.session = session
         self.theme = theme
@@ -419,15 +410,3 @@ class StudioLayers:
             for name in self.layers:
                 self._renew(name)
             self.set_highlight(None)
-
-
-__all__ = [
-    "GROUP",
-    "BodyMeshLayer",
-    "MeshMode",
-    "PartsLayer",
-    "frame_poses",
-    "SegmentationLayer",
-    "StudioLayers",
-    "part_colors",
-]

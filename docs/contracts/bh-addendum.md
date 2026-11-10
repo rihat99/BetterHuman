@@ -11,9 +11,8 @@ edge); `studio` imports the package root, `core`, `families`, `io`, `mass` and `
 `studio`. Into BetterRobot: `io` only `exceptions` (its errors sit under `BetterRobotError`, BetterRobot 0031); `mass`
 `lie` and `spatial`; `core` the root, `kinematics` and `lie`; `families` the root, `io`, `kinematics` and `lie`;
 `terms` the root, `dynamics`, `kinematics` and `optim`; `viz` and `studio` `viewer`, `studio` also `lie`. Only
-BetterRobot's public surface is imported (`C-DEP-1`, `tests/contract/test_br_imports.py`). `mass` and `studio` arrive
-with record 0011's package layout; until then the studio is `viz/studio`, and each import that breaks a table today is
-listed with its reason in `tests/contract/ratchets/edges.json`.
+BetterRobot's public surface is imported (`C-DEP-1`, `tests/contract/test_br_imports.py`). An import that breaks a
+table today is listed with its reason in `tests/contract/ratchets/edges.json`.
 
 Rationale: the body model (`core`) and weight-file reading (`io`) stay usable without any family table or viewer.
 Example: `src/better_human/families/smpl_family.py` imports `core` and `io`; `src/better_human/terms/`
@@ -41,8 +40,8 @@ Enforcement: `tests/contract/test_keyword_only.py`.
 ## H-ASSET-1 A shipped asset lives in an `assets/` folder beside the package that reads it; licensed weights are never shipped (MUST)
 
 Small, redistributable data ships in an `assets/` folder beside the package that reads it and is read with
-`importlib.resources`: segmentations and densities in `src/better_human/families/assets/`, frame sets in
-`src/better_human/io/assets/`. Licensed weights are never downloaded, bundled or cached (principle 10).
+`importlib.resources`: the mass segmentations, density tables and frame sets in `src/better_human/io/assets/`, the
+studio's vertex segmentations in `src/better_human/studio/assets/`. Licensed weights are never downloaded, bundled or cached (principle 10).
 Example: `src/better_human/io/assets/smplx_contacts.json`, read by `src/better_human/io/frame_sets.py::shipped_frame_set`.
 Enforcement: review.
 
@@ -61,8 +60,8 @@ own location.
 ## H-STUDIO-1 Studio is a thin shell over the BetterRobot viewer (MUST)
 
 The studio adds no viewer machinery: `app.py` drives `better_robot.viewer.Viewer`
-(`src/better_human/viz/studio/app.py::HumanStudio`) and `layers.py` subclasses `better_robot.viewer.Layer`
-(`src/better_human/viz/studio/layers.py::SegmentationLayer`). Domain logic lives in
+(`src/better_human/studio/app.py::HumanStudio`) and `layers.py` subclasses `better_robot.viewer.Layer`
+(`src/better_human/studio/layers.py::SegmentationLayer`). Domain logic lives in
 `state.py`, `persistence.py`, `posing.py` and `gizmo.py` and is testable without a server; UI wiring lives in
 `app.py`, `layers.py`, `segment_editor.py` and `frames_editor.py`. A generic viewer feature goes to BetterRobot.
 Rationale: principle 5 (not human-specific means it belongs in BetterRobot).
@@ -72,7 +71,7 @@ Enforcement: review; `tests/viz/` exercises the domain modules headless.
 
 Studio state is JSON under one data root (default `studio_data/`): vertex segmentations, named frame sets and
 poses each in their own directory, keyed by the mesh-topology key.
-Example: `src/better_human/viz/studio/persistence.py::StudioPaths` (`segmentation_dir`, `frame_dir`, `pose_dir`).
+Example: `src/better_human/studio/persistence.py::StudioPaths` (`segmentation_dir`, `frame_dir`, `pose_dir`).
 Enforcement: `tests/viz/`.
 
 ## Numeric conventions, layout, gates and baselines

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, final
 
 import torch
-from better_robot import Model, ModelBuilder
+from better_robot import KinematicState, Model, ModelBuilder
 from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.lie import so3
@@ -28,8 +28,6 @@ from better_human.core.skinning import linear_blend_skinning
 from better_human.io import FormatError
 
 if TYPE_CHECKING:
-    from better_robot.kinematics import KinematicState
-
     from better_human.core.spec import FamilySpec
 
 NEWTON_SCHULZ_STEPS = 30  #: upstream ``align_vectors`` iteration count.

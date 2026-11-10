@@ -108,6 +108,8 @@ nav:
           - Frame set: reference/formats/frame_set.md
           - Closed segmentation: reference/formats/segmentation.md
           - Density tables: reference/formats/density_tables.md
+          - Studio segmentation: reference/formats/studio_segmentation.md
+          - Studio pose: reference/formats/studio_pose.md
   - Contracts:
       - Index: contracts/index.md
       - BetterHuman addendum: contracts/bh-addendum.md

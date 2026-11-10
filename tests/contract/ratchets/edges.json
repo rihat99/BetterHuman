@@ -1,4 +1,1 @@
-{
-  "viz -> better_human": "src/better_human/viz/studio/app.py::HumanStudio: studio code; it leaves viz as better_human.studio, whose row allows the root (records 0009, 0011)",
-  "viz -> mass": "src/better_human/viz/studio/state.py::StudioSession: studio code; it leaves viz as better_human.studio, whose row allows mass (records 0009, 0011)"
-}
+{}

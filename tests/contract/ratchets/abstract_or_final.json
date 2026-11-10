@@ -1,14 +1,1 @@
-{
-  "better_human.viz.studio.app.HumanStudio": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.frames_editor.FramesEditor": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.gizmo.GizmoController": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.layers.BodyMeshLayer": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.layers.PartsLayer": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.layers.SegmentationLayer": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.layers.StudioLayers": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.persistence.StudioPaths": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.posing.JointHandle": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.segment_editor.SegmentEditor": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.state.FrameEntry": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.viz.studio.state.StudioSession": "H6 (viz and studio rewrite) decides whether it is final or abstract"
-}
+{}

@@ -20,10 +20,10 @@ cd BetterHuman
 uv sync
 ```
 
-Install the optional browser viewer for the demos:
+Install the optional browser viewer for the demos and HumanStudio:
 
 ```bash
-uv sync --extra viewer
+uv sync --extra studio
 ```
 
 ## Supply model weights
@@ -99,7 +99,7 @@ state = identity.forward(q)                      # HumanState for 4 poses
 print(state.vertices.shape, state.joint_translations.shape)  # (4, 6890, 3) (4, 24, 3)
 
 view = HumanView(identity.forward(identity.model.q_neutral))   # viewer layers, updated in place
-# from better_robot.viewer import Viewer
+# from better_robot import Viewer
 # viewer = Viewer(theme=HUMAN_THEME); viewer.add(view, group="human")   # +y up
 # view.update(state_for_next_frame); viewer.show()
 ```

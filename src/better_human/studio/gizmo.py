@@ -7,7 +7,7 @@ pose coordinate (fixed MHR joints) get no handle; the status callback reports it
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, final
 
 import numpy as np
 import torch
@@ -17,6 +17,7 @@ from .posing import JointHandle
 from .state import ChangeKind, StudioSession
 
 
+@final
 class GizmoController:
     """Owns at most one :class:`PoseGizmo`, bound to the selected native joint of ``session``."""
 
@@ -51,17 +52,16 @@ class GizmoController:
         if handle is None:
             self._status(f"joint {name!r} has no degree of freedom")
             return
-        # Joints sit inside the mesh, so the gizmo draws through it instead of being hidden by it.
-        options: dict[str, Any] = {"depth_test": False}
-        if handle.kind != "free_flyer":
-            options |= {"disable_sliders": True, "disable_axes": True}
+        rotation_only = handle.kind != "free_flyer"
         self.gizmo = PoseGizmo(
             self.viewer,
             "joint_gizmo",
             pose=self._world_pose(joint),
             on_change=lambda pose: self._drag_locked(handle, pose),
             scale=self.scale,
-            **options,
+            depth_test=False,  # joints sit inside the mesh: the gizmo draws through it instead of being hidden
+            disable_sliders=rotation_only,
+            disable_axes=rotation_only,
         )
         self._status(f"posing {name!r} ({handle.kind})")
 
@@ -96,6 +96,3 @@ class GizmoController:
     def _status(self, message: str) -> None:
         if self.on_status is not None:
             self.on_status(message)
-
-
-__all__ = ["GizmoController"]
