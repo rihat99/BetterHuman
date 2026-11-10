@@ -37,7 +37,7 @@ families  -> core io mass
 terms     -> core
 viz       -> core
 studio    -> better_human core families io mass viz
-the root  -> core families io mass terms viz
+the root  -> core families io mass studio terms viz
 ```
 
 BetterRobot is imported through the public modules of the importer's `BR_ALLOWED` row only. Never edit BetterRobot

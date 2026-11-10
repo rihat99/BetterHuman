@@ -7,12 +7,13 @@ enforcement. The BetterRobot contracts in `BetterRobot/docs/contracts/` apply fi
 
 Among BetterHuman's units: `io` and `mass` import no other unit; `core` imports `mass`; `families` imports `core`,
 `io` and `mass`; `terms` imports `core`; `viz` imports `core` (record 0019, proposed, drops its `io` edge); `studio`
-imports the package root, `core`, `families`, `io`, `mass` and `viz`; the root imports every unit but `studio`. Into
-BetterRobot: `io` only `exceptions` (its errors sit under `BetterRobotError`, BetterRobot 0031); `mass`
-`lie` and `spatial`; `core` the root, `kinematics` and `lie`; `families` the root, `io`, `kinematics` and `lie`;
-`terms` the root, `dynamics`, `kinematics` and `optim`; `viz` and `studio` `viewer`, `studio` also `lie`. Only
-BetterRobot's public surface is imported (`C-DEP-1`, `tests/contract/test_br_imports.py`). An import that breaks a
-table today is listed with its reason in `tests/contract/ratchets/edges.json`.
+imports the package root, `core`, `families`, `io`, `mass` and `viz`; the root imports every unit (record 0021,
+proposed). Into BetterRobot: `io` only `exceptions` (its errors sit under `BetterRobotError`, BetterRobot 0031);
+`mass` `lie` and `spatial`; `core` the root, `kinematics` and `lie`; `families` the root, `io`, `kinematics` and
+`lie`; `terms` the root, `dynamics`, `kinematics` and `optim`; `viz` `viewer`; `studio` the root (for `Viewer`,
+record 0021), `lie` and `viewer`. Only BetterRobot's public surface is imported (`C-DEP-1`,
+`tests/contract/test_br_imports.py`). An import that breaks a table today is listed with its reason in
+`tests/contract/ratchets/edges.json`.
 
 Rationale: the body model (`core`) and weight-file reading (`io`) stay usable without any family table or viewer.
 Example: `src/better_human/families/smpl_family.py` imports `core` and `io`; `src/better_human/terms/`
