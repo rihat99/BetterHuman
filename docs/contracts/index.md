@@ -26,7 +26,7 @@ When a BetterHuman rule and a BetterRobot rule disagree, BetterRobot's numerical
 
 | test | rules |
 |---|---|
-| `tests/contract/test_br_imports.py` | `C-DEP-*`: only BetterRobot's public surface is imported |
+| `tests/contract/test_br_imports.py` | `C-DEP-*`: only BetterRobot's public surface is imported, a first-level name from its root |
 | `tests/contract/test_layer_dependencies.py` | `H-LAYER-1`, record 0011: the unit and BetterRobot edge tables; ratchet `tests/contract/ratchets/edges.json` |
 | `tests/contract/test_citations.py` | principle 7.8: cited paths and `path::symbol`s resolve, no line numbers; ratchet `tests/contract/ratchets/dead_citations.json` |
 | `tests/contract/test_keyword_only.py` | `H-API-2` / `C-API-2`: keyword-only arguments; ratchet `tests/contract/ratchets/keyword_only.json` |

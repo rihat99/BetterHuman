@@ -40,8 +40,9 @@ studio    -> better_human core families io mass viz
 the root  -> core families io mass studio terms viz
 ```
 
-BetterRobot is imported through the public modules of the importer's `BR_ALLOWED` row only. Never edit BetterRobot
-from this repo.
+BetterRobot is imported through the public modules of the importer's `BR_ALLOWED` row only, a first-level name
+(`Viewer`, `forward_kinematics`) from its root (`tests/contract/test_br_imports.py`). Never edit BetterRobot from
+this repo.
 
 ## Where things live
 

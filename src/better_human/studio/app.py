@@ -1,4 +1,4 @@
-"""``HumanStudio``: an interactive body editor built on ``better_robot.viewer.Viewer``."""
+"""``HumanStudio``: an interactive body editor built on ``better_robot.Viewer``."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any, final
 
 import numpy as np
 import torch
+from better_robot import Viewer
 from better_robot.exceptions import ArgumentError, BetterRobotError
-from better_robot.viewer import Viewer
 from better_robot.viewer.tools import CameraFrustum, nearest_on_ray, ray_hit, vertices_in_rect
 
 import better_human as bh

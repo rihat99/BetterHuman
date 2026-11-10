@@ -60,7 +60,7 @@ own location.
 
 ## H-STUDIO-1 Studio is a thin shell over the BetterRobot viewer (MUST)
 
-The studio adds no viewer machinery: `app.py` drives `better_robot.viewer.Viewer`
+The studio adds no viewer machinery: `app.py` drives `better_robot.Viewer`
 (`src/better_human/studio/app.py::HumanStudio`) and `layers.py` subclasses `better_robot.viewer.Layer`
 (`src/better_human/studio/layers.py::SegmentationLayer`). Domain logic lives in
 `state.py`, `persistence.py`, `posing.py` and `gizmo.py` and is testable without a server; UI wiring lives in
