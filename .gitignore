@@ -20,6 +20,7 @@ models
 models/
 references
 temp/
+benchmarks/results/
 
 # autoresearch
 trash/
