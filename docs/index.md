@@ -42,7 +42,7 @@ vertices (4, 6890, 3) joints (4, 24, 3)
 | Part | What it holds |
 |------|---------------|
 | [Getting started](getting-started/first-human.md) | install, then load, pose and view a body |
-| Guides: [load a family](guides/load-a-family.md), [convert weights](guides/convert-weights.md), [use the studio](guides/use-the-studio.md), [run the tests](guides/run-the-tests.md), [run the benchmarks](guides/run-the-benchmarks.md) | one task each |
+| Guides: [load a family](guides/load-a-family.md), [convert weights](guides/convert-weights.md), [use the studio](guides/use-the-studio.md), [run the tests](guides/run-the-tests.md), [run the benchmarks](guides/run-the-benchmarks.md), [release a version](guides/release.md) | one task each |
 | Concepts: [architecture](concepts/architecture.md), [skinning](concepts/skinning.md), [segmentation](concepts/segmentation.md) | how BetterHuman works and why |
 | Reference: [API](reference/api/better_human.md), [file formats](reference/formats/frame_set.md), [test suite](reference/tests.md), [benchmarks](reference/benchmarks.md), [glossary](reference/glossary.md), [roadmap](reference/roadmap.md) | names, shapes and files, looked up |
 | [Changelog](reference/changelog.md) and [migration to 0.2.0](reference/migration-0.2.0.md) | what changed, and every old name with its new one |

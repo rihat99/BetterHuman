@@ -106,6 +106,7 @@ nav:
       - guides/use-the-studio.md
       - guides/run-the-tests.md
       - guides/run-the-benchmarks.md
+      - guides/release.md
   - Reference:
       - API:
           - better_human: reference/api/better_human.md

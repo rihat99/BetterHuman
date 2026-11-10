@@ -7,6 +7,8 @@ line that 0.2.0 renames or removes, one table row each.
 
 ## Unreleased
 
+## v0.2.0 (2026-11-10)
+
 ### Added
 - `HumanModel.from_spec(spec, *, density="Dempster", contact_frames=None, stream_joints=True)`: a frozen body
   model built once from a `FamilySpec`, in the dtype and on the device its family loader chose.
@@ -38,6 +40,7 @@ line that 0.2.0 renames or removes, one table row each.
 - `tools/api_snapshot.py` and the tracked public API snapshot it checks.
 - `HumanModel.part_joint_ids` `(P,)` and `RegressedRig.parents` `(J - 1,)`: index tensors built once on the spec's
   device, so an SMPL-family bake on CUDA copies no index from the host and fills no tensor from a Python scalar.
+- [Release a version](../guides/release.md): the release checklist, from the BetterRobot pin to the tag.
 
 ### Changed
 - `Identity` fields: `human`, `values`, `rest_vertices`, `rest_joint_translations`, `inverse_bind_affines`
@@ -94,6 +97,8 @@ line that 0.2.0 renames or removes, one table row each.
   <index>`, and runs the full tier a second time with BetterRobot's internal checks on. Ruff selects BetterRobot's
   rules; no code changes process-wide torch settings (C-DEP-3) but the benchmark runner and the oracle dumps, each
   with its reason.
+- BetterHuman depends on BetterRobot 0.3.0 at one git revision, which `[tool.uv.sources]` in `pyproject.toml` pins;
+  `uv sync` fetches it, so no BetterRobot checkout beside BetterHuman is needed.
 
 ### Removed
 - `Body`: use `HumanModel` and `HumanModel.from_spec`.

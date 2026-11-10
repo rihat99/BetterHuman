@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "better-human"
-version = "0.1.0.dev0"
+version = "0.2.0"
 description = "Parametric human body models on a robotics core."
 readme = "README.md"
 license = "Apache-2.0"
@@ -38,7 +38,7 @@ url = "https://download.pytorch.org/whl/cu129"
 explicit = true
 
 [tool.uv.sources]
-better-robot = { path = "../BetterRobot", editable = true }
+better-robot = { git = "https://github.com/rihat99/BetterRobot", rev = "3654884e13b9debe0c86cd36bf11493a8bb576ab" }
 torch = { index = "pytorch-cu129" }
 
 [tool.hatch.build.targets.wheel]

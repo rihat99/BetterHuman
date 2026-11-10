@@ -48,7 +48,7 @@ wheels = [
 
 [[package]]
 name = "better-human"
-version = "0.1.0.dev0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "better-robot" },
@@ -76,8 +76,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "better-robot", editable = "../BetterRobot" },
-    { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", editable = "../BetterRobot" },
+    { name = "better-robot", git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab" },
+    { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
 ]
@@ -85,7 +85,7 @@ provides-extras = ["studio"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "better-robot", extras = ["viewer"], editable = "../BetterRobot" },
+    { name = "better-robot", extras = ["viewer"], git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "mkdocs", specifier = ">=1.6,<2" },
     { name = "mkdocs-material", specifier = ">=9.5" },
@@ -98,8 +98,8 @@ dev = [
 
 [[package]]
 name = "better-robot"
-version = "0.2.0"
-source = { editable = "../BetterRobot" }
+version = "0.3.0"
+source = { git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab#3654884e13b9debe0c86cd36bf11493a8bb576ab" }
 dependencies = [
     { name = "numpy" },
     { name = "torch" },
@@ -110,36 +110,6 @@ dependencies = [
 viewer = [
     { name = "pillow" },
     { name = "viser" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "mujoco", marker = "extra == 'mjcf'", specifier = ">=3.1" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "pillow", marker = "extra == 'viewer'", specifier = ">=10" },
-    { name = "pytest", marker = "extra == 'testing'", specifier = ">=8.0" },
-    { name = "robot-descriptions", marker = "extra == 'demos'", specifier = ">=1.0.0" },
-    { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
-    { name = "trimesh", marker = "extra == 'meshes'", specifier = ">=4.0.0" },
-    { name = "viser", marker = "extra == 'viewer'", specifier = ">=1.0.30" },
-    { name = "yourdfpy", specifier = ">=0.0.14" },
-]
-provides-extras = ["viewer", "mjcf", "meshes", "demos", "testing"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "coverage", specifier = ">=7" },
-    { name = "mkdocs", specifier = ">=1.6,<2" },
-    { name = "mkdocs-material", specifier = ">=9.5" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26" },
-    { name = "pre-commit", specifier = ">=3.7" },
-    { name = "pyright" },
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "ruff" },
-]
-test-oracles = [
-    { name = "pin", specifier = ">=2.7" },
-    { name = "scipy", specifier = ">=1.11" },
 ]
 
 [[package]]
