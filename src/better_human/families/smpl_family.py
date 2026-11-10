@@ -1,7 +1,7 @@
 """One loader for the SMPL family (SMPL, SMPL-H, SMPL-X, MANO, FLAME): a weight file plus a table.
 
 Each loader builds in ``dtype`` torch.float32 or torch.float64 and raises
-:class:`~better_robot.exceptions.DtypeMismatchError` for another, as ``better_human.load`` does.
+:class:`~better_robot.exceptions.DtypeMismatchError` for another, like every family loader.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import torch
-from better_robot.exceptions import ArgumentError, DtypeMismatchError, UnknownNameError
+from better_robot.exceptions import ArgumentError, UnknownNameError
 
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
@@ -23,7 +23,7 @@ from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH
 from better_human.mass import segment_vertices
 
 from . import _tables
-from ._checks import check_flags
+from ._checks import check_dtype, check_flags
 from .classic import FLAMEClassic, MANOClassic, SMPLClassic, SMPLFamilyFormat, SMPLHClassic, SMPLXClassic
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 
@@ -32,10 +32,10 @@ FLAME_SHAPE_DIM, FLAME_EXPRESSION_DIM = 300, 100
 HAND_DIM = 45
 
 
-def _gender(gender: str) -> str:
+def _gender(gender: str, choices: tuple[str, ...] = ("female", "male", "neutral")) -> str:
     normalized = gender.lower()
-    if normalized not in {"female", "male", "neutral"}:
-        raise UnknownNameError("gender", gender, ["female", "male", "neutral"])
+    if normalized not in choices:
+        raise UnknownNameError("gender", gender, list(choices))
     return normalized
 
 
@@ -43,14 +43,6 @@ def _check_width(name: str, value: int, limit: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 1 or value > limit:
         raise ArgumentError(f"{name} must be an int in [1, {limit}], got {value!r}")
     return value
-
-
-def _check_dtype(dtype: torch.dtype) -> None:
-    if dtype not in (torch.float32, torch.float64):
-        raise DtypeMismatchError(
-            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
-            "pass dtype=torch.float32 or dtype=torch.float64"
-        )
 
 
 def _pose_fields(table: _tables.FamilyTable, *counts: tuple[str, int]) -> dict[str, tuple[str, ...]]:
@@ -173,7 +165,7 @@ def smpl(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL (24 joints, 6890 vertices)."""
-    _check_dtype(dtype)
+    check_dtype(dtype)
     gender = _gender(gender)
     path = weight_path(_tables.SMPL.folder, _tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
     return _load_family(
@@ -198,7 +190,7 @@ def smplh(
 ) -> FamilySpec:
     """SMPL+H (52 joints; the hand pose is given per joint, the file ships no hand PCA)."""
     check_flags(hands=hands)
-    _check_dtype(dtype)
+    check_dtype(dtype)
     gender = _gender(gender)
     table = _tables.SMPLH
     path = weight_path(table.folder, table.file_pattern.format(gender_lower=gender), path=path)
@@ -237,7 +229,7 @@ def smplx(
     keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
     """
     check_flags(hands=hands, face=face, flat_hand_mean=flat_hand_mean)
-    _check_dtype(dtype)
+    check_dtype(dtype)
     gender = _gender(gender)
     if num_pca_comps is not None:
         _check_width("num_pca_comps", num_pca_comps, HAND_DIM)
@@ -306,7 +298,7 @@ def mano(
     keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
     """
     check_flags(flat_hand_mean=flat_hand_mean)
-    _check_dtype(dtype)
+    check_dtype(dtype)
     if side not in {"left", "right"}:
         raise UnknownNameError("side", side, ["left", "right"])
     if num_pca_comps is not None:
@@ -343,9 +335,10 @@ def flame(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """FLAME head (5 joints, 5023 vertices); expression is a stream group like SMPL-X."""
-    _check_dtype(dtype)
+    check_dtype(dtype)
+    gender = _gender(gender, ("female", "generic", "male"))
     table = _tables.FLAME
-    path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
+    path = weight_path(table.folder, table.file_pattern.format(gender=gender), path=path)
     return _load_family(
         table,
         path,

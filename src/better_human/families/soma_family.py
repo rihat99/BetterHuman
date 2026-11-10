@@ -10,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
-from better_robot.exceptions import DtypeMismatchError
 
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import FormatError, weight_path
@@ -18,7 +17,7 @@ from better_human.io.load import load_model_npz
 from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
-from ._checks import check_flags
+from ._checks import check_dtype, check_flags
 from .classic import SOMAFormat
 from .soma_rig import SOMARig
 
@@ -78,11 +77,7 @@ def soma(
     ``device`` (decision record 0005).
     """
     check_flags(correctives=correctives)
-    if dtype not in (torch.float32, torch.float64):
-        raise DtypeMismatchError(
-            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
-            "pass dtype=torch.float32 or dtype=torch.float64"
-        )
+    check_dtype(dtype)
     device = torch.device("cpu" if device is None else device)
     arrays = load_model_npz(
         weight_path("SOMA", "soma_mid.npz", path=path),
