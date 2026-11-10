@@ -27,8 +27,10 @@ and meshes and skinning are outputs, not the organising principle.
 ## The package map
 
 Each unit of `better_human` imports only the units of its row (decision record
-[0011](../contracts/decisions/0011-human-package-layout.md) and the records that amend it). This copy of the edge
-tables is checked against `ALLOWED` and `BR_ALLOWED` in `tests/contract/test_layer_dependencies.py` by
+[0011](../contracts/decisions/0011-human-package-layout.md) and the records proposed to amend it,
+[0019](../contracts/decisions/0019-viz-imports-core-only.md), [0021](../contracts/decisions/0021-root-imports-every-subpackage.md)
+and [0022](../contracts/decisions/0022-edges-into-betterrobot-since-0011.md)). This copy of the edge tables is
+checked against `ALLOWED` and `BR_ALLOWED` in `tests/contract/test_layer_dependencies.py` by
 `tests/docs/test_codemap.py`:
 
 ```text
