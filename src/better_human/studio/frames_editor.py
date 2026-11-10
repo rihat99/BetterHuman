@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from better_human.io import read_frame_set, write_frame_set
 from better_human.studio import persistence
 from better_human.studio.state import FrameEntry
 
@@ -132,7 +133,8 @@ class FramesEditor:
     def save(self, name: str) -> None:
         """Write the frame set to ``<data>/frames/<model_key>/<name>.json``."""
         path = self.studio.paths.frame_dir(self.session.model_key) / f"{name}.json"
-        persistence.save_frame_set(path, self._as_io())
+        path.parent.mkdir(parents=True, exist_ok=True)
+        write_frame_set(path, self._as_io())
         self.saved.options = self._saved_options()
         self.saved.value = name
         self.studio.set_status(f"saved frames {path}")
@@ -143,7 +145,10 @@ class FramesEditor:
         if not path.exists():
             self.studio.set_status(f"no saved frame set {name!r}")
             return
-        raw = persistence.load_frame_set(path, self.session.vertices.shape[0])
+        raw = read_frame_set(path)
+        persistence.check_vertex_ids(
+            (vertex for vertex, _ in raw.values()), self.session.vertices.shape[0], source=str(path)
+        )
         names = self.session.body.spec.joint_names
         self.session.set_frame_set(
             {

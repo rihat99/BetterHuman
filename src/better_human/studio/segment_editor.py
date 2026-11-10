@@ -14,7 +14,6 @@ from better_human.studio import persistence
 if TYPE_CHECKING:
     from better_human.studio.app import HumanStudio
 
-_BUILTIN = {"smpl": "smpl_vert_segmentation.json", "smplx": "smplx_vert_segmentation.json"}
 _UNASSIGNED = "(unassigned)"
 
 
@@ -113,7 +112,10 @@ class SegmentEditor:
         parts = {name: torch.nonzero(ids == k).flatten().tolist() for k, name in enumerate(self.session.part_names)}
         return {name: vertices for name, vertices in parts.items() if vertices}
 
-    def _apply(self, parts: dict[str, list[int]]) -> None:
+    def _apply(self, parts: dict[str, list[int]], *, source: str) -> None:
+        persistence.check_vertex_ids(
+            (vertex for ids in parts.values() for vertex in ids), self.session.vertices.shape[0], source=source
+        )
         part_ids = torch.full((self.session.vertices.shape[0],), -1, dtype=torch.long)
         for k, vertices in enumerate(parts.values()):
             part_ids[torch.as_tensor(vertices, dtype=torch.long)] = k
@@ -123,7 +125,7 @@ class SegmentEditor:
     def save(self, name: str) -> None:
         """Write the current segmentation to ``<data>/segmentations/<model_key>/<name>.json``."""
         path = self._directory() / f"{name}.json"
-        persistence.save_segmentation(path, self._as_parts())
+        persistence.write_segmentation(path, self._as_parts())
         self.refresh()
         self.studio.set_status(f"saved segmentation {path}")
 
@@ -133,15 +135,12 @@ class SegmentEditor:
         if path is None:
             self.studio.set_status(f"no saved segmentation {name!r}")
             return
-        self._apply(persistence.load_segmentation(path, self.session.vertices.shape[0]))
+        self._apply(persistence.read_segmentation(path), source=str(path))
 
     def load_builtin(self) -> None:
         """Load the shipped vertex segmentation of SMPL / SMPL-X."""
-        filename = _BUILTIN.get(self.studio.family)
-        if filename is None:
-            self.studio.set_status(f"no built-in segmentation for {self.studio.family!r}")
-            return
-        self._apply(persistence.load_builtin_segmentation(filename, self.session.vertices.shape[0]))
+        family = self.studio.family
+        self._apply(persistence.builtin_segmentation(family), source=f"built-in segmentation {family!r}")
 
     def build_bodies(self) -> list[tuple[str, float]]:
         """Close each part mesh, integrate its mass at the session density and fill the mass table.

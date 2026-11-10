@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import torch
+from better_robot.exceptions import ArgumentError
 from better_robot.viewer import LIGHT, Viewer
 from better_robot.viewer.tools import CameraFrustum, nearest_on_ray, ray_hit, vertices_in_rect
 
@@ -357,7 +359,8 @@ class HumanStudio:
     def save_pose(self, name: str) -> Path:
         """Save ``q`` to ``<data>/poses/<model_key>/<name>.json``."""
         path = self.paths.pose_dir(self.session.model_key) / f"{name}.json"
-        persistence.save_pose(path, self.session.q, self.session.model_key)
+        model = self.session.identity.model
+        persistence.write_pose(path, persistence.Pose(joint_names=model.joint_names, q=tuple(self.session.q.tolist())))
         self.saved_poses.options = self._pose_options()
         self.saved_poses.value = name
         self.set_status(f"saved pose {path}")
@@ -369,7 +372,12 @@ class HumanStudio:
         if not path.is_file():
             self.set_status(f"no saved pose {name!r}")
             return
-        self.session.set_q(persistence.load_pose(path, self.session.model_key, self.session.q.shape[-1]))
+        pose = persistence.read_pose(path)
+        if pose.joint_names != self.session.identity.model.joint_names:
+            raise ArgumentError(
+                f"{path}: the pose follows other joints than the {self.session.model_key} model's; load a pose saved on it"
+            )
+        self.session.set_q(torch.tensor(pose.q))
 
     def reload(self, density: float | str) -> None:
         """Reload the body at a new density, keeping the pose and frames."""

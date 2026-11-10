@@ -31,11 +31,14 @@ from better_human.io.formats import (
     MIGRATIONS,
     SEGMENTATION,
     SOMA,
+    STUDIO_POSE,
+    STUDIO_SEGMENTATION,
     header,
     upgrade,
 )
 from better_human.io.load import load_model_npz
 from better_human.io.schema import DENSITY_TABLES_SCHEMA, MHR_SCHEMA, SEGMENTATION_SCHEMA, SOMA_SCHEMA, ModelSchema
+from better_human.studio.persistence import read_pose, read_segmentation, write_pose, write_segmentation
 
 REPO = Path(__file__).resolve().parents[2]
 PACKAGE = REPO / "src" / "better_human"
@@ -51,6 +54,14 @@ READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     FRAME_SET: ("json", read_frame_set),
     SEGMENTATION: ("npz", lambda path: load_model_npz(path, SEGMENTATION_SCHEMA)),
     DENSITY_TABLES: ("npz", lambda path: load_model_npz(path, DENSITY_TABLES_SCHEMA)),
+    STUDIO_SEGMENTATION: ("json", read_segmentation),
+    STUDIO_POSE: ("json", read_pose),
+}
+#: The writer of each JSON format; it takes what its reader returns (the archive writers are the converters).
+JSON_WRITERS: dict[str, Callable[[Path, Any], None]] = {
+    FRAME_SET: write_frame_set,
+    STUDIO_SEGMENTATION: write_segmentation,
+    STUDIO_POSE: write_pose,
 }
 #: The provenance a v1 archive migrates to: an MHR v1 archive has none, a SOMA v1 archive carries it as ``source``.
 V1_PROVENANCE = {MHR: "unknown (v1)", SOMA: '{"package": "py-soma-x"}'}
@@ -64,21 +75,26 @@ MIGRATION_CASES = [
 ]
 
 
+def _short(format: str) -> str:
+    """The file stem of a format's fixtures and spec page: ``better_human.studio.pose`` -> ``studio_pose``."""
+    return format.removeprefix("better_human.").replace(".", "_")
+
+
 def _fixture(format: str, version: int) -> Path:
-    return FIXTURES / f"{format.removeprefix('better_human.')}_v{version}.{READERS[format][0]}"
+    return FIXTURES / f"{_short(format)}_v{version}.{READERS[format][0]}"
 
 
 def _read(format: str, path: Path) -> Any:
     """What the reader returns; archive fields as NumPy arrays."""
     value = READERS[format][1](path)
-    if format == FRAME_SET:
+    if format in JSON_WRITERS:
         return value
     return {name: array if isinstance(array, np.ndarray) else array.numpy() for name, array in value.items()}
 
 
 def _comparable(format: str, value: Any) -> Any:
-    """Archive fields as ``name -> (dtype, shape, bytes)``; a frame set as it is."""
-    if format == FRAME_SET:
+    """Archive fields as ``name -> (dtype, shape, bytes)``; what a JSON reader returns as it is."""
+    if format in JSON_WRITERS:
         return value
     return {name: (array.dtype, array.shape, array.tobytes()) for name, array in value.items()}
 
@@ -99,8 +115,8 @@ def test_latest_version_round_trips(format: str, tmp_path: Path) -> None:
     fixture = _fixture(format, LATEST[format])
     latest = _read(format, fixture)
     copy = tmp_path / fixture.name
-    if format == FRAME_SET:
-        write_frame_set(copy, latest)
+    if format in JSON_WRITERS:
+        JSON_WRITERS[format](copy, latest)
         assert copy.read_text() == fixture.read_text()
     else:
         np.savez_compressed(copy, **latest)
@@ -169,7 +185,7 @@ def test_a_past_version_without_the_field_its_migration_reads_is_refused() -> No
 
 
 def _spec_page(format: str) -> Path:
-    return REPO / "docs" / "reference" / "formats" / f"{format.removeprefix('better_human.')}.md"
+    return REPO / "docs" / "reference" / "formats" / f"{_short(format)}.md"
 
 
 @pytest.mark.parametrize("format", LATEST)

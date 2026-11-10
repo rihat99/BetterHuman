@@ -6,7 +6,6 @@
   "better_human.studio.layers.PartsLayer": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.studio.layers.SegmentationLayer": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.studio.layers.StudioLayers": "H6 (viz and studio rewrite) decides whether it is final or abstract",
-  "better_human.studio.persistence.StudioPaths": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.studio.posing.JointHandle": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.studio.segment_editor.SegmentEditor": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.studio.state.FrameEntry": "H6 (viz and studio rewrite) decides whether it is final or abstract",

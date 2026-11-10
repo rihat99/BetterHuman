@@ -1,0 +1,15 @@
+{
+  "format": "better_human.studio.segmentation",
+  "format_version": 1,
+  "parts": {
+    "head": [
+      0,
+      1,
+      2
+    ],
+    "torso": [
+      3,
+      4
+    ]
+  }
+}

@@ -82,9 +82,9 @@ Named frames (for example foot contact points) are attached to a parent joint wi
 
 ```text
 <data root>/
-  segmentations/<key>/<name>.json   # part name -> vertex ids
-  frames/<key>/<name>.json          # frame set: {format, format_version, frames: {name: {vertex_id, joint_name}}}
-  poses/<key>/<name>.npz            # joint rotations and root
+  segmentations/<key>/<name>.json   # better_human.studio.segmentation v1: {format, format_version, parts}
+  frames/<key>/<name>.json          # better_human.frame_set v1: {format, format_version, frames}
+  poses/<key>/<name>.json           # better_human.studio.pose v1: {format, format_version, joint_names, q}
 ```
 
 `<key>` names the model, for example `smplx_neutral` or `mhr_neutral_lod1`, so sets saved for one body
