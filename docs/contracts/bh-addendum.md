@@ -214,7 +214,7 @@ and upstream's own float32 run is 7.5e-6 m (vertices) from its float64 run on th
 
 ### Measured baselines
 
-`benchmarks/run.py`, float32, median ms. Ratio = ours / upstream (below 1 = ours faster).
+The earlier `benchmarks/run.py` at commit `9ad4093`, float32, median ms. Ratio = ours / upstream (below 1 = ours faster).
 Upstream = vendored `smplx` forward for SMPL and SMPL-X, TorchScript `mhr_model.pt` for MHR.
 CPU: AMD EPYC 9654, 8 threads. CUDA: NVIDIA RTX PRO 6000 Blackwell.
 
@@ -237,7 +237,7 @@ Caveats:
 - SMPL bake without mass is 0.41 ms on CPU: mass integration dominates `bake`.
 - Batch 8192 vertex cells (ours and upstream) were skipped where the estimate exceeded 8 GB
   (for example SMPL 10.8 GB, SMPL-X 16.5 GB, MHR TorchScript 29.0 GB). fk and rnea ran at 8192.
-- Full tables: `benchmarks/results/p4_bodies_{cpu,cuda}.json`.
+- Full tables: `benchmarks/results/p4_bodies_{cpu,cuda}.json` at commit `9ad4093`; results are no longer tracked.
 
 ## Design principles
 
