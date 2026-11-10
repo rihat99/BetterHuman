@@ -85,8 +85,8 @@ Identity groups go to `bake`, stream groups to `forward` (`subject.forward(q, st
 ## Development
 
 ```bash
-uv run pytest tests/contract -q -m "not slow and not licensed"  # fast tier
-uv run pytest tests -q -m "not cuda and not licensed"           # full tier, no weights needed
+uv run pytest tests/contract -q -m "not slow and not cuda and not licensed"  # fast tier
+uv run pytest tests -q -m "not cuda and not licensed"                        # full tier, no weights needed
 uv run ruff check . && uv run ruff format --check .
 uv run mkdocs build --strict
 ```

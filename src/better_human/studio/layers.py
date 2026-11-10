@@ -78,7 +78,7 @@ class SegmentationLayer(Layer):
         self.dispose()
         self.build(self._scene, self._root)
 
-    def set_visible(self, visible: bool) -> None:
+    def set_visible(self, visible: bool) -> None:  # noqa: FBT001 - BetterRobot's Layer.set_visible
         # A hidden layer skips rebuilds (StudioLayers marks it stale); catch up when it is shown.
         if visible and self.stale:
             self.stale = False
@@ -170,7 +170,7 @@ class PartsLayer(Layer):
         self.dispose()
         self.build(self._scene, self._root)
 
-    def set_visible(self, visible: bool) -> None:
+    def set_visible(self, visible: bool) -> None:  # noqa: FBT001 - BetterRobot's Layer.set_visible
         # A hidden layer skips rebuilds (StudioLayers marks it stale); catch up when it is shown.
         if visible and self.stale:
             self.stale = False
@@ -231,7 +231,7 @@ class BodyMeshLayer(Layer):
     def world_points(self, step: int) -> np.ndarray | None:
         return self.active.world_points(step)
 
-    def set_visible(self, visible: bool) -> None:
+    def set_visible(self, visible: bool) -> None:  # noqa: FBT001 - BetterRobot's Layer.set_visible
         super().set_visible(visible)
         self.active.set_visible(visible)
 

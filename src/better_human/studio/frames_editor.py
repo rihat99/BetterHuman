@@ -67,7 +67,7 @@ class FramesEditor:
         if hasattr(self, "frame_dropdown"):
             self.frame_dropdown.options = self._names()
 
-    def set_adding(self, enabled: bool) -> None:
+    def set_adding(self, enabled: bool) -> None:  # noqa: FBT001 - the switch is the main operand
         """Enter or leave add-frame mode; it is exclusive with the other click modes."""
         self.adding = enabled
         if enabled:

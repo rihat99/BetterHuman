@@ -10,6 +10,9 @@ What each group of tests guards. How to run them: [Run the tests](../guides/run-
 | `cuda` | needs a CUDA device | the fast and full tiers |
 | `slow` | takes seconds | the fast tier |
 
+The release tier, `bash tools/release_tier.sh --gpu <index>`, runs the `cuda` tests on that GPU and the `licensed`
+tests last ([Run the tests](../guides/run-the-tests.md#run-a-tier)).
+
 pytest runs strictly (`[tool.pytest.ini_options]` in `pyproject.toml`): an unknown marker or config key is an error, a
 passing `xfail` fails, an empty parameter set fails at collection, and every warning is an error unless a named filter
 with its reason lets it through. `tests/conftest.py` loads BetterRobot's plugin `better_robot.testing.no_skips`,

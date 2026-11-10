@@ -77,8 +77,7 @@ def test_rest_pose_frames_sit_on_their_vertex_with_the_normal_as_z(body: bh.Huma
 
 @pytest.mark.licensed
 def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.HumanModel) -> None:
-    torch.manual_seed(0)
-    shaped = body.bake(betas=torch.randn(10) * 0.5)
+    shaped = body.bake(betas=torch.randn(10, generator=torch.Generator().manual_seed(0)) * 0.5)
     vertices = torch.tensor(body.contact_frames.vertex_ids, dtype=torch.long)
     targets = shaped.rest_vertices[vertices]
     # The shape must actually move these vertices, or the test proves nothing.
@@ -92,8 +91,7 @@ def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.HumanModel) ->
 
 @pytest.mark.licensed
 def test_shape_rebake_is_batched(body: bh.HumanModel) -> None:
-    torch.manual_seed(1)
-    shaped = body.bake(betas=torch.randn(3, 10) * 0.5)
+    shaped = body.bake(betas=torch.randn(3, 10, generator=torch.Generator().manual_seed(1)) * 0.5)
     assert shaped.model.frame_placements.shape == (3, body.model.nframes, 7)
 
     poses = _frame_poses(shaped)

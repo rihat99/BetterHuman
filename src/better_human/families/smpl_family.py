@@ -149,7 +149,10 @@ def _load_family(
         identity_bases={name: bases[name] for name in identity},
         stream_bases={name: bases[name] for name in streams},
         corrective=LinearCorrective(data.posedirs.to(device=device, dtype=dtype)),
-        rig=RegressedRig(data.joint_regressor.to(device=device, dtype=dtype)),
+        rig=RegressedRig(
+            data.joint_regressor.to(device=device, dtype=dtype),
+            torch.tensor(data.parents[1:], dtype=torch.long, device=device),
+        ),
         parts=replace(data.parts, ids=data.parts.ids.to(device)),
         classic=classic,
         landmarks=landmarks,

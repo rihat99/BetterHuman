@@ -36,6 +36,8 @@ line that 0.2.0 renames or removes, one table row each.
 - Random-weight SMPL, SMPL-H and SMPL-X archives and their goldens in the repository, so the full test tier and the
   examples run without licensed weights.
 - `tools/api_snapshot.py` and the tracked public API snapshot it checks.
+- `HumanModel.part_joint_ids` `(P,)` and `RegressedRig.parents` `(J - 1,)`: index tensors built once on the spec's
+  device, so an SMPL-family bake on CUDA copies no index from the host and fills no tensor from a Python scalar.
 
 ### Changed
 - `Identity` fields: `human`, `values`, `rest_vertices`, `rest_joint_translations`, `inverse_bind_affines`
@@ -86,6 +88,12 @@ line that 0.2.0 renames or removes, one table row each.
   TorchScript oracle and the load rows; wall time is recorded with the load average and page faults, never gated.
 - `better_human.__version__` is read from the installed distribution's metadata, so it always equals the version
   in `pyproject.toml`; it was a literal in `__init__.py`.
+- The hooks in `.pre-commit-config.yaml` are BetterRobot's but for the tier marker expressions: ruff check, ruff
+  format --check and the fast tier (`-m "not slow and not cuda and not licensed"`) before a commit, the full tier
+  before a push, all through `uv run --locked`. The release tier is one command, `bash tools/release_tier.sh --gpu
+  <index>`, and runs the full tier a second time with BetterRobot's internal checks on. Ruff selects BetterRobot's
+  rules; no code changes process-wide torch settings (C-DEP-3) but the benchmark runner and the oracle dumps, each
+  with its reason.
 
 ### Removed
 - `Body`: use `HumanModel` and `HumanModel.from_spec`.

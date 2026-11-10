@@ -447,8 +447,8 @@ def main() -> None:
     lods = sorted(set(args.lod if args.lod is not None else range(LOD_COUNT)))
     metadata = _load_parameter_metadata(args.converted_dir)
     masks = _parameter_masks(metadata)
-    torch.manual_seed(BASE_SEED)
-    torch.use_deterministic_algorithms(True)
+    torch.manual_seed(BASE_SEED)  # noqa: TID251 - pins the oracle's global RNG for the dump; C-DEP-3 binds the library
+    torch.use_deterministic_algorithms(True)  # noqa: TID251 - pins the oracle's kernels; C-DEP-3 binds the library
     self_check_lod = max(lods)
     oracle = _oracle()
 

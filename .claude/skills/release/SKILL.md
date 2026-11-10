@@ -15,10 +15,9 @@ Each step names the check that holds it; run them on a clean checkout of the com
    `## Unreleased` heading (`tests/contract/test_changelog.py`).
 3. Set `version` in `pyproject.toml`, `0.MINOR.PATCH` before 1.0, where a minor release may break (rule C-EXT-6),
    then `uv lock`: the lockfile records the version, and the hooks' `uv run --locked` fails without it.
-4. Run the full tier, then the release tier with the weights in `$BETTERHUMAN_MODELS_DIR` and
-   `NUMPY_MADVISE_HUGEPAGE=0` on a host with transparent huge pages (`docs/guides/run-the-tests.md`):
-   `uv run pytest tests -q -m "licensed and not cuda"`, then on a GPU nobody else uses
-   `CUDA_VISIBLE_DEVICES=<index> uv run pytest tests -q -m cuda`. Every licensed test passes; a missing weight
-   file fails, never skips.
+4. Run the release tier with the weights in `$BETTERHUMAN_MODELS_DIR` and `NUMPY_MADVISE_HUGEPAGE=0` on a host
+   with transparent huge pages (`docs/guides/run-the-tests.md`), on a GPU nobody else uses:
+   `bash tools/release_tier.sh --gpu <index>`. It runs the full tier too and stops at its first failure. Every
+   licensed test passes; a missing weight file fails, never skips.
 5. Each change is a commit of its own. The tag, the push and the BetterRobot source in `[tool.uv.sources]` of
    `pyproject.toml` are the owner's steps.
