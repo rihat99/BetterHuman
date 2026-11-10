@@ -84,6 +84,8 @@ line that 0.2.0 renames or removes, one table row each.
   random-weight archives) exceeds `benchmarks/thresholds/torch-<version>.json`
   (`tests/contract/test_compile_counters.py`); `--licensed` adds the sweep of SMPL, SMPL-X, MHR and SOMA, MHR's
   TorchScript oracle and the load rows; wall time is recorded with the load average and page faults, never gated.
+- `better_human.__version__` is read from the installed distribution's metadata, so it always equals the version
+  in `pyproject.toml`; it was a literal in `__init__.py`.
 
 ### Removed
 - `Body`: use `HumanModel` and `HumanModel.from_spec`.
