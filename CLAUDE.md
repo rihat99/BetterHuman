@@ -5,8 +5,8 @@ models. This file holds what the code cannot tell. `AGENTS.md` sends every other
 
 ## Commands
 
-From the repository root, with BetterRobot checked out beside it (`[tool.uv.sources]` in `pyproject.toml`). Wall
-times measured on a shared 384-thread AMD EPYC host at load average 16 to 113, with `NUMPY_MADVISE_HUGEPAGE=0` (below).
+From the repository root. Wall times measured on a shared 384-thread AMD EPYC host at load average 16 to 113, with
+`NUMPY_MADVISE_HUGEPAGE=0` (below).
 
 ```bash
 uv sync --extra studio                                           # the environment and the dev group, under a second
@@ -40,10 +40,8 @@ before a push, once installed (`uv run pre-commit install`). `docs/guides/run-th
   archive for seconds; `NUMPY_MADVISE_HUGEPAGE=0` turns it off for a run (`docs/guides/run-the-tests.md`). Neither
   the library nor the tests set it.
 - `benchmarks/run.py` refuses `BETTER_ROBOT_INTERNAL_CHECKS=1`: BetterRobot's checks add host syncs and operators.
-- The screenshot command needs `BETTER_ROBOT_CHROME` (a headless Chromium) and builds the site with a plain
-  `uv run`.
-- `uv.lock` records the version of the BetterRobot checkout beside it. When that version changes, a plain `uv run`
-  rewrites the lockfile and the hooks' `uv run --locked` fails until the new lockfile is committed.
+- The screenshot command runs BetterRobot's script from a BetterRobot clone beside this one, needs
+  `BETTER_ROBOT_CHROME` (a headless Chromium) and builds the site with a plain `uv run`.
 
 ## Gates that must not be weakened
 

@@ -11,9 +11,8 @@ Documentation: [docs/](docs/index.md), served as a site by `uv run mkdocs serve`
 ## Install with [uv](https://docs.astral.sh/uv/)
 
 ```bash
-git clone https://github.com/rihat99/BetterRobot  # pyproject.toml takes BetterRobot from ../BetterRobot
 git clone https://github.com/rihat99/BetterHuman && cd BetterHuman
-uv sync --extra studio  # the package, the browser viewer and HumanStudio, and the dev group
+uv sync --extra studio  # the package, the pinned BetterRobot, the browser viewer and HumanStudio, and the dev group
 ```
 
 ## Pose four SMPL bodies at once
