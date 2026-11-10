@@ -132,6 +132,7 @@ raises `UnknownNameError`.
 | `points(vertex_ids)` | `(..., M, 3)` | skin a vertex subset only |
 | `landmarks()` | `(..., L, 3)` | the spec's landmarks |
 | `frame_poses` | `(..., nframes, 7)` | world poses of the model frames, contact frames included |
+| `contact_frame_poses(frames)` | `(..., N, 7)` | the poses a model built with `contact_frames=frames` reports for them, without that model |
 | `model` | BR `Model` | per-frame placements when a stream moves joints |
 | `rest_joint_translations`, `inverse_bind_affines`, `root_offset`, `stream_offsets` | | after the stream joint shift |
 

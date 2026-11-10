@@ -27,14 +27,8 @@ def part_colors(num_parts: int) -> np.ndarray:
 
 
 def frame_poses(session: StudioSession) -> np.ndarray:
-    """Authored frames as ``(1, F, 7)`` poses: vertex position, parent-joint orientation (``session.frame_set`` order)."""
-    entries = list(session.frame_set.values())
-    poses = np.zeros((1, len(entries), 7), np.float32)
-    if entries:
-        joint_poses = session.state.joint_poses.detach().cpu().numpy().reshape(-1, 7)
-        poses[0, :, :3] = session.vertices.detach().cpu().numpy()[[entry.vertex for entry in entries]]
-        poses[0, :, 3:] = joint_poses[[session.resolved_joint(entry) for entry in entries], 3:]
-    return poses
+    """Authored frames as ``(1, F, 7)`` poses, as the model's contact frames (``session.frame_set`` order)."""
+    return session.frame_poses.detach().cpu().numpy().astype(np.float32).reshape(1, -1, 7)
 
 
 @final

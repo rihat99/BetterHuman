@@ -70,10 +70,12 @@ away from the centre so parts are easy to inspect. All three change the live sce
 
 ### Frames
 
-Named frames (for example foot contact points) are attached to a parent joint with a fixed offset.
+Named frames (for example foot contact points) are the model's contact frames: each sits on a mesh vertex, rigid
+with a parent joint, its z axis the rest surface normal there, drawn as `HumanState.contact_frame_poses` places
+them. MHR takes no contact frames, so adding one there is refused on the status line.
 
 - **Frame** picks the active frame; **Name** + **Rename**; **Parent joint** re-parents it; **Delete**.
-- **Add frame** mode: click the mesh to drop a frame at that surface point on the nearest joint.
+- **Add frame** mode: click the mesh to drop a frame on the nearest vertex, parented to its dominant skinning joint.
 - **Saved** lists the frame sets saved for this model (for example `contacts`); **Load frames**,
   **Save as** + **Save frames**, and **Export as config**, which prints a Python dict for
   `better_human` body construction.

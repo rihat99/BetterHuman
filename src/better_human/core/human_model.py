@@ -23,7 +23,7 @@ from better_robot.exceptions import (
     ShapeError,
     UnknownNameError,
 )
-from better_robot.lie import so3
+from better_robot.lie import se3, so3
 
 from better_human.mass import PartTopology, part_densities, part_inertias
 
@@ -339,6 +339,31 @@ class HumanState:
     def frame_poses(self) -> torch.Tensor:
         """``(..., nframes, 7)`` world poses of the model frames (contact frames included)."""
         return self.kinematics.frame_poses
+
+    def contact_frame_poses(self, frames: Mapping[str, tuple[int, str | None]]) -> torch.Tensor:
+        """``(..., N, 7)`` world poses of ``frames`` (``name -> (vertex_id, joint_name | None)``), in their order.
+
+        These are the poses ``frame_poses`` reports for a model built with ``contact_frames=frames``: each frame is rigid
+        with its parent joint, its origin on the rest vertex, its z axis the rest mesh normal. Raises as
+        ``HumanModel.from_spec(contact_frames=frames)`` does: for a vertex id or joint name the body lacks, and
+        :class:`~better_robot.exceptions.ArgumentError` for a family whose rig takes no contact frames (MHR, SOMA).
+        """
+        human = self.identity.human
+        spec = human.spec
+        parents = _resolve_parents(frames, spec.joint_names, spec.parts.ids)
+        local = _frame_local_placements(
+            self.identity.rest_vertices,
+            self.identity.rest_joint_translations,
+            spec.faces,
+            [int(vertex) for vertex, _ in frames.values()],
+            parents,
+        )
+        if parents:
+            # The rig alone knows which bodies take contact frames: it builds the model from_spec would, or raises.
+            parent_names = [spec.joint_names[parent] for parent in parents]
+            spec.rig.build_model(spec, frames=list(zip(frames, parent_names, local[(0,) * (local.dim() - 2)])))
+        joints = human.joint_ids.index_select(0, torch.as_tensor(parents, dtype=torch.long, device=spec.device))
+        return se3.compose(self.kinematics.joint_poses.index_select(-2, joints), local)
 
     def _memoised(self, key: str, compute: Callable[[], torch.Tensor]) -> torch.Tensor:
         key = f"{key}/{torch.is_grad_enabled()}"

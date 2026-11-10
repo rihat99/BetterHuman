@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import pytest
 import torch
+from better_robot.exceptions import ArgumentError
 
 import better_human as bh
 from better_human.io import weight_path
 from better_human.studio.posing import apply_local_rotation, joint_handles
-from better_human.studio.state import StudioSession
+from better_human.studio.state import FrameEntry, StudioSession
 
 pytestmark = pytest.mark.licensed
 
@@ -158,3 +159,12 @@ def test_soma_free_flyer_rotation_reaches_the_gizmo_target(soma: bh.HumanModel) 
     target, posed, _ = _pose_with(soma, "Hips", [0.0, 0.3827, 0.0, 0.9239])
     assert _angle(target[3:], posed[3:]) < 1e-4
     torch.testing.assert_close(posed[:3], target[:3], atol=1e-5, rtol=0)
+
+
+@pytest.mark.parametrize("family", ["mhr", "soma"])
+def test_a_body_without_contact_frames_refuses_a_frame_set(family: str, request: pytest.FixtureRequest) -> None:
+    """The model's rule: MHR and SOMA take no contact frames, so the session keeps its empty frame set."""
+    session = StudioSession(request.getfixturevalue(family), family)
+    with pytest.raises(ArgumentError, match="does not support contact frames"):
+        session.set_frame_set({"heel": FrameEntry(10)})
+    assert session.frame_set == {} and session.frame_poses.shape == (0, 7)

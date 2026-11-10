@@ -8,7 +8,7 @@ import numpy as np
 
 from better_human.io import read_frame_set, write_frame_set
 from better_human.studio import persistence
-from better_human.studio.state import FrameEntry
+from better_human.studio.state import FrameEntry, contact_frames
 
 if TYPE_CHECKING:
     from better_human.studio.app import HumanStudio
@@ -94,11 +94,10 @@ class FramesEditor:
         entry = self.session.frame_set[name]
         self.frame_dropdown.value = name
         self.rename_text.value = name
-        self.joint_dropdown.value = (
-            _DEFAULT_JOINT if entry.joint is None else self.session.body.spec.joint_names[entry.joint]
-        )
+        joint = _DEFAULT_JOINT if entry.joint is None else self.session.body.spec.joint_names[entry.joint]
+        self.joint_dropdown.value = joint
         self.studio.layers.set_edit_vertices([entry.vertex])
-        self.studio.set_status(f"frame {name!r}: vertex {entry.vertex}, joint {self.session.resolved_joint(entry)}")
+        self.studio.set_status(f"frame {name!r}: vertex {entry.vertex}, joint {joint}")
 
     def rename(self, old: str | None, new: str) -> None:
         """Rename a frame, keeping its position in the authored order."""
@@ -125,18 +124,11 @@ class FramesEditor:
         self.studio.layers.set_edit_vertices([])
         self.refresh()
 
-    def _as_io(self) -> dict[str, tuple[int, str | None]]:
-        names = self.session.body.spec.joint_names
-        return {
-            key: (entry.vertex, None if entry.joint is None else names[entry.joint])
-            for key, entry in self.session.frame_set.items()
-        }
-
     def save(self, name: str) -> None:
         """Write the frame set to ``<data>/frames/<model_key>/<name>.json``."""
         path = self.studio.paths.frame_dir(self.session.model_key) / f"{name}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        write_frame_set(path, self._as_io())
+        write_frame_set(path, contact_frames(self.session.frame_set, self.session.body.spec.joint_names))
         self.saved.options = self._saved_options()
         self.saved.value = name
         self.studio.set_status(f"saved frames {path}")
@@ -162,6 +154,8 @@ class FramesEditor:
 
     def export(self) -> str:
         """Render the frame set as a ``contact_frames={...}`` argument for ``bh.load`` and show it."""
-        self.snippet = persistence.frame_config_snippet(self._as_io())
+        self.snippet = persistence.frame_config_snippet(
+            contact_frames(self.session.frame_set, self.session.body.spec.joint_names)
+        )
         self.export_box.content = f"```python\n{self.snippet}\n```"
         return self.snippet
