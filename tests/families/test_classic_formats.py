@@ -25,8 +25,10 @@ from better_human.families import FLAMEClassic, MHRClassic, SMPLFamilyFormat, SO
 from better_human.io import weight_path
 from tests.support.synthetic import flame_spec
 
-BATCH = (2,)
-F64 = torch.float64
+#: Leading batch shapes the drawn fields take in turn: two axes, broadcast between the fields to ``BROADCAST``.
+BATCHES = ((2, 1), (3,))
+BROADCAST = (2, 3)
+F64, F32 = torch.float64, torch.float32
 
 
 def _mano_file(directory: Path) -> Path:
@@ -57,11 +59,17 @@ def _licensed(loader: Callable[[], bh.FamilySpec]) -> Callable[[Path], bh.Family
 
 #: case id -> (spec of the case, the format it must carry, absolute tolerance of the round trip). The tolerances are
 #: those of the per-family round-trip tests this checker replaces: float64 rounding, the PCA pseudo-inverse (SMPL-X
-#: 1e-8, MANO 1e-9), float32 (MHR, SOMA 1e-6).
+#: 1e-8, MANO 1e-9), float32 (MHR, SOMA 1e-6); the SMPL family's float32 cases take the same 1e-6.
 CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], float]] = {
     "flame": (flame_spec, SMPLFamilyFormat, 1e-10),
     "flame-without-jaw": (lambda path: bh.families.drop_joints(flame_spec(path), ["jaw"]), SMPLFamilyFormat, 1e-10),
+    "flame-float32": (lambda path: flame_spec(path, dtype=F32), SMPLFamilyFormat, 1e-6),
     "mano-pca6": (lambda path: bh.families.mano(_mano_file(path), num_pca_comps=6, dtype=F64), SMPLFamilyFormat, 1e-9),
+    "mano-pca6-float32": (
+        lambda path: bh.families.mano(_mano_file(path), num_pca_comps=6, dtype=F32),
+        SMPLFamilyFormat,
+        1e-6,
+    ),
     "mano-flat": (
         lambda path: bh.families.mano(_mano_file(path), flat_hand_mean=True, dtype=F64),
         SMPLFamilyFormat,
@@ -91,6 +99,11 @@ CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], flo
         _licensed(lambda: bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), num_pca_comps=6, dtype=F64)),
         SMPLFamilyFormat,
         1e-8,
+    ),
+    "smplx-pca6-float32": (
+        _licensed(lambda: bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), num_pca_comps=6, dtype=F32)),
+        SMPLFamilyFormat,
+        1e-6,
     ),
     "smplx-pca6-flat": (
         _licensed(
@@ -133,25 +146,33 @@ CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], flo
         1e-12,
     ),
 }
-SYNTHETIC = ("flame", "flame-without-jaw", "mano-pca6", "mano-flat", "mano-without-index3")
+SYNTHETIC = (
+    "flame",
+    "flame-without-jaw",
+    "flame-float32",
+    "mano-pca6",
+    "mano-pca6-float32",
+    "mano-flat",
+    "mano-without-index3",
+)
 
 
 def check_round_trip(human: bh.HumanModel, generator: torch.Generator, atol: float) -> None:
     """``to_classic`` inverts ``from_classic`` on a random classic of ``human``'s format, and the other way round.
 
-    Every field the model takes is drawn ``(*BATCH, *shape)`` and comes back, an identity field exactly; every field of
-    an empty classic comes back as zeros; a field the model was loaded without must raise when set and come back
-    ``None``, and so must a joint the model was loaded without in a field it keeps (drawn zero, read zero); another
-    family's classic must raise.
+    Every field the model takes is drawn ``(*batch, *shape)``, ``batch`` taking each of ``BATCHES`` in turn, and comes
+    back at ``BROADCAST``, an identity field exactly; every field of an empty classic comes back as zeros; a field the
+    model was loaded without must raise when set and come back ``None``, and so must a joint the model was loaded
+    without in a field it keeps (drawn zero, read zero); another family's classic must raise.
     """
     spec = human.spec
     classic_type = spec.classic.classic_type
     shapes = spec.classic.field_shapes(spec)
     names = [field.name for field in dataclasses.fields(classic_type)]
+    taken = [name for name in names if name in shapes]
     values = {
-        name: 0.3 * torch.randn(*BATCH, *shapes[name], generator=generator, dtype=spec.dtype)
-        for name in names
-        if name in shapes
+        name: 0.3 * torch.randn(*BATCHES[index % len(BATCHES)], *shapes[name], generator=generator, dtype=spec.dtype)
+        for index, name in enumerate(taken)
     }
     dropped_entries = {}  # field -> its axis-angle entries of joints the model was loaded without
     pose_fields = spec.classic.pose_fields if isinstance(spec.classic, SMPLFamilyFormat) else {}
@@ -178,7 +199,7 @@ def check_round_trip(human: bh.HumanModel, generator: torch.Generator, atol: flo
             continue
         torch.testing.assert_close(
             getattr(back, name),
-            values[name],
+            values[name].expand(*BROADCAST, *shapes[name]),
             rtol=0,
             atol=0 if name in identity.values else atol,
             msg=lambda text, name=name: f"{name}: {text}",
@@ -197,7 +218,9 @@ def check_round_trip(human: bh.HumanModel, generator: torch.Generator, atol: flo
     for name, value in streams.items():
         torch.testing.assert_close(streams_back[name], value, rtol=0, atol=atol)
     for name, value in identity.values.items():
-        torch.testing.assert_close(identity_back.values[name], value, rtol=0, atol=atol)
+        torch.testing.assert_close(
+            identity_back.values[name], value.expand_as(identity_back.values[name]), rtol=0, atol=atol
+        )
 
     wrong = MHRClassic if classic_type is not MHRClassic else SOMAClassic
     with pytest.raises(ArgumentError, match=f"takes {classic_type.__name__}, got {wrong.__name__}"):
