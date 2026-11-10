@@ -101,6 +101,7 @@ nav:
   - Contributing:
       - Testing: contributing/testing.md
   - Reference:
+      - reference/glossary.md
       - reference/roadmap.md
       - reference/changelog.md
       - reference/migration-0.2.0.md
