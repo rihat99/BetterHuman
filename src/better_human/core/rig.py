@@ -1,6 +1,6 @@
 """``Rig``: how identity turns into joint placements and how a configuration feeds the corrective.
 
-A rig is the one behavioural part of a :class:`~better_human.core.spec.FamilySpec`. The families define three:
+A rig is the one behavioural part of a :class:`~better_human.FamilySpec`. The families define three:
 ``RegressedRig`` (SMPL family), ``MHRRig`` and ``SOMARig``. A rig implements the four abstract members; the four
 hooks below have defaults for rigs whose streams move no joint, whose native joint frames are BetterRobot's and that
 cannot drop joints.

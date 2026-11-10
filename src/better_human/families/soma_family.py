@@ -1,6 +1,6 @@
 """NVIDIA SOMA family (SOMA-X v0.3.4, mid LOD) loader.
 
-``soma(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with a :class:`SOMARig`. Its identity group
+``soma(...)`` returns a :class:`~better_human.FamilySpec` with a :class:`SOMARig`. Its identity group
 ``shape`` takes the 128 upstream ``identity_coeffs``; upstream poses enter through ``better_human.from_classic`` with a
 :class:`~better_human.families.SOMAClassic`.
 """

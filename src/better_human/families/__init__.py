@@ -1,4 +1,4 @@
-"""Human families: loaders that turn weight files into :class:`~better_human.core.FamilySpec`, and their classic formats."""
+"""Human families: loaders that turn weight files into :class:`~better_human.FamilySpec`, and their classic formats."""
 
 from .classic import (
     FLAMEClassic,
