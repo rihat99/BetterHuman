@@ -56,8 +56,8 @@ raises (`DtypeMismatchError`, `DeviceMismatchError`).
 Frozen, typed data: `template_vertices (V, 3)`, `faces (F, 3)`, `joint_names`, `parents`, `file_joint_ids`, top-K
 `skin_weights` and `skin_indices (V, K)`, `identity_bases` and `stream_bases` (group name -> `(V, 3, n)` blend
 shapes), a `Corrective` (`LinearCorrective` or `MLPCorrective`, or `None`), `Parts` (segmentation and density
-categories), `Landmarks`, `up_axis` and `provenance`. Its one behavioural member is `rig`, an instance of the abstract
-`Rig` (`src/better_human/core/rig.py`):
+categories), `Landmarks`, `up_axis` and `provenance`. `classic` is the family's classic format (below). Its one
+behavioural member is `rig`, an instance of the abstract `Rig` (`src/better_human/core/rig.py`):
 
 | Rig method | Job |
 |---|---|
@@ -160,13 +160,33 @@ One path for every rig: `skin_affines(joint_transforms, inverse_bind_affines)` g
 affine, and `linear_blend_skinning(rest_vertices, affines, *, weights)` blends them. `blend_shapes` adds identity and
 stream offsets; `top_k_skin` keeps the K strongest weights per vertex at load.
 
-## Classic converters (at the boundary)
+## Classic parameters (at the boundary, decision record 0004)
 
-Native parameter sets (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA, ...) are converted at the boundary,
-never inside the core: `families.<family>_from_classic` and `families.<family>_to_classic` for SMPL, SMPL-H, SMPL-X,
-MANO, FLAME (`src/better_human/families/classic.py`), MHR (`src/better_human/families/mhr_family.py`) and SOMA
-(`src/better_human/families/soma_family.py`). Each family has a `<Family>Classic` dataclass (`SMPLClassic`, `SMPLXClassic`,
-`MHRClassic`, ...).
+The upstream libraries' own inputs (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA, MHR's
+`model_parameters`, ...) enter and leave at the boundary, never inside the core, through one pair for every family:
+
+```python { .no-run }
+identity, q, streams = bh.from_classic(human, families.SMPLXClassic(betas=betas, body_pose=body_pose))
+classic = bh.to_classic(identity, q, streams=streams)   # a families.SMPLXClassic
+```
+
+Each family has one keyword-only `<Family>Classic` dataclass (`SMPLClassic`, `SMPLHClassic`, `SMPLXClassic`,
+`MANOClassic`, `FLAMEClassic`, `MHRClassic`, `SOMAClassic`) that carries its identity inputs, so `from_classic`
+bakes the identity; an omitted field is zero, and a field the model was loaded without (`hands=False`, `face=False`,
+`expression=False`) must stay `None` and comes back `None`. The spec's `classic` field, an instance of the abstract
+`ClassicFormat` (`src/better_human/core/classic.py`), maps the checked fields: `field_shapes(spec)`,
+`from_fields(human, fields)` and `to_fields(identity, q, *, streams)`. `bh.from_classic` and `bh.to_classic` check
+every tensor in one place, so a format holds no validation. Three formats exist, each `@final`, in
+`src/better_human/families/classic.py`:
+
+- `SMPLFamilyFormat`, data for SMPL, SMPL-H, SMPL-X, MANO and FLAME: the classic type, each pose field's native
+  joints, and the hand mean and PCA basis that `families.smplx` and `families.mano` fix at load (`num_pca_comps`,
+  `flat_hand_mean`). The root pivots about the pelvis (`transl + root_offset`); axis-angles keep angles beyond pi.
+- `MHRFormat`: `identity_coeffs`, `model_parameters` (root, pose and proportion parameters) and `expression`; the
+  root's Euler angles come back on BetterRobot's principal branch.
+- `SOMAFormat`: `identity_coeffs`, `poses` (axis-angle per public joint relative to its T-pose) and `transl`.
+
+`tests/families/test_classic_formats.py` runs one round-trip checker over every format, both ways.
 
 ## Partial models
 
