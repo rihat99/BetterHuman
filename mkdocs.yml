@@ -166,3 +166,4 @@ nav:
           - 0025 Golden asset hash at stamp time: contracts/decisions/0025-golden-asset-hash-at-stamp-time.md
           - 0026 Rig hooks and properties: contracts/decisions/0026-rig-hooks-and-properties.md
           - 0027 Formats beyond BetterRobot 0030: contracts/decisions/0027-formats-beyond-betterrobot-0030.md
+          - 0028 Identity frame-placements cache: contracts/decisions/0028-identity-frame-placements-cache.md
