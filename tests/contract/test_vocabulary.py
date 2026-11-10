@@ -16,14 +16,12 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import pkgutil
 import re
 from collections import defaultdict
 from pathlib import Path
 
 import pytest
 
-import better_human
 from better_human import core
 from better_robot.testing import glossary, public_objects
 
@@ -31,11 +29,6 @@ REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "src" / "better_human"
 PAGE = REPO / "docs" / "reference" / "glossary.md"
 COLLISIONS = "## Words BetterRobot uses with another meaning"
-# The root __all__ lists families and io only; core, mass, terms, viz and studio are public subpackages too
-# (decision record 0011), so each is walked as the root would walk it (tests/contract/test_api_snapshot.py does the same).
-PACKAGES = ["better_human"] + [
-    f"better_human.{info.name}" for info in pkgutil.iter_modules(better_human.__path__) if info.name[0] != "_"
-]
 # The third-party packages src imports; BetterRobot's public classes join them in _library_class_names.
 LIBRARIES = ("torch", "numpy", "viser")
 FIELDS_HOLDING_A_CLASS = {
@@ -46,7 +39,7 @@ BANNED_MODULES = {"utils", "common", "misc", "helpers"}
 
 
 def _public_tree() -> dict[str, object]:
-    return {path: value for package in PACKAGES for path, value in public_objects(package).items()}
+    return public_objects("better_human")
 
 
 def _public_classes_and_functions() -> dict[str, object]:
