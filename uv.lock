@@ -135,7 +135,6 @@ dev = [
     { name = "pre-commit", specifier = ">=3.7" },
     { name = "pyright" },
     { name = "pytest", specifier = ">=8.0" },
-    { name = "pytest-benchmark", specifier = ">=4" },
     { name = "ruff" },
 ]
 test-oracles = [
