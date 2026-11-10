@@ -86,7 +86,7 @@ for row in thresholds["rows"]:
     print(f"{row['row']:31}", *(f"{row[name]:>12}" for name in counters))
 ```
 ```output
-95fc223 benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json
+8c7a5c0 benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json
 row                             graph_breaks   recompiles          ops   host_syncs
 fk_vertices/smplx/B1                       0            1          118            0
 fk_vertices/smplx/B64                      0            2          118            0
@@ -96,8 +96,8 @@ joint_poses/smplx/B1                       0            1          145          
 joint_poses/smplx/B64                      0            2          145            0
 contact_frame_poses/smplx/B1               0            1          190            0
 contact_frame_poses/smplx/B64              0            2          190            0
-to_classic/smplx/B1                        0            1           88            0
-to_classic/smplx/B64                       0            2           88            0
+to_classic/smplx/B1                        0            1           84            0
+to_classic/smplx/B64                       0            2           84            0
 bake_forward/smpl/B1                       0            1          233            0
 bake_forward/smpl/B64                      0            2          233            0
 bake_forward_dempster/smpl/B1              0            1         3583            0

@@ -1,6 +1,6 @@
 {
  "meta": {
-  "commit": "95fc223",
+  "commit": "8c7a5c0",
   "dirty": false,
   "command": "benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json",
   "better_robot_file": "BetterRobot/site-packages/better_robot/__init__.py",
@@ -18,16 +18,16 @@
    "MALLOC_TRIM_THRESHOLD_": null,
    "NUMPY_MADVISE_HUGEPAGE": "0"
   },
-  "date": "2026-11-10T19:02:10",
-  "loadavg_start": "26.61 30.16 34.59 15/21403 1385913",
-  "loadavg_end": "13.43 25.58 32.71 8/21403 1386965",
-  "total_s": 62.8
+  "date": "2026-11-10T19:51:46",
+  "loadavg_start": "11.23 16.64 23.25 9/20828 1521753",
+  "loadavg_end": "17.01 17.33 23.07 3/20686 1522660",
+  "total_s": 62.4
  },
  "rows": [
   {
    "row": "fk_vertices/smplx/B1",
    "batch": 1,
-   "loadavg": "25.12 29.79 34.45 48/21401 1385931",
+   "loadavg": "11.23 16.64 23.25 13/20836 1521840",
    "ops": 118,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -36,7 +36,7 @@
   {
    "row": "fk_vertices/smplx/B64",
    "batch": 64,
-   "loadavg": "25.12 29.79 34.45 7/21408 1386002",
+   "loadavg": "11.23 16.64 23.25 8/20774 1521944",
    "ops": 118,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -45,7 +45,7 @@
   {
    "row": "fk_streams/smplx/B1",
    "batch": 1,
-   "loadavg": "23.59 29.39 34.30 5/21398 1386061",
+   "loadavg": "10.89 16.48 23.17 9/20688 1521953",
    "ops": 239,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -54,7 +54,7 @@
   {
    "row": "fk_streams/smplx/B64",
    "batch": 64,
-   "loadavg": "23.59 29.39 34.30 6/21393 1386142",
+   "loadavg": "10.89 16.48 23.17 5/20667 1521983",
    "ops": 239,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -63,7 +63,7 @@
   {
    "row": "joint_poses/smplx/B1",
    "batch": 1,
-   "loadavg": "22.02 28.97 34.14 8/21372 1386247",
+   "loadavg": "10.42 16.29 23.07 4/20647 1522022",
    "ops": 145,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -72,7 +72,7 @@
   {
    "row": "joint_poses/smplx/B64",
    "batch": 64,
-   "loadavg": "20.98 28.64 34.00 7/21373 1386291",
+   "loadavg": "9.91 16.09 22.97 4/20647 1522027",
    "ops": 145,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -81,7 +81,7 @@
   {
    "row": "contact_frame_poses/smplx/B1",
    "batch": 1,
-   "loadavg": "20.98 28.64 34.00 7/21362 1386303",
+   "loadavg": "9.91 16.09 22.97 4/20666 1522052",
    "ops": 190,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -90,7 +90,7 @@
   {
    "row": "contact_frame_poses/smplx/B64",
    "batch": 64,
-   "loadavg": "20.98 28.64 34.00 6/21348 1386370",
+   "loadavg": "9.91 16.09 22.97 7/20666 1522063",
    "ops": 190,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -99,8 +99,8 @@
   {
    "row": "to_classic/smplx/B1",
    "batch": 1,
-   "loadavg": "19.70 28.25 33.84 6/21358 1386395",
-   "ops": 88,
+   "loadavg": "9.43 15.89 22.87 5/20693 1522102",
+   "ops": 84,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 1
@@ -108,8 +108,8 @@
   {
    "row": "to_classic/smplx/B64",
    "batch": 64,
-   "loadavg": "19.70 28.25 33.84 7/21358 1386401",
-   "ops": 88,
+   "loadavg": "9.43 15.89 22.87 7/20700 1522109",
+   "ops": 84,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 2
@@ -117,7 +117,7 @@
   {
    "row": "bake_forward/smpl/B1",
    "batch": 1,
-   "loadavg": "19.70 28.25 33.84 7/21371 1386418",
+   "loadavg": "9.43 15.89 22.87 5/20693 1522123",
    "ops": 233,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -126,7 +126,7 @@
   {
    "row": "bake_forward/smpl/B64",
    "batch": 64,
-   "loadavg": "18.52 27.86 33.69 9/21400 1386493",
+   "loadavg": "9.24 15.74 22.78 3/20699 1522146",
    "ops": 233,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -135,7 +135,7 @@
   {
    "row": "bake_forward_dempster/smpl/B1",
    "batch": 1,
-   "loadavg": "18.52 27.86 33.69 5/21417 1386539",
+   "loadavg": "9.24 15.74 22.78 4/20692 1522221",
    "ops": 3583,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -144,7 +144,7 @@
   {
    "row": "bake_forward_dempster/smpl/B64",
    "batch": 64,
-   "loadavg": "16.28 26.92 33.29 10/21376 1386724",
+   "loadavg": "21.46 18.13 23.45 4/20642 1522376",
    "ops": 3583,
    "host_syncs": 0,
    "graph_breaks": 0,
