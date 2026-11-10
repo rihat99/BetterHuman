@@ -77,10 +77,11 @@ that removes it; it only shrinks, and the fix removes its entry.
 
 ## Docs tests
 
-`tests/docs/` keeps the pages true:
+`tests/docs/` keeps the pages and the README true:
 
 | Test | Guards |
 |------|--------|
 | `test_snippets.py` | every `python` fence runs and every `output` fence equals what it prints (`better_robot.testing.snippets`); every referenced image exists |
+| `test_readme_first_screen.py` | the README's first `python` fence has its `output` fence docked under it, closing by line 40: the first screen runs an example and shows its output (principle 7.2) |
 | `test_codemap.py` | the package map of the [architecture page](../concepts/architecture.md#the-package-map) equals the edge tables `ALLOWED` and `BR_ALLOWED` |
 | `test_contract_matrix.py` | the [enforcement matrix](../contracts/index.md#enforcement-matrix) equals the rules' `Enforcement:` paragraphs; every rule has an enforcer that exists; every contract test is in the index; a strength word stands only in a rule heading |

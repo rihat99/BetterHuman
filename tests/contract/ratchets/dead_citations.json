@@ -1,5 +1,4 @@
 {
-  "README.md: models/smpl/SMPL_NEUTRAL.npz": "a path under $BETTERHUMAN_MODELS_DIR written without the variable; the README rewrite (H10) fixes it",
   "docs/contracts/decisions/0001-human-model.md: core/body.py::Body.__init__": "a path or symbol of the package layout the record plans or replaces, without src/better_human/; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
   "docs/contracts/decisions/0002-rig-abstract-base.md: core/rig.py::Rig": "a path or symbol of the package layout the record plans or replaces, without src/better_human/; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
   "docs/contracts/decisions/0003-one-skinning-path.md: core/pipeline.py::skin_affines": "a path or symbol of the package layout the record plans or replaces, without src/better_human/; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
