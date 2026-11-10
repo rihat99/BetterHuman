@@ -109,7 +109,7 @@ def test_authored_caps_accept_rotated_se3_part_frames() -> None:
     topology = PartTopology(
         vertex_ids=(torch.arange(3),),
         cap_joint_ids=(torch.tensor([0]),),
-        boundary_loops=((),),
+        cap_centroid_ids=((),),
         faces=(faces,),
     )
     pose = torch.cat(
