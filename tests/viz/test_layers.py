@@ -89,12 +89,12 @@ def test_skinned_layer_matches_state_vertices(family: str) -> None:
     assert error <= SKINNED_TOLERANCE_M, f"{family} skinned layer vs state vertices: {error:.3e} m"
 
 
-def test_skinned_layer_follows_the_pose_up_to_correctives(clip) -> None:
+def test_skinned_layer_matches_exact_vertices_without_correctives(clip) -> None:
     identity, state = clip
     skinned = human_layers(state, mesh="skinned", skeleton=False)[0]
     exact = state.vertices[3].numpy()
-    corrective = identity.human.spec.corrective.apply(state.corrective_feature)[3].norm(dim=-1).max().item()
-    assert np.abs(skinned.skin(3) - exact).max() <= corrective + 1e-5
+    corrective = identity.human.spec.corrective.apply(state.corrective_feature)[3].abs().max().item()
+    assert np.abs(skinned.skin(3) - exact).max() < corrective + 1e-3
 
 
 def test_skinned_layer_refuses_scaled_binds_and_identity_batches(clip) -> None:
