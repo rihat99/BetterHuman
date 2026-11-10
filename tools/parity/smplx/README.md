@@ -1,4 +1,4 @@
-# Regenerate the SMPL and SMPL-X parity goldens
+# Regenerate the SMPL, SMPL+H and SMPL-X parity goldens
 
 The goldens are outputs of licensed weights, so they live in the models directory, not in git (decision record
 0015): `$BETTERHUMAN_MODELS_DIR/goldens/smpl_neutral/` (13 cases) and `$BETTERHUMAN_MODELS_DIR/goldens/smplx_neutral/`
@@ -35,3 +35,24 @@ cd "$BETTERHUMAN_MODELS_DIR/smplx" && sha256sum SMPLX_NEUTRAL.npz | sha256sum
 
 For the goldens stamped on 2026-11-06, `asset_sha256` hashes the asset files present at stamp time, not at dump time
 (decision record 0014, note); a golden written by the dump script hashes the files that dump read.
+
+## Random-weight archives and goldens
+
+The full tier runs the same parity on random weights (decision record 0016): one tracked archive per family,
+`tests/support/random_weights/{smpl,smplh,smplx}_random.npz`, in the family's upstream layout at its native vertex
+count, and the oracle's outputs on it in `tests/parity/smplx/random/{smpl,smplh,smplx}/`, which
+`tests/parity/smplx/test_random_weights.py` gates at the licensed tolerance. `make_random_archive.py` draws every
+array from a fixed seed (no number comes from licensed weights) and writes the same bytes on every run. Regenerate
+the archives only when their layout changes, then the goldens from them, and review both as gate data:
+
+```bash
+for family in smpl smplh smplx; do
+  uv run --project tools/parity/smplx python tools/parity/smplx/make_random_archive.py $family \
+    tests/support/random_weights/${family}_random.npz
+  uv run --project tools/parity/smplx python tools/parity/smplx/dump_$family.py \
+    tests/support/random_weights/${family}_random.npz tests/parity/smplx/random/$family
+done
+```
+
+A random-weight golden's `asset_sha256` is the hash of its archive, which `tests/contract/test_golden_provenance.py`
+checks in every tier.
