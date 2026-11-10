@@ -15,13 +15,16 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 import numpy as np
-from better_robot.exceptions import BetterRobotError
+from better_robot.exceptions import BetterRobotError, UnknownNameError
 
 MHR = "better_human.mhr"
 SOMA = "better_human.soma"
 FRAME_SET = "better_human.frame_set"
 SEGMENTATION = "better_human.segmentation"
 DENSITY_TABLES = "better_human.density_tables"
+# better_human.studio names, reads and writes these two (record 0009); io versions them.
+_STUDIO_SEGMENTATION = "better_human.studio.segmentation"
+_STUDIO_POSE = "better_human.studio.pose"
 
 #: The version each format's readers read and its writers write.
 LATEST = {
@@ -30,8 +33,8 @@ LATEST = {
     FRAME_SET: 1,
     SEGMENTATION: 1,
     DENSITY_TABLES: 1,
-    "better_human.studio.segmentation": 1,  # better_human.studio reads and writes it (record 0009)
-    "better_human.studio.pose": 1,  # better_human.studio reads and writes it (record 0009)
+    _STUDIO_SEGMENTATION: 1,
+    _STUDIO_POSE: 1,
 }
 
 
@@ -56,17 +59,16 @@ def check_format(data: Mapping[str, Any], *, format: str, version: int, source: 
     if found is None or str(found) != format:
         raise FormatError(
             f"{source}: expected a {format} file, got format {None if found is None else str(found)!r}. "
-            f"Pass a {format} file, or reconvert it with this version's converter."
+            f"Pass a {format} file, or {_fix(format, "reconvert it with this version's converter")}."
         )
     if "format_version" not in data:
-        raise FormatError(
-            f"{source}: a {format} file without format_version. Write it with this version's writer or converter."
-        )
+        fix = _fix(format, "write it with this version's writer or converter").capitalize()
+        raise FormatError(f"{source}: a {format} file without format_version. {fix}.")
     found_version = _version(data, format=format, source=source)
     if found_version > version:
         raise FormatError(
             f"{source}: {format} format_version {found_version} is later than {version}, the latest this BetterHuman "
-            "reads. Upgrade better-human, or reconvert the file with this version's converter."
+            f"reads. Upgrade better-human, or {_fix(format, "reconvert the file with this version's converter")}."
         )
 
 
@@ -75,8 +77,17 @@ def upgrade(fields: Mapping[str, Any], *, format: str, source: str = "<mapping>"
 
     A file that names its ``format`` is checked before any migration, so a file of another format is refused rather
     than migrated into this one; a file without ``format`` or ``format_version`` is version 0. Raises
-    :class:`FormatError` for another format, a later version, or a version no migration starts from.
+    :class:`FormatError` for ``fields`` that are not a mapping, another format, a later version, or a version no
+    migration starts from, and :class:`~better_robot.exceptions.UnknownNameError` for a ``format`` not in
+    :data:`LATEST`.
     """
+    if format not in LATEST:
+        raise UnknownNameError("file format", format, valid=list(LATEST))
+    if not isinstance(fields, Mapping):
+        raise FormatError(
+            f"{source}: a {format} file is a mapping of fields (a JSON object), got {type(fields).__name__}. "
+            f"Pass a {format} file, or {_fix(format, "reconvert it with this version's converter")}."
+        )
     latest = LATEST[format]
     if "format" in fields:
         check_format(fields, format=format, version=latest, source=source)
@@ -86,7 +97,7 @@ def upgrade(fields: Mapping[str, Any], *, format: str, source: str = "<mapping>"
         if migrate is None:
             raise FormatError(
                 f"{source}: {format} format_version {version} has no migration to version {latest}. "
-                f"Pass a {format} file, or reconvert it with this version's converter."
+                f"Pass a {format} file, or {_fix(format, "reconvert it with this version's converter")}."
             )
         missing = [name for name in PAST_FIELDS.get((format, version), ()) if name not in upgraded]
         if missing:
@@ -122,11 +133,17 @@ def _frame_set_v0_to_v1(fields: Mapping[str, Any]) -> dict[str, Any]:
     return {"format": FRAME_SET, "format_version": 1, "frames": frames}
 
 
+def _studio_segmentation_v0_to_v1(fields: Mapping[str, Any]) -> dict[str, Any]:
+    """v1 wraps the bare ``{part name: vertex ids}`` mapping of the pre-format studio in a header, as ``parts``."""
+    return {"format": _STUDIO_SEGMENTATION, "format_version": 1, "parts": dict(fields)}
+
+
 #: ``(format, version) -> migration`` to ``version + 1``.
 MIGRATIONS: dict[tuple[str, int], Callable[[Mapping[str, Any]], dict[str, Any]]] = {
     (MHR, 1): _mhr_v1_to_v2,
     (SOMA, 1): _soma_v1_to_v2,
     (FRAME_SET, 0): _frame_set_v0_to_v1,
+    (_STUDIO_SEGMENTATION, 0): _studio_segmentation_v0_to_v1,
 }
 
 #: ``(format, version) -> fields`` that only that version carries and its migration reads.
@@ -144,7 +161,10 @@ def _version(fields: Mapping[str, Any], *, format: str, source: str) -> int:
     try:
         return operator.index(value)
     except TypeError:
-        raise FormatError(
-            f"{source}: {format} format_version {value!r} is not an integer. "
-            "Write the file with this version's writer or converter."
-        ) from None
+        fix = _fix(format, "write the file with this version's writer or converter").capitalize()
+        raise FormatError(f"{source}: {format} format_version {value!r} is not an integer. {fix}.") from None
+
+
+def _fix(format: str, converter: str) -> str:
+    """The fix a refusal of a ``format`` file names: ``converter``, or "re-save it in the studio" for a studio file."""
+    return "re-save it in the studio" if format in (_STUDIO_SEGMENTATION, _STUDIO_POSE) else converter

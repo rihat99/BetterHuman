@@ -23,6 +23,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+from better_robot.exceptions import UnknownNameError
 
 from better_human.io import FormatError, check_format, read_frame_set, write_frame_set
 from better_human.io.formats import (
@@ -134,7 +135,7 @@ def test_latest_version_round_trips(format: str, tmp_path: Path) -> None:
 def test_past_version_reads_through_migration_as_the_latest(format: str, version: int) -> None:
     past = _comparable(format, _read(format, _fixture(format, version)))
     latest = _comparable(format, _read(format, _fixture(format, LATEST[format])))
-    if format != FRAME_SET:
+    if format not in JSON_WRITERS:
         # A v1 archive's provenance is its own; everything else is the v2 archive's.
         assert past.pop("provenance")[2] == np.asarray(V1_PROVENANCE[format]).tobytes()
         latest.pop("provenance")
@@ -183,6 +184,37 @@ def test_a_format_without_its_version_is_refused() -> None:
 def test_a_version_that_is_not_an_integer_is_refused(version: object) -> None:
     with pytest.raises(FormatError, match=rf"format_version {version!r} is not an integer\. Write the file"):
         check_format({"format": FRAME_SET, "format_version": version}, format=FRAME_SET, version=LATEST[FRAME_SET])
+
+
+@pytest.mark.parametrize("fields", [[1, 2], "abc", 5, None])
+@pytest.mark.parametrize("format", LATEST)
+def test_fields_that_are_not_a_mapping_are_refused(format: str, fields: object) -> None:
+    with pytest.raises(
+        FormatError, match=rf"f\.json: a {format} file is a mapping of fields .*got {type(fields).__name__}"
+    ):
+        upgrade(fields, format=format, source="f.json")
+
+
+def test_an_unknown_format_is_an_unknown_name() -> None:
+    with pytest.raises(UnknownNameError, match=r"unknown file format 'x\.y'"):
+        upgrade({}, format="x.y")
+
+
+@pytest.mark.parametrize(
+    ("fields", "match"),
+    [
+        pytest.param({"format": FRAME_SET, "format_version": 1}, "expected a", id="other_format"),
+        pytest.param({"format": POSE_FORMAT}, "without format_version", id="no_version"),
+        pytest.param({"format": POSE_FORMAT, "format_version": "1"}, "is not an integer", id="string_version"),
+        pytest.param({"format": POSE_FORMAT, "format_version": 2}, "is later than 1", id="later"),
+        pytest.param({"model_key": "smpl_neutral", "q": [0.0]}, "version 0 has no migration", id="v0"),
+    ],
+)
+def test_a_refused_studio_file_names_the_studio_as_the_fix(fields: dict, match: str) -> None:
+    """No converter writes the studio's files: a refusal tells the user to re-save the file in the studio."""
+    with pytest.raises(FormatError, match=rf"{match}.*[Rr]e-save it in the studio\.$") as refused:
+        upgrade(fields, format=POSE_FORMAT, source="pose.json")
+    assert "converter" not in str(refused.value)
 
 
 def test_a_past_version_without_the_field_its_migration_reads_is_refused() -> None:

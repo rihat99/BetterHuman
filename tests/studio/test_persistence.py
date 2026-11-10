@@ -73,8 +73,13 @@ POSE = {"format": "better_human.studio.pose", "format_version": 1}
             id="empty",
         ),
         pytest.param({**SEGMENTATION, "parts": {"leg": [-1]}}, "'leg'", persistence.read_segmentation, id="negative"),
+        pytest.param({"head": 3}, "is not a version-0 segmentation", persistence.read_segmentation, id="not_version_0"),
+        pytest.param({**SEGMENTATION}, "'parts' must map", persistence.read_segmentation, id="no_parts"),
         pytest.param(
-            {"head": [0, 1]}, "format_version 0 has no migration", persistence.read_segmentation, id="unversioned"
+            {"model_key": "smpl_neutral", "q": [0.0]},
+            "format_version 0 has no migration",
+            persistence.read_pose,
+            id="pose_version_0",
         ),
         pytest.param(
             {**POSE, "joint_names": ["a"], "q": ["x"]}, "'q' must be a list of numbers", persistence.read_pose, id="q"
@@ -87,8 +92,24 @@ POSE = {"format": "better_human.studio.pose", "format_version": 1}
 def test_a_malformed_file_is_refused(tmp_path: Path, payload: dict, match: str, read) -> None:
     path = tmp_path / "bad.json"
     path.write_text(json.dumps(payload))
-    with pytest.raises(FormatError, match=match):
+    with pytest.raises(FormatError, match=rf"{match}.*re-save it in the studio"):
         read(path)
+
+
+@pytest.mark.parametrize("payload", [[1, 2, 3], "abc", 5, None], ids=["list", "string", "number", "null"])
+@pytest.mark.parametrize("read", [persistence.read_pose, persistence.read_segmentation], ids=["pose", "segmentation"])
+def test_json_that_is_not_an_object_is_a_format_error(tmp_path: Path, payload: object, read) -> None:
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(FormatError, match=rf"bad\.json: .*{type(payload).__name__}.*re-save it in the studio"):
+        read(path)
+
+
+def test_a_segmentation_of_the_pre_format_studio_reads_as_version_1(tmp_path: Path) -> None:
+    """Version 0 is the bare mapping the studio wrote before its files named a format; it migrates on read."""
+    path = tmp_path / "old.json"
+    path.write_text(json.dumps({"head": [0, 1, 2], "torso": [3, 4]}, indent=2))
+    assert persistence.read_segmentation(path) == {"head": [0, 1, 2], "torso": [3, 4]}
 
 
 def test_a_missing_file_is_an_argument_error(tmp_path: Path) -> None:

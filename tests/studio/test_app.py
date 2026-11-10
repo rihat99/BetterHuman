@@ -7,6 +7,7 @@ The unmarked tests run the app on the random-weight SMPL archive (record 0016) i
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -105,6 +106,55 @@ def test_a_refused_pose_edit_leaves_the_session_unchanged(random_studio: HumanSt
     with pytest.raises(ShapeError):
         session.set_q(q[:-1])
     assert torch.equal(session.q, q) and session.state is state
+
+
+def test_a_segmentation_of_the_pre_format_studio_loads_and_saves_as_version_1(random_studio: HumanStudio) -> None:
+    studio = random_studio
+    directory = studio.paths.segmentation_dir(studio.session.model_key)
+    directory.mkdir(parents=True)
+    (directory / "old.json").write_text(json.dumps({"head": [0, 1, 2], "rest": list(range(3, 6890))}, indent=2))
+    studio.locked(lambda _event: studio.segment.load("old"))(None)
+    assert studio.session.part_names == ("head", "rest")
+    studio.segment.save("old")
+    saved = json.loads((directory / "old.json").read_text())
+    assert (saved["format"], saved["format_version"], list(saved["parts"])) == (
+        "better_human.studio.segmentation",
+        1,
+        ["head", "rest"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("folder", "payload", "load", "match"),
+    [
+        pytest.param("poses", [1, 2, 3], "pose", "FormatError: .*got list", id="pose_list"),
+        pytest.param(
+            "poses", {"model_key": "smpl_neutral", "q": []}, "pose", "FormatError: .*no migration", id="pose_v0"
+        ),
+        pytest.param("segmentations", "abc", "segment", "FormatError: .*got str", id="segmentation_string"),
+        pytest.param(
+            "frames",
+            {
+                "format": "better_human.frame_set",
+                "format_version": 1,
+                "frames": {"toe": {"vertex_id": 1, "joint_name": "x"}},
+            },
+            "frames",
+            "UnknownNameError: unknown parent joint in .*'x'",
+            id="frame_set_unknown_joint",
+        ),
+    ],
+)
+def test_a_refused_file_shows_on_the_status_line(
+    random_studio: HumanStudio, folder: str, payload: object, load: str, match: str
+) -> None:
+    studio = random_studio
+    directory = studio.paths.root / folder / studio.session.model_key
+    directory.mkdir(parents=True)
+    (directory / "bad.json").write_text(json.dumps(payload))
+    loader = {"pose": studio.load_pose, "segment": studio.segment.load, "frames": studio.frames.load}[load]
+    studio.locked(lambda _event: loader("bad"))(None)
+    assert re.match(match, studio.status), studio.status
 
 
 def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:

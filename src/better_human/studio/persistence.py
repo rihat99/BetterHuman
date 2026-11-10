@@ -25,6 +25,9 @@ from better_human.io import FormatError, header, upgrade
 SEGMENTATION_FORMAT = "better_human.studio.segmentation"
 POSE_FORMAT = "better_human.studio.pose"
 
+#: How to fix a studio file the readers refuse; the end of each such message.
+_FIX = "re-save it in the studio"
+
 #: The families whose built-in vertex segmentation ships in ``better_human.studio.assets``.
 BUILTIN_SEGMENTATIONS = ("smpl", "smplx")
 
@@ -77,6 +80,7 @@ def list_saved(directory: Path) -> dict[str, Path]:
 def read_segmentation(path: str | Path) -> dict[str, list[int]]:
     """The parts of a segmentation file: part name -> vertex ids, in authored order.
 
+    An unversioned file of the pre-format studio (version 0, the bare ``{part name: vertex ids}``) migrates on read.
     Raises :class:`~better_human.io.FormatError` for a file that is not JSON, another format, a later version, or a
     part that is not a non-empty list of vertex ids.
     """
@@ -91,7 +95,7 @@ def write_segmentation(path: str | Path, parts: Mapping[str, Sequence[int]]) -> 
     """
     path = Path(path)
     payload = {str(name): list(ids) for name, ids in parts.items()}
-    _write(path, {**header(SEGMENTATION_FORMAT), "parts": _parts_of(payload, source=str(path))})
+    _write(path, {**header(SEGMENTATION_FORMAT), "parts": _parts_of(payload, source=str(path), fix="")})
 
 
 def builtin_segmentation(family: str) -> dict[str, list[int]]:
@@ -115,9 +119,9 @@ def read_pose(path: str | Path) -> Pose:
     fields = upgrade(_json(path), format=POSE_FORMAT, source=str(path))
     joint_names, q = fields.get("joint_names"), fields.get("q")
     if not isinstance(joint_names, list) or not all(isinstance(name, str) for name in joint_names):
-        raise FormatError(f"{path}: 'joint_names' must be a list of strings, got {joint_names!r}")
+        raise FormatError(f"{path}: 'joint_names' must be a list of strings, got {joint_names!r}; {_FIX}")
     if not isinstance(q, list) or not all(_is_number(value) for value in q):
-        raise FormatError(f"{path}: 'q' must be a list of numbers, got {q!r}")
+        raise FormatError(f"{path}: 'q' must be a list of numbers, got {q!r}; {_FIX}")
     return Pose(joint_names=tuple(joint_names), q=tuple(float(value) for value in q))
 
 
@@ -152,7 +156,7 @@ def _json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise FormatError(f"{path}: not a JSON file ({error})") from error
+        raise FormatError(f"{path}: not a JSON file ({error}); {_FIX}") from error
 
 
 def _write(path: Path, payload: Mapping[str, Any]) -> None:
@@ -162,16 +166,22 @@ def _write(path: Path, payload: Mapping[str, Any]) -> None:
 
 def _parts(data: Any, *, source: str) -> dict[str, list[int]]:
     if not isinstance(data, Mapping):
-        raise FormatError(f"{source}: a segmentation is a JSON object, got {type(data).__name__}")
-    return _parts_of(upgrade(data, format=SEGMENTATION_FORMAT, source=source).get("parts"), source=source)
+        raise FormatError(f"{source}: a segmentation is a JSON object, got {type(data).__name__}; {_FIX}")
+    if "format" not in data and not all(isinstance(ids, list) for ids in data.values()):
+        raise FormatError(
+            f"{source}: names no format and is not a version-0 segmentation ({{part name: vertex ids}}); {_FIX}"
+        )
+    parts = upgrade(data, format=SEGMENTATION_FORMAT, source=source).get("parts")
+    return _parts_of(parts, source=source, fix=f"; {_FIX}")
 
 
-def _parts_of(parts: Any, *, source: str) -> dict[str, list[int]]:
+def _parts_of(parts: Any, *, source: str, fix: str) -> dict[str, list[int]]:
+    """``parts`` checked; ``fix`` ends each refusal (a reader names how to fix the file, a writer nothing)."""
     if not isinstance(parts, Mapping):
-        raise FormatError(f"{source}: 'parts' must map each part name to its vertex ids, got {parts!r}")
+        raise FormatError(f"{source}: 'parts' must map each part name to its vertex ids, got {parts!r}{fix}")
     for name, ids in parts.items():
         if not isinstance(ids, list) or not ids or not all(_is_vertex_id(vertex) for vertex in ids):
-            raise FormatError(f"{source}: part {name!r} must be a non-empty list of vertex ids (ints >= 0)")
+            raise FormatError(f"{source}: part {name!r} must be a non-empty list of vertex ids (ints >= 0){fix}")
     return {str(name): [int(vertex) for vertex in ids] for name, ids in parts.items()}
 
 

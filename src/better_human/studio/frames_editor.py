@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, final
 
 import numpy as np
 
+from better_robot.exceptions import UnknownNameError
+
 from better_human.io import read_frame_set, write_frame_set
 from better_human.studio import persistence
 from better_human.studio.state import FrameEntry, contact_frames
@@ -144,6 +146,9 @@ class FramesEditor:
             (vertex for vertex, _ in raw.values()), self.session.vertices.shape[0], source=str(path)
         )
         names = self.session.body.spec.joint_names
+        unknown = [joint for _, joint in raw.values() if joint is not None and joint not in names]
+        if unknown:
+            raise UnknownNameError(f"parent joint in {path}", unknown[0], valid=names)
         self.session.set_frame_set(
             {
                 key: FrameEntry(vertex, None if joint is None else names.index(joint))
