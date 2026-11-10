@@ -66,6 +66,7 @@ rule each one enforces.
 | `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
 | `test_license.py` | the licence file, `pyproject.toml` and the README agree on Apache-2.0 |
 | `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited |
+| `test_repository_layout.py` | the tracked top-level entries are the standard set; each `src` package has its `tests/` folder and every other `tests/` folder is a named suite; no tracked symlink and no tracked file over 1 MiB (record [0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)); no directory under `src/`, `tests/` or `tools/` without a tracked file |
 | `test_decision_records.py` | every decision record follows the template, has an allowed status and an index row, and an accepted record keeps its accepted text |
 | `test_no_skips.py` | no test module spells a skip or an xfail, the deselected ones included |
 | `test_pytest_config.py` | pytest runs strictly, with exactly the tier markers |
