@@ -95,9 +95,10 @@ def upgrade(fields: Mapping[str, Any], *, format: str, source: str = "<mapping>"
     while (version := _version(upgraded, format=format, source=source)) < latest:
         migrate = MIGRATIONS.get((format, version))
         if migrate is None:
+            fix = f"Pass a {format} file, or {_fix(format, "reconvert it with this version's converter")}"
             raise FormatError(
                 f"{source}: {format} format_version {version} has no migration to version {latest}. "
-                f"Pass a {format} file, or {_fix(format, "reconvert it with this version's converter")}."
+                f"{_UNMIGRATABLE.get((format, version), fix)}."
             )
         missing = [name for name in PAST_FIELDS.get((format, version), ()) if name not in upgraded]
         if missing:
@@ -144,6 +145,12 @@ MIGRATIONS: dict[tuple[str, int], Callable[[Mapping[str, Any]], dict[str, Any]]]
     (SOMA, 1): _soma_v1_to_v2,
     (FRAME_SET, 0): _frame_set_v0_to_v1,
     (_STUDIO_SEGMENTATION, 0): _studio_segmentation_v0_to_v1,
+}
+
+#: ``(format, version) -> why`` no migration can exist, and how the user gets the file's content back.
+_UNMIGRATABLE: dict[tuple[str, int], str] = {
+    (_STUDIO_POSE, 0): "A version-0 pose has no joint_names, and no migration can recover them from the file: pose "
+    "the model again in the studio and save it",
 }
 
 #: ``(format, version) -> fields`` that only that version carries and its migration reads.

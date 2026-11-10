@@ -207,7 +207,6 @@ def test_an_unknown_format_is_an_unknown_name() -> None:
         pytest.param({"format": POSE_FORMAT}, "without format_version", id="no_version"),
         pytest.param({"format": POSE_FORMAT, "format_version": "1"}, "is not an integer", id="string_version"),
         pytest.param({"format": POSE_FORMAT, "format_version": 2}, "is later than 1", id="later"),
-        pytest.param({"model_key": "smpl_neutral", "q": [0.0]}, "version 0 has no migration", id="v0"),
     ],
 )
 def test_a_refused_studio_file_names_the_studio_as_the_fix(fields: dict, match: str) -> None:
@@ -215,6 +214,14 @@ def test_a_refused_studio_file_names_the_studio_as_the_fix(fields: dict, match: 
     with pytest.raises(FormatError, match=rf"{match}.*[Rr]e-save it in the studio\.$") as refused:
         upgrade(fields, format=POSE_FORMAT, source="pose.json")
     assert "converter" not in str(refused.value)
+
+
+def test_a_version_0_studio_pose_is_refused_naming_why_and_the_fix() -> None:
+    """The pre-format studio saved no joint_names: neither a migration nor re-saving the file can bring them back."""
+    with pytest.raises(
+        FormatError, match=r"format_version 0 has no migration .*no joint_names.*pose the model again .*save it\.$"
+    ):
+        upgrade({"model_key": "smpl_neutral", "q": [0.0]}, format=POSE_FORMAT, source="pose.json")
 
 
 def test_a_past_version_without_the_field_its_migration_reads_is_refused() -> None:

@@ -342,7 +342,11 @@ def test_a_segmentation_of_the_pre_format_studio_loads_and_saves_as_version_1(ra
     [
         pytest.param("poses", [1, 2, 3], "pose", "FormatError: .*got list", id="pose_list"),
         pytest.param(
-            "poses", {"model_key": "smpl_neutral", "q": []}, "pose", "FormatError: .*no migration", id="pose_v0"
+            "poses",
+            {"model_key": "smpl_neutral", "q": []},
+            "pose",
+            "FormatError: .*no migration .*pose the model again in the studio and save it",
+            id="pose_v0",
         ),
         pytest.param("segmentations", "abc", "segment", "FormatError: .*got str", id="segmentation_string"),
         pytest.param(

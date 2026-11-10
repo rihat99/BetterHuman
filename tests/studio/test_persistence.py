@@ -76,12 +76,6 @@ POSE = {"format": "better_human.studio.pose", "format_version": 1}
         pytest.param({"head": 3}, "is not a version-0 segmentation", persistence.read_segmentation, id="not_version_0"),
         pytest.param({**SEGMENTATION}, "'parts' must map", persistence.read_segmentation, id="no_parts"),
         pytest.param(
-            {"model_key": "smpl_neutral", "q": [0.0]},
-            "format_version 0 has no migration",
-            persistence.read_pose,
-            id="pose_version_0",
-        ),
-        pytest.param(
             {**POSE, "joint_names": ["a"], "q": ["x"]}, "'q' must be a list of numbers", persistence.read_pose, id="q"
         ),
         pytest.param(

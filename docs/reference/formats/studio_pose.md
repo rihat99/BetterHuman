@@ -34,4 +34,5 @@ length than the model's `nq` is refused when the studio loads it.
 
 There is no earlier version to migrate. The studio wrote poses before its files named a format as `{"model_key",
 "q"}`; such a file is version 0 and is refused: it lacks the `joint_names` a version-1 file needs, which no migration
-can recover from the file alone.
+can recover from the file alone. The message says so and names the fix: pose the model again in the studio and save
+it.
