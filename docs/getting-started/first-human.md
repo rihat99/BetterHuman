@@ -30,7 +30,7 @@ export BETTERHUMAN_MODELS_DIR=$PWD/models
 import torch
 import better_human as bh
 
-human = bh.load("smpl")
+human = bh.load("smpl", "tests/support/random_weights/smpl_random.npz")
 subject = human.bake(betas=torch.zeros(10))
 print(type(subject.model).__module__, subject.model.nq, subject.model.nv)
 print(human.spec.joint_names[:4])

@@ -21,7 +21,7 @@ import torch
 import better_human as bh
 from better_robot.kinematics import integrate
 
-human = bh.load("smpl")                         # $BETTERHUMAN_MODELS_DIR/smpl/
+human = bh.load("smpl", "tests/support/random_weights/smpl_random.npz")  # random weights
 subject = human.bake(betas=torch.zeros(10))      # shape once
 model = subject.model                           # a BetterRobot Model
 joints, vertices = len(human.spec.joint_names), human.spec.num_vertices

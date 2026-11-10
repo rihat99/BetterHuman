@@ -86,7 +86,7 @@ Three rigs exist, each `@final`:
 
 ### HumanModel (`src/better_human/core/human_model.py`)
 
-```python { .no-run }
+```python { .no-run data-reason="a signature and a call shape, not a program" }
 HumanModel.from_spec(spec, *, density="Dempster", contact_frames=None, stream_joints=True)
 ```
 
@@ -167,7 +167,7 @@ stream offsets; `top_k_skin` keeps the K strongest weights per vertex at load.
 The upstream libraries' own inputs (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA, MHR's
 `model_parameters`, ...) enter and leave at the boundary, never inside the core, through one pair for every family:
 
-```python { .no-run }
+```python { .no-run data-reason="a signature and a call shape, not a program" }
 identity, q, streams = bh.from_classic(human, families.SMPLXClassic(betas=betas, body_pose=body_pose))
 classic = bh.to_classic(identity, q, streams=streams)   # a families.SMPLXClassic
 ```
