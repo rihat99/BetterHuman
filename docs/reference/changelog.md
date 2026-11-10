@@ -76,7 +76,8 @@ line that 0.2.0 renames or removes, one table row each.
   (numpy's `ValueError` came before, after some layers were written); `viz.forces_layer` raises `TypeError` for
   forces that are not a tensor.
 - `studio.launch(*, data_root, generator, family, gender, lod, port, host, density)` takes `studio.HumanStudio`'s
-  keyword arguments, typed (was `launch(**kwargs)`), and prints the URL viser serves.
+  keyword arguments, typed (was `launch(**kwargs)`), prints the URL viser serves and blocks until interrupted,
+  returning nothing; both raise `UnknownNameError` for a family other than `smpl`, `smplx` and `mhr`.
 - The studio replaces each segmentation and pose file it saves atomically, as `io.write_frame_set` does.
 - MHR and SOMA weight archives are format version 2 with `format` and `provenance`; version 1 files are migrated in
   memory on load. Frame sets are versioned JSON; the shipped segmentation and density tables are versioned `.npz`
