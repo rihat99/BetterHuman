@@ -33,7 +33,6 @@ When a BetterHuman rule and a BetterRobot rule disagree, BetterRobot's numerical
 | `tests/parity/` | `H-PARITY-1`: parity gates |
 | `tests/contract/test_models_dir.py` | `H-ASSET-2`, record 0017: weights paths only through `better_human.io` |
 | `tests/contract/test_formats.py` | records 0012, 0013: every file format round-trips, reads its past versions through migration (fixtures `tests/support/formats/`), refuses a later version or another format, and has a page under `docs/reference/formats/`; only `src/better_human/io/formats.py` and `src/better_human/io/schema.py` name `format_version` (8.8); no `allow_pickle=True` in `src` but its listed exception; the fixtures match `tests/support/formats/SHA256SUMS` (written by `make_fixtures.py` there) and each spec page's field tables equal the reader's schema |
-| `tests/conftest.py` | BetterRobot 0033: every skipped or xfailed outcome fails |
-| `tests/contract/test_no_skips.py` | BetterRobot 0033: no skip or xfail spelling in any test module, deselected ones included |
+| `tests/conftest.py` | BetterRobot 0033: every skipped or xfailed outcome fails (plugin `better_robot.testing.no_skips`) |
 | `tests/contract/test_pytest_config.py` | BetterRobot 0033: strict pytest, the tier markers |
 | `tests/contract/test_python_version.py` | BetterRobot 0034: one Python version |
