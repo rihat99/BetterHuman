@@ -19,8 +19,11 @@ from typing import Any, NamedTuple, final
 
 from better_robot.exceptions import ArgumentError, UnknownNameError
 
-from better_human.io import FormatError
-from better_human.io.formats import STUDIO_POSE, STUDIO_SEGMENTATION, header, upgrade
+from better_human.io import FormatError, header, upgrade
+
+#: The studio's file formats (``docs/reference/formats/studio_*.md``), versioned in ``better_human.io``.
+SEGMENTATION_FORMAT = "better_human.studio.segmentation"
+POSE_FORMAT = "better_human.studio.pose"
 
 #: The families whose built-in vertex segmentation ships in ``better_human.studio.assets``.
 BUILTIN_SEGMENTATIONS = ("smpl", "smplx")
@@ -88,7 +91,7 @@ def write_segmentation(path: str | Path, parts: Mapping[str, Sequence[int]]) -> 
     """
     path = Path(path)
     payload = {str(name): list(ids) for name, ids in parts.items()}
-    _write(path, {**header(STUDIO_SEGMENTATION), "parts": _parts_of(payload, source=str(path))})
+    _write(path, {**header(SEGMENTATION_FORMAT), "parts": _parts_of(payload, source=str(path))})
 
 
 def builtin_segmentation(family: str) -> dict[str, list[int]]:
@@ -109,7 +112,7 @@ def read_pose(path: str | Path) -> Pose:
     ``joint_names`` / ``q`` that are not a list of strings / numbers.
     """
     path = Path(path)
-    fields = upgrade(_json(path), format=STUDIO_POSE, source=str(path))
+    fields = upgrade(_json(path), format=POSE_FORMAT, source=str(path))
     joint_names, q = fields.get("joint_names"), fields.get("q")
     if not isinstance(joint_names, list) or not all(isinstance(name, str) for name in joint_names):
         raise FormatError(f"{path}: 'joint_names' must be a list of strings, got {joint_names!r}")
@@ -121,7 +124,7 @@ def read_pose(path: str | Path) -> Pose:
 def write_pose(path: str | Path, pose: Pose) -> None:
     """Write ``pose`` as a version-1 pose file, creating its folder."""
     payload = {"joint_names": list(pose.joint_names), "q": [float(value) for value in pose.q]}
-    _write(Path(path), {**header(STUDIO_POSE), **payload})
+    _write(Path(path), {**header(POSE_FORMAT), **payload})
 
 
 def check_vertex_ids(vertex_ids: Iterable[int], num_vertices: int, *, source: str) -> None:
@@ -160,7 +163,7 @@ def _write(path: Path, payload: Mapping[str, Any]) -> None:
 def _parts(data: Any, *, source: str) -> dict[str, list[int]]:
     if not isinstance(data, Mapping):
         raise FormatError(f"{source}: a segmentation is a JSON object, got {type(data).__name__}")
-    return _parts_of(upgrade(data, format=STUDIO_SEGMENTATION, source=source).get("parts"), source=source)
+    return _parts_of(upgrade(data, format=SEGMENTATION_FORMAT, source=source).get("parts"), source=source)
 
 
 def _parts_of(parts: Any, *, source: str) -> dict[str, list[int]]:
