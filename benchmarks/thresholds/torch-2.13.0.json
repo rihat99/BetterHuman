@@ -1,0 +1,82 @@
+{
+ "meta": {
+  "commit": "43ed975",
+  "dirty": false,
+  "command": "benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json",
+  "better_robot_file": "BetterRobot/src/better_robot/__init__.py",
+  "torch": "2.13.0+cu129",
+  "python": "3.12.14",
+  "device": "cpu",
+  "device_name": "AMD EPYC 9654 96-Core Processor",
+  "threads": 1,
+  "affinity": [
+   20
+  ],
+  "dtype": "torch.float32",
+  "env": {
+   "MALLOC_MMAP_THRESHOLD_": null,
+   "MALLOC_TRIM_THRESHOLD_": null,
+   "NUMPY_MADVISE_HUGEPAGE": "0"
+  },
+  "date": "2026-11-10T15:06:45",
+  "loadavg_start": "35.60 32.87 56.13 6/21186 3957113",
+  "loadavg_end": "28.02 31.66 54.64 7/20815 3960622",
+  "total_s": 46.1
+ },
+ "rows": [
+  {
+   "row": "fk_vertices/smplx/B1",
+   "batch": 1,
+   "loadavg": "35.60 32.87 56.13 8/21125 3957118",
+   "ops": 118,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 1
+  },
+  {
+   "row": "fk_vertices/smplx/B64",
+   "batch": 64,
+   "loadavg": "33.55 32.49 55.88 13/21578 3957714",
+   "ops": 118,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 2
+  },
+  {
+   "row": "bake_forward/smpl/B1",
+   "batch": 1,
+   "loadavg": "33.55 32.49 55.88 16/21241 3958973",
+   "ops": 241,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 1
+  },
+  {
+   "row": "bake_forward/smpl/B64",
+   "batch": 64,
+   "loadavg": "42.15 34.30 56.34 23/21293 3959060",
+   "ops": 241,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 2
+  },
+  {
+   "row": "bake_forward_dempster/smpl/B1",
+   "batch": 1,
+   "loadavg": "40.14 34.01 56.13 15/21528 3959377",
+   "ops": 3597,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 1
+  },
+  {
+   "row": "bake_forward_dempster/smpl/B64",
+   "batch": 64,
+   "loadavg": "35.81 33.28 55.66 8/20804 3960221",
+   "ops": 3597,
+   "host_syncs": 0,
+   "graph_breaks": 0,
+   "recompiles": 2
+  }
+ ]
+}

@@ -1,4 +1,4 @@
-"""Tests, examples and tools find weights only through ``better_human.io``.
+"""Tests, examples, tools and benchmarks find weights only through ``better_human.io``.
 
 Decision record 0017 (one way to find the weights): ``io.models_dir()`` is the one reader of
 ``$BETTERHUMAN_MODELS_DIR`` and ``io.weight_path`` the one way to name a file under it. A second lookup rule comes
@@ -15,7 +15,7 @@ from itertools import pairwise
 from pathlib import Path
 
 REPO = Path(__file__).parents[2]
-SCANNED = ("tests", "examples", "tools")
+SCANNED = ("tests", "examples", "tools", "benchmarks")
 CWD_CALLS = {"cwd", "getcwd"}
 JOIN_CALLS = {"Path", "PurePath", "join"}
 
