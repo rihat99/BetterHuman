@@ -1,21 +1,18 @@
-"""MHR (Momentum Human Rig) family: loader, classic parameter container and converters.
+"""MHR (Momentum Human Rig) family loader.
 
 ``mhr(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with an :class:`MHRRig`. Its identity group
 ``identity`` takes the 45 upstream ``identity_coeffs``; ``proportions`` (a zero mesh basis) carries the 73 proportion
-parameters to the rig. Upstream ``model_parameters`` enter through :func:`mhr_from_classic`.
+parameters to the rig. Upstream ``model_parameters`` enter through ``better_human.from_classic`` with an
+:class:`~better_human.families.MHRClassic`.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, final
 
 import torch
 from better_robot.exceptions import ArgumentError, DtypeMismatchError
-from better_robot.lie import so3
 
-from better_human.core.classic import broadcast_configuration, classic_tensor
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import FormatError, weight_path
 from better_human.io.load import load_model_npz
@@ -23,14 +20,9 @@ from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 from better_human.mass import segment_vertices
 
-from .mhr_rig import ROOT_COUNT, MHRRig
+from .classic import MHRFormat
+from .mhr_rig import MHRRig
 
-if TYPE_CHECKING:
-    from better_human.core.human_model import HumanModel, Identity
-
-IDENTITY_COUNT = 45
-EXPRESSION_COUNT = 72
-PARAMETER_COUNT = 204
 LODS = tuple(range(7))
 #: The density category of each part, by its joint (decision record 0007). The categories are SMPL's part names, each
 #: named after the joint at its proximal end, so a part takes the SMPL part that covers the same body segment; the one
@@ -135,76 +127,10 @@ def mhr(
         corrective=corrective,
         rig=rig,
         parts=Parts(part_ids, part_joints, categories, density_tables),
+        classic=MHRFormat(),
         up_axis=str(arrays["up_axis"]),
         provenance={"archive": str(arrays["provenance"])},
     )
-
-
-@final
-@dataclass(frozen=True)
-class MHRClassic:
-    """Reference MHR parameters.
-
-    ``identity_coeffs (..., 45)``, ``model_parameters (..., 204)`` and ``expression (..., 72)`` (or ``None``).
-    """
-
-    identity_coeffs: torch.Tensor
-    model_parameters: torch.Tensor
-    expression: torch.Tensor | None = None
-
-
-def mhr_from_classic(human: HumanModel, classic: MHRClassic) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
-    """``(Identity, q (..., 132), stream)`` for ``human`` (a :class:`~better_human.core.human_model.HumanModel` of ``mhr``)."""
-    spec, rig = human.spec, human.spec.rig
-    exemplar = spec.template_vertices
-    identity = classic_tensor("identity_coeffs", classic.identity_coeffs, IDENTITY_COUNT, exemplar)
-    model_parameters = classic_tensor("model_parameters", classic.model_parameters, PARAMETER_COUNT, exemplar)
-    if identity is None or model_parameters is None:
-        raise TypeError("identity_coeffs and model_parameters must be floating torch.Tensors")
-    use_expression = "expression" in spec.stream_bases
-    if not use_expression and classic.expression is not None:
-        raise ArgumentError("expression requires an MHR spec loaded with expression=True")
-    expression = (
-        classic_tensor("expression", classic.expression, EXPRESSION_COUNT, exemplar) if use_expression else None
-    )
-    shapes = [identity.shape[:-1], model_parameters.shape[:-1]] + (
-        [expression.shape[:-1]] if expression is not None else []
-    )
-    batch = torch.broadcast_shapes(*shapes)
-    identity = identity.expand(*batch, IDENTITY_COUNT)
-    model_parameters = model_parameters.expand(*batch, PARAMETER_COUNT)
-    baked = human.bake(identity=identity, proportions=model_parameters.index_select(-1, rig.proportion_columns))
-    stream = {}
-    if use_expression:
-        zeros = exemplar.new_zeros((*batch, EXPRESSION_COUNT))
-        stream["expression"] = zeros if expression is None else expression.expand(*batch, EXPRESSION_COUNT)
-    root = model_parameters[..., :ROOT_COUNT] @ rig.root_transform.mT
-    pose = model_parameters.index_select(-1, rig.pose_columns) * rig.host_weights
-    return baked, torch.cat((root[..., :3], so3.from_euler(root[..., 3:]), pose), dim=-1), stream
-
-
-def mhr_to_classic(identity: Identity, q: torch.Tensor, stream: dict[str, torch.Tensor] | None = None) -> MHRClassic:
-    """Classic parameters for a baked MHR ``identity`` and ``q (..., 132)``; Euler angles on BR's principal branch."""
-    spec, rig = identity.human.spec, identity.human.spec.rig
-    coeffs = identity.values["identity"]
-    q, batch = broadcast_configuration(q, identity.model, coeffs)
-    root_quaternion = so3.normalize(q[..., 3:7])
-    root_euler = so3.to_euler(root_quaternion)
-    flip = (so3.from_euler(root_euler) * root_quaternion).sum(dim=-1, keepdim=True) < 0
-    roll = root_euler[..., :1] + torch.where(flip, root_euler.new_tensor(2.0 * torch.pi), root_euler.new_tensor(0.0))
-    root_channels = torch.cat((q[..., :3], roll, root_euler[..., 1:]), dim=-1)
-    root_parameters = root_channels @ torch.linalg.inv(rig.root_transform).mT
-    model_parameters = torch.cat((root_parameters, q.new_zeros((*batch, PARAMETER_COUNT - ROOT_COUNT))), dim=-1)
-    model_parameters = model_parameters.index_copy(-1, rig.pose_columns, q[..., 7:] / rig.host_weights)
-    proportions = identity.values["proportions"].expand(*batch, len(rig.proportion_columns))
-    model_parameters = model_parameters.index_copy(-1, rig.proportion_columns, proportions)
-    expression = None
-    if "expression" in spec.stream_bases:
-        value = (stream or {}).get("expression")
-        expression = (
-            q.new_zeros((*batch, EXPRESSION_COUNT)) if value is None else value.expand(*batch, EXPRESSION_COUNT)
-        )
-    return MHRClassic(coeffs.expand(*batch, IDENTITY_COUNT), model_parameters, expression)
 
 
 def _dense_weight_from_sparse(
@@ -225,4 +151,4 @@ def _dense_weight_from_sparse(
     return dense_weight.index_put((sparse_indices[0], sparse_indices[1]), sparse_values)
 
 
-__all__ = ["MHRClassic", "mhr", "mhr_from_classic", "mhr_to_classic"]
+__all__ = ["mhr"]

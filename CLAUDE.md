@@ -53,9 +53,10 @@ from this repo.
 | `src/better_human/mass/` | part topology, densities and inertias; its data are versioned archives read by `src/better_human/io/mass_data.py` |
 | `src/better_human/families/smpl_family.py`, `src/better_human/families/_tables.py` | SMPL-family loaders; file patterns and joint names |
 | `src/better_human/families/regressed_rig.py` | `RegressedRig` (SMPL family), `drop_joints` |
-| `src/better_human/families/classic.py`, `src/better_human/families/mhr_family.py` | classic converters; MHR loader and converters |
+| `src/better_human/core/classic.py`, `src/better_human/families/classic.py` | `from_classic` / `to_classic` and the abstract `ClassicFormat`; every `*Classic` and the three formats |
+| `src/better_human/families/mhr_family.py` | MHR loader |
 | `src/better_human/families/mhr_rig.py` | `MHRRig` |
-| `src/better_human/families/soma_family.py`, `src/better_human/families/soma_rig.py` | SOMA loader and converters; `SOMARig` |
+| `src/better_human/families/soma_family.py`, `src/better_human/families/soma_rig.py` | SOMA loader; `SOMARig` |
 | `src/better_human/io/load.py`, `src/better_human/io/schema.py` | weight paths (`models_dir`, `weight_path`); internal archive reader and schemas |
 | `src/better_human/io/formats.py`, `src/better_human/io/frame_sets.py` | file formats, `check_format`, the migrations (spec: `docs/reference/formats/`); frame sets |
 | `src/better_human/terms/`, `src/better_human/viz/human_layers.py` | optimisation terms (state, fitting, physics); viewer layers and `HumanView` |
@@ -66,7 +67,7 @@ from this repo.
 - Metres, y-up, BR pose order in `q`; native joint order in `HumanState.joint_translations`.
 - `q (B..., nq)` broadcasts with identity dims `I...`; never hard-code `nq`.
 - Family behaviour goes in the `Rig` or the loader, never in `HumanModel` branches.
-- Native parameters enter and leave only through `*_from_classic` / `*_to_classic`.
+- Native parameters enter and leave only through `bh.from_classic` / `bh.to_classic`.
 
 ## Gates that must not be weakened
 

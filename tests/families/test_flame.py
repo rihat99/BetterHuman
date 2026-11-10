@@ -1,4 +1,7 @@
-"""FLAME loader on the new core, against a synthetic FLAME-shaped file (no FLAME asset ships)."""
+"""FLAME loader on the new core, against a synthetic FLAME-shaped file (no FLAME asset ships).
+
+Classic round trips run through tests/families/test_classic_formats.py.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +14,7 @@ import torch
 from better_robot.exceptions import DtypeMismatchError
 
 import better_human as bh
-from better_human.families.classic import FLAMEClassic, flame_from_classic, flame_to_classic
+from better_human.families import FLAMEClassic
 
 NUM_VERTICES = 50
 NUM_JOINTS = 5
@@ -65,22 +68,10 @@ def test_dtype_follows_load(flame_path: Path) -> None:
 
 
 def test_expression_stream_moves_vertices_and_joints(flame_path: Path) -> None:
-    identity = _body(flame_path).bake()
-    q, stream = flame_from_classic(identity, FLAMEClassic(expression=torch.full((50,), 2.0, dtype=torch.float64)))
+    expression = torch.full((50,), 2.0, dtype=torch.float64)
+    identity, q, stream = bh.from_classic(_body(flame_path), FLAMEClassic(expression=expression))
     torch.testing.assert_close(q[3:], identity.model.q_neutral[3:], atol=0, rtol=0)
     neutral = identity.forward(q)
     expressive = identity.forward(q, stream)
     assert (expressive.vertices - neutral.vertices).abs().max() > 1e-4
     assert (expressive.joint_translations - neutral.joint_translations).abs().max() > 1e-6
-
-
-def test_classic_round_trip(flame_path: Path) -> None:
-    identity = _body(flame_path).bake(betas=torch.randn(100, dtype=torch.float64))
-    generator = torch.Generator().manual_seed(0)
-    names = ("global_orient", "neck_pose", "jaw_pose", "leye_pose", "reye_pose", "transl")
-    values = {name: 0.3 * torch.randn(2, 3, generator=generator, dtype=torch.float64) for name in names}
-    classic = FLAMEClassic(expression=torch.randn(2, 50, generator=generator, dtype=torch.float64), **values)
-    q, stream = flame_from_classic(identity, classic)
-    back = flame_to_classic(identity, q, stream)
-    for name in (*names, "expression"):
-        torch.testing.assert_close(getattr(back, name), getattr(classic, name), atol=1e-10, rtol=0)

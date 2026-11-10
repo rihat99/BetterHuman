@@ -1,4 +1,4 @@
-"""SMPL+H loader on the new core."""
+"""SMPL+H loader on the new core. Classic round trips run through tests/families/test_classic_formats.py."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import pytest
 import torch
 
 import better_human as bh
-from better_human.families.classic import SMPLHClassic, smplh_from_classic, smplh_to_classic
+from better_human.families import SMPLHClassic
 from better_human.io import weight_path
 
 pytestmark = pytest.mark.licensed
@@ -28,26 +28,11 @@ def test_joint_counts(body: bh.HumanModel) -> None:
     assert len(reduced.spec.joint_names) == 22
 
 
-def test_classic_round_trip(body: bh.HumanModel) -> None:
-    generator = torch.Generator().manual_seed(0)
-    identity = body.bake(betas=torch.randn(16, generator=generator, dtype=torch.float64))
-    classic = SMPLHClassic(
-        global_orient=0.3 * torch.randn(2, 3, generator=generator, dtype=torch.float64),
-        body_pose=0.3 * torch.randn(2, 63, generator=generator, dtype=torch.float64),
-        left_hand_pose=0.3 * torch.randn(2, 45, generator=generator, dtype=torch.float64),
-        right_hand_pose=0.3 * torch.randn(2, 45, generator=generator, dtype=torch.float64),
-        transl=torch.randn(2, 3, generator=generator, dtype=torch.float64),
-    )
-    q, stream = smplh_from_classic(identity, classic)
-    back = smplh_to_classic(identity, q, stream)
-    for name in ("global_orient", "body_pose", "left_hand_pose", "right_hand_pose", "transl"):
-        torch.testing.assert_close(getattr(back, name), getattr(classic, name), atol=1e-10, rtol=0)
-
-
 def test_posed_hand_moves_finger_vertices(body: bh.HumanModel) -> None:
-    identity = body.bake()
-    neutral = identity.forward(*smplh_from_classic(identity, SMPLHClassic()))
-    q, stream = smplh_from_classic(identity, SMPLHClassic(left_hand_pose=torch.full((45,), 0.5, dtype=torch.float64)))
+    identity, q, stream = bh.from_classic(body, SMPLHClassic())
+    neutral = identity.forward(q, stream)
+    left_hand_pose = torch.full((45,), 0.5, dtype=torch.float64)
+    identity, q, stream = bh.from_classic(body, SMPLHClassic(left_hand_pose=left_hand_pose))
     posed = identity.forward(q, stream)
     displacement = (posed.vertices - neutral.vertices).norm(dim=-1)
     assert displacement.max() > 1e-2

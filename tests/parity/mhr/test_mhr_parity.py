@@ -9,9 +9,9 @@ import numpy as np
 import pytest
 import torch
 
-from better_human import families
+from better_human import families, from_classic
 from better_human.core.human_model import HumanModel
-from better_human.families.mhr_family import MHRClassic, mhr_from_classic
+from better_human.families import MHRClassic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
 
@@ -176,7 +176,8 @@ def test_mhr_parity_grid(
                     expected_vertices = torch.from_numpy(golden["vertices"]).to(dtype=dtype) * length_scale
                     expected_state = torch.from_numpy(golden["skel_state"]).to(dtype=dtype)
 
-                baked, q, stream = mhr_from_classic(body, MHRClassic(identity, model_parameters, expression))
+                classic = MHRClassic(identity_coeffs=identity, model_parameters=model_parameters, expression=expression)
+                baked, q, stream = from_classic(body, classic)
                 state = baked.forward(q, stream)
                 actual_vertices = state.vertices
                 actual_poses = state.joint_poses

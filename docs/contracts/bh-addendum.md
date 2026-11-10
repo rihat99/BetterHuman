@@ -127,18 +127,22 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
 - `HumanState` memoises `joint_transforms`, `skin_affines`, `corrective_feature` and `vertices`; create a new state
   for new inputs, never mutate one.
 
-### Classic conversion
+### Classic conversion (decision record 0004)
 
-- `<family>_from_classic(identity, classic) -> (q, stream)` and
-  `<family>_to_classic(identity, q, stream=None) -> <Family>Classic` in `src/better_human/families/classic.py`.
-  MHR: `mhr_from_classic(body, classic) -> (identity, q, stream)` and
-  `mhr_to_classic(identity, q, stream=None)` in `src/better_human/families/mhr_family.py`.
-- Hand PCA (SMPL-H, SMPL-X, MANO): `num_pca_comps` must be in `[1, 45]` or `None` (full axis-angle).
-  `to_classic` raises `ValueError` when the hand pose leaves the requested PCA subspace.
-- Dropped joints: a hand pose given to a body loaded with `hands=False` raises `ValueError`;
-  `to_classic` on such a body returns `None` for that hand, so the round trip is closed.
-- Round trips are exact up to rotation equivalence: an axis-angle with norm above π comes back
-  as the same rotation with norm below π (vertices match to float precision).
+- `bh.from_classic(human, classic) -> (identity, q, streams)` and
+  `bh.to_classic(identity, q, *, streams=None) -> <Family>Classic` for every family, over the spec's
+  `ClassicFormat` (`src/better_human/core/classic.py`; formats in `src/better_human/families/classic.py`).
+- Every `<Family>Classic` field is keyword-only and optional (zero when omitted); the identity inputs (`betas`,
+  `identity_coeffs`) are fields, so `from_classic` bakes the identity. Another family's classic raises
+  `ArgumentError`.
+- Hand PCA (SMPL-X, MANO): `families.smplx(..., num_pca_comps=)` and `families.mano(..., num_pca_comps=)` fix the
+  width at load, in `[1, 45]` or `None` (full axis-angle). `to_classic` raises `ArgumentError` when the hand pose
+  leaves the model's PCA subspace.
+- Dropped joints: a field whose joints the model was loaded without (`hands=False`, `face=False`, `drop_joints`) or
+  whose stream group it lacks (`expression=False`) raises `ArgumentError` when set, and `to_classic` returns `None`
+  for it, so the round trip is closed.
+- Round trips are exact to float precision, both ways. The SMPL family keeps axis-angles beyond π (the sign of each
+  quaternion survives); MHR's Euler angles and SOMA's axis-angles come back on the principal branch.
 
 ### Rig (abstract base, decision record 0002)
 
@@ -268,9 +272,9 @@ They mirror BetterRobot's rules; when the two disagree, BetterRobot's numerical 
 8. **Classic conventions are quarantined at the boundary.** Inside
    BetterHuman there is exactly one state convention: BetterRobot-style `q`.
    Each model's native format (axis-angle vectors, offset root translations,
-   PCA hand spaces) enters or leaves only through its `from_classic` /
-   `to_classic` pair, which must be exact inverses and covered by round-trip
-   tests. A private pose-feature policy may transiently reconstruct the
+   PCA hand spaces) enters or leaves only through `bh.from_classic` /
+   `bh.to_classic` and the family's classic format, which must be exact
+   inverses and covered by the one round-trip checker. A private pose-feature policy may transiently reconstruct the
    rotation representation required by authored correctives; it never becomes
    parallel public state.
 9. **Parity with the original implementation is the safety net.** Every

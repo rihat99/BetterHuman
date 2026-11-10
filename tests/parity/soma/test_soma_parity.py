@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 import torch
 
-from better_human import HumanModel, HumanState, families
-from better_human.families.soma_family import SOMAClassic, soma_from_classic
+from better_human import HumanModel, HumanState, families, from_classic
+from better_human.families import SOMAClassic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
 
@@ -93,8 +93,10 @@ def test_soma_parity(soma_goldens: Path, dtype: torch.dtype, case: str) -> None:
     correctives, golden = _golden(golden_path)
     expected = {name: value.to(dtype) for name, value in golden.items()}
     with torch.inference_mode():
-        classic = SOMAClassic(expected["identity_coeffs"], expected["poses"], expected["transl"])
-        identity, q, stream = soma_from_classic(_body(dtype, correctives), classic)
+        classic = SOMAClassic(
+            identity_coeffs=expected["identity_coeffs"], poses=expected["poses"], transl=expected["transl"]
+        )
+        identity, q, stream = from_classic(_body(dtype, correctives), classic)
         errors = _errors(identity.forward(q, stream), expected)
     atols = PARITY_ATOLS_BY_CASE.get(golden_path.stem, PARITY_ATOLS)
     for label, error, atol in zip(LABELS, errors, atols, strict=True):
@@ -108,8 +110,10 @@ def test_soma_parity_identity_batch(soma_goldens: Path, dtype: torch.dtype) -> N
     names = [name for name, (correctives, _) in goldens.items() if correctives]
     expected = {key: torch.stack([goldens[name][1][key] for name in names]).to(dtype) for key in KEYS}
     with torch.inference_mode():
-        classic = SOMAClassic(expected["identity_coeffs"], expected["poses"], expected["transl"])
-        identity, q, stream = soma_from_classic(_body(dtype, True), classic)
+        classic = SOMAClassic(
+            identity_coeffs=expected["identity_coeffs"], poses=expected["poses"], transl=expected["transl"]
+        )
+        identity, q, stream = from_classic(_body(dtype, True), classic)
         errors = _errors(identity.forward(q, stream), expected)
     assert q.shape == (len(names), 311)
     for label, error, atol in zip(LABELS, errors, PARITY_ATOLS, strict=True):

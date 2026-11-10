@@ -1,14 +1,18 @@
-"""Behaviour of the MHR family on the new core: sizes, mimic spine, toggles, classic round trip, batching, mass."""
+"""Behaviour of the MHR family on the new core: sizes, mimic spine, toggles, the root branch, batching, mass.
+
+The classic round trip runs through tests/families/test_classic_formats.py.
+"""
 
 from __future__ import annotations
 
+import dataclasses
 
 import numpy as np
 import pytest
 import torch
 
-from better_human import HumanModel, families
-from better_human.families.mhr_family import MHRClassic, mhr_from_classic, mhr_to_classic
+from better_human import HumanModel, families, from_classic, to_classic
+from better_human.families import MHRClassic
 from better_human.io import weight_path
 from better_robot.exceptions import ArgumentError, DtypeMismatchError
 from better_robot.kinematics import full_configuration
@@ -20,7 +24,7 @@ def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> 
     """Moderate identity, proportions and pose values ``(*batch, 45)``, ``(*batch, 204)``."""
     identity = 0.5 * torch.randn(*batch, 45, generator=generator)
     model_parameters = 0.3 * torch.randn(*batch, 204, generator=generator)
-    return MHRClassic(identity, model_parameters)
+    return MHRClassic(identity_coeffs=identity, model_parameters=model_parameters)
 
 
 @pytest.fixture(scope="module")
@@ -29,7 +33,7 @@ def body() -> HumanModel:
 
 
 def test_configuration_sizes(body: HumanModel) -> None:
-    identity, q, stream = mhr_from_classic(body, MHRClassic(torch.zeros(45), torch.zeros(204)))
+    identity, q, stream = from_classic(body, MHRClassic())
     assert (body.model.nq, body.model.nv, body.model.nq_full) == (132, 131, 179)
     assert (identity.model.nq, identity.model.nv) == (132, 131)
     assert q.shape == (132,)
@@ -49,7 +53,7 @@ def test_mimic_expansion_matches_all_spine_twist_weights(body: HumanModel) -> No
 
     model_parameters = torch.zeros(204)
     model_parameters[parameter_index] = 1.0
-    _, q, _ = mhr_from_classic(body, MHRClassic(torch.zeros(45), model_parameters))
+    _, q, _ = from_classic(body, MHRClassic(model_parameters=model_parameters))
     model = body.model
     q_full = full_configuration(model, q)
     source_id = model.joint_id("spine_twist0")
@@ -65,51 +69,49 @@ def test_expression_toggle() -> None:
     classic = _random_classic(torch.Generator().manual_seed(0))
 
     assert "expression" not in without_expression.spec.stream_bases
-    identity, q, stream = mhr_from_classic(without_expression, classic)
+    identity, q, stream = from_classic(without_expression, classic)
     assert stream == {}
-    assert mhr_to_classic(identity, q, stream).expression is None
-    with pytest.raises(ValueError, match="expression=True"):
-        mhr_from_classic(
-            without_expression, MHRClassic(classic.identity_coeffs, classic.model_parameters, torch.zeros(72))
-        )
+    assert to_classic(identity, q, streams=stream).expression is None
+    with pytest.raises(ValueError, match="loaded without expression"):
+        from_classic(without_expression, dataclasses.replace(classic, expression=torch.zeros(72)))
 
-    reference, q_reference, zero_stream = mhr_from_classic(with_expression, classic)
+    reference, q_reference, zero_stream = from_classic(with_expression, classic)
     torch.testing.assert_close(zero_stream["expression"], torch.zeros(72))
     neutral_face = reference.forward(q_reference, zero_stream).vertices
     torch.testing.assert_close(identity.forward(q).vertices, neutral_face, rtol=0, atol=1e-6)
     expression = 0.5 * torch.randn(72, generator=torch.Generator().manual_seed(1))
-    reference, q_reference, stream = mhr_from_classic(
-        with_expression, MHRClassic(classic.identity_coeffs, classic.model_parameters, expression)
-    )
+    reference, q_reference, stream = from_classic(with_expression, dataclasses.replace(classic, expression=expression))
     assert (reference.forward(q_reference, stream).vertices - neutral_face).abs().amax() > 1e-4
 
 
 def test_correctives_toggle() -> None:
     path = weight_path("MHR/converted", "mhr_lod6.npz")
     classic = _random_classic(torch.Generator().manual_seed(2))
-    zero_pose = MHRClassic(classic.identity_coeffs, torch.zeros(204))
+    zero_pose = MHRClassic(identity_coeffs=classic.identity_coeffs)
     vertices = {}
     for correctives in (True, False):
         body = HumanModel.from_spec(families.mhr(path, lod=6, correctives=correctives))
         for name, value in (("posed", classic), ("rest", zero_pose)):
-            identity, q, stream = mhr_from_classic(body, value)
+            identity, q, stream = from_classic(body, value)
             vertices[name, correctives] = identity.forward(q, stream).vertices
     assert (vertices["posed", True] - vertices["posed", False]).abs().amax() > 1e-4
     torch.testing.assert_close(vertices["rest", True], vertices["rest", False], rtol=0, atol=1e-6)
 
 
-def test_classic_round_trip(body: HumanModel) -> None:
-    classic = _random_classic(torch.Generator().manual_seed(3), (4,))
-    classic = MHRClassic(classic.identity_coeffs, classic.model_parameters, 0.3 * torch.randn(4, 72))
-    identity, q, stream = mhr_from_classic(body, classic)
+def test_a_negated_root_quaternion_round_trips(body: HumanModel) -> None:
+    """``to_classic`` puts a negative-scalar root quaternion on the Euler branch that ``from_classic`` maps back to it."""
+    classic = dataclasses.replace(
+        _random_classic(torch.Generator().manual_seed(3), (4,)), expression=0.3 * torch.randn(4, 72)
+    )
+    identity, q, stream = from_classic(body, classic)
     root_quaternion = torch.arange(3, 7)
     q = q.index_copy(-1, root_quaternion, -q.index_select(-1, root_quaternion))
     state = identity.forward(q, stream)
 
-    restored = mhr_to_classic(identity, q, stream)
+    restored = to_classic(identity, q, streams=stream)
     torch.testing.assert_close(restored.identity_coeffs, classic.identity_coeffs, rtol=0, atol=0)
     torch.testing.assert_close(restored.expression, classic.expression, rtol=0, atol=0)
-    identity_back, q_back, stream_back = mhr_from_classic(body, restored)
+    identity_back, q_back, stream_back = from_classic(body, restored)
     torch.testing.assert_close(q_back, q, rtol=0, atol=1e-6)
     restored_state = identity_back.forward(q_back, stream_back)
     torch.testing.assert_close(restored_state.vertices, state.vertices, rtol=0, atol=1e-6)
@@ -120,21 +122,24 @@ def test_identity_batch_broadcasts_against_pose_batch(body: HumanModel) -> None:
     generator = torch.Generator().manual_seed(4)
     identities = _random_classic(generator, (2, 1))
     poses = _random_classic(generator, (3,))
-    identity, _, _ = mhr_from_classic(body, identities)
-    _, q, _ = mhr_from_classic(body, MHRClassic(torch.zeros(45), poses.model_parameters))
+    identity, _, _ = from_classic(body, identities)
+    _, q, _ = from_classic(body, MHRClassic(model_parameters=poses.model_parameters))
     vertices = identity.forward(q).vertices
     assert vertices.shape == (2, 3, body.spec.num_vertices, 3)
     torch.testing.assert_close(vertices, identity.forward(q, {"expression": torch.zeros(72)}).vertices)
     for i in range(2):
-        single, _, _ = mhr_from_classic(
-            body, MHRClassic(identities.identity_coeffs[i, 0], identities.model_parameters[i, 0])
+        single, _, _ = from_classic(
+            body,
+            MHRClassic(
+                identity_coeffs=identities.identity_coeffs[i, 0], model_parameters=identities.model_parameters[i, 0]
+            ),
         )
         for j in range(3):
             torch.testing.assert_close(vertices[i, j], single.forward(q[j]).vertices, rtol=0, atol=1e-6)
 
 
 def test_points_match_vertex_rows(body: HumanModel) -> None:
-    identity, q, stream = mhr_from_classic(body, _random_classic(torch.Generator().manual_seed(5), (2,)))
+    identity, q, stream = from_classic(body, _random_classic(torch.Generator().manual_seed(5), (2,)))
     state = identity.forward(q, stream)
     ids = torch.tensor([0, 17, 4096, body.spec.num_vertices - 1])
     torch.testing.assert_close(state.points(ids), state.vertices[..., ids, :], rtol=0, atol=0)
@@ -143,7 +148,7 @@ def test_points_match_vertex_rows(body: HumanModel) -> None:
 def test_mass_lives_on_part_bodies_only(body: HumanModel) -> None:
     assert body.part_body_ids.shape == (body.spec.parts.count,)
     assert body.part_body_ids.unique().numel() == body.spec.parts.count
-    identity, _, _ = mhr_from_classic(body, _random_classic(torch.Generator().manual_seed(6)))
+    identity, _, _ = from_classic(body, _random_classic(torch.Generator().manual_seed(6)))
     inertias = identity.model.body_inertias
     assert torch.isfinite(inertias).all()
     masses = inertias[..., 0]
@@ -167,11 +172,11 @@ def test_spec_and_classic_validation() -> None:
     with pytest.raises(ArgumentError, match="MHRRig cannot drop joints"):
         families.drop_joints(body.spec, [body.spec.joint_names[-1]])
     with pytest.raises(ValueError, match=r"\(\.\.\., 45\)"):
-        mhr_from_classic(body, MHRClassic(torch.zeros(44), torch.zeros(204)))
+        from_classic(body, MHRClassic(identity_coeffs=torch.zeros(44)))
     with pytest.raises(TypeError, match="floating"):
-        mhr_from_classic(body, MHRClassic(torch.zeros(45), torch.zeros(204, dtype=torch.int64)))
+        from_classic(body, MHRClassic(model_parameters=torch.zeros(204, dtype=torch.int64)))
     with pytest.raises(ValueError, match="float32"):
-        mhr_from_classic(body, MHRClassic(torch.zeros(45, dtype=torch.float64), torch.zeros(204)))
-    identity, q, stream = mhr_from_classic(body, MHRClassic(torch.zeros(45), torch.zeros(204)))
+        from_classic(body, MHRClassic(identity_coeffs=torch.zeros(45, dtype=torch.float64)))
+    identity, q, stream = from_classic(body, MHRClassic())
     with pytest.raises(ValueError, match="132"):
-        mhr_to_classic(identity, q[:-1], stream)
+        to_classic(identity, q[:-1], streams=stream)

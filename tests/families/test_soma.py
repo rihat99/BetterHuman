@@ -1,4 +1,7 @@
-"""Behaviour of the SOMA family: sizes, round trip, root frame, batching, gradients."""
+"""Behaviour of the SOMA family: sizes, root frame, batching, gradients.
+
+The classic round trip (float32 and float64) runs through tests/families/test_classic_formats.py.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +10,8 @@ import torch
 from better_robot.exceptions import ArgumentError, DtypeMismatchError, ShapeError
 from better_robot.lie import so3
 
-from better_human import HumanModel, families, load
-from better_human.families.soma_family import SOMAClassic, soma_from_classic, soma_to_classic
+from better_human import HumanModel, families, from_classic, load, to_classic
+from better_human.families import SOMAClassic
 from better_human.io import weight_path
 
 pytestmark = pytest.mark.licensed
@@ -17,9 +20,9 @@ pytestmark = pytest.mark.licensed
 def _random_classic(generator: torch.Generator, batch: tuple[int, ...] = ()) -> SOMAClassic:
     """Moderate identity ``(*batch, 128)``, pose ``(*batch, 77, 3)`` and root position ``(*batch, 3)``."""
     return SOMAClassic(
-        0.5 * torch.randn(*batch, 128, generator=generator),
-        0.3 * torch.randn(*batch, 77, 3, generator=generator),
-        0.5 * torch.randn(*batch, 3, generator=generator),
+        identity_coeffs=0.5 * torch.randn(*batch, 128, generator=generator),
+        poses=0.3 * torch.randn(*batch, 77, 3, generator=generator),
+        transl=0.5 * torch.randn(*batch, 3, generator=generator),
     )
 
 
@@ -37,22 +40,6 @@ def test_sizes_parts_and_mass(body: HumanModel) -> None:
     masses = body.bake().model.body_inertias[..., 0]
     assert torch.isfinite(masses).all()
     assert (masses[body.part_body_ids] > 0).all()
-
-
-@pytest.mark.parametrize(("dtype", "atol"), ((torch.float32, 1e-6), (torch.float64, 1e-12)), ids=("float32", "float64"))
-def test_classic_round_trip(dtype: torch.dtype, atol: float) -> None:
-    body = HumanModel.from_spec(
-        families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False, dtype=dtype), density=None
-    )
-    random = _random_classic(torch.Generator().manual_seed(0), (4,))
-    classic = SOMAClassic(random.identity_coeffs.to(dtype), random.poses.to(dtype), random.transl.to(dtype))
-    identity, q, stream = soma_from_classic(body, classic)
-    assert q.shape == (4, 311)
-    assert stream == {}
-    restored = soma_to_classic(identity, q)
-    torch.testing.assert_close(restored.identity_coeffs, classic.identity_coeffs, rtol=0, atol=0)
-    torch.testing.assert_close(restored.poses, classic.poses, rtol=0, atol=atol)
-    torch.testing.assert_close(restored.transl, classic.transl, rtol=0, atol=atol)
 
 
 def test_free_flyer_is_world_aligned(body: HumanModel) -> None:
@@ -75,7 +62,7 @@ def test_identity_batch_broadcasts_against_pose_batch(body: HumanModel) -> None:
     generator = torch.Generator().manual_seed(1)
     shapes = 0.5 * torch.randn(2, 1, 128, generator=generator)
     poses = _random_classic(generator, (3,))
-    identity, q, _ = soma_from_classic(body, SOMAClassic(shapes, poses.poses, poses.transl))
+    identity, q, _ = from_classic(body, SOMAClassic(identity_coeffs=shapes, poses=poses.poses, transl=poses.transl))
     state = identity.forward(q)
     assert q.shape == (3, 311)
     assert state.vertices.shape == (2, 3, 18056, 3)
@@ -101,7 +88,7 @@ def test_gradients_match_finite_differences() -> None:
     public = [body.spec.joint_names[joint] for joint in body.spec.rig.public_ids[1:].tolist()]
 
     def loss(*values: torch.Tensor) -> torch.Tensor:
-        identity, q, _ = soma_from_classic(body, SOMAClassic(*values))
+        identity, q, _ = from_classic(body, SOMAClassic(identity_coeffs=values[0], poses=values[1], transl=values[2]))
         state = identity.forward(q)
         return (state.vertices * weights).sum() + state.joint_translations.sum()
 
@@ -123,11 +110,10 @@ def test_spec_and_classic_validation(body: HumanModel) -> None:
         families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=torch.float16)
     with pytest.raises(ArgumentError, match="must be bool"):
         families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=1)
-    zero = SOMAClassic(torch.zeros(128), torch.zeros(77, 3), torch.zeros(3))
     with pytest.raises(ShapeError, match=r"\(\.\.\., 77, 3\)"):
-        soma_from_classic(body, SOMAClassic(zero.identity_coeffs, torch.zeros(78, 3), zero.transl))
+        from_classic(body, SOMAClassic(poses=torch.zeros(78, 3)))
     with pytest.raises(TypeError, match="floating"):
-        soma_from_classic(body, SOMAClassic(zero.identity_coeffs, zero.poses, None))
-    identity, q, _ = soma_from_classic(body, zero)
+        from_classic(body, SOMAClassic(transl=[0.0, 0.0, 0.0]))
+    identity, q, _ = from_classic(body, SOMAClassic())
     with pytest.raises(ValueError, match="311"):
-        soma_to_classic(identity, q[:-1])
+        to_classic(identity, q[:-1])

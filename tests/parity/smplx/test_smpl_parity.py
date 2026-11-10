@@ -9,7 +9,7 @@ import pytest
 import torch
 
 import better_human as bh
-from better_human.families.classic import SMPLClassic, smpl_from_classic
+from better_human.families import SMPLClassic
 from better_human.io import weight_path
 from tests.support.goldens import golden_dir
 
@@ -54,10 +54,10 @@ def body_float32() -> bh.HumanModel:
 def _evaluate(body: bh.HumanModel, golden_path: Path) -> tuple[torch.Tensor, torch.Tensor, np.lib.npyio.NpzFile]:
     golden = np.load(golden_path, allow_pickle=False)
     dtype = body.spec.dtype
-    identity = body.bake(betas=torch.from_numpy(golden["betas"]).to(dtype=dtype))
-    q, stream = smpl_from_classic(
-        identity,
+    identity, q, stream = bh.from_classic(
+        body,
         SMPLClassic(
+            betas=torch.from_numpy(golden["betas"]).to(dtype=dtype),
             global_orient=torch.from_numpy(golden["global_orient"]).to(dtype=dtype),
             body_pose=torch.from_numpy(golden["body_pose"]).to(dtype=dtype),
             transl=torch.from_numpy(golden["transl"]).to(dtype=dtype),

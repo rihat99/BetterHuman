@@ -23,6 +23,7 @@ from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH
 from better_human.mass import segment_vertices
 
 from . import _tables
+from .classic import FLAMEClassic, MANOClassic, SMPLClassic, SMPLFamilyFormat, SMPLHClassic, SMPLXClassic
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 
 SMPLX_SHAPE_DIM, SMPLX_EXPRESSION_DIM = 300, 100
@@ -51,6 +52,15 @@ def _check_dtype(dtype: torch.dtype) -> None:
         )
 
 
+def _pose_fields(table: _tables.FamilyTable, *counts: tuple[str, int]) -> dict[str, tuple[str, ...]]:
+    """Each classic pose field's native joints from ``(field, joint count)`` pairs in native order after the root."""
+    fields, start = {}, 1
+    for name, count in counts:
+        fields[name] = table.joint_names[start : start + count]
+        start += count
+    return fields
+
+
 def _parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
     """Resolve a two-row native-id kintree table to column parent indices."""
     joint_ids = [int(value) for value in kintree_table[1].tolist()]
@@ -73,7 +83,7 @@ def _load_family(
     columns: Mapping[str, slice] | None = None,
     drop: Sequence[str] = (),
     side: str | None = None,
-    meta: Mapping[str, object] = {},
+    classic: SMPLFamilyFormat,
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
@@ -82,8 +92,8 @@ def _load_family(
     ``identity`` and ``streams`` give the requested width of each blend group; ``columns`` says
     where each group lives in ``shapedirs`` (default: one group ``betas`` spanning the file).
     ``drop`` names terminal joints to remove (hands, face); ``side`` fills MANO's ``{side}`` density categories. The
-    arrays are reduced in float64, then the spec is built once in ``dtype`` on ``device``; ``meta`` (the hand pose
-    PCA) must already be there.
+    arrays are reduced in float64, then the spec is built once in ``dtype`` on ``device``; ``classic`` (with the hand
+    pose PCA) must already be there.
     """
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
@@ -152,8 +162,8 @@ def _load_family(
         corrective=LinearCorrective(data.posedirs.to(device=device, dtype=dtype)),
         rig=RegressedRig(data.joint_regressor.to(device=device, dtype=dtype)),
         parts=replace(data.parts, ids=data.parts.ids.to(device)),
+        classic=classic,
         landmarks=landmarks,
-        meta=meta,
     )
 
 
@@ -173,6 +183,7 @@ def smpl(
         _tables.SMPL,
         load_model_npz(path, SMPL_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
+        classic=SMPLFamilyFormat(SMPLClassic, _pose_fields(_tables.SMPL, ("body_pose", 23))),
         dtype=dtype,
         device=device,
     )
@@ -198,6 +209,10 @@ def smplh(
         load_model_npz(path, SMPLH_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         drop=drop,
+        classic=SMPLFamilyFormat(
+            SMPLHClassic,
+            _pose_fields(table, ("body_pose", 21), ("left_hand_pose", 15), ("right_hand_pose", 15)),
+        ),
         dtype=dtype,
         device=device,
     )
@@ -212,12 +227,19 @@ def smplx(
     hands: bool = True,
     face: bool = True,
     flat_hand_mean: bool = False,
+    num_pca_comps: int | None = None,
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """SMPL-X (55 joints, 10475 vertices). Expression is a stream group; ``face=False`` drops it and the face joints."""
+    """SMPL-X (55 joints, 10475 vertices). Expression is a stream group; ``face=False`` drops it and the face joints.
+
+    ``num_pca_comps`` in ``[1, 45]`` makes the classic hand poses ``(..., num_pca_comps)`` PCA coefficients; ``None``
+    keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
+    """
     _check_dtype(dtype)
     gender = _gender(gender)
+    if num_pca_comps is not None:
+        _check_width("num_pca_comps", num_pca_comps, HAND_DIM)
     table = _tables.SMPLX
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.upper()), path=path)
     arrays = load_model_npz(path, SMPLX_SCHEMA)
@@ -225,19 +247,30 @@ def smplx(
     def floats(name: str) -> torch.Tensor:
         return arrays[name].to(device=device, dtype=dtype)
 
-    hand_meta = {
-        "hand_components": {"left": floats("hands_componentsl"), "right": floats("hands_componentsr")},
-        "hand_mean": {
-            side: torch.zeros_like(mean) if flat_hand_mean else mean
-            for side, mean in (("left", floats("hands_meanl")), ("right", floats("hands_meanr")))
-        },
-    }
+    hand_fields = {"left_hand_pose": "l", "right_hand_pose": "r"}
+    classic = SMPLFamilyFormat(
+        SMPLXClassic,
+        _pose_fields(
+            table,
+            ("body_pose", 21),
+            ("jaw_pose", 1),
+            ("leye_pose", 1),
+            ("reye_pose", 1),
+            ("left_hand_pose", 15),
+            ("right_hand_pose", 15),
+        ),
+        hand_means={}
+        if flat_hand_mean
+        else {name: floats(f"hands_mean{suffix}") for name, suffix in hand_fields.items()},
+        hand_components={}
+        if num_pca_comps is None
+        else {name: floats(f"hands_components{suffix}")[:num_pca_comps] for name, suffix in hand_fields.items()},
+    )
     drop = []
     if not face:
         drop += [table.joint_names[j] for j in table.face_joints]
     if not hands:
         drop += [table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints)]
-    hand_meta["hand_joints"] = {"left", "right"} if hands else set()
     streams = {"expression": _check_width("num_expression", num_expression, SMPLX_EXPRESSION_DIM)} if face else {}
     return _load_family(
         table,
@@ -249,7 +282,7 @@ def smplx(
             "expression": slice(SMPLX_SHAPE_DIM, SMPLX_SHAPE_DIM + SMPLX_EXPRESSION_DIM),
         },
         drop=drop,
-        meta=hand_meta,
+        classic=classic,
         dtype=dtype,
         device=device,
     )
@@ -261,28 +294,36 @@ def mano(
     side: str = "right",
     num_betas: int = 10,
     flat_hand_mean: bool = False,
+    num_pca_comps: int | None = None,
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """MANO hand (16 joints, 778 vertices) with its PCA pose space in ``meta``."""
+    """MANO hand (16 joints, 778 vertices).
+
+    ``num_pca_comps`` in ``[1, 45]`` makes the classic hand pose ``(..., num_pca_comps)`` PCA coefficients; ``None``
+    keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
+    """
     _check_dtype(dtype)
     if side not in {"left", "right"}:
         raise UnknownNameError("side", side, ["left", "right"])
+    if num_pca_comps is not None:
+        _check_width("num_pca_comps", num_pca_comps, HAND_DIM)
     table = _tables.MANO
     path = weight_path(table.folder, table.file_pattern.format(side=side.upper()), path=path)
     arrays = load_model_npz(path, MANO_SCHEMA)
-    mean = arrays["hands_mean"].to(device=device, dtype=dtype)
-    meta = {
-        "side": side,
-        "hand_components": {side: arrays["hands_components"].to(device=device, dtype=dtype)},
-        "hand_mean": {side: torch.zeros_like(mean) if flat_hand_mean else mean},
-    }
+    components = arrays["hands_components"].to(device=device, dtype=dtype)
+    classic = SMPLFamilyFormat(
+        MANOClassic,
+        _pose_fields(table, ("hand_pose", 15)),
+        hand_means={} if flat_hand_mean else {"hand_pose": arrays["hands_mean"].to(device=device, dtype=dtype)},
+        hand_components={} if num_pca_comps is None else {"hand_pose": components[:num_pca_comps]},
+    )
     return _load_family(
         table,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, 10)},
         side=side,
-        meta=meta,
+        classic=classic,
         dtype=dtype,
         device=device,
     )
@@ -310,6 +351,10 @@ def flame(
             "betas": slice(0, FLAME_SHAPE_DIM),
             "expression": slice(FLAME_SHAPE_DIM, FLAME_SHAPE_DIM + FLAME_EXPRESSION_DIM),
         },
+        classic=SMPLFamilyFormat(
+            FLAMEClassic,
+            _pose_fields(table, ("neck_pose", 1), ("jaw_pose", 1), ("leye_pose", 1), ("reye_pose", 1)),
+        ),
         dtype=dtype,
         device=device,
     )

@@ -26,9 +26,9 @@ solver — just a graphics-style forward function from parameters to vertices.
    BetterRobot kinematic tree: spherical joints for the SMPL family, and
    named revolute and mimic joints for MHR. FK, IK, Jacobians, dynamics, and
    trajectory optimization come from BetterRobot, batched and differentiable.
-   Every family provides
-   `from_classic` / `to_classic` to translate its native convention
-   losslessly, so existing datasets and codebases remain reachable.
+   Every family's classic format translates its native convention
+   losslessly through `bh.from_classic` / `bh.to_classic`, so existing
+   datasets and codebases remain reachable.
 3. **Model/Data split, human edition.** Following Pinocchio and BetterRobot:
    static topology in the model structure, differentiable model tensors in
    model values, per-query state in `HumanState`. Named shape groups live on the
@@ -90,8 +90,10 @@ BetterRobot's roadmap.
   ([addendum](../contracts/bh-addendum.md)).
 - `HumanState.vertices` and `HumanState.frame_poses` are cached properties,
   like `joints`.
-- `FamilySpec` documents every `meta` key that core reads, and a test keeps the
-  list in sync.
+- One classic API: `bh.from_classic(human, classic)` and
+  `bh.to_classic(identity, q, *, streams=None)` over one `ClassicFormat` per
+  family (decision record 0004); the hand PCA width is fixed at load, and
+  `FamilySpec.meta` is gone (record 0008).
 - Time semantics: a clip is `(B, T, nq)` with `fps`/`times` following
   BetterRobot's viewer time model ([addendum](../contracts/bh-addendum.md)).
 - The [studio](../studio.md) registers pointer tools through BetterRobot's
