@@ -77,6 +77,7 @@ def _parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
 
 def _load_family(
     table: _tables.FamilyTable,
+    path: Path,
     arrays: Mapping[str, torch.Tensor],
     *,
     identity: Mapping[str, int],
@@ -88,7 +89,7 @@ def _load_family(
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """Build a :class:`FamilySpec` from the ``arrays`` of an SMPL-family ``.npz`` (``io.load.load_model_npz``).
+    """Build a :class:`FamilySpec` from the ``arrays`` (``io.load.load_model_npz``) of the SMPL-family file ``path``.
 
     ``identity`` and ``streams`` give the requested width of each blend group; ``columns`` says
     where each group lives in ``shapedirs`` (default: one group ``betas`` spanning the file).
@@ -96,6 +97,12 @@ def _load_family(
     arrays are reduced in float64, then the spec is built once in ``dtype`` on ``device``; ``classic`` (with the hand
     pose PCA) must already be there.
     """
+    num_vertices = arrays["v_template"].shape[0]
+    if num_vertices != table.num_vertices:
+        raise FormatError(
+            f"{path}: {table.name} weights hold {num_vertices} vertices; expected {table.num_vertices}. "
+            f"Pass an unmodified {table.name} file."
+        )
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
         raise FormatError(
@@ -113,12 +120,7 @@ def _load_family(
     weights, indices = top_k_skin(arrays["weights"].to(torch.float64))
     closed_faces = None
     if table.closed_segmentation is not None:
-        num_vertices, closed_faces = shipped_segmentation(table.closed_segmentation)
-        if num_vertices != arrays["v_template"].shape[0]:
-            raise FormatError(
-                f"{table.name} weights hold {arrays['v_template'].shape[0]} vertices; the shipped "
-                f"{table.closed_segmentation} segmentation needs {num_vertices}. Pass an unmodified {table.name} file."
-            )
+        _, closed_faces = shipped_segmentation(table.closed_segmentation)
         closed_faces = {part: faces.to(device) for part, faces in closed_faces.items()}
     density_tables = shipped_density_tables()
     data = _reduce_joints(
@@ -142,12 +144,6 @@ def _load_family(
     )
     landmarks = None
     if table.keypoint_vertex_ids:
-        num_vertices, last = arrays["v_template"].shape[0], max(table.keypoint_vertex_ids)
-        if last >= num_vertices:
-            raise FormatError(
-                f"{table.name} weights hold {num_vertices} vertices; the {table.name} landmarks index vertex {last}. "
-                f"Pass an unmodified {table.name} file."
-            )
         landmarks = Landmarks(table.keypoint_names, torch.tensor(table.keypoint_vertex_ids, device=device))
     return FamilySpec(
         name=table.name,
@@ -182,6 +178,7 @@ def smpl(
     path = weight_path(_tables.SMPL.folder, _tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
     return _load_family(
         _tables.SMPL,
+        path,
         load_model_npz(path, SMPL_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         classic=SMPLFamilyFormat(SMPLClassic, _pose_fields(_tables.SMPL, ("body_pose", 23))),
@@ -208,6 +205,7 @@ def smplh(
     drop = () if hands else tuple(table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints))
     return _load_family(
         table,
+        path,
         load_model_npz(path, SMPLH_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         drop=drop,
@@ -277,6 +275,7 @@ def smplx(
     streams = {"expression": _check_width("num_expression", num_expression, SMPLX_EXPRESSION_DIM)} if face else {}
     return _load_family(
         table,
+        path,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, SMPLX_SHAPE_DIM)},
         streams=streams,
@@ -324,6 +323,7 @@ def mano(
     )
     return _load_family(
         table,
+        path,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, 10)},
         side=side,
@@ -348,6 +348,7 @@ def flame(
     path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
     return _load_family(
         table,
+        path,
         load_model_npz(path, FLAME_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, FLAME_SHAPE_DIM)},
         streams={"expression": _check_width("num_expression", num_expression, FLAME_EXPRESSION_DIM)},

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 import pytest
 import torch
@@ -11,7 +10,6 @@ from better_robot.exceptions import ArgumentError
 from better_robot.spatial import inertia_of_mesh
 
 from better_human.mass import PartTopology
-from tests.support.synthetic import flame_spec
 
 
 def _uv_sphere(rings: int = 8, segments: int = 12) -> tuple[torch.Tensor, torch.Tensor]:
@@ -70,10 +68,12 @@ def test_a_part_that_cannot_be_closed_is_an_argument_error(faces: list[list[int]
         PartTopology.from_part_ids(torch.tensor(faces), torch.zeros(4, dtype=torch.long), num_parts=1)
 
 
-def test_a_random_mesh_raises_instead_of_walking_forever(tmp_path: Path) -> None:
-    spec = flame_spec(tmp_path)  # random faces: no consistently wound surface
+def test_a_random_mesh_raises_instead_of_walking_forever() -> None:
+    generator = torch.Generator().manual_seed(0)
+    faces = torch.randint(0, 50, (80, 3), generator=generator)  # random faces: no consistently wound surface
+    part_ids = torch.randint(0, 5, (50,), generator=generator)
     with pytest.raises(ArgumentError, match=r"part \d+"):
-        PartTopology.from_part_ids(spec.faces, spec.parts.ids, num_parts=spec.parts.count)
+        PartTopology.from_part_ids(faces, part_ids, num_parts=5)
 
 
 def test_an_authored_part_indexing_past_the_joints_is_an_argument_error() -> None:

@@ -30,9 +30,9 @@ F64 = torch.float64
 
 
 def _mano_file(directory: Path) -> Path:
-    """A MANO-shaped file: 16 joints (the wrist and five three-joint fingers), 50 vertices, an orthogonal hand PCA."""
+    """A MANO-shaped file: 16 joints (the wrist and five three-joint fingers), 778 vertices, an orthogonal hand PCA."""
     rng = np.random.default_rng(0)
-    num_vertices, num_joints = 50, 16
+    num_vertices, num_joints = 778, 16
     weights, regressor = rng.random((num_vertices, num_joints)), rng.random((num_joints, num_vertices))
     parents = [4294967295] + [0 if joint % 3 == 1 else joint - 1 for joint in range(1, num_joints)]
     path = directory / "MANO_RIGHT.npz"

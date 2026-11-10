@@ -1,46 +1,44 @@
-"""The SMPL-family loaders check the shipped data that indexes vertices against the file's vertex count (FormatError).
+"""Every SMPL-family loader reads a file of exactly its table's vertex count (FormatError naming the file).
 
-The SMPL closed segmentation and the SMPL-H landmarks index the authored meshes; a file with another vertex count is
-not the family's file. Synthetic files of each family's joint count, without weights.
+The shipped landmarks (SMPL, SMPL-H, SMPL-X), contact frames (SMPL-X) and closed segmentation (SMPL) index the
+authored meshes: a file with fewer or more vertices is not the family's file, and with more its landmarks would land
+on other vertices (H3 review L1). Synthetic files of each family's joint count, without weights.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 import better_human as bh
-from better_human.io import FormatError
+from better_human.families import _tables
+from better_human.io import FormatError, shipped_frame_set
+from better_human.io.mass_data import shipped_segmentation
+from tests.support.synthetic import LAYOUTS, write_family
 
-NUM_VERTICES = 50
-
-
-def _write(path: Path, num_joints: int) -> Path:
-    """An SMPL-family ``.npz`` with ``NUM_VERTICES`` random vertices and a chain of ``num_joints`` joints."""
-    rng = np.random.default_rng(0)
-    weights, regressor = rng.random((NUM_VERTICES, num_joints)), rng.random((num_joints, NUM_VERTICES))
-    np.savez(
-        path,
-        v_template=rng.normal(size=(NUM_VERTICES, 3)) * 0.1,
-        shapedirs=rng.normal(size=(NUM_VERTICES, 3, 16)) * 1e-3,
-        posedirs=rng.normal(size=(NUM_VERTICES, 3, (num_joints - 1) * 9)) * 1e-3,
-        J_regressor=regressor / regressor.sum(axis=1, keepdims=True),
-        weights=weights / weights.sum(axis=1, keepdims=True),
-        kintree_table=np.array([[4294967295, *range(num_joints - 1)], list(range(num_joints))], dtype=np.uint32),
-        f=rng.integers(0, NUM_VERTICES, size=(80, 3)).astype(np.uint32),
-    )
-    return path
+TABLES = (_tables.SMPL, _tables.SMPLH, _tables.SMPLX, _tables.MANO, _tables.FLAME)
 
 
-def test_smpl_raises_for_a_file_its_segmentation_does_not_fit(tmp_path: Path) -> None:
-    path = _write(tmp_path / "SMPL_NEUTRAL.npz", num_joints=24)
-    with pytest.raises(FormatError, match=r"smpl weights hold 50 vertices; the shipped smpl segmentation needs 6890"):
-        bh.families.smpl(path)
+@pytest.mark.parametrize("family", list(LAYOUTS))
+@pytest.mark.parametrize("more", [False, True], ids=["fewer", "more"])
+def test_a_file_with_another_vertex_count_raises(family: str, more: bool, tmp_path: Path) -> None:
+    expected = getattr(_tables, family.upper()).num_vertices
+    found = expected + 1 if more else 50
+    path = write_family(tmp_path, family, num_vertices=found)
+    message = f"{path}: {family} weights hold {found} vertices; expected {expected}."
+    with pytest.raises(FormatError, match=re.escape(message)):
+        getattr(bh.families, family)(path)
 
 
-def test_smplh_raises_for_a_file_its_landmarks_do_not_fit(tmp_path: Path) -> None:
-    path = _write(tmp_path / "model.npz", num_joints=52)
-    with pytest.raises(FormatError, match=r"smplh weights hold 50 vertices; the smplh landmarks index vertex 6787"):
-        bh.families.smplh(path)
+@pytest.mark.parametrize("table", TABLES, ids=lambda table: table.name)
+def test_the_shipped_vertex_data_fit_the_table_vertex_count(table: _tables.FamilyTable) -> None:
+    if table.keypoint_vertex_ids:
+        assert max(table.keypoint_vertex_ids) < table.num_vertices
+    if table.closed_segmentation is not None:
+        assert shipped_segmentation(table.closed_segmentation)[0] == table.num_vertices
+
+
+def test_the_shipped_contact_frames_fit_smplx() -> None:
+    assert max(vertex for vertex, _ in shipped_frame_set("smplx_contacts").values()) < _tables.SMPLX.num_vertices
