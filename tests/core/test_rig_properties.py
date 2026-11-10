@@ -3,9 +3,8 @@
 Oracle: the bake itself. At ``q_neutral``, ``skin_affines`` (forward kinematics composed with the baked
 ``inverse_bind_affines``) carry every baked rest joint to its forward-kinematics position, for every rig and identity.
 Where a rig binds at its neutral configuration (the SMPL family, and MHR at zero proportions), they also carry the
-rest mesh onto itself: forward kinematics at ``q_neutral`` reproduces ``rest_vertices``. SOMA binds in its authored
-A-pose while ``q_neutral`` is the T-pose, and MHR's proportions scale the mesh through the skinning, so for those the
-mesh check does not apply and the joint check carries the property.
+rest mesh onto itself: forward kinematics at ``q_neutral`` reproduces ``rest_vertices``. ``NOT_HELD`` lists the cases
+where a form does not hold, each with its measured gap and reason; they are left out, never loosened.
 """
 
 from __future__ import annotations
@@ -26,6 +25,14 @@ EXACT = 1e-12
 #: 1.5e-7 m (LOD 6, measured 2026-11-10), not to float64 rounding.
 MHR_AUTHORED_BINDS = 1e-6
 
+#: ``(form, family, identity)`` cases where the property does not hold: gap measured 2026-11-10 (LOD 1, float64), reason.
+NOT_HELD = {
+    ("joints", "mhr", "random"): "0.31 m: MHR's proportions scale the joints through the skinning",
+    ("mesh", "mhr", "random"): "0.18 m: MHR's proportions scale the mesh through the skinning",
+    ("mesh", "soma", "zero"): "0.97 m: SOMA binds in its authored A-pose and q_neutral is the T-pose",
+    ("mesh", "soma", "random"): "0.89 m: SOMA binds in its authored A-pose and q_neutral is the T-pose",
+}
+
 LICENSED: dict[str, Callable[[], bh.FamilySpec]] = {
     "smpl": lambda: bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float64),
     "smplx": lambda: bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), dtype=torch.float64),
@@ -42,6 +49,13 @@ def _identities(human: bh.HumanModel) -> dict[str, bh.Identity]:
         for name, width in human.spec.identity_groups.items()
     }
     return {"zero": human.bake(), "random": human.bake(**values)}
+
+
+def _held(form: str, family: str, identities: dict[str, bh.Identity]) -> dict[str, bh.Identity]:
+    """The ``identities`` of ``family`` whose ``form`` (``"joints"`` or ``"mesh"``) is not in ``NOT_HELD``."""
+    held = {name: identity for name, identity in identities.items() if (form, family, name) not in NOT_HELD}
+    assert held, f"every {family} identity is in NOT_HELD for the {form} form: leave {family} out of the parameters"
+    return held
 
 
 def _joint_error(identity: bh.Identity) -> float:
@@ -79,23 +93,17 @@ def test_regressed_rig_reproduces_its_rest_mesh_and_joints(tmp_path: Path) -> No
 def test_skin_affines_carry_the_rest_joints_to_the_joints(family: str) -> None:
     human = bh.HumanModel.from_spec(LICENSED[family](), density=None)
     tolerance = MHR_AUTHORED_BINDS if family == "mhr" else EXACT
-    identities = _identities(human)
-    if family == "mhr":  # the proportions scale the joints through the skinning: zero proportions only
-        identities = {"zero": identities["zero"]}
-    for name, identity in identities.items():
+    for name, identity in _held("joints", family, _identities(human)).items():
         error = _joint_error(identity)
         assert error <= tolerance, f"{name}: skin_affines move the rest joints off the joints by {error} m"
 
 
 @pytest.mark.licensed
-@pytest.mark.parametrize("family", ["smpl", "smplx", "mhr"])
+@pytest.mark.parametrize("family", ["smpl", "smplx", "mhr"])  # soma: both identities in NOT_HELD
 def test_forward_kinematics_at_q_neutral_reproduces_the_rest_mesh(family: str) -> None:
     human = bh.HumanModel.from_spec(LICENSED[family](), density=None)
-    identities = _identities(human)
-    if family == "mhr":
-        identities = {"zero": identities["zero"]}
     tolerance = MHR_AUTHORED_BINDS if family == "mhr" else EXACT
-    for name, identity in identities.items():
+    for name, identity in _held("mesh", family, _identities(human)).items():
         error = _mesh_error(identity)
         bound = tolerance + _weight_defect(identity)
         assert error <= bound, f"{name}: vertices at q_neutral differ from rest_vertices by {error} m"
