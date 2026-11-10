@@ -59,15 +59,18 @@ def skinned_layer(
     """Client-side skinning: the identity's rest mesh once, the joint poses ``(T, J, 7)`` per step.
 
     Cheap on the wire; draws no pose correctives or stream offsets (:func:`mesh_layer` does). The bind poses
-    ``(J, 7)`` invert the identity's ``inverse_bind_affines (J, 3, 4)``. Raises ``ShapeError`` for an identity batch
-    and ``ArgumentError`` for binds that scale or shear, which rigid bones cannot draw.
+    ``(J, 7)`` invert the state's ``inverse_bind_affines (J, 3, 4)``, the binds its bones were posed with (the
+    identity's, shifted with the rest joints when streams move them). Raises ``ShapeError`` when the state holds more
+    than one bind set (an identity batch, or streams that change over the clip) and ``ArgumentError`` for binds that
+    scale or shear, which rigid bones cannot draw.
     """
     identity = state.identity
-    inverse_binds = identity.inverse_bind_affines.detach()
+    inverse_binds = state.inverse_bind_affines.detach()
     if inverse_binds.ndim != 3:
         raise ShapeError(
-            f"skinned_layer draws one identity; inverse_bind_affines is {tuple(inverse_binds.shape)}: pass the state "
-            "of a single identity"
+            f"skinned_layer draws one identity with one bind set; the state's inverse_bind_affines is "
+            f"{tuple(inverse_binds.shape)}: pass the state of a single identity whose streams do not change over the "
+            "clip, or use mesh_layer"
         )
     rotations = inverse_binds[..., :3]
     eye = torch.eye(3, dtype=rotations.dtype, device=rotations.device)

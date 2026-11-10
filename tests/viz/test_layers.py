@@ -212,6 +212,21 @@ def test_skinned_layer_matches_exact_vertices_without_correctives(clip, weights:
     assert np.abs(skinned.skin(3) - exact).max() < corrective + 1e-3
 
 
+def test_skinned_layer_binds_follow_streams_that_move_joints() -> None:
+    """SMPL-X expression streams move the rest joints (0.10 m on the random archive): the layer's binds are the
+    state's, so its skinning equals the state's skin affines applied to the identity's rest mesh."""
+    identity, clip_state = _clip(random_weight_spec("smplx"))
+    state = identity.forward(clip_state.q[K], {"expression": 2.0 * torch.ones(10)})
+    weights, affines = identity.human.skin_matrix.double(), state.skin_affines.double()
+    rest = identity.rest_vertices.double()
+    expected = torch.einsum("vj,jab,vb->va", weights, affines[..., :3], rest) + weights @ affines[..., 3]
+    error = (_dense_skin(skinned_layer(state), weights, 0) - expected).abs().max().item()
+    assert error <= SKINNED_TOLERANCE_M, f"skinned layer vs the state's binds with streams: {error:.3e} m"
+    streamed = identity.forward(clip_state.q, {"expression": torch.linspace(0.0, 2.0, 5)[:, None].expand(5, 10)})
+    with pytest.raises(ShapeError, match="one bind set"):
+        skinned_layer(streamed)
+
+
 def test_skinned_layer_refuses_scaled_binds_and_identity_batches(clip) -> None:
     identity, _ = clip
     scaled = replace(identity, inverse_bind_affines=1.1 * identity.inverse_bind_affines)
