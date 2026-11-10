@@ -7,9 +7,9 @@ in the release tier, and git holds random-weight goldens only) and 0016 (the ran
 ``tests/parity/smplx/random/<family>/``, computed from ``tests/support/random_weights/<family>_random.npz``). The
 oracle is the version pinned in its tool folder, the generator and dtype are the family's dump script (which exists
 in this repository) and oracle precision, the asset hash is 64 hex digits (for a random-weight golden, the hash of
-its archive) and the seed an integer. A family directory without goldens fails too. Git holds no other ``.npz`` than
-those goldens, the random-weight archives (each the bytes ``make_random_archive.py`` writes from its seed), the format
-fixtures and the shipped data.
+its archive) and the seed an integer. A family directory without goldens fails too. Git holds no array file of any
+format (``ARRAY_FILES``) but those goldens, the random-weight archives (each the bytes ``make_random_archive.py``
+writes from its seed), the format fixtures and the shipped data.
 """
 
 from __future__ import annotations
@@ -59,6 +59,9 @@ TRACKED_NPZ = {
     ),
     *(f"tests/support/random_weights/{family}_random.npz" for family in RANDOM),
 }
+#: Every file format an array or a set of weights can travel in.
+ARRAY_FILES = ("*.npz", "*.npy", "*.pt", "*.pth", "*.ckpt", "*.pkl", "*.pickle", "*.joblib", "*.h5", "*.hdf5")
+ARRAY_FILES += ("*.safetensors", "*.mat", "*.onnx", "*.bin", "*.tflite", "*.msgpack")
 KEYS = {"oracle", "generator", "asset_sha256", "dtype", "seed"}
 ASSET_SHA256 = re.compile(r"[0-9a-f]{64}")
 
@@ -118,11 +121,12 @@ def test_random_weight_goldens_name_their_archive(family: str) -> None:
         )
 
 
-def test_git_holds_no_npz_but_the_allowed_ones() -> None:
-    """Decision record 0015: every ``.npz`` git tracks, or would add (untracked and not ignored), is a random-weight
-    golden or in ``TRACKED_NPZ``, so a licensed-derived golden copied anywhere in the repository fails."""
+def test_git_holds_no_array_file_but_the_allowed_ones() -> None:
+    """Decision record 0015: every array file (``ARRAY_FILES``) git tracks, or would add (untracked and not ignored), is
+    a random-weight golden or in ``TRACKED_NPZ``, so licensed weights or a golden computed from them, copied anywhere in
+    the repository in any array format, fail."""
     listing = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "*.npz"],
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", *ARRAY_FILES],
         cwd=REPO,
         capture_output=True,
         text=True,
@@ -133,7 +137,7 @@ def test_git_holds_no_npz_but_the_allowed_ones() -> None:
         path.relative_to(REPO).as_posix() for family in RANDOM for path in (RANDOM_GOLDENS / family).glob("*.npz")
     }
     unexpected, missing = sorted(found - goldens - TRACKED_NPZ), sorted(TRACKED_NPZ - found)
-    assert not unexpected, f".npz files outside the allow-list (licensed data stays out of git): {unexpected}"
+    assert not unexpected, f"array files outside the allow-list (licensed data stays out of git): {unexpected}"
     assert not missing, f"TRACKED_NPZ lists files git does not hold: {missing}"
 
 

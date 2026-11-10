@@ -92,8 +92,9 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   (`tests/contract/test_error_tree.py`).
 - No weight lookup but `better_human.io.models_dir` and `better_human.io.weight_path`, in the package, tests,
   examples, tools, benchmarks or docs scripts (`tests/contract/test_models_dir.py`).
-- No licensed weights or goldens computed from them in git: git holds no `.npz` beyond the random-weight archives
-  and goldens, the format fixtures and the shipped data (`tests/contract/test_golden_provenance.py`).
+- No licensed weights or goldens computed from them in git: git holds no array file, `.npz`, `.npy`, `.pt` or any
+  other format, beyond the random-weight archives and goldens, the format fixtures and the shipped data
+  (`tests/contract/test_golden_provenance.py`).
 - No file format without its name and version, no pickle load, and no module but `src/better_human/io/formats.py`
   and `src/better_human/io/schema.py` naming `format_version` (`tests/contract/test_formats.py`).
 - No word of a public name outside BetterHuman's or BetterRobot's glossary (`docs/reference/glossary.md`,

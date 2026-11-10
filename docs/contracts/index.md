@@ -23,7 +23,7 @@ BetterRobot's numerical contracts win.
 | H-LAYER-2 | `tests/contract/test_br_imports.py` |
 | H-API-1 | `tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`, `tests/contract/test_abstract_or_final.py` |
 | H-API-3 | `tests/contract/test_dtype_device.py` |
-| H-ASSET-1 | `tests/contract/test_golden_provenance.py::test_git_holds_no_npz_but_the_allowed_ones` |
+| H-ASSET-1 | `tests/contract/test_golden_provenance.py::test_git_holds_no_array_file_but_the_allowed_ones` |
 | H-ASSET-2 | `tests/io/test_load.py`, `tests/contract/test_models_dir.py` |
 | H-FORMAT-1 | `tests/contract/test_formats.py` |
 | H-PARITY-1 | `tests/parity/smplx/test_smpl_parity.py`, `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/smplx/test_random_weights.py`, `tests/parity/mhr/test_mhr_parity.py`, `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py` |

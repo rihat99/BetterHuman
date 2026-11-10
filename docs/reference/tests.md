@@ -69,7 +69,7 @@ rule each one enforces.
 | `test_compile_counters.py` | the CPU counters (graph breaks, recompiles, operators, host syncs) of the benchmark runner's counter rows stay within `benchmarks/thresholds/torch-<version>.json`; `slow` |
 | `test_formats.py` | every file format names itself and its version, reads its past versions and has a spec page whose `json` examples its reader reads |
 | `test_models_dir.py` | tests, examples and tools find weights only through `better_human.io` |
-| `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
+| `test_golden_provenance.py` | every golden stamps its provenance; git holds no array file of any format (`.npz`, `.npy`, `.pt`, ...) but the random-weight archives and goldens |
 | `test_license.py` | the licence file, `pyproject.toml` and the README agree on Apache-2.0 |
 | `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited; tracked text gives a reason, never the code of a plan, a review or its finding |
 | `test_repository_layout.py` | the tracked top-level entries are the standard set; each `src` package has its `tests/` folder and every other `tests/` folder is a named suite; no tracked symlink and no tracked file over 1 MiB (record [0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)); no directory of the working tree without a tracked file, ignored ones aside |
