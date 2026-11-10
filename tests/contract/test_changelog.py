@@ -8,8 +8,8 @@ replacement (``use ... `name```) or says why there is none (``no replacement; <r
 is the old name and whose second is the new one, both written relative to ``better_human`` (``core.Rig``). The old
 public tree is ``public_api_before_0.2.0.json``: the root's ``__all__`` tree and every module without a ``_``
 component at 2c09650 (the 0.1 apps imported submodules), in the line format of ``better_robot.testing.public_api``
-plus each dataclass field. The current tree is ``public_objects`` of the root and of each public subpackage (the
-root ``__all__`` lists ``families`` and ``io`` only). A path of the old tree that the current tree does not resolve
+plus each dataclass field. The current tree is ``public_objects("better_human")``, the root's ``__all__`` tree (the
+root lists every subpackage). A path of the old tree that the current tree does not resolve
 (as a path, a dataclass field or an inherited member) is removed. A backticked old name covers a removed path when
 the name's dotted parts end it (``Body`` covers ``better_human.core.Body``); the members of a removed class or
 module are covered with it. Every backticked name in the second column exists in the current tree, or in
@@ -22,11 +22,9 @@ from __future__ import annotations
 import dataclasses
 import inspect
 import json
-import pkgutil
 import re
 from pathlib import Path
 
-import better_human
 from better_robot.testing import public_objects
 
 REPO = Path(__file__).resolve().parents[2]
@@ -38,10 +36,7 @@ CHANGE_TYPES = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"
 RELEASE = re.compile(r"Unreleased|v\d+\.\d+\.\d+ \(\d{4}-\d{2}-\d{2}\)")
 MIGRATES = re.compile(r"(?:^|[:;.] )(?:[Uu]se [^`]*`[^`]+`|[Nn]o replacement; \S)")
 NAME = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
-PACKAGES = ["better_human"] + [
-    f"better_human.{info.name}" for info in pkgutil.iter_modules(better_human.__path__) if info.name[0] != "_"
-]
-CURRENT = {path: value for package in PACKAGES for path, value in public_objects(package).items()}
+CURRENT = public_objects("better_human")
 BETTER_ROBOT = public_objects("better_robot")
 
 

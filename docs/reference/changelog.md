@@ -51,6 +51,9 @@ line that 0.2.0 renames or removes, one table row each.
   and device. `HumanModel`, `Identity` and `HumanState` are frozen, compare by identity and print one line.
 - `load(family, path=None, *, dtype, device, density, contact_frames, stream_joints)`: family options go through
   the family loader; the family name is exact, and an unknown one raises `UnknownNameError`.
+- The root's `__all__` lists every subpackage, `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio`, then
+  its first-level names; `import better_human` imports the subpackages, and the studio loads viser only when
+  `studio.HumanStudio` or `studio.launch` is read.
 - The default density is the `"Dempster"` table, each part at its category's density (was 1000 kg/m³ for every
   part); `density=None` builds no inertias.
 - The family loaders accept float32 and float64 only and raise `DtypeMismatchError` for other dtypes.

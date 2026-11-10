@@ -12,12 +12,10 @@ through ``better_human.io.models_dir()`` (record 0017).
 from __future__ import annotations
 
 import ast
-import pkgutil
 from collections.abc import Callable, Iterator
 from functools import cache
 from pathlib import Path
 
-import better_human
 from better_robot.testing import public_objects
 
 SRC = Path(__file__).resolve().parents[2] / "src" / "better_human"
@@ -32,11 +30,6 @@ ENVIRON_WRITES = {"update", "setdefault", "pop", "popitem", "clear", "__setitem_
 def _public_paths() -> frozenset[str]:
     packages = [
         "better_human",
-        *(
-            f"better_human.{sub.name}"
-            for sub in pkgutil.iter_modules(better_human.__path__)
-            if sub.ispkg and sub.name != "studio"
-        ),
         "better_robot",
         # BetterRobot documents its viewer tools as public, but better_robot.viewer's __all__ does not list them yet.
         "better_robot.viewer.tools",

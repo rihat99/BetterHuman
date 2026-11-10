@@ -48,7 +48,7 @@ this repo.
 
 | path | what |
 |---|---|
-| `src/better_human/__init__.py` | `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState` |
+| `src/better_human/__init__.py` | the subpackages; `load`, `HumanModel`, `Identity`, `HumanState`, `FamilySpec`, `from_classic`, `to_classic` |
 | `src/better_human/core/spec.py`, `src/better_human/core/rig.py` | `FamilySpec` data; the abstract `Rig` and `RigBake` |
 | `src/better_human/core/human_model.py` | `HumanModel.from_spec` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
 | `src/better_human/core/skinning.py` | blend shapes and skinning |
