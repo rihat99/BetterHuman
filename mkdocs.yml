@@ -93,14 +93,30 @@ plugins:
 
 nav:
   - Home: index.md
-  - Getting started: getting-started.md
+  - Getting started:
+      - getting-started/first-human.md
   - Concepts:
       - concepts/architecture.md
+      - concepts/skinning.md
       - concepts/segmentation.md
-  - Studio: studio.md
-  - Contributing:
-      - Testing: contributing/testing.md
+  - Guides:
+      - guides/load-a-family.md
+      - guides/convert-weights.md
+      - guides/use-the-studio.md
+      - guides/run-the-tests.md
+      - guides/run-the-benchmarks.md
   - Reference:
+      - API:
+          - better_human: reference/api/better_human.md
+          - core: reference/api/core.md
+          - families: reference/api/families.md
+          - io: reference/api/io.md
+          - mass: reference/api/mass.md
+          - terms: reference/api/terms.md
+          - viz: reference/api/viz.md
+          - studio: reference/api/studio.md
+      - reference/tests.md
+      - reference/benchmarks.md
       - reference/glossary.md
       - reference/roadmap.md
       - reference/changelog.md
@@ -115,7 +131,9 @@ nav:
           - Studio pose: reference/formats/studio_pose.md
   - Contracts:
       - Index: contracts/index.md
-      - BetterHuman addendum: contracts/bh-addendum.md
+      - Scope: contracts/scope.md
+      - Public surface: contracts/public-surface.md
+      - Rules: contracts/rules.md
       - Coupling standard: contracts/coupling-standard.md
       - Decision records:
           - Index: contracts/decisions/index.md
@@ -140,3 +158,9 @@ nav:
           - 0019 viz imports core only: contracts/decisions/0019-viz-imports-core-only.md
           - 0020 Public names of viz and the studio: contracts/decisions/0020-public-names-of-the-viz-and-studio-rewrite.md
           - 0021 The root imports every subpackage: contracts/decisions/0021-root-imports-every-subpackage.md
+          - 0022 Edges into BetterRobot since 0011: contracts/decisions/0022-edges-into-betterrobot-since-0011.md
+          - 0023 SOMA v1 source becomes provenance: contracts/decisions/0023-soma-v1-source-becomes-provenance.md
+          - 0024 Archive load speed measured again: contracts/decisions/0024-archive-load-speed-measured-again.md
+          - 0025 Golden asset hash at stamp time: contracts/decisions/0025-golden-asset-hash-at-stamp-time.md
+          - 0026 Rig hooks and properties: contracts/decisions/0026-rig-hooks-and-properties.md
+          - 0027 Formats beyond BetterRobot 0030: contracts/decisions/0027-formats-beyond-betterrobot-0030.md

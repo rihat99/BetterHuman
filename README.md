@@ -106,7 +106,7 @@ view = HumanView(identity.forward(identity.model.q_neutral))   # viewer layers, 
 
 Per-frame groups such as SMPL-X expression go to `forward`:
 `identity.forward(q, streams={"expression": torch.zeros(B, 10)})`.
-See `docs/concepts/architecture.md` for the design and `docs/contracts/bh-addendum.md` for shapes, units and gates.
+See `docs/concepts/architecture.md` for the design, shapes and units and `docs/reference/tests.md` for the gates.
 
 ## Supported families
 
@@ -142,7 +142,7 @@ uv run python benchmarks/run.py --counters-only          # the CPU counter gate,
 uv run python benchmarks/run.py --licensed --threads 8   # the sweep and the load rows on the licensed weights
 ```
 
-Measured numbers are in `docs/contracts/bh-addendum.md`.
+Measured numbers are in `docs/reference/benchmarks.md`.
 
 ## License
 

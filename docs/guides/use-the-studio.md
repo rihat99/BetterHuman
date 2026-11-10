@@ -1,16 +1,17 @@
-# HumanStudio
+# Use the studio
 
-HumanStudio is a browser app (viser) for authoring data on SMPL, SMPL-X and MHR bodies: shape and pose,
-mass density, vertex segmentations (body parts) and named contact frames. Everything it saves is a plain
-versioned JSON file under the data root you pass, so scripts can load the same data without the app.
+HumanStudio is a browser app (viser) for authoring data on SMPL, SMPL-X and MHR bodies: shape and pose, mass
+density, vertex segmentations (body parts) and named contact frames. Everything it saves is a plain versioned JSON
+file under the data root you pass, so scripts load the same data without the app. This guide launches it and walks
+through the sidebar. It reads licensed weights: set `$BETTERHUMAN_MODELS_DIR` first ([Load a family](load-a-family.md)).
 
-![HumanStudio, segmentation colours](images/studio_segmentation.png)
+![HumanStudio, segmentation colours](../images/studio_segmentation.png)
 
 ## Launch
 
 ```bash
 uv sync --extra studio
-BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.studio --data-root ~/studio_data --family smplx
+uv run python -m better_human.studio --data-root ~/studio_data --family smplx
 # open http://127.0.0.1:8080
 ```
 
@@ -66,7 +67,7 @@ away from the centre so parts are easy to inspect. All three change the live sce
   skinning-weight partition shipped with the model), **Reset to skinning**, and **Build bodies**,
   which prints the mass of each part.
 
-![HumanStudio, parts with contact frames and skeleton](images/studio_frames_skeleton.png)
+![HumanStudio, parts with contact frames and skeleton](../images/studio_frames_skeleton.png)
 
 ### Frames
 
@@ -93,10 +94,15 @@ them. MHR takes no contact frames, so adding one there is refused on the status 
 `<key>` names the model, for example `smplx_neutral` or `mhr_lod1`, so sets saved for one body
 never load onto another. The SMPL-X contact set ships as package data,
 `better_human.io.shipped_frame_set("smplx_contacts")`, not as a file under the data root. A frame-set file is the
-versioned format `better_human.frame_set` ([spec](reference/formats/frame_set.md)).
+versioned format `better_human.frame_set` ([spec](../reference/formats/frame_set.md)).
 
 ## Known limitations
 
 - viser meshes have no per-vertex colour channel, so switching the colour mode rebuilds the mesh layer
   (the checkbox and visibility are kept). It takes a fraction of a second on SMPL-X.
 - Edits from several browser tabs at once are serialised by one lock; the last edit wins.
+
+## Where next
+
+- [Load a family](load-a-family.md): read a saved frame set with `io.read_frame_set` and attach it as contact frames.
+- [Segmentation](../concepts/segmentation.md): how the parts the studio paints become closed solids with masses.

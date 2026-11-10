@@ -1,7 +1,6 @@
 # 0019 `viz` imports `core` only: the `viz -> io` edge goes
 
-**Status:** Proposed (integrator, awaiting owner). Supersedes the `viz` row of 0011's `ALLOWED` table and its note of
-2026-11-06. **Date:** 2026-11-10
+**Status:** Proposed (integrator, awaiting owner). **Date:** 2026-11-10
 
 ## Context
 Record 0011's note of 2026-11-06 made `viz -> io` a permanent allowed edge because the studio, then
@@ -12,7 +11,8 @@ its old reason, so a new `viz -> io` import would pass unnoticed.
 
 ## Decision
 We will drop `io` from the `viz` row: `viz` imports `core` only, among BetterHuman's units. The `BR_ALLOWED` table
-is unchanged.
+is unchanged. This amends the `viz` row of 0011's `ALLOWED` table as its note of 2026-11-06 left it, and replaces
+that note.
 
 ## Example
 ```python
@@ -31,7 +31,7 @@ reason is false.
 None: no `viz` module imports `io` today.
 
 ## Enforcement
-`tests/contract/test_layer_dependencies.py` (`ALLOWED["viz"] == {"core"}`); `docs/contracts/bh-addendum.md`
+`tests/contract/test_layer_dependencies.py` (`ALLOWED["viz"] == {"core"}`); `docs/contracts/rules.md`
 (`H-LAYER-1`) and `docs/concepts/architecture.md` show the same row. On acceptance, 0011's Status line names this
 record as superseding its `viz` row.
 

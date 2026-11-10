@@ -1,7 +1,8 @@
 # BetterHuman — Agent Guide
 
 Parametric human bodies (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR, SOMA) as BetterRobot models.
-Design: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Shapes, units, gates, baselines: `docs/contracts/bh-addendum.md`.
+Design, shapes, units: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Rules: `docs/contracts/index.md`; gates:
+`docs/reference/tests.md`; baselines: `docs/reference/benchmarks.md`.
 
 ## Commands
 
@@ -21,7 +22,7 @@ Tier times are wall times measured on 2026-11-06 (384-core host, load average 8 
 tier took 0.97 to 1.00 s in five runs (median 0.98 s); the SOMA cases that read or write its 40 MB archives are in
 the full tier, which took 10.4 and 14.8 s in two runs and 4.6 s with `NUMPY_MADVISE_HUGEPAGE=0`, because the host's
 transparent huge pages stall those loads. The CPU release tier took 15 to 17 min while they stalled and 2.5 min with
-`NUMPY_MADVISE_HUGEPAGE=0`. `docs/contributing/testing.md` has the tiers in full and the huge-page story.
+`NUMPY_MADVISE_HUGEPAGE=0`. `docs/guides/run-the-tests.md` has the tiers in full and the huge-page story.
 
 ## Layering rule
 

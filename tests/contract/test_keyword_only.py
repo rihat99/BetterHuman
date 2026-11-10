@@ -1,4 +1,4 @@
-"""H-API-2 / BR C-API-2: public callables take at most two positional parameters.
+"""BetterRobot C-API-2: public callables take at most two positional parameters.
 
 Every function in a public ``__all__`` and every public method of a public class is inspected; parameters after
 the second (``self`` excluded) must be keyword-only. The violations that exist today sit in

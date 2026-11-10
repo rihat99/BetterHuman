@@ -64,13 +64,12 @@ places, so their part masses differ even where both conserve the total.
 
 ## When each is used
 
-The authored closed-3D segmentation is SMPL's: it is an
-anatomical cut and needs no runtime boundary tracing. The argmax
-fallback is the generic path for any model that ships no authored asset —
-SMPL-H, SMPL-X and MHR today, and every future model until an authored asset is added
-for it. SMPL and SMPL-X also have authored **per-vertex** labelings
-(`*_vert_segmentation.json`) used only to color the intact surface; MHR does
-not. SMPL-X's closed topology still comes from argmax because its per-vertex
+The authored closed-3D segmentation is SMPL's: it is an anatomical cut and needs no runtime boundary tracing. The
+argmax fallback is the generic path for any model that ships no authored asset: SMPL-H, SMPL-X, MHR and SOMA
+today, and every future model until an authored asset is added for it. SMPL and SMPL-X also have authored
+**per-vertex** labelings (`src/better_human/studio/assets/smpl_vert_segmentation.json` and its SMPL-X twin, in the
+format [`better_human.studio.segmentation`](../reference/formats/studio_segmentation.md)) that the studio uses to
+colour the intact surface; MHR has none. SMPL-X's closed topology still comes from argmax because its per-vertex
 labeling is not a closed-3D asset.
 
 ## SMPL
@@ -118,20 +117,7 @@ centroid-capped solids that feed MHR inertias.
 
 An authored partition remains roadmap work.
 
-## Regenerate the images
-
-The PNGs are reproducible. After an intentional change to segmentation data, topology
-construction or the renderer, run from the repository root:
-
-```bash
-uv run python docs/render_segmentation.py --models-dir "$BETTERHUMAN_MODELS_DIR"
-```
-
-The script uses headless matplotlib, fixed colours and a fixed camera. It rewrites each
-available SMPL, SMPL-X and MHR image under `docs/segmentation/` and skips models whose weights
-are absent. Inspect every changed PNG; unchanged inputs give the same bytes.
-
 ## Where next
 
 - [Architecture](architecture.md): where parts live in the package.
-- [Studio](../studio.md): paint and inspect parts interactively.
+- [Use the studio](../guides/use-the-studio.md): paint and inspect parts interactively.
