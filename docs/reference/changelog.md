@@ -38,6 +38,7 @@ line that 0.2.0 renames or removes, one table row each.
 - `tools/api_snapshot.py` and the tracked public API snapshot it checks.
 - `HumanModel.part_joint_ids` `(P,)` and `RegressedRig.parents` `(J - 1,)`: index tensors built once on the spec's
   device, so an SMPL-family bake on CUDA copies no index from the host and fills no tensor from a Python scalar.
+- [Release a version](../guides/release.md): the release checklist, from the BetterRobot pin to the tag.
 
 ### Changed
 - `Identity` fields: `human`, `values`, `rest_vertices`, `rest_joint_translations`, `inverse_bind_affines`
