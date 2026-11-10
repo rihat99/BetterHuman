@@ -1,5 +1,8 @@
 """Imports follow decision record 0011's two edge tables: among BetterHuman's units, and into BetterRobot's.
 
+Records 0019, 0021 and 0022 (proposed) amend the tables: ``viz`` imports ``core`` only, the root and the studio
+import what they list, and every edge into BetterRobot since 0011 is recorded.
+
 A unit is a first-level subpackage or module of ``better_human``; the root ``__init__`` is the unit
 ``better_human``. ``better_robot.testing.imported_packages`` (BetterRobot decision record 0035) walks every import,
 wherever it sits (module level, inside a function, under ``TYPE_CHECKING``), resolves ``from pkg import sub`` to the
@@ -32,7 +35,7 @@ ALLOWED: dict[str, set[str]] = {
     ROOT: {"core", "families", "io", "mass", "studio", "terms", "viz"},  # record 0021 (proposed): it lists them all
 }
 #: Every row may import ``better_robot.exceptions``: BetterHuman raises BetterRobot's errors and roots its own under
-#: ``BetterRobotError`` (BetterRobot record 0031).
+#: ``BetterRobotError`` (BetterRobot record 0031; record 0022, proposed).
 BR_ALLOWED: dict[str, set[str]] = {
     unit: {"better_robot.exceptions"} | targets
     for unit, targets in {
@@ -41,7 +44,7 @@ BR_ALLOWED: dict[str, set[str]] = {
         "core": {"better_robot", "better_robot.kinematics", "better_robot.lie"},
         "families": {"better_robot", "better_robot.io", "better_robot.kinematics", "better_robot.lie"},
         "terms": {"better_robot", "better_robot.dynamics", "better_robot.kinematics", "better_robot.optim"},
-        # skinned_layer turns the inverse bind affines into bind poses with so3.from_matrix (record 0003).
+        # Record 0022 (proposed): skinned_layer turns record 0003's inverse bind affines into bind poses (so3).
         "viz": {"better_robot.lie", "better_robot.viewer"},
         # Record 0021 (proposed): the studio takes Viewer, a first-level name, from BetterRobot's root.
         "studio": {"better_robot", "better_robot.lie", "better_robot.viewer"},
