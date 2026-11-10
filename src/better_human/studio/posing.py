@@ -18,8 +18,10 @@ skipped; they follow their source host automatically through FK.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import final
 
 import torch
+from better_robot.exceptions import ArgumentError
 from better_robot.lie import so3
 
 from better_human.core.human_model import Identity
@@ -28,6 +30,7 @@ _AXIS_NAME = {(1.0, 0.0, 0.0): "x", (0.0, 1.0, 0.0): "y", (0.0, 0.0, 1.0): "z"}
 _EULER_INDEX = {"x": 0, "y": 1, "z": 2}
 
 
+@final
 @dataclass(frozen=True)
 class JointHandle:
     """One editable native joint mapped to its BetterRobot ``q`` slots."""
@@ -146,7 +149,4 @@ def apply_local_rotation(
             q[idx_q] = euler_new[_EULER_INDEX[axis]] / counts[axis]
         return q
 
-    raise ValueError(f"unknown joint handle kind {handle.kind!r}")
-
-
-__all__ = ["JointHandle", "apply_local_rotation", "joint_handles"]
+    raise ArgumentError(f"unknown joint handle kind {handle.kind!r}; expected free_flyer, spherical or channels")

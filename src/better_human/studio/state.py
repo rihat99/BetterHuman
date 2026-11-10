@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
-from typing import NamedTuple
+from typing import NamedTuple, final
 
 import torch
+from better_robot.exceptions import ArgumentError
 from better_robot.lie import so3
 
 from better_human.core.human_model import HumanModel, HumanState, Identity
@@ -26,6 +27,7 @@ from .posing import JointHandle, apply_local_rotation, joint_handles
 ChangeKind = str  # "pose" | "shape" | "body" | "segmentation" | "frames"
 
 
+@final
 class FrameEntry(NamedTuple):
     """A named frame: an anchor vertex and an optional parent-joint override.
 
@@ -83,6 +85,7 @@ def compact_segmentation(
         names = [names[original] for original in present]
 
 
+@final
 class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
@@ -158,7 +161,7 @@ class StudioSession:
         rotation ``R_new R_old^-1`` left-multiplies the free-flyer quaternion.
         """
         if handle.kind != "free_flyer":
-            raise ValueError(f"move_root requires a free_flyer handle, got {handle.kind!r}")
+            raise ArgumentError(f"move_root requires a free_flyer handle, got {handle.kind!r}")
         with self.lock:
             q = self.q.clone()
             idx = handle.idx_q
@@ -190,7 +193,7 @@ class StudioSession:
         """
         width = self.body.spec.identity_groups[group]
         if len(values) != width:
-            raise ValueError(f"shape group {group!r} expects {width} values, got {len(values)}")
+            raise ArgumentError(f"shape group {group!r} expects {width} values, got {len(values)}")
         return torch.tensor(values, dtype=self.body.spec.dtype, device=self.body.spec.device)
 
     @property
@@ -245,6 +248,3 @@ class StudioSession:
     def _notify(self, kind: ChangeKind) -> None:
         for callback in self._subscribers:
             callback(kind)
-
-
-__all__ = ["ChangeKind", "FrameEntry", "StudioSession"]

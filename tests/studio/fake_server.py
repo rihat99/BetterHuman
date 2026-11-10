@@ -105,8 +105,8 @@ class FakeScene:
 
 
 class _FakeTabs:
-    def add_tab(self, _label: str) -> contextlib.AbstractContextManager:
-        return contextlib.nullcontext()
+    def add_tab(self, label: str) -> FakeHandle:
+        return FakeHandle(None, "tab", label, {})
 
     def remove(self) -> None:
         self.removed = True

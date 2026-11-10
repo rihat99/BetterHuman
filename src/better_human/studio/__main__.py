@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+import numpy as np
+
 from .app import launch
 
 
@@ -17,6 +19,7 @@ def _parse_args() -> argparse.Namespace:
         "--data-root", required=True, help="Directory the studio reads and writes its segmentations, frames and poses"
     )
     parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--seed", type=int, default=0, help="Seed of the random shapes the Body tab draws")
     return parser.parse_args()
 
 
@@ -30,6 +33,7 @@ def main() -> None:
         port=args.port,
         host=args.host,
         data_root=args.data_root,
+        generator=np.random.default_rng(args.seed),
     )
 
 

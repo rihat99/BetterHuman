@@ -23,8 +23,9 @@ BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.studio --data-r
 | `--data-root` | required | the directory everything the studio saves goes to; there is no default |
 
 The weights come from `$BETTERHUMAN_MODELS_DIR` through `better_human.io.models_dir()`; unset, the load fails naming
-the variable. From Python, `better_human.studio.launch(data_root="~/studio_data", family="smplx")` does the same and
-blocks;
+the variable. `--seed` (default 0) seeds the random shapes. From Python,
+`better_human.studio.launch(data_root="~/studio_data", generator=numpy.random.default_rng(0), family="smplx")` does
+the same and blocks;
 `HumanStudio(..., server=viser.ViserServer(...))` builds the app without blocking.
 
 ## The sidebar

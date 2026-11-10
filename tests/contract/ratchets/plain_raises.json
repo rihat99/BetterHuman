@@ -1,5 +1,1 @@
-{
-  "src/better_human/studio/posing.py::apply_local_rotation": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/studio/state.py::move_root": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/studio/state.py::shape_tensor": "raises a builtin; the viz and studio rewrite (H6) converts it"
-}
+{}
