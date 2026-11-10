@@ -1,0 +1,58 @@
+"""Every part of the SMPL family closes, and the part volumes sum to the mesh volume (H2 review finding H2).
+
+The mesh volume is the mesh closed the way its parts are (SMPL-X has holes; one part caps each about its centroid).
+Each tolerance is the measured residual's cause, bounded (wp/H2.md, "Review fixes", H2):
+
+- SMPL, authored parts: where spine3 meets a collar, three cap triangles per shoulder and the dropped shoulder face
+  leave a 2.6 mL sliver in no part; measured -7.06e-5.
+- SMPL-H and SMPL-X, parts from part ids: caps that neighbours share cancel exactly; the junction polygons that no
+  neighbour shares (56 triangles at the hands of SMPL-H, 34 at SMPL-X's jaw and head) leave -4.1e-6 and -1.7e-5.
+- Without hands and face every junction polygon is shared, so the sum is exact up to rounding.
+"""
+
+from __future__ import annotations
+
+from collections import Counter
+
+import pytest
+import torch
+from better_robot.spatial import inertia_of_mesh
+
+import better_human as bh
+from better_human.mass import PartTopology
+
+pytestmark = pytest.mark.licensed
+
+
+def _volume(vertices: torch.Tensor, faces: torch.Tensor) -> float:
+    return float(inertia_of_mesh(vertices, faces, density=1.0)[0])
+
+
+def _is_closed(faces: torch.Tensor) -> bool:
+    counts = Counter((a, b) for face in faces.tolist() for a, b in zip(face, face[1:] + face[:1]))
+    return all(count == 1 and counts[(b, a)] == 1 for (a, b), count in counts.items())
+
+
+@pytest.mark.parametrize(
+    ("family", "options", "tolerance"),
+    [
+        ("smpl", {}, 1e-4),
+        ("smplh", {}, 1e-5),
+        ("smplh", {"hands": False}, 1e-12),
+        ("smplx", {}, 3e-5),
+        ("smplx", {"face": False}, 1e-12),
+        ("smplx", {"hands": False, "face": False}, 1e-12),
+    ],
+    ids=["smpl", "smplh", "smplh-no-hands", "smplx", "smplx-no-face", "smplx-no-hands-no-face"],
+)
+def test_parts_are_closed_and_their_volumes_sum_to_the_mesh(family: str, options: dict, tolerance: float) -> None:
+    spec = getattr(bh.families, family)(dtype=torch.float64, **options)
+    human = bh.HumanModel.from_spec(spec, density=1000.0)
+    identity = human.bake()
+    meshes = human.part_topology.meshes(identity.rest_vertices, identity.rest_joint_translations)
+    assert [part for part, (_, faces) in enumerate(meshes) if not _is_closed(faces)] == []
+    whole = PartTopology.from_part_ids(spec.faces, torch.zeros(spec.num_vertices, dtype=torch.long), num_parts=1)
+    ((mesh_vertices, mesh_faces),) = whole.meshes(identity.rest_vertices)
+    mesh_volume = _volume(mesh_vertices, mesh_faces)
+    part_volume = sum(_volume(vertices, faces) for vertices, faces in meshes)
+    assert abs(part_volume - mesh_volume) / mesh_volume <= tolerance
