@@ -60,6 +60,7 @@ rule each one enforces.
 | `test_frozen.py` | public dataclasses are frozen; every one that holds tensors compares and hashes by identity; mapping fields are read-only |
 | `test_caches.py` | `HumanState._memo` and `Identity._frame_placements` are the only caches (record [0028](../contracts/decisions/0028-identity-frame-placements-cache.md)): each reached by one function, empty after `dataclasses.replace`, keyed by the grad mode; no module-level store and no unreasoned `functools` cache |
 | `test_no_inplace.py` | no public call (from `from_spec` and `bake` through every `HumanState` output, the classic conversions and every term) changes a tensor its caller holds: version counters and values |
+| `test_memo_writes.py` | `HumanState._memo` and `Identity._frame_placements` appear in tracked Python only as `self.<memo>` inside their own class |
 | `test_repr.py` | every public class, built from the random-weight archive or large tensors, prints one short line that names it and no tensor; `HumanModel`, `Identity` and `HumanState` name the family |
 | `test_abstract_or_final.py` | every class in `src` is abstract or `@final` |
 | `test_dtype_device.py` | dtype and device are chosen at load; no `to`; a tensor in another dtype raises |

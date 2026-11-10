@@ -85,7 +85,8 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   than two positional parameters, a `*args` counting as three, beyond the counted sites of
   `tests/contract/ratchets/positional_parameters.json` (`tests/contract/test_keyword_only.py`); no public function
   takes a joint index, and no module shares a name with an exported function (`tests/contract/test_public_surface.py`).
-- No public call changes a tensor its caller holds (`tests/contract/test_no_inplace.py`).
+- No public call changes a tensor its caller holds (`tests/contract/test_no_inplace.py`), and no code but its own class
+  touches a memo, `HumanState._memo` or `Identity._frame_placements` (`tests/contract/test_memo_writes.py`).
 - No builtin `ValueError`, `TypeError`, `RuntimeError`, `KeyError`, `IndexError` or `AssertionError` raised in `src`
   outside `PLAIN_RAISES`: every error derives from BetterRobot's `BetterRobotError`
   (`tests/contract/test_error_tree.py`).

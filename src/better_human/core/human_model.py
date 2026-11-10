@@ -4,7 +4,10 @@ All three are frozen and compare by identity (``eq=False``): they hold tensors, 
 mapping fields are read-only copies (``MappingProxyType``).
 ``HumanState`` computes its outputs on first use and keeps them in ``_memo``, keyed by the output and the grad mode
 (``"<key>/<torch.is_grad_enabled()>"``): ``joint_transforms``, ``skin_affines``, ``corrective_features``,
-``vertices``. A value computed under ``no_grad`` never serves a grad-enabled caller.
+``vertices``. A value computed under ``no_grad`` never serves a grad-enabled caller. ``Identity`` keeps the
+contact-frame placements of each frame set in ``_frame_placements``, keyed by the frames as given and the grad mode, so
+every pose of the identity reuses them (``HumanState.contact_frame_poses``). Each memo is read and written only by its
+own class.
 """
 
 from __future__ import annotations
@@ -239,6 +242,28 @@ class Identity:
         kinematics = forward_kinematics(model, q)
         return HumanState(self, q, streams, model, kinematics, rest_joints, inverse_binds, root_offset, offsets)
 
+    def _contact_placements(self, frames: Mapping[str, tuple[int, str | None]]) -> tuple[torch.Tensor, torch.Tensor]:
+        """``(joints (N,), placements (I..., N, 7))`` of ``frames``: the model joint carrying each frame and its placement
+        in that joint, checked and computed once per frame set and grad mode (``HumanState.contact_frame_poses``)."""
+        spec = self.human.spec
+        # A pose update reuses the placements: the rest mesh, the parents and the check depend on the frames alone. The
+        # key holds each vertex id's type, so an entry the check would refuse never matches a checked one.
+        entries = tuple((name, type(vertex), vertex, joint) for name, (vertex, joint) in frames.items())
+        key = (entries, torch.is_grad_enabled())
+        if key not in self._frame_placements:
+            parents = _resolve_parents(frames, spec.joint_names, spec.parts.ids)
+            vertices = [int(vertex) for vertex, _ in frames.values()]
+            local = _frame_local_placements(
+                self.rest_vertices, self.rest_joint_translations, spec.faces, vertices, parents
+            )
+            if parents:
+                # The rig alone knows which bodies take contact frames: it builds the model from_spec would, or raises.
+                parent_names = [spec.joint_names[parent] for parent in parents]
+                spec.rig.build_model(spec, frames=list(zip(frames, parent_names, local[(0,) * (local.dim() - 2)])))
+            ids = torch.as_tensor(parents, dtype=torch.long, device=spec.device)
+            self._frame_placements[key] = (self.human.joint_ids.index_select(0, ids), local)
+        return self._frame_placements[key]
+
     def __repr__(self) -> str:
         return f"Identity({self.human.spec.name}, batch={tuple(self.root_offset.shape[:-1])})"
 
@@ -355,25 +380,7 @@ class HumanState:
         :class:`~better_robot.exceptions.ArgumentError` for a family whose rig takes no contact frames (MHR, SOMA). The
         placements and that check run once per identity and frame set; a later pose of the identity reuses them.
         """
-        identity = self.identity
-        spec = identity.human.spec
-        # A pose update reuses the identity's placements: the rest mesh, the parents and the check depend on the frames
-        # alone. The key holds each vertex id's type, so an entry the check would refuse never matches a checked one.
-        entries = tuple((name, type(vertex), vertex, joint) for name, (vertex, joint) in frames.items())
-        key = (entries, torch.is_grad_enabled())
-        if key not in identity._frame_placements:
-            parents = _resolve_parents(frames, spec.joint_names, spec.parts.ids)
-            vertices = [int(vertex) for vertex, _ in frames.values()]
-            local = _frame_local_placements(
-                identity.rest_vertices, identity.rest_joint_translations, spec.faces, vertices, parents
-            )
-            if parents:
-                # The rig alone knows which bodies take contact frames: it builds the model from_spec would, or raises.
-                parent_names = [spec.joint_names[parent] for parent in parents]
-                spec.rig.build_model(spec, frames=list(zip(frames, parent_names, local[(0,) * (local.dim() - 2)])))
-            ids = torch.as_tensor(parents, dtype=torch.long, device=spec.device)
-            identity._frame_placements[key] = (identity.human.joint_ids.index_select(0, ids), local)
-        joints, local = identity._frame_placements[key]
+        joints, local = self.identity._contact_placements(frames)
         return se3.compose(self.kinematics.joint_poses.index_select(-2, joints), local)
 
     def _memoised(self, key: str, compute: Callable[[], torch.Tensor]) -> torch.Tensor:
