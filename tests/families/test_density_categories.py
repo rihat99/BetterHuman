@@ -1,14 +1,17 @@
 """Every family declares the density category of each part (decision record 0007), and every part has one.
 
 The SMPL family declares one category per joint in ``src/better_human/families/_tables.py``; MHR and SOMA map their
-part joints in their loader modules. Every declared category is a shipped table category: SMPL's 24 part names.
+part joints in their loader modules. Every declared category is a shipped table category: SMPL's 24 part names. Every
+shipped density names its source.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from importlib import resources
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 import better_human as bh
@@ -25,6 +28,16 @@ TABLES = (_tables.SMPL, _tables.SMPLH, _tables.SMPLX, _tables.MANO, _tables.FLAM
 def test_the_shipped_categories_are_smpl_joints() -> None:
     for table in shipped_density_tables().values():
         assert tuple(table) == _tables.SMPL_JOINT_NAMES
+
+
+def test_every_shipped_density_names_its_source() -> None:
+    """A number read in a publication names it; any other number says it is unverified or assumed (owner ruling)."""
+    with np.load(resources.files("better_human.io") / "assets" / "density_tables.npz") as archive:
+        sources, densities = archive["sources"], archive["densities"]
+    assert sources.shape == densities.shape
+    forms = ("Herman 2007, The Physics of the Human Body, Table 1.7", "unverified (cited from memory): ", "assumed: ")
+    for source in map(str, sources.flat):
+        assert any(source.startswith(form) and source != form for form in forms), source
 
 
 @pytest.mark.parametrize("table", TABLES, ids=lambda table: table.name)
