@@ -201,8 +201,8 @@ Import from the package; the modules under it are internal.
 | frame-set JSON `{name: {vertex, joint}}` | `{"format": "better_human.frame_set", "format_version": 1, "frames": {...}}` | `io.read_frame_set` migrates the old form on read |
 | `better_contacts.json` in the checkout's `studio_data` | `io.shipped_frame_set("smplx_contacts")` | package data |
 | `smpl_3d_segmentation.npy` (a pickle), `body_densities.json` keyed `"0"` to `"23"` (in `families.assets`) | `"better_human.segmentation"`, `"better_human.density_tables"` archives | versioned `.npz` files read by the loaders, no pickle; densities keyed by category name |
-| `smpl_vert_segmentation.json`, `smplx_vert_segmentation.json` (in `families.assets`) | `studio` | they move with the studio, format `"better_human.studio.segmentation"` version 1 |
-| studio pose files holding `q` only | format `"better_human.studio.pose"` version 1 | a pose stores its `joint_names`; a pose of other joints is refused |
+| `smpl_vert_segmentation.json`, `smplx_vert_segmentation.json` (in `families.assets`) | `studio` | they move with the studio, format `"better_human.studio.segmentation"` version 1; a segmentation the 0.1 studio saved (`{part name: vertex ids}`) migrates on read |
+| studio pose files holding `q` only | format `"better_human.studio.pose"` version 1 | a pose stores its `joint_names`; a 0.1 pose lacks them and is refused, naming the fix: pose the model again in the studio and save it; a pose of other joints is refused |
 | parity goldens in `tests/parity/goldens` | `$BETTERHUMAN_MODELS_DIR/goldens` | release tier, provenance stamped |
 | `BETTERHUMAN_MODELS_DIR` read by `resolve_model_path`; the studio set it from `--models-dir` | `io.models_dir` | the one reader; `io.AssetNotFoundError`, a `FileNotFoundError`, names the fix |
 | `better-human[viewer]`, `better-human[studio]` with `viser>=1.0` | `better-human[studio]` | one extra, BetterRobot's `viewer`, for `viz` and the studio |
