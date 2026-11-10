@@ -59,15 +59,18 @@ def skinned_layer(
     """Client-side skinning: the identity's rest mesh once, the joint poses ``(T, J, 7)`` per step.
 
     Cheap on the wire; draws no pose correctives or stream offsets (:func:`mesh_layer` does). The bind poses
-    ``(J, 7)`` invert the identity's ``inverse_bind_affines (J, 3, 4)``. Raises ``ShapeError`` for an identity batch
-    and ``ArgumentError`` for binds that scale or shear, which rigid bones cannot draw.
+    ``(J, 7)`` invert the state's ``inverse_bind_affines (J, 3, 4)``, the binds its bones were posed with (the
+    identity's, shifted with the rest joints when streams move them). Raises ``ShapeError`` when the state holds more
+    than one bind set (an identity batch, or streams that change over the clip) and ``ArgumentError`` for binds that
+    scale or shear, which rigid bones cannot draw.
     """
     identity = state.identity
-    inverse_binds = identity.inverse_bind_affines.detach()
+    inverse_binds = state.inverse_bind_affines.detach()
     if inverse_binds.ndim != 3:
         raise ShapeError(
-            f"skinned_layer draws one identity; inverse_bind_affines is {tuple(inverse_binds.shape)}: pass the state "
-            "of a single identity"
+            f"skinned_layer draws one identity with one bind set; the state's inverse_bind_affines is "
+            f"{tuple(inverse_binds.shape)}: pass the state of a single identity whose streams do not change over the "
+            "clip, or use mesh_layer"
         )
     rotations = inverse_binds[..., :3]
     eye = torch.eye(3, dtype=rotations.dtype, device=rotations.device)
@@ -119,9 +122,11 @@ def forces_layer(
     """World ``forces (T, C, 3)`` (or ``(C, 3)``) applied at the model frames ``frame_names (C,)``, drawn as arrows
     (``scale`` metres per newton).
 
-    Raises ``UnknownNameError`` for a frame the model does not have and ``ShapeError`` when ``forces`` does not hold
-    one 3-vector per frame name.
+    Raises ``UnknownNameError`` for a frame the model does not have, ``TypeError`` when ``forces`` is not a tensor and
+    ``ShapeError`` when it does not hold one 3-vector per frame name.
     """
+    if not isinstance(forces, torch.Tensor):
+        raise TypeError(f"forces must be a torch.Tensor, got {type(forces).__name__}")
     ids = torch.tensor([state.model.frame_id(frame) for frame in frame_names], dtype=torch.long, device=state.q.device)
     if forces.shape[-2:] != (len(ids), 3):
         raise ShapeError(
@@ -145,8 +150,9 @@ def human_layers(
     """Layers for a posed clip: ``mesh`` is ``"exact"`` (:func:`mesh_layer`), ``"skinned"`` (:func:`skinned_layer`)
     or ``None``.
 
-    ``forces`` maps a model frame name to world forces ``(T, 3)`` (or ``(3,)``). Add the result with
-    ``viewer.add(layers, group="human")``.
+    ``forces`` maps a model frame name to world forces ``(T, 3)`` or ``(3,)`` (a ``(3,)`` force holds at every step).
+    Raises ``TypeError`` for a force that is not a tensor and ``ShapeError`` for one of another shape. Add the result
+    with ``viewer.add(layers, group="human")``.
     """
     layers: list[Layer] = []
     if mesh == "exact":
@@ -160,7 +166,15 @@ def human_layers(
     if frames:
         layers.append(frames_layer(state))
     if forces:
-        layers.append(forces_layer(state, list(forces), forces=torch.stack(list(forces.values()), dim=-2), theme=theme))
+        values = list(forces.values())
+        if not all(isinstance(value, torch.Tensor) for value in values):
+            raise TypeError("forces must map frame names to torch.Tensor values")
+        steps = {value.shape[:-1] for value in values if value.ndim == 2}
+        if any(value.shape[-1:] != (3,) or value.ndim > 2 for value in values) or len(steps) > 1:
+            shapes = {frame: tuple(value.shape) for frame, value in forces.items()}
+            raise ShapeError(f"forces must map frame names to (T, 3) or (3,) with one T, got {shapes}")
+        stacked = torch.stack(torch.broadcast_tensors(*values), dim=-2)
+        layers.append(forces_layer(state, list(forces), forces=stacked, theme=theme))
     return layers
 
 
@@ -192,16 +206,28 @@ class HumanView:
         return iter(self.layers)
 
     def update(self, state: HumanState) -> None:
-        """Write the pose of ``state`` (a single pose of the same identity) into the layers."""
+        """Write the pose of ``state`` (a single pose of the same identity) into the layers.
+
+        Raises ``ShapeError``, and writes nothing, for a clip or the state of a body of another size.
+        """
+        writes: list[tuple[np.ndarray, torch.Tensor]] = []
         for layer in self.layers:
             if isinstance(layer, MeshLayer):
-                layer.vertices[...] = _numpy(state.vertices)
+                writes.append((layer.vertices, state.vertices))
             elif isinstance(layer, SkinnedMeshLayer):
-                layer.bone_poses[...] = _numpy(state.joint_poses)
+                writes.append((layer.bone_poses, state.joint_poses))
             elif isinstance(layer, SkeletonLayer):
-                layer.joints[...] = _numpy(state.joint_translations)
+                writes.append((layer.joints, state.joint_translations))
             elif isinstance(layer, FramesLayer):
-                layer.poses[...] = _numpy(state.frame_poses)
+                writes.append((layer.poses, state.frame_poses))
+        for drawn, value in writes:
+            if value.shape not in (drawn.shape, drawn.shape[1:]):
+                raise ShapeError(
+                    f"HumanView.update takes a single pose of the drawn body: got {tuple(value.shape)} where the view "
+                    f"draws {drawn.shape[1:]}"
+                )
+        for drawn, value in writes:
+            drawn[...] = _numpy(value)
 
 
 __all__ = [

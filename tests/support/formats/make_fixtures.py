@@ -11,7 +11,8 @@ at the schema's shape: the axes a schema binds keep its sizes (SOMA's 18056 vert
 schema drops a field the converters still write (``unit`` and ``forward_axis``, BH record 0008). The v1 archives are
 written as the converters wrote them before decision record 0012: no ``format`` and no ``provenance``; MHR's
 ``coordinate_axis``, SOMA's ``lod`` and its provenance JSON ``source``. The frame sets hold the same three frames in
-both versions; the studio's segmentation and pose (version 1 only) are two small hand-written values.
+both versions, and the studio's segmentation the same two parts in both (version 0 as the pre-format studio wrote it:
+the bare mapping, no trailing newline); the studio's pose (version 1 only) is one small hand-written value.
 """
 
 from __future__ import annotations
@@ -108,7 +109,7 @@ def _fields(short: str, schema: ModelSchema) -> dict[str, np.ndarray]:
 
 def main(out: Path) -> None:
     """Write ``{mhr,soma}_v{1,2}.npz``, ``{segmentation,density_tables}_v1.npz``, ``frame_set_v{0,1}.json``,
-    ``studio_{segmentation,pose}_v1.json`` and ``SHA256SUMS`` into ``out``."""
+    ``studio_segmentation_v{0,1}.json``, ``studio_pose_v1.json`` and ``SHA256SUMS`` into ``out``."""
     out.mkdir(parents=True, exist_ok=True)
     for short, (schema, v1_only) in ARCHIVES.items():
         body = _fields(short, schema)
@@ -131,6 +132,7 @@ def main(out: Path) -> None:
     write_frame_set(
         out / "frame_set_v1.json", {"legacy": (331, None), "default": (100, None), "named": (200, "left_wrist")}
     )
+    (out / "studio_segmentation_v0.json").write_text(json.dumps({"head": [0, 1, 2], "torso": [3, 4]}, indent=2))
     write_segmentation(out / "studio_segmentation_v1.json", {"head": [0, 1, 2], "torso": [3, 4]})
     write_pose(out / "studio_pose_v1.json", Pose(joint_names=("root", "spine"), q=(0.0, 0.5, -0.25)))
     fixtures = sorted(path for path in out.iterdir() if path.suffix in {".npz", ".json"})

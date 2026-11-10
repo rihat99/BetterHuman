@@ -28,7 +28,7 @@ table of the same record does not list for the importer:
 ```text
 better_human (root) ->  core, families, io, mass, terms, viz
 studio   ->  better_human (root), core, families, io, mass, viz
-viz      ->  core, io
+viz      ->  core
 terms    ->  core
 families ->  core, io, mass
 core     ->  mass

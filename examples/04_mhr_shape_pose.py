@@ -1,13 +1,15 @@
-"""MHR LOD1: identity sliders and an arm swing on the BetterRobot viewer.
+"""MHR LOD1: identity sliders and a left upper-arm swing on the BetterRobot viewer.
 
-uv run python examples/04_mhr_shape_pose.py [--check]   # --check: build on the stand-in server, move sliders once, exit
+uv run python examples/04_mhr_shape_pose.py [--check]   # --check: on the stand-in server, swing the arm once, check, exit
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 
 import better_human as bh
@@ -50,17 +52,29 @@ def main() -> None:
                 refresh()
 
             slider.on_update(on_identity)
-    arm = human.model.idx_vs[human.model.joint_id("l_shoulder_rx")] if "l_shoulder_rx" in human.model.joint_names else 6
+    # MHR's shoulder is its upper-arm joint, one revolute joint per axis.
+    arm = human.model.idx_vs[human.model.joint_id("l_uparm_rz")]
     with gui.add_folder("Pose"):
-        slider = gui.add_slider("left shoulder", min=-1.5, max=1.5, step=0.05, initial_value=0.0)
+        slider = gui.add_slider("left upper arm", min=-1.5, max=1.5, step=0.05, initial_value=0.0)
         slider.on_update(lambda _: (tangent.__setitem__(arm, float(slider.value)), refresh()))
 
     if args.check:
         coefficients[0] = 2.0
         identity = human.bake(identity=coefficients)
+        refresh()
+        skeleton, wrist = view.layers[1], human.spec.joint_names.index("l_wrist")
+        before = skeleton.joints[0, wrist].copy()
         tangent[arm] = 1.0
         refresh()
-        print(f"MHR nq={human.model.nq}, {human.spec.num_vertices} vertices; identity0 = 2, shoulder bent")
+        moved = float(np.linalg.norm(skeleton.joints[0, wrist] - before))
+        if moved < 0.1:
+            sys.exit(
+                f"--check: the drawn left wrist moved {moved:.4f} m after the upper-arm swing; expected over 0.1 m"
+            )
+        print(
+            f"MHR nq={human.model.nq}, {human.spec.num_vertices} vertices; identity0 = 2, left upper arm swung, "
+            f"drawn wrist moved {moved:.2f} m"
+        )
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
     viewer.server.sleep_forever()

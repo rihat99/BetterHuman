@@ -63,6 +63,12 @@ line that 0.2.0 renames or removes, one table row each.
 - `viz.skinned_layer(state, *, name, color, opacity)` derives its binds from `inverse_bind_affines` and raises
   for binds that scale or shear; `viz.forces_layer(state, frame_names, *, forces, ...)` takes frame names;
   `viz.HumanView` is final.
+- `viz.HumanView.update` raises `ShapeError`, and writes nothing, for a clip or the state of a body of another size
+  (numpy's `ValueError` came before, after some layers were written); `viz.forces_layer` raises `TypeError` for
+  forces that are not a tensor.
+- `studio.launch(*, data_root, generator, family, gender, lod, port, host, density)` takes `studio.HumanStudio`'s
+  keyword arguments, typed (was `launch(**kwargs)`), and prints the URL viser serves.
+- The studio replaces each segmentation and pose file it saves atomically, as `io.write_frame_set` does.
 - MHR and SOMA weight archives are format version 2 with `format` and `provenance`; version 1 files are migrated in
   memory on load. Frame sets are versioned JSON; the shipped segmentation and density tables are versioned `.npz`
   archives.
@@ -144,3 +150,8 @@ line that 0.2.0 renames or removes, one table row each.
 ### Fixed
 - `viz.skinned_layer` draws SOMA bodies where `HumanState.vertices` puts them: it inverts the identity's
   `inverse_bind_affines` instead of assuming SMPL's translation-only binds (the SOMA mesh was off by up to 0.29 m).
+- `viz.skinned_layer` inverts the state's `inverse_bind_affines`, the binds its bones were posed with, so streams
+  that move joints (SMPL-X expression) no longer shift the mesh (1.17 mm); a state whose binds change over the clip
+  raises `ShapeError`.
+- `viz.human_layers` draws forces of shapes `(T, 3)` and `(3,)` together, as documented (torch's `RuntimeError`
+  came before), and raises `ShapeError` for any other shape.

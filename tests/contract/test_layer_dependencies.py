@@ -27,10 +27,7 @@ ALLOWED: dict[str, set[str]] = {
     "core": {"mass"},
     "families": {"core", "io", "mass"},
     "terms": {"core"},
-    "viz": {
-        "core",
-        "io",
-    },  # the studio persists frame sets (src/better_human/io/frame_sets.py); permanent, record 0011's note
+    "viz": {"core"},  # record 0019 (proposed): the studio, not viz, reads and writes files
     "studio": {ROOT, "core", "families", "io", "mass", "viz"},
     ROOT: {"core", "families", "io", "mass", "terms", "viz"},
 }

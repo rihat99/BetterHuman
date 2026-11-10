@@ -28,5 +28,11 @@ studio's data root (`<data root>/poses/<model key>/<name>.json`), read by
 
 The studio loads a pose only onto a model with the same `joint_names`; any other model is refused naming the file.
 The reader ignores a top-level key it does not know; the writer writes only the keys above, with two-space
-indentation and a trailing newline. A file of another format or a later version is refused with
-`better_human.io.FormatError`. There is no earlier version to migrate.
+indentation and a trailing newline, and replaces the file atomically. A file of another format or a later version, and a file that is not a JSON object,
+are refused with `better_human.io.FormatError`, whose message ends "re-save it in the studio"; a `q` of another
+length than the model's `nq` is refused when the studio loads it.
+
+There is no earlier version to migrate. The studio wrote poses before its files named a format as `{"model_key",
+"q"}`; such a file is version 0 and is refused: it lacks the `joint_names` a version-1 file needs, which no migration
+can recover from the file alone. The message says so and names the fix: pose the model again in the studio and save
+it.

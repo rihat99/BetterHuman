@@ -66,5 +66,7 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["B006", "E", "F", "PLC", "PLE", "PLR", "PLW"]
+select = ["B006", "E", "F", "PLC", "PLE", "PLR", "PLW", "SLF001"]
 ignore = ["E501", "PLR0913", "PLR2004"]
+# Record 0009 holds the studio to public names; tests and tools may reach into what they check.
+per-file-ignores = { "!src/better_human/studio/**" = ["SLF001"] }

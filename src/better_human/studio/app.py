@@ -31,6 +31,11 @@ _GENDERS = ("neutral", "male", "female")
 _MHR_LODS = 7
 
 
+#: Where viser listens unless told otherwise: this machine only, BetterRobot's viewer port.
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8080
+
+
 @final
 class HumanStudio:
     """Pose, shape, segment and frame-edit one body family in the browser.
@@ -48,8 +53,8 @@ class HumanStudio:
         family: str = "smpl",
         gender: str = "neutral",
         lod: int = 1,
-        port: int = 8080,
-        host: str = "127.0.0.1",
+        port: int = DEFAULT_PORT,
+        host: str = DEFAULT_HOST,
         generator: np.random.Generator,
         density: float | None = None,
         server: Any = None,
@@ -383,9 +388,15 @@ class HumanStudio:
             self.set_status(f"no saved pose {name!r}")
             return
         pose = persistence.read_pose(path)
-        if pose.joint_names != self.session.identity.model.joint_names:
+        model = self.session.identity.model
+        if pose.joint_names != model.joint_names:
             raise ArgumentError(
                 f"{path}: the pose follows other joints than the {self.session.model_key} model's; load a pose saved on it"
+            )
+        if len(pose.q) != model.nq:
+            raise ArgumentError(
+                f"{path}: the pose holds {len(pose.q)} values of q, the {self.session.model_key} model takes "
+                f"nq={model.nq}; re-save it in the studio"
             )
         self.session.set_q(torch.tensor(pose.q))
 
@@ -416,9 +427,28 @@ class HumanStudio:
             time.sleep(1.0)
 
 
-def launch(**kwargs: Any) -> HumanStudio:
-    """Build a :class:`HumanStudio` with ``kwargs``, print its URL and block."""
-    studio = HumanStudio(**kwargs)
-    print(f"HumanStudio at http://{kwargs.get('host', '127.0.0.1')}:{kwargs.get('port', 8080)}")
+def launch(
+    *,
+    data_root: str | Path,
+    generator: np.random.Generator,
+    family: str = "smpl",
+    gender: str = "neutral",
+    lod: int = 1,
+    port: int = DEFAULT_PORT,
+    host: str = DEFAULT_HOST,
+    density: float | None = None,
+) -> HumanStudio:
+    """Build a :class:`HumanStudio` (the arguments are its constructor's), print the URL it serves and block."""
+    studio = HumanStudio(
+        data_root=data_root,
+        family=family,
+        gender=gender,
+        lod=lod,
+        port=port,
+        host=host,
+        generator=generator,
+        density=density,
+    )
+    print(f"HumanStudio at {studio.viewer.url}")
     studio.run()
     return studio

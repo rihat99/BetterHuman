@@ -32,6 +32,7 @@ FIELDS = {
         "inverse_bind_affines",
         "root_offset",
         "model",
+        "_frame_placements",
     ),
     bh.HumanState: (
         "identity",

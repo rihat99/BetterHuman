@@ -18,7 +18,7 @@ import torch
 from better_robot.exceptions import ArgumentError
 from better_robot.lie import so3
 
-from better_human.core.human_model import HumanModel, HumanState, Identity
+import better_human as bh
 from better_human.mass import PartTopology, segment_vertices
 
 from .posing import JointHandle, apply_local_rotation, joint_handles
@@ -49,7 +49,7 @@ def contact_frames(
     }
 
 
-def _vertex_native_joints(body: HumanModel) -> torch.Tensor:
+def _vertex_native_joints(body: bh.HumanModel) -> torch.Tensor:
     """Return the strongest-weighted native skin joint per vertex ``(V,)``."""
     return segment_vertices(body.spec.skin_weights, body.spec.skin_indices)
 
@@ -98,7 +98,7 @@ def compact_segmentation(
 class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
-    def __init__(self, body: HumanModel, model_key: str, frame_set: dict[str, int] | None = None) -> None:
+    def __init__(self, body: bh.HumanModel, model_key: str, frame_set: dict[str, FrameEntry] | None = None) -> None:
         # The one studio lock: every GUI callback, the gizmo worker and each mutation run under it (re-entrant: nested calls).
         self.lock = threading.RLock()
         self._subscribers: list[Callable[[ChangeKind], None]] = []
@@ -108,7 +108,7 @@ class StudioSession:
 
     def load_body(
         self,
-        body: HumanModel,
+        body: bh.HumanModel,
         model_key: str,
         frame_set: dict[str, FrameEntry] | None = None,
         *,
@@ -122,13 +122,12 @@ class StudioSession:
                 name: torch.zeros(width, dtype=body.spec.dtype, device=body.spec.device)
                 for name, width in body.spec.identity_groups.items()
             }
-            self.identity: Identity = body.bake(**self.shape)
-            self.handles = joint_handles(self.identity)
-            self.q = self.identity.model.q_neutral.clone()
+            identity = body.bake(**self.shape)
+            self.handles = joint_handles(identity)
             self.vertex_native_joints = _vertex_native_joints(body)
             self._reset_default_segmentation()
             self.frame_set = dict(frame_set) if frame_set else {}
-            self._recompute()
+            self._recompute(identity, identity.model.q_neutral.clone())
             if notify:
                 self._notify("body")
 
@@ -141,20 +140,26 @@ class StudioSession:
         self.part_ids = part_ids
         self.part_names = tuple(joint_names[rep] for rep in representatives)
 
-    def _recompute(self) -> None:
-        """Refresh the posed state, vertices ``(V, 3)``, native world joint poses ``(J, 7)`` and frame poses ``(F, 7)``."""
-        self.state: HumanState = self.identity.forward(self.q)
-        self.vertices = self.state.vertices
-        self.joint_poses = self.state.joint_poses
-        self.frame_poses = self.state.contact_frame_poses(contact_frames(self.frame_set, self.body.spec.joint_names))
+    def _recompute(self, identity: bh.Identity, q: torch.Tensor) -> None:
+        """Install ``identity`` posed at ``q (nq,)`` with its state, vertices ``(V, 3)``, native world joint poses
+        ``(J, 7)`` and frame poses ``(F, 7)``.
+
+        Everything is computed before anything is assigned, so an edit the body refuses leaves the session unchanged.
+        """
+        state = identity.forward(q)
+        vertices, joint_poses = state.vertices, state.joint_poses
+        frame_poses = state.contact_frame_poses(contact_frames(self.frame_set, self.body.spec.joint_names))
+        self.identity: bh.Identity = identity
+        self.q = q
+        self.state: bh.HumanState = state
+        self.vertices, self.joint_poses, self.frame_poses = vertices, joint_poses, frame_poses
 
     # -- pose ----------------------------------------------------------------
 
     def set_q(self, q: torch.Tensor) -> None:
         """Set the configuration, recompute caches, and notify a pose change."""
         with self.lock:
-            self.q = q.to(dtype=self.q.dtype, device=self.q.device)
-            self._recompute()
+            self._recompute(self.identity, q.to(dtype=self.q.dtype, device=self.q.device))
             self._notify("pose")
 
     def rotate_joint(self, handle: JointHandle, world_old: torch.Tensor, world_new: torch.Tensor) -> None:
@@ -189,9 +194,9 @@ class StudioSession:
     def set_shape(self, **groups: torch.Tensor) -> None:
         """Re-bake the identity with named identity groups ``(n,)`` and notify a shape change."""
         with self.lock:
-            self.shape.update({name: value for name, value in groups.items()})
-            self.identity = self.body.bake(**self.shape)
-            self._recompute()
+            shape = {**self.shape, **groups}
+            self._recompute(self.body.bake(**shape), self.q)
+            self.shape = shape
             self._notify("shape")
 
     def shape_tensor(self, group: str, values: list[float]) -> torch.Tensor:
