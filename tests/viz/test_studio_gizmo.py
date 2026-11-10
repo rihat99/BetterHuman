@@ -51,7 +51,7 @@ def test_root_is_six_dof(smpl: bh.HumanModel) -> None:
     _, gizmo, status = _setup(smpl, "smpl")
     gizmo.select(0)
     props = gizmo.gizmo.handle.props
-    assert "disable_sliders" not in props and "disable_axes" not in props
+    assert props["disable_sliders"] is False and props["disable_axes"] is False
     assert props["depth_test"] is False  # draws through the body mesh
     assert status[-1].endswith("(free_flyer)")
 

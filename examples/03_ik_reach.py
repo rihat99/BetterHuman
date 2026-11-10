@@ -56,7 +56,7 @@ def main() -> None:
         view.update(identity.forward(current["q"]))
         viewer.show()
 
-    gizmo = PoseGizmo(viewer, "wrist target", target.numpy(), on_change=follow, scale=0.1)
+    gizmo = PoseGizmo(viewer, "wrist target", pose=target.numpy(), on_change=follow, scale=0.1)
     if args.check:
         moved = target.clone()
         moved[:3] += torch.tensor([0.15, 0.10, 0.05])

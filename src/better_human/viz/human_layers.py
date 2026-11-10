@@ -36,7 +36,11 @@ def _frames(value: torch.Tensor, event_ndim: int) -> np.ndarray:
 def mesh_layer(state: HumanState, *, name: str = "mesh", color: RGB = _SKIN, opacity: float = 1.0) -> MeshLayer:
     """Exact posed mesh per frame (correctives included): ``(T, V, 3)`` vertices written each frame."""
     return MeshLayer(
-        name, _frames(state.vertices, 2), state.identity.human.spec.faces.cpu().numpy(), color=color, opacity=opacity
+        name,
+        _frames(state.vertices, 2),
+        faces=state.identity.human.spec.faces.cpu().numpy(),
+        color=color,
+        opacity=opacity,
     )
 
 
@@ -60,10 +64,10 @@ def skinned_layer(
     return SkinnedMeshLayer(
         name,
         identity.rest_vertices.detach().cpu().numpy(),
-        identity.human.spec.faces.cpu().numpy(),
-        identity.human.skin_matrix.detach().cpu().numpy(),
-        bind.detach().cpu().numpy(),
-        _frames(state.joint_poses, 2),
+        faces=identity.human.spec.faces.cpu().numpy(),
+        weights=identity.human.skin_matrix.detach().cpu().numpy(),
+        bind_poses=bind.detach().cpu().numpy(),
+        bone_poses=_frames(state.joint_poses, 2),
         color=color,
         opacity=opacity,
     )
@@ -76,7 +80,7 @@ def skeleton_layer(
     return SkeletonLayer(
         name,
         _frames(state.joint_translations, 2),
-        state.identity.human.spec.parents,
+        parent_ids=state.identity.human.spec.parents,
         radius=radius,
         colors=theme.joint,
         bone_color=theme.link,
@@ -99,7 +103,7 @@ def forces_layer(
 ) -> ArrowsLayer:
     """World ``forces (T, C, 3)`` applied at model ``frame_ids (C,)``, drawn as arrows (``scale`` metres per newton)."""
     origins = state.kinematics.frame_translations[..., frame_ids, :]
-    return ArrowsLayer(name, _frames(origins, 2), _frames(forces, 2), scale=scale, colors=theme.force)
+    return ArrowsLayer(name, _frames(origins, 2), vectors=_frames(forces, 2), scale=scale, colors=theme.force)
 
 
 def human_layers(

@@ -58,7 +58,7 @@ class GizmoController:
         self.gizmo = PoseGizmo(
             self.viewer,
             "joint_gizmo",
-            self._world_pose(joint),
+            pose=self._world_pose(joint),
             on_change=lambda pose: self._drag_locked(handle, pose),
             scale=self.scale,
             **options,
