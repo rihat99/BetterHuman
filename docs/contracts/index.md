@@ -40,7 +40,7 @@ appears outside a rule's heading on a contracts page.
 
 | BetterRobot rule or record | BetterHuman enforcer |
 |------|----------|
-| C-API-2 arguments after the second are keyword-only | `tests/contract/test_keyword_only.py` |
+| C-API-2 arguments after the second are keyword-only: every function, constructor (dataclass fields included), method, class method and static method of the `__all__` tree, a `*args` counting as three; today's sites in the counted ratchet `tests/contract/ratchets/positional_parameters.json` | `tests/contract/test_keyword_only.py` |
 | C-STATE-1 frozen records (record [0001](decisions/0001-human-model.md)) | `tests/contract/test_frozen.py`, `tests/contract/test_repr.py` |
 | C-EXT-2 every class abstract or `@final` (records [0002](decisions/0002-rig-abstract-base.md), [0008](decisions/0008-typed-family-spec.md)) | `tests/contract/test_abstract_or_final.py` |
 | C-EXT-6 pre-1.0 versioning, the public API snapshot (BetterRobot 0024) | `tests/contract/test_api_snapshot.py`, `tests/contract/test_changelog.py` |

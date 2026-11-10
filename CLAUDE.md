@@ -59,7 +59,9 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
 - Counters: graph breaks, recompiles, operators and host syncs of the counter rows never exceed
   `benchmarks/thresholds/torch-2.13.0.json` (rule C-PERF-3, `tests/contract/test_compile_counters.py`, full tier).
 - Ratchets in `tests/contract/ratchets/` only shrink; the test that reads each one fails on a stale entry, so an
-  entry leaves in the commit that fixes it. Open today: dead_citations 5; the other five are empty.
+  entry leaves in the commit that fixes it. Open today: dead_citations 5, positional_parameters 12 (the public
+  records' positional fields and `terms.baked_identity`'s `*groups`, both parked with the owner); the other five are
+  empty.
 - The public API equals `tests/contract/public_api.json` (`tests/contract/test_api_snapshot.py`); an intended change
   is recorded with `uv run python tools/api_snapshot.py --write` and an entry in `docs/reference/changelog.md`
   (`tests/contract/test_changelog.py`).
@@ -78,9 +80,10 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   (`tests/contract/test_dtype_device.py`); no mutable public dataclass (`tests/contract/test_frozen.py`).
 - No cache beyond `HumanState._memo` and `Identity._frame_placements` (record 0028), and no `functools` cache outside
   the reasoned `FUNCTOOLS_CACHES` (`tests/contract/test_caches.py`).
-- No public callable with more than two positional parameters (`tests/contract/test_keyword_only.py`); no public
-  function takes a joint index, and no module shares a name with an exported function
-  (`tests/contract/test_public_surface.py`).
+- No public function, constructor (dataclass fields included), method, class method or static method with more
+  than two positional parameters, a `*args` counting as three, beyond the counted sites of
+  `tests/contract/ratchets/positional_parameters.json` (`tests/contract/test_keyword_only.py`); no public function
+  takes a joint index, and no module shares a name with an exported function (`tests/contract/test_public_surface.py`).
 - No builtin `ValueError`, `TypeError`, `RuntimeError`, `KeyError`, `IndexError` or `AssertionError` raised in `src`
   outside `PLAIN_RAISES`: every error derives from BetterRobot's `BetterRobotError`
   (`tests/contract/test_error_tree.py`).

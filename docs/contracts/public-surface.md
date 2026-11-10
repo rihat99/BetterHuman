@@ -49,6 +49,7 @@ Every change not in a compatible row is breaking.
 `tests/contract/test_api_snapshot.py` fails on any change of a public name or signature until the snapshot changes
 in the same commit, which makes the class of each change visible in review; `tests/contract/test_changelog.py`
 keeps every removed name on the migration page; `tests/contract/test_abstract_or_final.py` keeps every class
-abstract or `@final`; `tests/contract/test_keyword_only.py` keeps the parameters after the second keyword-only in every function of a
-public `__all__` and every public instance method of a public class (constructors, class methods, static methods and
-dataclass fields are not checked).
+abstract or `@final`; `tests/contract/test_keyword_only.py` keeps the parameters after the second keyword-only in every function,
+constructor (dataclass fields included), method, class method and static method of the `__all__` tree, a `*args`
+counting as three; the public records' positional fields and `terms.baked_identity`'s `*groups` are today's counted
+sites in `tests/contract/ratchets/positional_parameters.json`.

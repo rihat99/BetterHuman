@@ -1,0 +1,50 @@
+{
+  "better_human.core.ContactFrames": {
+    "count": 4,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.core.FamilySpec": {
+    "count": 17,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.core.HumanModel": {
+    "count": 10,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.core.HumanState": {
+    "count": 9,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.core.Identity": {
+    "count": 7,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.core.Parts": {
+    "count": 5,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.core.RigBake": {
+    "count": 5,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.families.MHRRig": {
+    "count": 16,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.families.SMPLFamilyFormat": {
+    "count": 4,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.families.SOMARig": {
+    "count": 32,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.mass.PartTopology": {
+    "count": 4,
+    "reason": "a frozen dataclass built positionally; kw_only=True would break positional construction, a public API decision left to the owner"
+  },
+  "better_human.terms.baked_identity": {
+    "count": 4,
+    "reason": "the identity groups come as *groups; a sequence argument would change the public call, a decision left to the owner"
+  }
+}
