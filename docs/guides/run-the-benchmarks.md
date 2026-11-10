@@ -39,6 +39,10 @@ Counter rows run in the neutral pose with seeded identity coefficients:
 | Row | Function |
 |-----|----------|
 | `fk_vertices/smplx/B{1,64}` | `identity.forward(q).vertices` of one baked SMPL-X identity, without part inertias |
+| `fk_streams/smplx/B{1,64}` | the same with the expression stream |
+| `joint_poses/smplx/B{1,64}` | `identity.forward(q).joint_poses` |
+| `contact_frame_poses/smplx/B{1,64}` | `identity.forward(q).contact_frame_poses(frames)` of two frames, the identity's placements cached |
+| `to_classic/smplx/B{1,64}` | `better_human.to_classic(identity, q)` |
 | `bake_forward/smpl/B{1,64}` | `human.bake(betas=betas).forward(q).vertices`, one identity per pose, `density=None` |
 | `bake_forward_dempster/smpl/B{1,64}` | the same with the default `density="Dempster"`: 24 part inertias per bake |
 

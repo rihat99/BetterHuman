@@ -10,7 +10,11 @@ Counter rows (principle 5.8; BetterRobot decision record 0011) run on the tracke
 (``tests/support/random_weights``, decision record 0016), so the gate needs no licensed weights. Those archives have
 the families' vertex and joint counts but a random kinematic tree and face strip: graph breaks, recompiles and host
 syncs equal the licensed archives', the operator counts do not. Rows: ``fk_vertices/smplx/B{1,64}``
-(``identity.forward(q).vertices`` of one baked SMPL-X identity without part inertias), ``bake_forward/smpl/B{1,64}``
+(``identity.forward(q).vertices`` of one baked SMPL-X identity without part inertias), ``fk_streams/smplx/B{1,64}``
+(the same with the expression stream), ``joint_poses/smplx/B{1,64}`` (``identity.forward(q).joint_poses``),
+``contact_frame_poses/smplx/B{1,64}`` (``identity.forward(q).contact_frame_poses(CONTACT_FRAMES)``, the identity's
+placements cached by the warm-up call), ``to_classic/smplx/B{1,64}`` (``better_human.to_classic(identity, q)``),
+``bake_forward/smpl/B{1,64}``
 (``body.bake(betas=betas).forward(q).vertices``, one identity per pose, ``density=None``) and
 ``bake_forward_dempster/smpl/B{1,64}`` (the same with the default ``density="Dempster"``: 24 part inertias per bake,
 decision record 0007), in the neutral pose with seeded identity coefficients. Each has four counters, deterministic for
@@ -87,6 +91,8 @@ DTYPE = torch.float32
 ROW_BUDGET_S = 2.0
 SWEEP = (1, 2, 3, 64)
 COUNTERS = ("graph_breaks", "recompiles", "ops", "host_syncs")
+#: Two frames whose parents the frame check resolves from the part ids (the ``contact_frame_poses`` rows).
+CONTACT_FRAMES = {"left_heel": (8846, None), "right_heel": (8635, None)}
 SYNC_OPS = frozenset({"aten::_local_scalar_dense", "aten::nonzero"})  # item/bool/float/int of a tensor; mask indexing
 LARGE_BATCH = 1024
 FIXED_MALLOC = {"MALLOC_MMAP_THRESHOLD_": "134217728", "MALLOC_TRIM_THRESHOLD_": "268435456"}
@@ -125,10 +131,37 @@ def counter_cases(device: torch.device) -> list[Case]:
     identity = smplx.bake(**identity_coefficients(smplx.spec, device))
     pool = identity.model.q_neutral.expand(64, identity.model.nq).clone()
 
+    generator = torch.Generator().manual_seed(1)
+    width = smplx.spec.stream_groups["expression"]
+    expression_pool = (0.5 * torch.randn(64, width, generator=generator)).to(device)
+
     def fk_vertices(q: torch.Tensor) -> torch.Tensor:
         return identity.forward(q).vertices
 
-    cases = [counter_case(f"fk_vertices/smplx/B{batch}", fk_vertices, (pool,), batch) for batch in (1, 64)]
+    def fk_streams(q: torch.Tensor, expression: torch.Tensor) -> torch.Tensor:
+        return identity.forward(q, {"expression": expression}).vertices
+
+    def joint_poses(q: torch.Tensor) -> torch.Tensor:
+        return identity.forward(q).joint_poses
+
+    def contact_frame_poses(q: torch.Tensor) -> torch.Tensor:
+        return identity.forward(q).contact_frame_poses(CONTACT_FRAMES)
+
+    def to_classic(q: torch.Tensor) -> Any:
+        return bh.to_classic(identity, q)
+
+    rows = {
+        "fk_vertices": (fk_vertices, (pool,)),
+        "fk_streams": (fk_streams, (pool, expression_pool)),
+        "joint_poses": (joint_poses, (pool,)),
+        "contact_frame_poses": (contact_frame_poses, (pool,)),
+        "to_classic": (to_classic, (pool,)),
+    }
+    cases = [
+        counter_case(f"{name}/smplx/B{batch}", fn, pools, batch)
+        for name, (fn, pools) in rows.items()
+        for batch in (1, 64)
+    ]
     smpl = bh.families.smpl(ARCHIVES / "smpl_random.npz", device=device)
     for prefix, density in (("bake_forward", None), ("bake_forward_dempster", "Dempster")):
         body = bh.HumanModel.from_spec(smpl, density=density)
