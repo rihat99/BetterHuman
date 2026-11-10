@@ -26,8 +26,9 @@ images make the difference visible.
   vertices, and every open boundary loop (split into simple loops at a pinch) is closed by reverse-wound
   triangle fans. A loop that borders one neighbouring part is fanned about its **centroid**; a loop that borders
   several is cut into one run per neighbour, each fanned about the run's centroid over the run and the chord
-  between its end junctions, and three or more junctions are fanned about their centroid. Both neighbours compute
-  each centroid from the same vertices, so their caps coincide. MHR maps the winning native joint
+  between its end junctions, and three or more junctions are fanned about their centroid. A neighbour that cuts
+  the seam at the same junctions computes each centroid from the same vertices, so their caps coincide. MHR maps
+  the winning native joint
   through the converted reference segmentation to 19 grouped parts before this
   step. This is the generic path; SMPL-X and MHR use it because neither ships an
   authored closed-3D asset.
@@ -54,9 +55,11 @@ neutral SMPL fixture at 1000 kg/m³ (24 parts each):
 
 The authored residual sits at the shoulders: where `spine3` meets a collar, three authored cap triangles and the
 shoulder face that both parts once listed (dropped so that both parts close) leave a 2.6 mL sliver in no part.
-The argmax closure leaves a residual only where a junction polygon (three or more parts meeting on one loop) has
-no neighbour that shares it: SMPL-H's hands (-4.1 ppm) and SMPL-X's jaw and head (-17 ppm);
-`tests/mass/test_closure.py` holds the bound for each family. The two segmentations cut the body in different
+The argmax closure leaves a residual where caps do not coincide: at a junction polygon (three or more parts
+meeting on one loop), at a seam that a third part touches at one vertex (a junction for one side only), and at a
+mesh hole that two parts cap with two runs and a chord. SMPL-H's hands give -4.1 ppm and SMPL-X's mouth -17 ppm;
+`tests/mass/test_closure.py` holds the bound for each family. The ragged seams of MHR's coarse levels of detail and
+of SOMA leave much more (MHR LOD 0 -79 ppm, LOD 2 -0.6 %, LOD 6 -16 %; SOMA -2.4 % of the volume). The two segmentations cut the body in different
 places, so their part masses differ even where both conserve the total.
 
 ## When each is used

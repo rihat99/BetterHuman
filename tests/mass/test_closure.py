@@ -5,8 +5,10 @@ Each tolerance bounds the measured residual, whose cause is:
 
 - SMPL, authored parts: where spine3 meets a collar, three cap triangles per shoulder and the dropped shoulder face
   leave a 2.6 mL sliver in no part; measured -7.06e-5.
-- SMPL-H and SMPL-X, parts from part ids: caps that neighbours share cancel exactly; the junction polygons that no
-  neighbour shares (56 triangles at the hands of SMPL-H, 34 at SMPL-X's jaw and head) leave -4.1e-6 and -1.7e-5.
+- SMPL-H, parts from part ids: at the hands two junction polygons, and five runs whose neighbour cuts the seam at
+  another vertex (where a third part touches it at one vertex), do not cancel: +3.7e-4 and -3.8e-4, net -4.1e-6.
+- SMPL-X: head and jaw cap the mouth, a mesh hole, with two runs and a chord; the mesh caps it with one fan:
+  +2.18e-4 and -2.34e-4, net -1.7e-5.
 - Without hands and face every junction polygon is shared, so the sum is exact up to rounding.
 """
 

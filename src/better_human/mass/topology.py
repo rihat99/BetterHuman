@@ -98,9 +98,10 @@ class PartTopology:
         splits into simple loops, and each loop into runs, one per neighbouring part (or mesh hole) it borders. A loop
         with one run is capped by a reverse-wound fan about its centroid. Otherwise each run is capped by a fan about
         its own centroid over the run and the chord between its end junctions, and three or more junctions by a fan
-        about their centroid. A neighbour computes the same centroids from the same vertices, so the caps two parts
-        share coincide with opposite winding and cancel in the sum of the part volumes; only a junction polygon that
-        no neighbour shares leaves a residual.
+        about their centroid. A neighbour that cuts the shared seam at the same junctions computes the same centroids
+        from the same vertices, so the two caps coincide with opposite winding and cancel in the sum of the part
+        volumes. A residual remains at junction polygons, at a seam that a third part touches at one vertex (a
+        junction for one side only), and, against the mesh closed as one part, at runs along a mesh hole.
 
         Raises :class:`~better_robot.exceptions.ArgumentError` for a part that owns no face, whose faces are not a
         consistently wound manifold surface (then its boundary cannot be walked), or that does not close into a
