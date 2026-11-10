@@ -161,6 +161,19 @@ def test_forces_layer_takes_frame_names(clip) -> None:
         forces_layer(state, ["toe"], forces=torch.ones(5, 1, 3))
     with pytest.raises(ShapeError, match="len\\(frame_names\\) = 1"):
         forces_layer(state, ["heel"], forces=torch.ones(5, 2, 3))
+    with pytest.raises(TypeError, match="torch.Tensor"):
+        forces_layer(state, ["heel"], forces=np.ones((5, 1, 3)))
+
+
+def test_human_layers_hold_a_constant_force_at_every_step(clip) -> None:
+    _, state = clip
+    forces = {"heel": torch.arange(1.0, 16.0).reshape(5, 3), "pelvis": torch.tensor([0.0, 9.0, 0.0])}
+    arrows = human_layers(state, mesh=None, skeleton=False, forces=forces)[0]
+    np.testing.assert_allclose(arrows.vectors[K], 1e-3 * np.stack([forces["heel"][K], forces["pelvis"]]), atol=1e-9)
+    with pytest.raises(ShapeError, match="one T"):
+        human_layers(state, forces={"heel": torch.ones(5, 3), "pelvis": torch.ones(4, 3)})
+    with pytest.raises(TypeError, match="torch.Tensor"):
+        human_layers(state, forces={"heel": np.ones(3)})
 
 
 @pytest.mark.parametrize(
@@ -229,6 +242,18 @@ def test_human_view_updates_every_layer_in_place(clip, mesh: str) -> None:
         assert np.abs(drawn - before[layer, field]).max() > 1e-3, f"{layer.name}.{field} did not move"
     with pytest.raises(ShapeError, match="single pose"):
         HumanView(state)
+
+
+def test_human_view_refuses_a_clip_or_another_body_and_writes_nothing(clip) -> None:
+    identity, state = clip
+    view = HumanView(identity.forward(identity.model.q_neutral), mesh="skinned", frames=True)
+    other = bh.HumanModel.from_spec(random_weight_spec("smplx"), density=None).bake()
+    before = [array.copy() for array in (view.layers[0].bone_poses, view.layers[1].joints, view.layers[2].poses)]
+    for refused in (state, other.forward(other.model.q_neutral)):
+        with pytest.raises(ShapeError, match="single pose of the drawn body"):
+            view.update(refused)
+    after = (view.layers[0].bone_poses, view.layers[1].joints, view.layers[2].poses)
+    assert all(np.array_equal(old, new) for old, new in zip(before, after, strict=True))
 
 
 def test_world_points_for_camera_fitting(clip) -> None:
