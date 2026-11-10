@@ -89,7 +89,7 @@ Convert SOMA-X v0.3.4 (Hugging Face `nvidia/soma-x`, Apache 2.0) with `tools/con
 ```python
 import torch
 import better_human as bh
-from better_human.viz import HumanView
+from better_human.viz import HUMAN_THEME, HumanView
 
 human = bh.load("smpl")                          # one BetterRobot model per family
 identity = human.bake(betas=torch.zeros(1, 10))   # bake shape once (mass, joints, contact frames)
@@ -100,7 +100,7 @@ print(state.vertices.shape, state.joint_translations.shape)  # (4, 6890, 3) (4, 
 
 view = HumanView(identity.forward(identity.model.q_neutral))   # viewer layers, updated in place
 # from better_robot.viewer import Viewer
-# viewer = Viewer(); viewer.add(view, group="human")
+# viewer = Viewer(theme=HUMAN_THEME); viewer.add(view, group="human")   # +y up
 # view.update(state_for_next_frame); viewer.show()
 ```
 

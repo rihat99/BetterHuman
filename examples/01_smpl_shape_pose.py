@@ -1,21 +1,21 @@
 """SMPL shape and pose sliders on the BetterRobot viewer.
 
 uv run python examples/01_smpl_shape_pose.py            # open the printed URL
-uv run python examples/01_smpl_shape_pose.py --check    # build the scene, move sliders once, exit
+uv run python examples/01_smpl_shape_pose.py --check    # build the scene on the stand-in server, move sliders once, exit
 """
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
 from pathlib import Path
 
 import torch
 
 import better_human as bh
-from better_human.viz import HumanView
+from better_human.viz import HUMAN_THEME, HumanView
 from better_robot.kinematics import integrate
-from better_robot.viewer import LIGHT, GroundLayer, Viewer
+from better_robot.testing import FakeServer
+from better_robot.viewer import GroundLayer, Viewer
 
 POSE_SLIDERS = (
     ("left shoulder", "left_shoulder", 0),
@@ -37,7 +37,7 @@ def main() -> None:
     identity = human.bake(betas=betas)
     view = HumanView(identity.forward(identity.model.q_neutral))
 
-    viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
     viewer.add([GroundLayer(plane="xz")], group="scene")
     viewer.add(view, group="smpl")
 
@@ -75,7 +75,6 @@ def main() -> None:
         tangent[human.model.idx_vs[human.model.joint_id("left_elbow")] + 1] = 1.0
         refresh()
         print(f"scene with {len(view.layers)} layers; elbow bent, beta0 = 2")
-        viewer.server.stop()
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
     viewer.server.sleep_forever()

@@ -97,7 +97,7 @@ class SegmentEditor:
 
     def paint(self, center: np.ndarray) -> None:
         """Assign every vertex within the brush radius of ``center (3,)`` to the active part."""
-        ids = vertices_in_sphere(self.session.vertices.detach().cpu().numpy(), center, float(self.brush.value))
+        ids = vertices_in_sphere(self.session.vertices.detach().cpu().numpy(), center, radius=float(self.brush.value))
         self.assign(ids)
 
     def assign(self, vertex_ids: np.ndarray) -> None:

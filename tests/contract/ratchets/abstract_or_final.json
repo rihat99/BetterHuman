@@ -1,5 +1,4 @@
 {
-  "better_human.viz.human_layers.HumanView": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.viz.studio.app.HumanStudio": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.viz.studio.frames_editor.FramesEditor": "H6 (viz and studio rewrite) decides whether it is final or abstract",
   "better_human.viz.studio.gizmo.GizmoController": "H6 (viz and studio rewrite) decides whether it is final or abstract",

@@ -59,7 +59,7 @@ from this repo.
 | `src/better_human/families/soma_family.py`, `src/better_human/families/soma_rig.py` | SOMA loader; `SOMARig` |
 | `src/better_human/io/load.py`, `src/better_human/io/schema.py` | weight paths (`models_dir`, `weight_path`); internal archive reader and schemas |
 | `src/better_human/io/formats.py`, `src/better_human/io/frame_sets.py` | file formats, `check_format`, the migrations (spec: `docs/reference/formats/`); frame sets |
-| `src/better_human/terms/`, `src/better_human/viz/human_layers.py` | optimisation terms (state, fitting, physics); viewer layers and `HumanView` |
+| `src/better_human/terms/`, `src/better_human/viz/layers.py` | optimisation terms (state, fitting, physics); viewer layers and `HumanView` |
 | `tests/parity/` | parity gates; their goldens live in `$BETTERHUMAN_MODELS_DIR/goldens/` (release tier) |
 
 ## Numerical contracts

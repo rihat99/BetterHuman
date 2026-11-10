@@ -15,7 +15,7 @@ from better_human.viz.studio import layers as studio_layers
 from better_human.viz.studio.layers import StudioLayers
 from better_human.viz.studio.state import StudioSession
 
-from .fake_server import FakeServer
+from .studio_fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 

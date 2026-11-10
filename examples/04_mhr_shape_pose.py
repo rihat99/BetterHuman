@@ -1,20 +1,20 @@
 """MHR LOD1: identity sliders and an arm swing on the BetterRobot viewer.
 
-uv run python examples/04_mhr_shape_pose.py [--check]
+uv run python examples/04_mhr_shape_pose.py [--check]   # --check: build on the stand-in server, move sliders once, exit
 """
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
 from pathlib import Path
 
 import torch
 
 import better_human as bh
-from better_human.viz import HumanView
+from better_human.viz import HUMAN_THEME, HumanView
 from better_robot.kinematics import integrate
-from better_robot.viewer import LIGHT, GroundLayer, Viewer
+from better_robot.testing import FakeServer
+from better_robot.viewer import GroundLayer, Viewer
 
 
 def main() -> None:
@@ -29,7 +29,7 @@ def main() -> None:
     tangent = torch.zeros(human.model.nv)
     identity = human.bake(identity=coefficients)
     view = HumanView(identity.forward(identity.model.q_neutral))
-    viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
     viewer.add([GroundLayer(plane="xz")], group="scene")
     viewer.add(view, group="mhr")
 
@@ -60,7 +60,6 @@ def main() -> None:
         tangent[arm] = 1.0
         refresh()
         print(f"MHR nq={human.model.nq}, {human.spec.num_vertices} vertices; identity0 = 2, shoulder bent")
-        viewer.server.stop()
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
     viewer.server.sleep_forever()

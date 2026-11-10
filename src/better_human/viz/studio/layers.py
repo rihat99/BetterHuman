@@ -11,7 +11,7 @@ from better_robot.viewer import LIGHT, FramesLayer, Layer, PointsLayer, Skeleton
 
 from better_human.mass import PartTopology
 from better_human.mass.topology import _majority_face_parts
-from better_human.viz.human_layers import mesh_layer
+from better_human.viz import mesh_layer
 
 from .state import ChangeKind, StudioSession, compact_segmentation
 
@@ -59,7 +59,7 @@ class SegmentationLayer(Layer):
     def __init__(self, name: str, session: StudioSession, *, opacity: float = 1.0) -> None:
         super().__init__(name, 1)
         self.session = session
-        self.opacity = opacity
+        self._store_opacity(opacity)
         self.vertices = session.vertices.detach().cpu().numpy().astype(np.float32)[None]
         self.faces = session.body.spec.faces.cpu().numpy().astype(np.uint32)
         self._scene: Any = None
@@ -311,8 +311,13 @@ class StudioLayers:
             "frames": (FramesLayer, (frame_poses(session),), dict(axes_length=0.04)),
             "skeleton": (
                 SkeletonLayer,
-                (joints, session.body.spec.parents),
-                dict(radius=self.radius, colors=self._base_colors, bone_color=self.theme.link),
+                (joints,),
+                dict(
+                    parent_ids=session.body.spec.parents,
+                    radius=self.radius,
+                    colors=self._base_colors,
+                    bone_color=self.theme.link,
+                ),
             ),
             "edit": (
                 PointsLayer,

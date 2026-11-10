@@ -13,7 +13,7 @@ import viser
 
 from better_human.viz.studio import state as studio_state
 from better_human.viz.studio.app import HumanStudio
-from tests.viz.fake_server import FakeHandle, FakeServer
+from tests.viz.studio_fake_server import FakeHandle, FakeServer
 
 
 @pytest.fixture

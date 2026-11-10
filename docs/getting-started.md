@@ -68,9 +68,9 @@ it unchanged. `vertices` (a property) skins the mesh on first access and memoise
 
 ```python
 from better_robot.viewer import Viewer
-from better_human.viz.human_layers import human_layers
+from better_human.viz import HUMAN_THEME, human_layers
 
-viewer = Viewer()                 # viser on 127.0.0.1:8080
+viewer = Viewer(theme=HUMAN_THEME)  # viser on 127.0.0.1:8080, +y up
 viewer.add(human_layers(state))
 viewer.show(3)                    # jump to the most bent frame
 ```

@@ -264,8 +264,8 @@ class HumanStudio:
         return nearest_on_ray(
             self.session.state.joint_translations.detach().reshape(-1, 3).cpu().numpy(),
             origin,
-            direction,
-            self.layers.radius,
+            direction=direction,
+            radius=self.layers.radius,
         )
 
     def pick_frame(self, origin: np.ndarray, direction: np.ndarray) -> str | None:
@@ -274,7 +274,7 @@ class HumanStudio:
         if not names:
             return None
         points = self.session.vertices.detach().cpu().numpy()[[self.session.frame_set[name].vertex for name in names]]
-        index = nearest_on_ray(points, origin, direction, self.layers.radius)
+        index = nearest_on_ray(points, origin, direction=direction, radius=self.layers.radius)
         return None if index is None else names[index]
 
     def on_click(self, event: Any) -> None:
@@ -292,7 +292,10 @@ class HumanStudio:
                 self.frames.select_frame(frame)
                 return
         hit = ray_hit(
-            origin, direction, self.session.vertices.detach().cpu().numpy(), self.session.body.spec.faces.cpu().numpy()
+            origin,
+            direction,
+            vertices=self.session.vertices.detach().cpu().numpy(),
+            faces=self.session.body.spec.faces.cpu().numpy(),
         )
         if hit is None:
             return
@@ -315,12 +318,13 @@ class HumanStudio:
             ids = vertices_in_rect(
                 self.session.vertices.detach().cpu().numpy(),
                 camera,
-                np.asarray(event.screen_min, float),
-                np.asarray(event.screen_max, float),
+                rect_min=np.asarray(event.screen_min, float),
+                rect_max=np.asarray(event.screen_max, float),
             )
             self.segment.assign(ids)
             self.viewer.on_pointer("click", self._locked(self.on_click))
 
+        self.viewer.clear_pointer()
         self.viewer.on_pointer("rect-select", self._locked(_on_rect))
         self.set_status("drag a rectangle to select vertices")
 

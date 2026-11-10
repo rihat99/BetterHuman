@@ -44,7 +44,8 @@ BR_ALLOWED: dict[str, set[str]] = {
         "core": {"better_robot", "better_robot.kinematics", "better_robot.lie"},
         "families": {"better_robot", "better_robot.io", "better_robot.kinematics", "better_robot.lie"},
         "terms": {"better_robot", "better_robot.dynamics", "better_robot.kinematics", "better_robot.optim"},
-        "viz": {"better_robot.viewer"},
+        # skinned_layer turns the inverse bind affines into bind poses with so3.from_matrix (record 0003).
+        "viz": {"better_robot.lie", "better_robot.viewer"},
         "studio": {"better_robot.lie", "better_robot.viewer"},
         ROOT: set(),
     }.items()

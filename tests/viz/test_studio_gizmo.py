@@ -12,7 +12,7 @@ from better_human.io import weight_path
 from better_human.viz.studio.gizmo import GizmoController
 from better_human.viz.studio.state import StudioSession
 
-from .fake_server import FakeServer
+from .studio_fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 _TURN = [0.0, 0.3827, 0.0, 0.9239]
@@ -51,7 +51,7 @@ def test_root_is_six_dof(smpl: bh.HumanModel) -> None:
     _, gizmo, status = _setup(smpl, "smpl")
     gizmo.select(0)
     props = gizmo.gizmo.handle.props
-    assert "disable_sliders" not in props and "disable_axes" not in props
+    assert props["disable_sliders"] is False and props["disable_axes"] is False
     assert props["depth_test"] is False  # draws through the body mesh
     assert status[-1].endswith("(free_flyer)")
 

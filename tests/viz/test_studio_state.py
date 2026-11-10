@@ -13,7 +13,7 @@ from better_human.viz.studio.gizmo import GizmoController
 from better_human.viz.studio.layers import StudioLayers
 from better_human.viz.studio.state import FrameEntry, StudioSession
 
-from .fake_server import FakeServer
+from .studio_fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 
