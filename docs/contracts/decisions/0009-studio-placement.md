@@ -1,6 +1,6 @@
 # 0009 The studio is `better_human.studio`, an optional application subpackage
 
-**Status:** Accepted (owner). **Date:** 2026-11-01
+**Status:** Accepted (owner); amendment proposed in 0020. **Date:** 2026-11-01
 
 ## Context
 `viz/studio/` (1,846 lines) is an application inside the library. Its data root is the checkout

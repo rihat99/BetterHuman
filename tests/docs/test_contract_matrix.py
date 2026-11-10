@@ -58,7 +58,9 @@ def test_every_rule_has_an_enforcer_that_exists() -> None:
     missing = []
     for match in TEST.finditer(RULES.read_text() + INDEX.read_text()):
         target = REPO / match["path"]
-        if not target.is_file() or (match["name"] and not re.search(rf"^def {match['name']}\(", target.read_text(), re.M)):
+        if not target.is_file() or (
+            match["name"] and not re.search(rf"^def {match['name']}\(", target.read_text(), re.M)
+        ):
             missing.append(match[0])
     assert not missing, f"cite an existing test: {sorted(set(missing))}"
 

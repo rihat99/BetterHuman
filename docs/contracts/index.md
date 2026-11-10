@@ -55,6 +55,7 @@ appears outside a rule's heading on a contracts page.
 | C-DOC-3 the enforcement matrix equals the rules | `tests/docs/test_contract_matrix.py` |
 | principle 7.7, the codemap is the edge table | `tests/docs/test_codemap.py` |
 | principle 7.8, citations resolve | `tests/contract/test_citations.py` |
+| principle 8.2, an accepted record changes only through a new record (BetterRobot's records test) | `tests/contract/test_decision_records.py` |
 
 Every test module under `tests/contract/` is in one of the two tables (`tests/docs/test_contract_matrix.py` checks
 it).

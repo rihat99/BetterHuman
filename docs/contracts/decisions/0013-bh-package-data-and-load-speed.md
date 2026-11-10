@@ -1,6 +1,6 @@
 # 0013 BetterHuman package data is versioned and loads without pickle
 
-**Status:** Accepted (owner). **Date:** 2026-11-01
+**Status:** Accepted (owner); amendment proposed in 0024. **Date:** 2026-11-01
 
 ## Context
 `families/assets/smpl_3d_segmentation.npy` is a pickled dict loaded with `allow_pickle=True`; `body_densities.json` is
@@ -42,11 +42,3 @@ where loading an archive takes at most 1.5 times the raw read of its members.
 
 ## Open questions
 None.
-
-## Note (2026-11-06)
-The 5.7 s for `posedirs` in the context was a transparent-huge-page artefact of the host it was measured on (see
-`docs/guides/run-the-tests.md`, "Timing on a busy host"), not the reader. `bh.load("smplx")` was slow because the
-archive was decompressed twice, once by `smplx()` for its hand arrays and once by `load_family`; commit `a90dc45`
-decompresses it once, and loading takes 1.00 times the raw read. The `np.load(BytesIO)` reader was measured slower
-than `np.load` on every archive (SMPL-X 0.79 s against 0.60 s per load, medians of three, huge pages off) and was not
-landed.

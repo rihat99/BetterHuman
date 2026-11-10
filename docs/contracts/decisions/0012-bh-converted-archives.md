@@ -1,6 +1,6 @@
 # 0012 BetterHuman archives carry `format`, `format_version` 2 and `provenance`
 
-**Status:** Accepted (owner). **Date:** 2026-11-01
+**Status:** Accepted (owner); amendment proposed in 0023. **Date:** 2026-11-01
 
 ## Context
 `mhr_lod{N}.npz` has `format_version=1` and no `format`, and the loader compares the whole metadata dict, including
@@ -45,8 +45,3 @@ a check that no `format_version` comparison exists outside `io.check_format` and
 
 ## Open questions
 None.
-
-## Amendment (2026-11-06)
-A v1 SOMA archive is not without provenance: its converter wrote the JSON `source` (package, asset tag and commit,
-asset sha256). The SOMA migration turns `source` into `provenance` instead of writing `"unknown (v1)"`, and the reader
-reads `source` from v1 archives only (`io/formats.py::PAST_FIELDS`). MHR v1 archives keep `"unknown (v1)"`.

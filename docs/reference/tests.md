@@ -66,6 +66,7 @@ rule each one enforces.
 | `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
 | `test_license.py` | the licence file, `pyproject.toml` and the README agree on Apache-2.0 |
 | `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited |
+| `test_decision_records.py` | every decision record follows the template, has an allowed status and an index row, and an accepted record keeps its accepted text |
 | `test_no_skips.py` | no test module spells a skip or an xfail, the deselected ones included |
 | `test_pytest_config.py` | pytest runs strictly, with exactly the tier markers |
 | `test_python_version.py` | the Python floor, the lint target and the pinned version agree |

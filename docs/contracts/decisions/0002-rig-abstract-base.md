@@ -1,6 +1,6 @@
 # 0002 `Rig` is an abstract base with declared hooks
 
-**Status:** Accepted (owner). **Date:** 2026-11-01
+**Status:** Accepted (owner); amendment proposed in 0026. **Date:** 2026-11-01
 
 ## Context
 `core/rig.py::Rig` is a Protocol; `MhrRig` and `SomaRig` override four hooks with `return None`. Code is copied

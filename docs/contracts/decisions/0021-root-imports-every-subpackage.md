@@ -1,7 +1,6 @@
 # 0021 The root imports every subpackage, and the studio takes `Viewer` from BetterRobot's root
 
-**Status:** Proposed (awaiting owner). Supersedes the root row of 0011's `ALLOWED` table and the
-`studio` row of its `BR_ALLOWED` table. **Date:** 2026-11-10
+**Status:** Proposed (integrator, awaiting owner). **Date:** 2026-11-10
 
 ## Context
 Principle 1.6 makes a package's `__all__` its public surface: the root's `__all__` lists its subpackages and the
@@ -15,6 +14,7 @@ from `better_robot.viewer`, although BetterRobot's root lists it as a first-leve
 We will let the root import every subpackage, `studio` included, and list each in `better_human.__all__`; the studio
 package's `__init__` imports no viser until `HumanStudio` or `launch` is read (0009), so `import better_human` stays
 free of the `studio` extra. We will let the studio import BetterRobot's root, so that it takes `Viewer` from there.
+This amends the root row of 0011's `ALLOWED` table and the `studio` row of its `BR_ALLOWED` table.
 
 ## Example
 ```python

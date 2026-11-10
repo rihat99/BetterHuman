@@ -2,24 +2,25 @@
 
 A decision record states one decision that shapes BetterHuman: its context, the decision, an example, the
 consequences, the alternatives, the compatibility cost and what enforces it. An accepted record is never edited
-except its Status line; a change is a new record that supersedes it. File name `NNNN-kebab-title.md`.
+except its Status line; a change is a new record that amends or supersedes it, and the accepted record's Status
+line names it. File name `NNNN-kebab-title.md`.
 
 | Record | Title | Status |
 |---|---|---|
 | [0001](0001-human-model.md) | BetterHuman's `Body` becomes a frozen `HumanModel` built by one factory | Accepted |
-| [0002](0002-rig-abstract-base.md) | `Rig` is an abstract base with declared hooks | Accepted |
+| [0002](0002-rig-abstract-base.md) | `Rig` is an abstract base with declared hooks | Accepted; amendment proposed in [0026](0026-rig-hooks-and-properties.md) |
 | [0003](0003-one-skinning-path.md) | Every rig skins through inverse-bind affines | Accepted |
 | [0004](0004-classic-api.md) | One classic API: `bh.from_classic` and `bh.to_classic` | Accepted |
 | [0005](0005-dtype-and-device-at-load.md) | BetterHuman chooses dtype and device at load; BetterRobot keeps `Model.to` | Accepted |
 | [0006](0006-level-one-loader.md) | `bh.load` has an explicit keyword-only signature | Accepted |
 | [0007](0007-mass-and-density.md) | One `density` parameter with the shipped table as default | Accepted |
 | [0008](0008-typed-family-spec.md) | `FamilySpec` has typed fields and no `meta` | Accepted |
-| [0009](0009-studio-placement.md) | The studio is `better_human.studio`, an optional application subpackage | Accepted |
-| [0010](0010-human-viz-surface.md) | BetterHuman's `viz` is one `layers` module with state-driven functions | Accepted |
-| [0011](0011-human-package-layout.md) | BetterHuman packages: `io, mass, core, families, terms, viz, studio`, with two edge tables | Accepted |
-| [0012](0012-bh-converted-archives.md) | BetterHuman archives carry `format`, `format_version` 2 and `provenance` | Accepted |
-| [0013](0013-bh-package-data-and-load-speed.md) | BetterHuman package data is versioned and loads without pickle | Accepted |
-| [0014](0014-golden-provenance.md) | Every golden file stamps its provenance | Accepted |
+| [0009](0009-studio-placement.md) | The studio is `better_human.studio`, an optional application subpackage | Accepted; amendment proposed in [0020](0020-public-names-of-the-viz-and-studio-rewrite.md) |
+| [0010](0010-human-viz-surface.md) | BetterHuman's `viz` is one `layers` module with state-driven functions | Accepted; amendment proposed in [0020](0020-public-names-of-the-viz-and-studio-rewrite.md) |
+| [0011](0011-human-package-layout.md) | BetterHuman packages: `io, mass, core, families, terms, viz, studio`, with two edge tables | Accepted; amendment proposed in [0019](0019-viz-imports-core-only.md), [0021](0021-root-imports-every-subpackage.md), [0022](0022-edges-into-betterrobot-since-0011.md) |
+| [0012](0012-bh-converted-archives.md) | BetterHuman archives carry `format`, `format_version` 2 and `provenance` | Accepted; amendment proposed in [0023](0023-soma-v1-source-becomes-provenance.md) |
+| [0013](0013-bh-package-data-and-load-speed.md) | BetterHuman package data is versioned and loads without pickle | Accepted; amendment proposed in [0024](0024-archive-load-speed-measured-again.md) |
+| [0014](0014-golden-provenance.md) | Every golden file stamps its provenance | Accepted; amendment proposed in [0025](0025-golden-asset-hash-at-stamp-time.md) |
 | [0015](0015-licensed-goldens-out-of-git.md) | Licensed-derived goldens live in the models directory, not in git | Accepted |
 | [0016](0016-random-weight-goldens.md) | Random-weight goldens run the SMPL-family parity machinery without licensed weights | Accepted |
 | [0017](0017-models-directory.md) | One way to find the weights: `io.models_dir()` | Accepted |
@@ -27,6 +28,12 @@ except its Status line; a change is a new record that supersedes it. File name `
 | [0019](0019-viz-imports-core-only.md) | `viz` imports `core` only: the `viz -> io` edge goes | Proposed |
 | [0020](0020-public-names-of-the-viz-and-studio-rewrite.md) | The public names the `viz` and studio rewrites added | Proposed |
 | [0021](0021-root-imports-every-subpackage.md) | The root imports every subpackage, and the studio takes `Viewer` from BetterRobot's root | Proposed |
+| [0022](0022-edges-into-betterrobot-since-0011.md) | BetterHuman's edges into BetterRobot since record 0011 | Proposed |
+| [0023](0023-soma-v1-source-becomes-provenance.md) | A version-1 SOMA archive's `source` becomes its `provenance` | Proposed |
+| [0024](0024-archive-load-speed-measured-again.md) | Archives load with `np.load`, once per load; 0013's slow member was the host's huge pages | Proposed |
+| [0025](0025-golden-asset-hash-at-stamp-time.md) | A stamped golden's `asset_sha256` is the hash of the assets at stamp time | Proposed |
+| [0026](0026-rig-hooks-and-properties.md) | `Rig` has four hooks with defaults, and its property holds in two forms | Proposed |
+| [0027](0027-formats-beyond-betterrobot-0030.md) | BetterHuman's coupling page lists all seven formats it versions | Proposed |
 
 ## Records that live in BetterRobot
 

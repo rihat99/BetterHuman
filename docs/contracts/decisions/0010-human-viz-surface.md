@@ -1,6 +1,6 @@
 # 0010 BetterHuman's `viz` is one `layers` module with state-driven functions
 
-**Status:** Accepted (owner). **Date:** 2026-11-01
+**Status:** Accepted (owner); amendment proposed in 0020. **Date:** 2026-11-01
 
 ## Context
 `viz/__init__.py` imports the function `human_layers` over its own module of the same name. `skinned_layer(identity,
