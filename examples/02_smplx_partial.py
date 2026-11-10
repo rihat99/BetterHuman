@@ -1,20 +1,20 @@
 """Full SMPL-X next to a body-only SMPL-X (hands and face dropped), same pose, one metre apart.
 
-uv run python examples/02_smplx_partial.py [--check]
+uv run python examples/02_smplx_partial.py [--check]   # --check: build on the stand-in server, show one frame, exit
 """
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
 from pathlib import Path
 
 import torch
 
 import better_human as bh
 from better_human.families import SMPLXClassic
-from better_human.viz import human_layers
-from better_robot.viewer import LIGHT, GroundLayer, Viewer
+from better_human.viz import HUMAN_THEME, human_layers
+from better_robot.testing import FakeServer
+from better_robot.viewer import GroundLayer, Viewer
 
 
 def main() -> None:
@@ -39,7 +39,7 @@ def main() -> None:
     hands = 0.5 * torch.sin(phase)[:, None] * torch.ones(frames, 6)
     expression = 2.0 * torch.sin(phase)[:, None] * torch.ones(frames, 10)
 
-    viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
     viewer.add([GroundLayer(plane="xz")], group="scene")
     for body, name, classic, offset in (
         (
@@ -55,7 +55,6 @@ def main() -> None:
     if args.check:
         viewer.show(45)
         print(f"{frames} frames, {len(viewer.layers)} layers; full nq={full.model.nq}, body-only nq={partial.model.nq}")
-        viewer.server.stop()
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
     viewer.play()

@@ -1,12 +1,11 @@
 """Drag a target, the SMPL left wrist follows (LM on ``better_human.terms`` + ``better_robot.terms``).
 
-uv run python examples/03_ik_reach.py [--check]
+uv run python examples/03_ik_reach.py [--check]   # --check: move the target once on the stand-in server, exit
 """
 
 from __future__ import annotations
 
 import argparse
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -14,10 +13,11 @@ import torch
 
 import better_human as bh
 from better_human import terms
-from better_human.viz import HumanView
+from better_human.viz import HUMAN_THEME, HumanView
 from better_robot.optim import LevenbergMarquardt, Problem, solve
 from better_robot.terms import RobotManifold
-from better_robot.viewer import LIGHT, GroundLayer, Viewer
+from better_robot.testing import FakeServer
+from better_robot.viewer import GroundLayer, Viewer
 from better_robot.viewer.tools import PoseGizmo
 
 WRIST = "left_wrist"
@@ -36,7 +36,7 @@ def main() -> None:
     q = identity.model.q_neutral[None].clone()
     state = identity.forward(q)
     view = HumanView(state)
-    viewer = Viewer(port=args.port, theme=replace(LIGHT, up="+y"))
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
     viewer.add([GroundLayer(plane="xz")], group="scene")
     viewer.add(view, group="smpl")
 
@@ -63,7 +63,6 @@ def main() -> None:
         follow(moved.numpy())
         reached = identity.forward(current["q"]).joint_translations[0, wrist]
         print(f"target moved, residual {float((reached - moved[:3]).norm()):.1e} m")
-        viewer.server.stop()
         return
     print(f"drag the gizmo (at {gizmo.pose[:3]}) at {viewer.url}; Ctrl-C to exit")
     viewer.server.sleep_forever()
