@@ -30,7 +30,6 @@ def main() -> None:
     full = bh.HumanModel.from_spec(spec, density=None)
     # The face and hand joints follow the 22 body joints; dropping them from the same spec reads the file once.
     partial = bh.HumanModel.from_spec(bh.families.drop_joints(spec, spec.joint_names[22:]), density=None)
-    torch.manual_seed(0)
     frames = 90
     phase = torch.linspace(0.0, 2.0 * torch.pi, frames)
     body_pose = torch.zeros(frames, 63)

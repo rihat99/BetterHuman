@@ -78,7 +78,6 @@ ignore = ["E501", "PLR0913", "PLR2004"]
 "benchmarks/**" = ["T201"]  # scripts that report on stdout, as the examples do
 "tools/render_segmentation.py" = ["T201"]  # reports the figures it writes
 "!src/better_human/studio/**" = ["SLF001"]  # record 0009 binds the studio; tests and tools may reach in
-"!src/**" = ["TID251"]  # C-DEP-3 binds the library; a test, tool or benchmark may seed torch or pin its threads
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "torch.set_default_dtype".msg = "C-DEP-3: no process-wide torch settings inside the library"

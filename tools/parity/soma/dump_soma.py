@@ -223,7 +223,7 @@ def main() -> None:
     """Evaluate the fixed SOMA cases with upstream SOMALayer and write one archive per case."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = _parse_args()
-    torch.manual_seed(BASE_SEED)
+    torch.manual_seed(BASE_SEED)  # noqa: TID251 - pins the oracle's global RNG for the dump; C-DEP-3 binds the library
     layer = SOMALayer(
         data_root=args.assets_dir,
         device="cpu",

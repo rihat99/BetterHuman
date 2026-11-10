@@ -485,7 +485,7 @@ def main() -> None:
     args = parse_args()
     if os.environ.get("BETTER_ROBOT_INTERNAL_CHECKS") == "1":
         sys.exit("BETTER_ROBOT_INTERNAL_CHECKS=1 adds host syncs and operators: unset it to benchmark")
-    torch.set_num_threads(args.threads)
+    torch.set_num_threads(args.threads)  # noqa: TID251 - a benchmark pins its threads so rows compare; C-DEP-3 binds the library
     device = torch.device(args.device)
     sync = (lambda: torch.cuda.synchronize(device)) if device.type == "cuda" else (lambda: None)
     meta = context(args, device)
