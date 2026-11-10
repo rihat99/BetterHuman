@@ -1,7 +1,7 @@
 """Every family declares the density category of each part (decision record 0007), and every part has one.
 
 The SMPL family declares one category per joint in ``src/better_human/families/_tables.py``; MHR and SOMA map their
-part joints in their loader modules, whose loaders raise FormatError for a part the map lacks (H3 review L7). Every
+part joints in their loader modules, whose loaders raise FormatError for a part the map lacks. Every
 declared category is a category of every shipped table (full tier); every part of every MHR LOD and of SOMA is mapped
 (release tier: the part joints come from the archives). Every shipped density names its source.
 """

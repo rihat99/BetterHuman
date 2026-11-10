@@ -25,9 +25,9 @@ def identity() -> bh.Identity:
 
 def _trajectory(identity: bh.Identity, batch: int, length: int) -> torch.Tensor:
     q = identity.model.q_neutral.expand(batch, length, identity.model.nq).clone()
-    q[..., 7:] = integrate(identity.model, q, 0.1 * torch.randn(batch, length, identity.model.nv, dtype=q.dtype))[
-        ..., 7:
-    ]
+    generator = torch.Generator().manual_seed(0)
+    step = 0.1 * torch.randn(batch, length, identity.model.nv, dtype=q.dtype, generator=generator)
+    q[..., 7:] = integrate(identity.model, q, step)[..., 7:]
     return q
 
 

@@ -23,7 +23,7 @@ BetterRobot's numerical contracts win.
 | H-LAYER-2 | `tests/contract/test_br_imports.py` |
 | H-API-1 | `tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`, `tests/contract/test_abstract_or_final.py` |
 | H-API-3 | `tests/contract/test_dtype_device.py` |
-| H-ASSET-1 | `tests/contract/test_golden_provenance.py::test_git_holds_no_npz_but_the_allowed_ones` |
+| H-ASSET-1 | `tests/contract/test_golden_provenance.py::test_git_holds_no_array_file_but_the_allowed_ones` |
 | H-ASSET-2 | `tests/io/test_load.py`, `tests/contract/test_models_dir.py` |
 | H-FORMAT-1 | `tests/contract/test_formats.py` |
 | H-PARITY-1 | `tests/parity/smplx/test_smpl_parity.py`, `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/smplx/test_random_weights.py`, `tests/parity/mhr/test_mhr_parity.py`, `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py` |
@@ -40,8 +40,9 @@ appears outside a rule's heading on a contracts page.
 
 | BetterRobot rule or record | BetterHuman enforcer |
 |------|----------|
-| C-API-2 arguments after the second are keyword-only | `tests/contract/test_keyword_only.py` |
+| C-API-2 arguments after the second are keyword-only: every function, constructor (dataclass fields included), method, class method and static method of the `__all__` tree, a `*args` counting as three; today's sites in the counted ratchet `tests/contract/ratchets/positional_parameters.json` | `tests/contract/test_keyword_only.py` |
 | C-STATE-1 frozen records (record [0001](decisions/0001-human-model.md)) | `tests/contract/test_frozen.py`, `tests/contract/test_repr.py` |
+| C-STATE-3 never mutate an input tensor: `from_spec`, `bake`, `forward`, every `HumanState` output, the classic conversions and every term | `tests/contract/test_no_inplace.py` |
 | C-EXT-2 every class abstract or `@final` (records [0002](decisions/0002-rig-abstract-base.md), [0008](decisions/0008-typed-family-spec.md)) | `tests/contract/test_abstract_or_final.py` |
 | C-EXT-6 pre-1.0 versioning, the public API snapshot (BetterRobot 0024) | `tests/contract/test_api_snapshot.py`, `tests/contract/test_changelog.py` |
 | C-ERR-2 errors from the `BetterRobotError` tree (BetterRobot 0031) | `tests/contract/test_error_tree.py` |
@@ -55,11 +56,11 @@ appears outside a rule's heading on a contracts page.
 | C-DOC-2 every docs snippet runs and its output is compared | `tests/docs/test_snippets.py` |
 | C-DOC-3 the enforcement matrix equals the rules | `tests/docs/test_contract_matrix.py` |
 | principle 7.7, the codemap is the edge table | `tests/docs/test_codemap.py` |
-| principle 7.8, citations resolve | `tests/contract/test_citations.py` |
+| principle 7.8, citations resolve; tracked text gives reasons, not plan or review codes | `tests/contract/test_citations.py` |
 | principles 9.1, 9.2, 9.3 and 9.6, one repository layout: the standard top-level entries, a `tests/` folder per package, no tracked symlink or file over 1 MiB (record [0015](decisions/0015-licensed-goldens-out-of-git.md)), no ghost directory | `tests/contract/test_repository_layout.py` |
 | principles 10.1, 10.2 and 10.3, the agent files: one `CLAUDE.md` of at most 200 lines, a nested one of at most 60, a one-line `AGENTS.md`, no capitals for emphasis, the shared `.claude/` files tracked | `tests/contract/test_agent_files.py` |
 | principle 8.2, an accepted record changes only through a new record (BetterRobot's records test) | `tests/contract/test_decision_records.py` |
-| principles 5.6 and 11.6, caches: `HumanState._memo` and `Identity._frame_placements` only, each owned by one function and keyed by the grad mode (record [0028](decisions/0028-identity-frame-placements-cache.md)) | `tests/contract/test_caches.py` |
+| principles 1.5, 5.6 and 11.6, caches: `HumanState._memo` and `Identity._frame_placements` only, each owned by one function of its class and keyed by the grad mode (record [0028](decisions/0028-identity-frame-placements-cache.md)) | `tests/contract/test_caches.py` |
 
 Every test module under `tests/contract/` is in one of the two tables (`tests/docs/test_contract_matrix.py` checks
 it).

@@ -8,6 +8,7 @@ Callers never write to the cached arrays, which the specs built from them share.
 
 from __future__ import annotations
 
+from functools import cache
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -23,6 +24,8 @@ from better_human.io.schema import SMPL_SCHEMA, SMPLH_SCHEMA, SMPLX_SCHEMA, Mode
 ARCHIVES = Path(__file__).parent / "random_weights"
 SCHEMAS = {"smpl": SMPL_SCHEMA, "smplh": SMPLH_SCHEMA, "smplx": SMPLX_SCHEMA}
 _READS: dict[Path, dict[str, torch.Tensor | np.ndarray]] = {}
+#: Two contact frames of the random SMPL-X archive: one whose parent comes from the part ids, one named.
+SMPLX_FRAMES = {"left_heel": (8846, None), "right_heel": (8635, "right_ankle")}
 
 
 def _read_once(path: Path, schema: ModelSchema) -> dict[str, torch.Tensor | np.ndarray]:
@@ -41,3 +44,9 @@ def random_weight_spec(family: str, **options: Any) -> bh.FamilySpec:
     """``bh.families.<family>(<family>_random.npz, **options)``: the full loader on the arrays read once per session."""
     with mock.patch.object(smpl_family, "load_model_npz", _read_once):
         return getattr(bh.families, family)(ARCHIVES / f"{family}_random.npz", **options)
+
+
+@cache
+def random_weight_smplx() -> bh.HumanModel:
+    """The random SMPL-X archive with Dempster part inertias and :data:`SMPLX_FRAMES`, built once per session."""
+    return bh.HumanModel.from_spec(random_weight_spec("smplx"), contact_frames=SMPLX_FRAMES)

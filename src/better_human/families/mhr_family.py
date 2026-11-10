@@ -1,6 +1,6 @@
 """MHR (Momentum Human Rig) family loader.
 
-``mhr(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with an :class:`MHRRig`. Its identity group
+``mhr(...)`` returns a :class:`~better_human.FamilySpec` with an :class:`MHRRig`. Its identity group
 ``identity`` takes the 45 upstream ``identity_coeffs``; ``proportions`` (a zero mesh basis) carries the 73 proportion
 parameters to the rig. Upstream ``model_parameters`` enter through ``better_human.from_classic`` with an
 :class:`~better_human.families.MHRClassic`.
@@ -59,7 +59,7 @@ def mhr(
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """Load ``MHR/converted/mhr_lod{lod}.npz`` (``tools/convert/mhr``): 127 joints, ``identity (V, 3, 45)``.
+    """The MHR spec of ``MHR/converted/mhr_lod{lod}.npz`` (``tools/convert/mhr``): 127 joints, ``identity (V, 3, 45)``.
 
     ``proportions (V, 3, 73)`` is a zero mesh basis whose values reach the rig. ``expression=False`` drops the
     ``expression (V, 3, 72)`` stream, ``correctives=False`` the pose-corrective MLP. The spec is built

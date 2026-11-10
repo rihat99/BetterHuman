@@ -4,7 +4,10 @@ All three are frozen and compare by identity (``eq=False``): they hold tensors, 
 mapping fields are read-only copies (``MappingProxyType``).
 ``HumanState`` computes its outputs on first use and keeps them in ``_memo``, keyed by the output and the grad mode
 (``"<key>/<torch.is_grad_enabled()>"``): ``joint_transforms``, ``skin_affines``, ``corrective_features``,
-``vertices``. A value computed under ``no_grad`` never serves a grad-enabled caller.
+``vertices``. A value computed under ``no_grad`` never serves a grad-enabled caller. ``Identity`` keeps the
+contact-frame placements of each frame set in ``_frame_placements``, keyed by the frames as given and the grad mode, so
+every pose of the identity reuses them (``HumanState.contact_frame_poses``). Each memo is read and written only by its
+own class.
 """
 
 from __future__ import annotations
@@ -70,7 +73,7 @@ class HumanModel:
         contact_frames: Mapping[str, tuple[int, str | None]] | None = None,
         stream_joints: bool = True,
     ) -> HumanModel:
-        """Compute every input from ``spec``, then construct once.
+        """A model of ``spec``: every input computed from it, then the record constructed once.
 
         ``density`` is a density table name (``"Dempster"``: each part at its category's density, from
         ``spec.parts``), kg/m³ as a float or a ``()`` or ``(P,)`` tensor on the spec's dtype and device, or ``None``
@@ -133,7 +136,7 @@ class HumanModel:
         )
 
     def bake(self, **identity: torch.Tensor) -> Identity:
-        """Bake identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast) into an :class:`Identity`.
+        """The :class:`Identity` of identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast).
 
         Raises :class:`~better_robot.exceptions.UnknownNameError` for a group the family does not have.
         """
@@ -204,7 +207,8 @@ class Identity:
         object.__setattr__(self, "values", _read_only(self.values))
 
     def forward(self, q: torch.Tensor, streams: Tensors | None = None) -> HumanState:
-        """Pose ``q (B..., nq)`` with optional stream groups ``(B..., n)``; ``B...`` broadcasts with ``I...``.
+        """The :class:`HumanState` of pose ``q (B..., nq)`` and optional stream groups ``(B..., n)``; ``B...`` broadcasts
+        with ``I...``.
 
         Raises :class:`~better_robot.exceptions.UnknownNameError` for a stream group the family does not have.
         """
@@ -238,6 +242,28 @@ class Identity:
             inverse_binds = torch.cat((rotations.expand(*translations.shape[:-1], 3), translations), dim=-1)
         kinematics = forward_kinematics(model, q)
         return HumanState(self, q, streams, model, kinematics, rest_joints, inverse_binds, root_offset, offsets)
+
+    def _contact_placements(self, frames: Mapping[str, tuple[int, str | None]]) -> tuple[torch.Tensor, torch.Tensor]:
+        """``(joints (N,), placements (I..., N, 7))`` of ``frames``: the model joint carrying each frame and its placement
+        in that joint, checked and computed once per frame set and grad mode (``HumanState.contact_frame_poses``)."""
+        spec = self.human.spec
+        # A pose update reuses the placements: the rest mesh, the parents and the check depend on the frames alone. The
+        # key holds each vertex id's type, so an entry the check would refuse never matches a checked one.
+        entries = tuple((name, type(vertex), vertex, joint) for name, (vertex, joint) in frames.items())
+        key = (entries, torch.is_grad_enabled())
+        if key not in self._frame_placements:
+            parents = _resolve_parents(frames, spec.joint_names, spec.parts.ids)
+            vertices = [int(vertex) for vertex, _ in frames.values()]
+            local = _frame_local_placements(
+                self.rest_vertices, self.rest_joint_translations, spec.faces, vertices, parents
+            )
+            if parents:
+                # The rig alone knows which bodies take contact frames: it builds the model from_spec would, or raises.
+                parent_names = [spec.joint_names[parent] for parent in parents]
+                spec.rig.build_model(spec, frames=list(zip(frames, parent_names, local[(0,) * (local.dim() - 2)])))
+            ids = torch.as_tensor(parents, dtype=torch.long, device=spec.device)
+            self._frame_placements[key] = (self.human.joint_ids.index_select(0, ids), local)
+        return self._frame_placements[key]
 
     def __repr__(self) -> str:
         return f"Identity({self.human.spec.name}, batch={tuple(self.root_offset.shape[:-1])})"
@@ -276,7 +302,8 @@ class HumanState:
 
     @property
     def joint_transforms(self) -> torch.Tensor:
-        """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints, as the rig's ``joint_transforms`` reports them."""
+        """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints, as the rig's ``joint_transforms`` reports them; a
+        copy of the memo, which skinning reads."""
         spec = self.identity.human.spec
         transforms = self._memoised(
             "joint_transforms", lambda: spec.rig.joint_transforms(spec, self.model, kinematics=self.kinematics)
@@ -285,7 +312,11 @@ class HumanState:
 
     @property
     def skin_affines(self) -> torch.Tensor:
-        """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world."""
+        """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world.
+
+        The memoised tensor itself, which ``vertices`` was or will be skinned with: treat it as read-only (an in-place
+        edit changes what this state reports). ``joint_transforms`` returns a copy instead.
+        """
         return self._memoised("skin_affines", lambda: skin_affines(self.joint_transforms, self.inverse_bind_affines))
 
     @property
@@ -314,7 +345,11 @@ class HumanState:
 
     @property
     def vertices(self) -> torch.Tensor:
-        """``(..., V, 3)`` posed mesh."""
+        """``(..., V, 3)`` posed mesh.
+
+        The memoised tensor itself, returned on every read: treat it as read-only (an in-place edit changes what this
+        state reports).
+        """
         return self._memoised(
             "vertices",
             lambda: linear_blend_skinning(
@@ -355,23 +390,7 @@ class HumanState:
         :class:`~better_robot.exceptions.ArgumentError` for a family whose rig takes no contact frames (MHR, SOMA). The
         placements and that check run once per identity and frame set; a later pose of the identity reuses them.
         """
-        identity = self.identity
-        spec = identity.human.spec
-        parents = _resolve_parents(frames, spec.joint_names, spec.parts.ids)
-        vertices = [int(vertex) for vertex, _ in frames.values()]
-        # A pose update reuses the identity's placements: the rest mesh and the check depend on the frames alone.
-        key = (tuple(zip(frames, vertices, parents)), torch.is_grad_enabled())
-        if key not in identity._frame_placements:
-            local = _frame_local_placements(
-                identity.rest_vertices, identity.rest_joint_translations, spec.faces, vertices, parents
-            )
-            if parents:
-                # The rig alone knows which bodies take contact frames: it builds the model from_spec would, or raises.
-                parent_names = [spec.joint_names[parent] for parent in parents]
-                spec.rig.build_model(spec, frames=list(zip(frames, parent_names, local[(0,) * (local.dim() - 2)])))
-            ids = torch.as_tensor(parents, dtype=torch.long, device=spec.device)
-            identity._frame_placements[key] = (identity.human.joint_ids.index_select(0, ids), local)
-        joints, local = identity._frame_placements[key]
+        joints, local = self.identity._contact_placements(frames)
         return se3.compose(self.kinematics.joint_poses.index_select(-2, joints), local)
 
     def _memoised(self, key: str, compute: Callable[[], torch.Tensor]) -> torch.Tensor:

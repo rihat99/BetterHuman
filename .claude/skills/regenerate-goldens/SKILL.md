@@ -14,8 +14,8 @@ Two kinds, and who can regenerate each:
 - Licensed goldens, computed from the licensed weights: `$BETTERHUMAN_MODELS_DIR/goldens/` holds `smpl_neutral`,
   `smplx_neutral`, `mhr_lod0` to `mhr_lod6` and `soma_mid` (record 0015). Only a machine with the weights and the
   oracle's environment can dump them. They stay in the models directory, and no array of a golden or of the weights
-  is copied into a tracked file; git holds no `.npz` beyond the allowed ones
-  (`tests/contract/test_golden_provenance.py::test_git_holds_no_npz_but_the_allowed_ones`).
+  is copied into a tracked file; git holds no array file, of any format, beyond the allowed ones
+  (`tests/contract/test_golden_provenance.py::test_git_holds_no_array_file_but_the_allowed_ones`).
 - Random-weight archives and goldens, tracked: `tests/support/random_weights/{smpl,smplh,smplx}_random.npz` and
   `tests/parity/smplx/random/{smpl,smplh,smplx}/` (record 0016). Anyone can regenerate them: every array comes from a
   fixed seed, and the archive is the same bytes on every run. Regenerate the archives only when their layout

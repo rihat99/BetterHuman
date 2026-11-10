@@ -30,7 +30,7 @@ class Corrective(ABC):
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class LinearCorrective(Corrective):
     """``offsets = feature @ posedirs`` with ``posedirs (P, V * 3)`` (the SMPL family)."""
 
@@ -39,9 +39,16 @@ class LinearCorrective(Corrective):
     def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
         return _offsets(feature, self.posedirs, vertex_ids)
 
+    def __repr__(self) -> str:
+        features, width = self.posedirs.shape
+        return (
+            f"LinearCorrective(features={features}, vertices={width // 3}, dtype={self.posedirs.dtype}, "
+            f"device={self.posedirs.device})"
+        )
+
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class MLPCorrective(Corrective):
     """``offsets = relu(feature @ first_layer.T) @ output`` with ``first_layer (H, P)``, ``output (H, V * 3)``."""
 
@@ -50,6 +57,13 @@ class MLPCorrective(Corrective):
 
     def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
         return _offsets(torch.nn.functional.linear(feature, self.first_layer).relu(), self.output, vertex_ids)
+
+    def __repr__(self) -> str:
+        (hidden, features), width = self.first_layer.shape, self.output.shape[1]
+        return (
+            f"MLPCorrective(features={features}, hidden={hidden}, vertices={width // 3}, dtype={self.output.dtype}, "
+            f"device={self.output.device})"
+        )
 
 
 def _read_only(mapping: Mapping[Any, Any]) -> MappingProxyType:
@@ -66,7 +80,7 @@ def _offsets(feature: torch.Tensor, matrix: torch.Tensor, vertex_ids: torch.Tens
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Parts:
     """Vertex segmentation into rigid parts for mass properties.
 
@@ -91,20 +105,27 @@ class Parts:
 
     @property
     def count(self) -> int:
+        """``P``, the number of parts."""
         return len(self.joints)
+
+    def __repr__(self) -> str:
+        return f"Parts(count={self.count}, vertices={self.ids.shape[0]})"
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Landmarks:
     """Named points of the mesh: landmark ``names[l]`` is vertex ``vertex_ids[l]`` (``(L,)`` long)."""
 
     names: tuple[str, ...]
     vertex_ids: torch.Tensor
 
+    def __repr__(self) -> str:
+        return f"Landmarks(count={len(self.names)})"
+
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class FamilySpec:
     """One body family on one dtype and device. Pure data except for ``rig``.
 
@@ -158,26 +179,32 @@ class FamilySpec:
 
     @property
     def num_vertices(self) -> int:
+        """``V``, the template's vertex count."""
         return self.template_vertices.shape[0]
 
     @property
     def num_joints(self) -> int:
+        """``J``, the native joint count."""
         return len(self.joint_names)
 
     @property
     def dtype(self) -> torch.dtype:
+        """The dtype of every floating tensor of the spec."""
         return self.template_vertices.dtype
 
     @property
     def device(self) -> torch.device:
+        """The device of every tensor of the spec."""
         return self.template_vertices.device
 
     @property
     def identity_groups(self) -> dict[str, int]:
+        """Identity group name to its coefficient count ``n``."""
         return {name: basis.shape[-1] for name, basis in self.identity_bases.items()}
 
     @property
     def stream_groups(self) -> dict[str, int]:
+        """Stream group name to its coefficient count ``n``."""
         return {name: basis.shape[-1] for name, basis in self.stream_bases.items()}
 
     def joint_id(self, name: str) -> int:
@@ -185,6 +212,12 @@ class FamilySpec:
         if name not in self.joint_names:
             raise UnknownNameError("joint", name, valid=self.joint_names)
         return self.joint_names.index(name)
+
+    def __repr__(self) -> str:
+        return (
+            f"FamilySpec({self.name}, vertices={self.num_vertices}, joints={self.num_joints}, dtype={self.dtype}, "
+            f"device={self.device})"
+        )
 
     def skin_matrix(self) -> torch.Tensor:
         """Dense ``(V, J)`` skin weights."""

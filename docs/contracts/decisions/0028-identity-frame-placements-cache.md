@@ -13,10 +13,11 @@ names its caches.
 
 ## Decision
 We will keep a second cache, `Identity._frame_placements`: a dictionary on the identity, outside its constructor
-(`init=False`, so `dataclasses.replace` starts it empty), keyed by the frame set (names, vertex ids, parent joint
-ids) and the grad mode, holding the model joint id of each frame's parent and the frames' placements
-`(I..., N, 7)`. Only `HumanState.contact_frame_poses` reads or writes it. These two, `HumanState._memo` and
-`Identity._frame_placements`, are BetterHuman's only caches; a new one needs its own record.
+(`init=False`, so `dataclasses.replace` starts it empty), keyed by the frame set as given (each frame's name, vertex
+id and its type, and parent joint name) and the grad mode, holding the model joint id of each frame's parent and the
+frames' placements `(I..., N, 7)`. Only `Identity._contact_placements`, which `HumanState.contact_frame_poses`
+calls, reads or writes it. These two, `HumanState._memo` and `Identity._frame_placements`, are BetterHuman's only
+caches; a new one needs its own record.
 
 ## Example
 ```python

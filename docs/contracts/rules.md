@@ -62,15 +62,16 @@ Enforcement: `tests/contract/test_dtype_device.py`.
 
 ## H-ASSET-1 Licensed weights and goldens computed from them are never tracked (MUST)
 
-Git holds no `.npz` file but the shipped package data, the random-weight archives and their goldens; the licensed
-weights and the goldens computed from them live in `$BETTERHUMAN_MODELS_DIR` (decision records
+Git holds no array file, in any format (`.npz`, `.npy`, `.pt`, `.pkl` and the others the enforcer lists), but the
+shipped package data, the random-weight archives and their goldens; the licensed weights and the goldens computed
+from them live in `$BETTERHUMAN_MODELS_DIR` (decision records
 [0015](decisions/0015-licensed-goldens-out-of-git.md), [0016](decisions/0016-random-weight-goldens.md)).
 
 Rationale: the weights' licences are the user's to accept; a tracked copy would redistribute them.
 Example: the SMPL-X parity goldens live in `$BETTERHUMAN_MODELS_DIR/goldens/smplx_neutral/`; the random-weight ones
 in `tests/parity/smplx/random/smplx/`.
 
-Enforcement: `tests/contract/test_golden_provenance.py::test_git_holds_no_npz_but_the_allowed_ones`.
+Enforcement: `tests/contract/test_golden_provenance.py::test_git_holds_no_array_file_but_the_allowed_ones`.
 
 ## H-ASSET-2 Weights resolve from an explicit path, else from `io.models_dir()` (MUST)
 

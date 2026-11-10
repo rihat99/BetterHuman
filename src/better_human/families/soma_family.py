@@ -1,6 +1,6 @@
 """NVIDIA SOMA family (SOMA-X v0.3.4, mid LOD) loader.
 
-``soma(...)`` returns a :class:`~better_human.core.spec.FamilySpec` with a :class:`SOMARig`. Its identity group
+``soma(...)`` returns a :class:`~better_human.FamilySpec` with a :class:`SOMARig`. Its identity group
 ``shape`` takes the 128 upstream ``identity_coeffs``; upstream poses enter through ``better_human.from_classic`` with a
 :class:`~better_human.families.SOMAClassic`.
 """
@@ -70,7 +70,8 @@ def soma(
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """Load ``$BETTERHUMAN_MODELS_DIR/SOMA/soma_mid.npz`` (``tools/convert/soma``): 18056 vertices, 110 skin joints.
+    """The SOMA spec of ``$BETTERHUMAN_MODELS_DIR/SOMA/soma_mid.npz`` (``tools/convert/soma``): 18056 vertices, 110 skin
+    joints.
 
     The identity basis is ``shape (V, 3, 128)``. The 78 public joints are posable; the 32 twist helpers follow their
     limb segments. ``correctives=False`` drops the pose-corrective MLP. The spec is built once in ``dtype`` on

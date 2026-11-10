@@ -1,8 +1,10 @@
-"""Decision record 0001: ``HumanModel``, ``Identity`` and ``HumanState`` are frozen and compare by identity.
+"""Decision record 0001 and principle 2.9: public records are frozen, and a record that holds tensors compares by
+identity.
 
-Every dataclass a public ``__all__`` exports is frozen; the three tensor-holding records also set ``eq=False``,
-because ``==`` on tensors is elementwise (their field tables are ``tests/contract/test_naming.py``'s). Frozen goes all
-the way down: every mapping field is read-only, and a ``HumanModel`` cannot be built inconsistent.
+Every dataclass a public ``__all__`` exports is frozen; each one with a field whose annotation names a tensor also sets
+``eq=False``, because ``==`` on tensors is elementwise and a generated ``__eq__`` or ``__hash__`` over them raises or
+hashes by tensor identity. Frozen goes all the way down: every mapping field is read-only, and a ``HumanModel`` cannot
+be built inconsistent.
 """
 
 from __future__ import annotations
@@ -39,9 +41,21 @@ def test_public_dataclass_is_frozen(qualname: str, cls: type) -> None:
     assert cls.__dataclass_params__.frozen, f"{qualname} must be @dataclass(frozen=True)"
 
 
-@pytest.mark.parametrize("cls", [bh.HumanModel, bh.Identity, bh.HumanState], ids=lambda cls: cls.__name__)
-def test_tensor_records_compare_by_identity(cls: type) -> None:
-    assert not cls.__dataclass_params__.eq, f"{cls.__name__} must set eq=False"
+def _tensor_records() -> list[tuple[str, type]]:
+    return [
+        (qualname, cls)
+        for qualname, cls in _public_dataclasses()
+        if any("Tensor" in str(item.type) for item in dataclasses.fields(cls))
+    ]
+
+
+def test_the_tensor_records_include_the_three_of_record_0001() -> None:
+    assert {bh.HumanModel, bh.Identity, bh.HumanState} <= {cls for _, cls in _tensor_records()}
+
+
+@pytest.mark.parametrize(("qualname", "cls"), _tensor_records(), ids=[name for name, _ in _tensor_records()])
+def test_tensor_records_compare_by_identity(qualname: str, cls: type) -> None:
+    assert not cls.__dataclass_params__.eq, f"{qualname} must set eq=False"
     assert cls.__eq__ is object.__eq__ and cls.__hash__ is object.__hash__
 
 

@@ -35,7 +35,7 @@ CHANNELS = 7  #: parameter-transform rows per joint: translation xyz, rotation x
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class MHRRig(Rig):
     """MHR rig tensors. ``J = 127`` native joints, ``N = 125`` pose and ``P = 73`` proportion parameters."""
 
@@ -55,6 +55,12 @@ class MHRRig(Rig):
     proportion_columns: torch.Tensor  #: ``(P,)`` model parameters of the proportions.
     corrective_entries: torch.Tensor  #: ``(E,)`` full-configuration slot of every rotation entry of joints 2...
     corrective_rows: torch.Tensor  #: ``(E, 3 (J - 2))`` one-hot Euler angle (x, y, z of joints 2..) of every entry.
+
+    def __repr__(self) -> str:
+        return (
+            f"MHRRig(joints={self.offsets.shape[0]}, pose={self.pose_columns.shape[0]}, "
+            f"proportions={self.proportion_columns.shape[0]}, dtype={self.offsets.dtype}, device={self.offsets.device})"
+        )
 
     @classmethod
     def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> MHRRig:

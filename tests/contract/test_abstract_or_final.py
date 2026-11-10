@@ -1,8 +1,8 @@
 """Decision records 0002 and 0008 (BR C-EXT-2): every class in ``src`` is abstract or ``@final``, and none derives from
 a ``@final`` class (rule H-API-1: a partial model is a loader option, never a subclass).
 
-The exceptions are the entries of the ratchet ``tests/contract/ratchets/abstract_or_final.json`` (classes whose owning
-work package has not decided yet; it only shrinks). Exception classes are excluded: they are never final.
+The exceptions are the entries of the ratchet ``tests/contract/ratchets/abstract_or_final.json`` (classes whose
+abstract-or-final decision is still open; it only shrinks). Exception classes are excluded: they are never final.
 """
 
 from __future__ import annotations

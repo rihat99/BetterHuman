@@ -20,7 +20,7 @@ from better_human.core.spec import FamilySpec, LinearCorrective, Parts
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class RegressedRig(Rig):
     """SMPL-family rig: ``J = joint_regressor @ v_shaped``, root free-flyer + one spherical joint per joint.
 
@@ -30,6 +30,13 @@ class RegressedRig(Rig):
 
     joint_regressor: torch.Tensor  #: ``(J, V)``
     parents: torch.Tensor  #: ``(J - 1,)`` native parent of every joint after the root.
+
+    def __repr__(self) -> str:
+        joints, vertices = self.joint_regressor.shape
+        return (
+            f"RegressedRig(joints={joints}, vertices={vertices}, dtype={self.joint_regressor.dtype}, "
+            f"device={self.joint_regressor.device})"
+        )
 
     def build_model(self, spec: FamilySpec, *, frames: Sequence[tuple[str, str, torch.Tensor]]) -> Model:
         builder = ModelBuilder(spec.name, gravity=gravity(spec.up_axis))

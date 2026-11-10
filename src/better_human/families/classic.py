@@ -9,7 +9,7 @@ zero. The expression of SMPL-X, FLAME and MHR is a stream group, not shape state
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, final
 
@@ -29,8 +29,16 @@ _MHR_PARAMETER_COUNT = 204
 _SOMA_POSE_JOINT_COUNT = 77  # public joints after the virtual Root, Hips first
 
 
+def _classic_repr(record: object) -> str:
+    """One line: the record's type, how many of its fields are given, and the dtype and device of the first."""
+    values = [getattr(record, item.name) for item in fields(record)]
+    given = [value for value in values if value is not None]
+    head = f"{type(record).__name__}(given={len(given)}/{len(values)}"
+    return f"{head}, dtype={given[0].dtype}, device={given[0].device})" if given else f"{head})"
+
+
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SMPLClassic:
     """Classic SMPL parameters (the smplx package's ``SMPL`` inputs) with arbitrary leading batch dimensions."""
 
@@ -39,9 +47,11 @@ class SMPLClassic:
     body_pose: torch.Tensor | None = None  #: ``(..., 69)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
 
+    __repr__ = _classic_repr
+
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SMPLHClassic:
     """Classic SMPL+H parameters; hand poses are full axis-angle blocks (the file ships no hand PCA)."""
 
@@ -52,9 +62,11 @@ class SMPLHClassic:
     right_hand_pose: torch.Tensor | None = None  #: ``(..., 45)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
 
+    __repr__ = _classic_repr
+
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SMPLXClassic:
     """Classic SMPL-X parameters; the hand PCA width is the model's (``families.smplx(..., num_pca_comps=)``)."""
 
@@ -69,9 +81,11 @@ class SMPLXClassic:
     expression: torch.Tensor | None = None  #: ``(..., num_expression)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
 
+    __repr__ = _classic_repr
+
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class MANOClassic:
     """Classic MANO parameters; the hand PCA width is the model's (``families.mano(..., num_pca_comps=)``)."""
 
@@ -80,9 +94,11 @@ class MANOClassic:
     hand_pose: torch.Tensor | None = None  #: ``(..., 45)``, or ``(..., num_pca_comps)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
 
+    __repr__ = _classic_repr
+
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class FLAMEClassic:
     """Classic FLAME parameters (neck, jaw and eye axis-angles, the expression stream)."""
 
@@ -95,9 +111,11 @@ class FLAMEClassic:
     expression: torch.Tensor | None = None  #: ``(..., num_expression)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
 
+    __repr__ = _classic_repr
+
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class MHRClassic:
     """The MHR reference inputs."""
 
@@ -105,9 +123,11 @@ class MHRClassic:
     model_parameters: torch.Tensor | None = None  #: ``(..., 204)``: root, pose and proportion parameters
     expression: torch.Tensor | None = None  #: ``(..., 72)``
 
+    __repr__ = _classic_repr
+
 
 @final
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True, eq=False, kw_only=True)
 class SOMAClassic:
     """The upstream ``SOMALayer`` inputs."""
 
@@ -115,6 +135,8 @@ class SOMAClassic:
     #: ``(..., 77, 3)`` axis-angle per public joint relative to its T-pose orientation, ``Hips`` first.
     poses: torch.Tensor | None = None
     transl: torch.Tensor | None = None  #: ``(..., 3)`` world position of the ``Hips`` joint in metres
+
+    __repr__ = _classic_repr
 
 
 @final
@@ -141,6 +163,10 @@ class SMPLFamilyFormat(ClassicFormat):
     def __post_init__(self) -> None:
         for name in ("pose_fields", "hand_means", "hand_components"):
             object.__setattr__(self, name, MappingProxyType(dict(getattr(self, name))))
+
+    def __repr__(self) -> str:
+        components = {name: basis.shape[0] for name, basis in self.hand_components.items()}
+        return f"SMPLFamilyFormat({self.classic_type.__name__}, hand_components={components})"
 
     def field_shapes(self, spec: FamilySpec) -> dict[str, tuple[int, ...]]:
         shapes = {"global_orient": (3,), "transl": (3,)}
@@ -212,11 +238,12 @@ class SMPLFamilyFormat(ClassicFormat):
         for name, joints in self.pose_fields.items():
             value = axes[..., start : start + len(joints), :].flatten(-2)
             start += len(joints)
-            kept = torch.tensor([joint in spec.joint_names for joint in joints], device=q.device)
-            if not bool(kept.any()):
+            kept = [joint in spec.joint_names for joint in joints]  # structure only: decided on the host
+            if not any(kept):
                 continue
             if name in self.hand_means:  # a dropped joint keeps the mean, so it reads zero, as from_classic requires
-                value = value - self.hand_means[name] * kept.repeat_interleave(3)
+                mean = self.hand_means[name]
+                value = value - (mean if all(kept) else mean * mean.new_tensor(kept).repeat_interleave(3))
             components = self.hand_components.get(name)
             if components is not None:
                 delta = value
@@ -357,8 +384,8 @@ def _axis_angle(quaternion: torch.Tensor) -> torch.Tensor:
     axis_angle = torch.where(positive_singularity, taylor_factor, full_factor) * vector
 
     negative_singularity = (sin_half < 1e-7) & (scalar < 0)
-    fallback = torch.zeros_like(axis_angle)
-    fallback[..., 0] = 2.0 * torch.pi
+    # Built without an item assignment: on CUDA, `fallback[..., 0] = x` fills through a host read of x.
+    fallback = torch.nn.functional.pad(torch.full_like(sin_half, 2.0 * torch.pi), (0, 2))
     return torch.where(negative_singularity.expand_as(axis_angle), fallback, axis_angle)
 
 

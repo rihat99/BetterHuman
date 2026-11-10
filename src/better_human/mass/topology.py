@@ -21,7 +21,7 @@ from better_robot.spatial import orient_faces_by_component
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class PartTopology:
     """Static topology of one closed mesh per part; built once per ``HumanModel``, applied to every shape.
 
@@ -37,7 +37,11 @@ class PartTopology:
 
     @property
     def num_parts(self) -> int:
+        """``P``, the number of closed part meshes."""
         return len(self.faces)
+
+    def __repr__(self) -> str:
+        return f"PartTopology(parts={self.num_parts}, faces={sum(faces.shape[0] for faces in self.faces)})"
 
     @staticmethod
     def face_parts(faces: torch.Tensor, part_ids: torch.Tensor) -> torch.Tensor:

@@ -37,6 +37,9 @@ class ContactFrames:
     #: BetterRobot frame id of each frame.
     frame_ids: tuple[int, ...]
 
+    def __repr__(self) -> str:
+        return f"ContactFrames(count={len(self.names)})"
+
 
 def _resolve_parents(
     entries: Mapping[str, tuple[int, str | None]],

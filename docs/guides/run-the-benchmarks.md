@@ -39,6 +39,10 @@ Counter rows run in the neutral pose with seeded identity coefficients:
 | Row | Function |
 |-----|----------|
 | `fk_vertices/smplx/B{1,64}` | `identity.forward(q).vertices` of one baked SMPL-X identity, without part inertias |
+| `fk_streams/smplx/B{1,64}` | the same with the expression stream |
+| `joint_poses/smplx/B{1,64}` | `identity.forward(q).joint_poses` |
+| `contact_frame_poses/smplx/B{1,64}` | `identity.forward(q).contact_frame_poses(frames)` of two frames, the identity's placements cached |
+| `to_classic/smplx/B{1,64}` | `better_human.to_classic(identity, q)` |
 | `bake_forward/smpl/B{1,64}` | `human.bake(betas=betas).forward(q).vertices`, one identity per pose, `density=None` |
 | `bake_forward_dempster/smpl/B{1,64}` | the same with the default `density="Dempster"`: 24 part inertias per bake |
 
@@ -82,10 +86,18 @@ for row in thresholds["rows"]:
     print(f"{row['row']:31}", *(f"{row[name]:>12}" for name in counters))
 ```
 ```output
-cf7c591 benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json
+8c7a5c0 benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json
 row                             graph_breaks   recompiles          ops   host_syncs
 fk_vertices/smplx/B1                       0            1          118            0
 fk_vertices/smplx/B64                      0            2          118            0
+fk_streams/smplx/B1                        0            1          239            0
+fk_streams/smplx/B64                       0            2          239            0
+joint_poses/smplx/B1                       0            1          145            0
+joint_poses/smplx/B64                      0            2          145            0
+contact_frame_poses/smplx/B1               0            1          190            0
+contact_frame_poses/smplx/B64              0            2          190            0
+to_classic/smplx/B1                        0            1           84            0
+to_classic/smplx/B64                       0            2           84            0
 bake_forward/smpl/B1                       0            1          233            0
 bake_forward/smpl/B64                      0            2          233            0
 bake_forward_dempster/smpl/B1              0            1         3583            0

@@ -205,6 +205,9 @@ class HumanView:
     def __iter__(self) -> Iterator[Layer]:
         return iter(self.layers)
 
+    def __repr__(self) -> str:
+        return f"HumanView(layers={[layer.name for layer in self.layers]})"
+
     def update(self, state: HumanState) -> None:
         """Write the pose of ``state`` (a single pose of the same identity) into the layers.
 

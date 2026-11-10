@@ -10,7 +10,7 @@ From the repository root. Wall times measured on a shared 384-thread AMD EPYC ho
 
 ```bash
 uv sync --extra studio                                           # the environment and the dev group, under a second
-uv run pytest tests/contract -q -m "not slow and not cuda and not licensed"   # fast tier, about 10 s
+uv run pytest tests/contract -q -m "not slow and not cuda and not licensed"   # fast tier, about 13 s
 uv run pytest tests -q -m "not cuda and not licensed"            # full tier, about 2 min
 bash tools/release_tier.sh --gpu <index>                         # release tier, weights and a free GPU, about 7.5 min
 uv run pytest tests/docs -q -m "not licensed"                    # every docs snippet against its output, about 25 s
@@ -59,7 +59,9 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
 - Counters: graph breaks, recompiles, operators and host syncs of the counter rows never exceed
   `benchmarks/thresholds/torch-2.13.0.json` (rule C-PERF-3, `tests/contract/test_compile_counters.py`, full tier).
 - Ratchets in `tests/contract/ratchets/` only shrink; the test that reads each one fails on a stale entry, so an
-  entry leaves in the commit that fixes it. Open today: dead_citations 5; the other five are empty.
+  entry leaves in the commit that fixes it. Open today: dead_citations 5, positional_parameters 12 (the public
+  records' positional fields and `terms.baked_identity`'s `*groups`, both parked with the owner); the other four are
+  empty.
 - The public API equals `tests/contract/public_api.json` (`tests/contract/test_api_snapshot.py`); an intended change
   is recorded with `uv run python tools/api_snapshot.py --write` and an entry in `docs/reference/changelog.md`
   (`tests/contract/test_changelog.py`).
@@ -75,25 +77,30 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   model is a loader option (`tests/contract/test_abstract_or_final.py`); `load` dispatches to every family loader
   (`tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`).
 - No `to` method: dtype and device are chosen at load, and a tensor in another dtype raises
-  (`tests/contract/test_dtype_device.py`); no mutable public dataclass (`tests/contract/test_frozen.py`).
-- No cache beyond `HumanState._memo` and `Identity._frame_placements` (record 0028), and no `functools` cache outside
-  the reasoned `FUNCTOOLS_CACHES` (`tests/contract/test_caches.py`).
-- No public callable with more than two positional parameters (`tests/contract/test_keyword_only.py`); no public
-  function takes a joint index, and no module shares a name with an exported function
-  (`tests/contract/test_public_surface.py`).
+  (`tests/contract/test_dtype_device.py`); no mutable public dataclass, and none that holds tensors compares by
+  value (`tests/contract/test_frozen.py`).
+- No cache beyond `HumanState._memo` and `Identity._frame_placements` (record 0028), each reached by one function of
+  its class, and no `functools` cache outside the reasoned `FUNCTOOLS_CACHES` (`tests/contract/test_caches.py`).
+- No public function, constructor (dataclass fields included), method, class method or static method with more
+  than two positional parameters, a `*args` counting as three, beyond the counted sites of
+  `tests/contract/ratchets/positional_parameters.json` (`tests/contract/test_keyword_only.py`); no public function
+  takes a joint index, and no module shares a name with an exported function (`tests/contract/test_public_surface.py`).
+- No public call changes a tensor its caller holds (`tests/contract/test_no_inplace.py`).
 - No builtin `ValueError`, `TypeError`, `RuntimeError`, `KeyError`, `IndexError` or `AssertionError` raised in `src`
   outside `PLAIN_RAISES`: every error derives from BetterRobot's `BetterRobotError`
   (`tests/contract/test_error_tree.py`).
 - No weight lookup but `better_human.io.models_dir` and `better_human.io.weight_path`, in the package, tests,
   examples, tools, benchmarks or docs scripts (`tests/contract/test_models_dir.py`).
-- No licensed weights or goldens computed from them in git: git holds no `.npz` beyond the random-weight archives
-  and goldens, the format fixtures and the shipped data (`tests/contract/test_golden_provenance.py`).
+- No licensed weights or goldens computed from them in git: git holds no array file, `.npz`, `.npy`, `.pt` or any
+  other format, beyond the random-weight archives and goldens, the format fixtures and the shipped data
+  (`tests/contract/test_golden_provenance.py`).
 - No file format without its name and version, no pickle load, and no module but `src/better_human/io/formats.py`
   and `src/better_human/io/schema.py` naming `format_version` (`tests/contract/test_formats.py`).
 - No word of a public name outside BetterHuman's or BetterRobot's glossary (`docs/reference/glossary.md`,
   `tests/contract/test_vocabulary.py`).
 - No skip or xfail spelled in a test module, deselected ones included (`tests/contract/test_no_skips.py`).
-- No dead path citation and no line-number citation in tracked text (`tests/contract/test_citations.py`).
+- No dead path citation, no line-number citation and no plan or review code in tracked text
+  (`tests/contract/test_citations.py`).
 - No plan code and no history on a docs page outside the changelog, the migration pages and the records
   (`tests/docs/test_docs_text.py`).
 - No tracked symlink, file over 1 MiB, or directory without a tracked file (`tests/contract/test_repository_layout.py`).

@@ -1,6 +1,6 @@
 """``Rig``: how identity turns into joint placements and how a configuration feeds the corrective.
 
-A rig is the one behavioural part of a :class:`~better_human.core.spec.FamilySpec`. The families define three:
+A rig is the one behavioural part of a :class:`~better_human.FamilySpec`. The families define three:
 ``RegressedRig`` (SMPL family), ``MHRRig`` and ``SOMARig``. A rig implements the four abstract members; the four
 hooks below have defaults for rigs whose streams move no joint, whose native joint frames are BetterRobot's and that
 cannot drop joints.
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class RigBake:
     """Identity-dependent kinematic values of one bake; leading dims are the identity batch ``I...``."""
 
@@ -33,6 +33,13 @@ class RigBake:
     #: transforms with it (``skin_affines``).
     inverse_bind_affines: torch.Tensor
     root_offset: torch.Tensor  #: ``(I..., 3)`` root from the native origin; ``transl + root_offset`` places the root.
+
+    def __repr__(self) -> str:
+        vertices, joints = self.rest_vertices.shape[-2], self.rest_joint_translations.shape[-2]
+        return (
+            f"RigBake(batch={tuple(self.root_offset.shape[:-1])}, vertices={vertices}, joints={joints}, "
+            f"dtype={self.root_offset.dtype}, device={self.root_offset.device})"
+        )
 
 
 class Rig(ABC):

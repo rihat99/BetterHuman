@@ -34,7 +34,7 @@ NEWTON_SCHULZ_STEPS = 30  #: upstream ``align_vectors`` iteration count.
 
 
 @final
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class SOMARig(Rig):
     """SOMA rig tensors. ``P = 78`` public joints, ``J = 110`` native joints, ``T = 32`` twist helpers."""
 
@@ -74,6 +74,13 @@ class SOMARig(Rig):
     # Pose conventions.
     t_pose_rotations: torch.Tensor  #: ``(P, 3, 3)`` T-pose world rotations; upstream poses are relative to them.
     corrective_frames: torch.Tensor  #: ``(P, 3, 3)`` corrective bind transposed times T-pose local rotation (Hips: I).
+
+    def __repr__(self) -> str:
+        vertices, public = self.public_weights.shape
+        return (
+            f"SOMARig(joints={self.parents.shape[0]}, public_joints={public}, vertices={vertices}, "
+            f"dtype={self.public_weights.dtype}, device={self.public_weights.device})"
+        )
 
     @classmethod
     def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> SOMARig:

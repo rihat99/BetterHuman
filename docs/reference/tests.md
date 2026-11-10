@@ -57,9 +57,10 @@ rule each one enforces.
 | `test_vocabulary.py` | one name per thing, acronyms in capitals, no vague module name, every word of every public name in a glossary |
 | `test_naming.py` | the field tables of `HumanModel`, `Identity` and `HumanState`, field by field |
 | `test_keyword_only.py` | public callables take at most two positional parameters |
-| `test_frozen.py` | public dataclasses are frozen; the three tensor records compare by identity; mapping fields are read-only |
-| `test_caches.py` | `HumanState._memo` and `Identity._frame_placements` are the only caches (record [0028](../contracts/decisions/0028-identity-frame-placements-cache.md)): each reached by one function, empty after `dataclasses.replace`, keyed by the grad mode; no module-level store and no unreasoned `functools` cache |
-| `test_repr.py` | the reprs of `HumanModel`, `Identity` and `HumanState` are one short line each |
+| `test_frozen.py` | public dataclasses are frozen; every one that holds tensors compares and hashes by identity; mapping fields are read-only |
+| `test_caches.py` | `HumanState._memo` and `Identity._frame_placements` are the only caches (record [0028](../contracts/decisions/0028-identity-frame-placements-cache.md)): each reached by one function of its class, empty after `dataclasses.replace`, keyed by the grad mode; no module-level store and no unreasoned `functools` cache |
+| `test_no_inplace.py` | no public call (from `from_spec` and `bake` through every `HumanState` output, the classic conversions and every term) changes a tensor its caller holds: version counters and values |
+| `test_repr.py` | every public class, built from the random-weight archive or large tensors, prints one short line that names it and no tensor; `HumanModel`, `Identity` and `HumanState` name the family |
 | `test_abstract_or_final.py` | every class in `src` is abstract or `@final` |
 | `test_dtype_device.py` | dtype and device are chosen at load; no `to`; a tensor in another dtype raises |
 | `test_error_tree.py` | every BetterHuman error derives from BetterRobot's; `src` raises builtin errors only where listed |
@@ -67,9 +68,9 @@ rule each one enforces.
 | `test_compile_counters.py` | the CPU counters (graph breaks, recompiles, operators, host syncs) of the benchmark runner's counter rows stay within `benchmarks/thresholds/torch-<version>.json`; `slow` |
 | `test_formats.py` | every file format names itself and its version, reads its past versions and has a spec page whose `json` examples its reader reads |
 | `test_models_dir.py` | tests, examples and tools find weights only through `better_human.io` |
-| `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
+| `test_golden_provenance.py` | every golden stamps its provenance; git holds no array file of any format (`.npz`, `.npy`, `.pt`, ...) but the random-weight archives and goldens |
 | `test_license.py` | the licence file, `pyproject.toml` and the README agree on Apache-2.0 |
-| `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited |
+| `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited; tracked text gives a reason, never the code of a plan, a review or its finding |
 | `test_repository_layout.py` | the tracked top-level entries are the standard set; each `src` package has its `tests/` folder and every other `tests/` folder is a named suite; no tracked symlink and no tracked file over 1 MiB (record [0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)); no directory of the working tree without a tracked file, ignored ones aside |
 | `test_agent_files.py` | the root `CLAUDE.md` is at most 200 lines and a nested one 60; no capitals for emphasis in an agent file or skill; `AGENTS.md` is one line naming `CLAUDE.md`, and no other tool's instruction file exists at any depth; the shared `.claude/` files are tracked and the rest ignored |
 | `test_decision_records.py` | every decision record follows the template, has an allowed status and an index row, and an accepted record keeps its accepted text |
