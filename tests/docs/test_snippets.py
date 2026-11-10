@@ -29,12 +29,6 @@ OUTPUT_FENCE = re.compile(
 IMAGE = re.compile(r"!\[[^\]]*\]\((?P<path>[^)\s]+)")
 VIDEO_SRC = re.compile(r"""(?:src|poster)=["'](?P<path>[^"']+)["']""")
 FIGURE = re.compile(r"(?<![\w/])(?P<path>(?:\.\./)*(?:figures|images)/[\w./-]+\.(?:svg|png|jpg|gif|webm|mp4|webp))")
-FOLDER_REASONS = {
-    "docs/contracts/": (
-        "a rule's example illustrates the rule: its 'bad' half is wrong on purpose, and it names objects the page "
-        "does not build"
-    ),
-}
 LICENSED = {
     "docs/guides/load-a-family.md": (
         "it loads the licensed SMPL, SMPL-X, MHR and SOMA weights from $BETTERHUMAN_MODELS_DIR"
@@ -89,7 +83,7 @@ def test_page_fences_run_and_print_their_output_fences(
         monkeypatch.setenv("PYTHONPATH", os.pathsep.join(filter(None, [str(tmp_path), os.environ.get("PYTHONPATH")])))
         monkeypatch.setenv("BH_DOCS_WEIGHT_FOLDERS", os.pathsep.join(map(str, WEIGHT_FOLDERS)))
     timeout_s = LICENSED_TIMEOUT_S if _name(page) in LICENSED else 120.0
-    compared = check_page(page, root=REPO, folder_reasons=FOLDER_REASONS, timeout_s=timeout_s)
+    compared = check_page(page, root=REPO, timeout_s=timeout_s)
     assert compared == len(OUTPUT_FENCE.findall(page.read_text())), f"{page.name}: an output fence went unchecked"
 
 

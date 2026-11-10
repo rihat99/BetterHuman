@@ -134,9 +134,19 @@ The upstream libraries' own inputs (`betas`, `global_orient`, `body_pose`, `tran
 `model_parameters`, ...) enter and leave through one pair for every family (record
 [0004](../contracts/decisions/0004-classic-api.md)):
 
-```python { .no-run data-reason="a call shape: human, betas and body_pose are not built here" }
+```python
+import torch
+import better_human as bh
+from better_human import families
+
+human = bh.load("smplx", "tests/support/random_weights/smplx_random.npz")
+betas, body_pose = torch.zeros(16), torch.full((63,), 0.1)  # this archive's 16 betas; 21 body joints
 identity, q, streams = bh.from_classic(human, families.SMPLXClassic(betas=betas, body_pose=body_pose))
 classic = bh.to_classic(identity, q, streams=streams)  # a families.SMPLXClassic
+print(type(classic).__name__, tuple(q.shape), torch.allclose(classic.body_pose, body_pose))
+```
+```output
+SMPLXClassic (223,) True
 ```
 
 Each family has one keyword-only `<Family>Classic` dataclass that also carries the identity inputs, so

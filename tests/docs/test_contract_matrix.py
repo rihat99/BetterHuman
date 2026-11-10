@@ -3,9 +3,10 @@
 Each ``## H-<AREA>-<n> ... (MUST|SHOULD)`` heading of ``docs/contracts/rules.md`` has a paragraph starting with
 ``Enforcement:`` that names its enforcers, test paths (``tests/...py``, optionally ``::test_name``); the row of
 ``docs/contracts/index.md``'s matrix for that rule carries exactly the same set. Every rule has an enforcer and
-every cited test exists, in the matrix and in the table of BetterRobot rules alike: a plan or a reviewer's eye is not
-a check. Every module of ``tests/contract/`` is cited by the index, so a contract test always names its rule. A
-strength word appears on a contracts page only in a rule's heading, so no rule escapes the matrix without an ID.
+every cited test exists, in the matrix and in the table of BetterRobot rules alike (each of its rows names a test): a
+plan or a reviewer's eye is not a check. Every module of ``tests/contract/`` is cited by the index, so a contract test
+always names its rule. A strength word appears on a contracts page only in a rule's heading, so no rule escapes the
+matrix without an ID.
 """
 
 from __future__ import annotations
@@ -63,6 +64,13 @@ def test_every_rule_has_an_enforcer_that_exists() -> None:
         ):
             missing.append(match[0])
     assert not missing, f"cite an existing test: {sorted(set(missing))}"
+
+
+def test_every_betterrobot_row_has_an_enforcer() -> None:
+    """Each row of the table of BetterRobot rules names at least one test."""
+    rows = re.findall(r"^\| (.+) \| (.*) \|$", _index_section("BetterRobot rules and records that hold here"), re.M)
+    unenforced = [rule for rule, cell in rows[1:] if not _enforcers(cell)]  # rows[0] is the header
+    assert rows[1:] and not unenforced, f"name the test that enforces each of these rows: {unenforced}"
 
 
 def test_every_contract_test_is_cited_by_the_index() -> None:
