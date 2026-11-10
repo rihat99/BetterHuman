@@ -1,7 +1,7 @@
 """Write, check or diff the public-API snapshot of ``better_human`` (BetterRobot decision records 0024 and 0035).
 
-``tests/contract/public_api.json`` maps every path of the public tree to one line describing it
-(``better_robot.testing.public_api`` of the root and of each public subpackage). ``--write`` rewrites it after an
+``tests/contract/public_api.json`` maps every path of the ``__all__`` tree to one line describing it
+(``better_robot.testing.public_api``; the root lists every subpackage). ``--write`` rewrites it after an
 intended API change; ``--check`` prints the differences and exits 1 when the package no longer matches it;
 ``--diff OLD.json`` prints the paths added (``+``), removed (``-``) and changed (``~``) since an older snapshot, the
 draft of the next migration table (``tests/contract/public_api_before_0.2.0.json`` is the 0.1 side).
@@ -14,23 +14,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import pkgutil
 import sys
 from pathlib import Path
 
-import better_human
 from better_robot.testing import public_api
 
 SNAPSHOT = Path(__file__).resolve().parents[1] / "tests" / "contract" / "public_api.json"
-
-
-def current_api() -> dict[str, str]:
-    """``public_api`` of ``better_human`` and of each public subpackage, merged into one map."""
-    # The root __all__ lists families and io only; core, mass, terms, viz and studio are public subpackages too
-    # (decision record 0011), so each is walked as the root would walk it.
-    subpackages = [info.name for info in pkgutil.iter_modules(better_human.__path__) if info.name[0] != "_"]
-    packages = ["better_human", *(f"better_human.{name}" for name in subpackages)]
-    return {path: line for package in packages for path, line in public_api(package).items()}
 
 
 def differences(old: dict[str, str], new: dict[str, str]) -> list[str]:
@@ -49,7 +38,7 @@ def main() -> int:
     action.add_argument("--check", action="store_true", help=f"compare the package with {SNAPSHOT.name}")
     action.add_argument("--diff", type=Path, metavar="OLD.json", help="compare the package with an older snapshot")
     arguments = parser.parse_args()
-    current = current_api()
+    current = public_api("better_human")
     if arguments.write:
         SNAPSHOT.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n")
         return 0

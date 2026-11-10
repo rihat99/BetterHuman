@@ -9,7 +9,7 @@ from typing import Literal
 import torch
 from better_robot.exceptions import UnknownNameError
 
-from . import families, io
+from . import core, families, io, mass, studio, terms, viz
 from .core import FamilySpec, HumanModel, HumanState, Identity
 from .core.classic import from_classic, to_classic
 
@@ -52,14 +52,21 @@ def load(
 
 
 __all__ = [
-    "FamilySpec",
-    "HumanModel",
-    "HumanState",
-    "Identity",
-    "__version__",
+    # subpackages
+    "core",
     "families",
-    "from_classic",
     "io",
+    "mass",
+    "terms",
+    "viz",
+    "studio",
+    # first-level names
     "load",
+    "HumanModel",
+    "Identity",
+    "HumanState",
+    "FamilySpec",
+    "from_classic",
     "to_classic",
+    "__version__",
 ]

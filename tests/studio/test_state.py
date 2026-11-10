@@ -6,14 +6,13 @@ import numpy as np
 import pytest
 import torch
 from better_robot import Viewer
+from better_robot.testing import FakeServer
 
 import better_human as bh
 from better_human.io import weight_path
 from better_human.studio.gizmo import GizmoController
 from better_human.studio.layers import StudioLayers
 from better_human.studio.state import FrameEntry, StudioSession
-
-from .fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 

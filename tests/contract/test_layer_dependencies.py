@@ -29,7 +29,7 @@ ALLOWED: dict[str, set[str]] = {
     "terms": {"core"},
     "viz": {"core"},  # record 0019 (proposed): the studio, not viz, reads and writes files
     "studio": {ROOT, "core", "families", "io", "mass", "viz"},
-    ROOT: {"core", "families", "io", "mass", "terms", "viz"},
+    ROOT: {"core", "families", "io", "mass", "studio", "terms", "viz"},  # record 0021 (proposed): it lists them all
 }
 #: Every row may import ``better_robot.exceptions``: BetterHuman raises BetterRobot's errors and roots its own under
 #: ``BetterRobotError`` (BetterRobot record 0031).
@@ -43,7 +43,8 @@ BR_ALLOWED: dict[str, set[str]] = {
         "terms": {"better_robot", "better_robot.dynamics", "better_robot.kinematics", "better_robot.optim"},
         # skinned_layer turns the inverse bind affines into bind poses with so3.from_matrix (record 0003).
         "viz": {"better_robot.lie", "better_robot.viewer"},
-        "studio": {"better_robot.lie", "better_robot.viewer"},
+        # Record 0021 (proposed): the studio takes Viewer, a first-level name, from BetterRobot's root.
+        "studio": {"better_robot", "better_robot.lie", "better_robot.viewer"},
         ROOT: set(),
     }.items()
 }

@@ -12,6 +12,7 @@ uv run pytest tests -q -m "not cuda and not licensed"           # full tier, no 
 uv run pytest tests -q -m "licensed and not cuda"               # release tier on CPU, 2.5 min; fails without weights
 uv run pytest tests -q -m cuda                                  # release tier on a free GPU, 10 s
 uv run ruff check src tests examples benchmarks                 # lint (line length 120)
+node ../BetterRobot/tools/docs_screenshots.mjs temp/shots --repo .  # every docs page as light/dark PNGs (BETTER_ROBOT_CHROME)
 uv run python examples/01_smpl_shape_pose.py --check            # each example 01-04 supports --check
 uv run python benchmarks/run.py --device cpu --threads 8 --out ./temp/bench_cpu.json  # temp/ is ignored
 ```
@@ -36,17 +37,18 @@ families  -> core io mass
 terms     -> core
 viz       -> core
 studio    -> better_human core families io mass viz
-the root  -> core families io mass terms viz
+the root  -> core families io mass studio terms viz
 ```
 
-BetterRobot is imported through the public modules of the importer's `BR_ALLOWED` row only. Never edit BetterRobot
-from this repo.
+BetterRobot is imported through the public modules of the importer's `BR_ALLOWED` row only, a first-level name
+(`Viewer`, `forward_kinematics`) from its root (`tests/contract/test_br_imports.py`). Never edit BetterRobot from
+this repo.
 
 ## Where things live
 
 | path | what |
 |---|---|
-| `src/better_human/__init__.py` | `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState` |
+| `src/better_human/__init__.py` | the subpackages; `load`, `HumanModel`, `Identity`, `HumanState`, `FamilySpec`, `from_classic`, `to_classic` |
 | `src/better_human/core/spec.py`, `src/better_human/core/rig.py` | `FamilySpec` data; the abstract `Rig` and `RigBake` |
 | `src/better_human/core/human_model.py` | `HumanModel.from_spec` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
 | `src/better_human/core/skinning.py` | blend shapes and skinning |

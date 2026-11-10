@@ -17,7 +17,8 @@ BetterHuman builds a BetterRobot `Model` per subject and reuses BetterRobot for 
 | `viewer` layers and `Viewer` | `better_human.viz` (`human_layers`, `HumanView`, HumanStudio) |
 | `exceptions` (`ShapeError`, `UnknownNameError`, ...) | `FormatError`, `AssetNotFoundError`, both under `BetterRobotError` |
 
-`tests/contract/test_br_imports.py` fails on any private BetterRobot import.
+`tests/contract/test_br_imports.py` fails on any BetterRobot import outside BetterRobot's `__all__` tree, and on a
+first-level name imported through a subpackage instead of BetterRobot's root.
 
 ## The package DAG is a test
 
@@ -26,7 +27,7 @@ points the wrong way between the units of `better_human`, and on any import of a
 table of the same record does not list for the importer:
 
 ```text
-better_human (root) ->  core, families, io, mass, terms, viz
+better_human (root) ->  core, families, io, mass, studio, terms, viz
 studio   ->  better_human (root), core, families, io, mass, viz
 viz      ->  core
 terms    ->  core
@@ -36,7 +37,7 @@ io, mass      (nothing)
 ```
 
 `studio` is the optional application `better_human.studio` (record 0009): it may import the root and every unit but
-`terms`, and from BetterRobot `lie` and `viewer`.
+`terms`, and from BetterRobot its root (for `Viewer`), `lie` and `viewer` (record 0021, proposed).
 
 ## The four objects
 
