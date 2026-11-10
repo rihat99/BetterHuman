@@ -10,7 +10,7 @@ From the repository root. Wall times measured on a shared 384-thread AMD EPYC ho
 
 ```bash
 uv sync --extra studio                                           # the environment and the dev group, under a second
-uv run pytest tests/contract -q -m "not slow and not cuda and not licensed"   # fast tier, about 10 s
+uv run pytest tests/contract -q -m "not slow and not cuda and not licensed"   # fast tier, about 13 s
 uv run pytest tests -q -m "not cuda and not licensed"            # full tier, about 2 min
 bash tools/release_tier.sh --gpu <index>                         # release tier, weights and a free GPU, about 7.5 min
 uv run pytest tests/docs -q -m "not licensed"                    # every docs snippet against its output, about 25 s
