@@ -1,4 +1,8 @@
-"""A recording stand-in for ``viser.ViserServer``: no sockets, every call and property write logged."""
+"""The studio tests' recording stand-in for ``viser.ViserServer``: no sockets, every call and property write logged.
+
+Studio only: the layer and docs tests use ``better_robot.testing.FakeServer``, which lacks the studio's GUI calls
+(``add_dropdown``, ``add_markdown``, ``add_text``, ``add_number``, ``add_tab_group``).
+"""
 
 from __future__ import annotations
 
