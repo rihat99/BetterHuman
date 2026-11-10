@@ -6,9 +6,9 @@ enforcement. The BetterRobot contracts in `BetterRobot/docs/contracts/` apply fi
 ## H-LAYER-1 Imports follow decision record 0011's two edge tables (MUST)
 
 Among BetterHuman's units: `io` and `mass` import no other unit; `core` imports `mass`; `families` imports `core`,
-`io` and `mass`; `terms` imports `core`; `viz` imports `core` and `io` (the studio persists frame sets, a permanent
-edge); `studio` imports the package root, `core`, `families`, `io`, `mass` and `viz`; the root imports every unit but
-`studio`. Into BetterRobot: `io` only `exceptions` (its errors sit under `BetterRobotError`, BetterRobot 0031); `mass`
+`io` and `mass`; `terms` imports `core`; `viz` imports `core` (record 0019, proposed, drops its `io` edge); `studio`
+imports the package root, `core`, `families`, `io`, `mass` and `viz`; the root imports every unit but `studio`. Into
+BetterRobot: `io` only `exceptions` (its errors sit under `BetterRobotError`, BetterRobot 0031); `mass`
 `lie` and `spatial`; `core` the root, `kinematics` and `lie`; `families` the root, `io`, `kinematics` and `lie`;
 `terms` the root, `dynamics`, `kinematics` and `optim`; `viz` and `studio` `viewer`, `studio` also `lie`. Only
 BetterRobot's public surface is imported (`C-DEP-1`, `tests/contract/test_br_imports.py`). An import that breaks a

@@ -34,7 +34,7 @@ io, mass  -> nothing
 core      -> mass
 families  -> core io mass
 terms     -> core
-viz       -> core io
+viz       -> core
 studio    -> better_human core families io mass viz
 the root  -> core families io mass terms viz
 ```

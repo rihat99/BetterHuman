@@ -24,6 +24,7 @@ except its Status line; a change is a new record that supersedes it. File name `
 | [0016](0016-random-weight-goldens.md) | Random-weight goldens run the SMPL-family parity machinery without licensed weights | Accepted |
 | [0017](0017-models-directory.md) | One way to find the weights: `io.models_dir()` | Accepted |
 | [0018](0018-bh-apache-licence.md) | BetterHuman is licensed Apache-2.0 | Accepted |
+| [0019](0019-viz-imports-core-only.md) | `viz` imports `core` only: the `viz -> io` edge goes | Proposed |
 
 ## Records that live in BetterRobot
 
