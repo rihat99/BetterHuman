@@ -2,8 +2,8 @@
 and its own (neither the default ``<module.Class object at 0x...>`` nor a dataclass repr that prints its tensors).
 
 ``BUILDERS`` builds each public class of the ``__all__`` tree (``better_robot.testing.public_objects``, each class
-once, under the first path that lists it) from the random-weight SMPL-X archive or from tensors large enough that a
-repr printing them spans lines. ``NO_INSTANCE`` holds the reasoned exceptions. The reprs of ``HumanModel``,
+once, under the first path that lists it) from the random-weight SMPL-X archive (the studio from the SMPL one, on
+BetterRobot's stand-in server) or from tensors large enough that a repr printing them spans lines. ``NO_INSTANCE`` holds the reasoned exceptions. The reprs of ``HumanModel``,
 ``Identity`` and ``HumanState`` name the family, and the model's also its sizes, dtype and device.
 """
 
@@ -11,17 +11,23 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+import os
+import shutil
+import tempfile
 from collections.abc import Callable
 from functools import cache
 from pathlib import Path
+from unittest import mock
 
+import numpy as np
 import pytest
 import torch
-from better_robot.testing import public_objects
+from better_robot.testing import FakeServer, public_objects
 
 import better_human as bh
 from better_human import core, families, viz
-from tests.support.random_archives import random_weight_smplx
+from better_human.studio import HumanStudio
+from tests.support.random_archives import ARCHIVES, random_weight_smplx
 from tests.support.synthetic import flame_spec
 
 EXCEPTION = "an exception's repr is its message, which BetterRobot's error contract shapes"
@@ -32,8 +38,6 @@ NO_INSTANCE: dict[str, str] = {
     "better_human.core.ClassicFormat": ABSTRACT,
     "better_human.core.Corrective": ABSTRACT,
     "better_human.core.Rig": ABSTRACT,
-    "better_human.studio.HumanStudio": "a studio needs a weights folder and a browser server; its repr is still the "
-    "default object repr, which the studio package replaces",
 }
 
 
@@ -50,6 +54,15 @@ def _filled(cls: type, shape: tuple[int, ...], **given: object) -> object:
     """``cls`` with every field not in ``given`` a zero tensor of ``shape``."""
     zeros = {item.name: torch.zeros(shape) for item in dataclasses.fields(cls) if item.name not in given}
     return cls(**zeros, **given)
+
+
+def _studio() -> HumanStudio:
+    """The studio on the random SMPL archive, placed where ``families.smpl`` looks, on BetterRobot's stand-in server."""
+    with tempfile.TemporaryDirectory() as folder:
+        (Path(folder) / "smpl").mkdir()
+        shutil.copy(ARCHIVES / "smpl_random.npz", Path(folder) / "smpl" / "SMPL_NEUTRAL.npz")
+        with mock.patch.dict(os.environ, {"BETTERHUMAN_MODELS_DIR": folder}):
+            return HumanStudio(server=FakeServer(), data_root=Path(folder) / "data", generator=np.random.default_rng(0))
 
 
 BUILDERS: dict[str, Callable[[], object]] = {
@@ -77,6 +90,7 @@ BUILDERS: dict[str, Callable[[], object]] = {
     "better_human.families.SOMAFormat": families.SOMAFormat,
     "better_human.families.SOMARig": lambda: _filled(families.SOMARig, (110, 78)),
     "better_human.mass.PartTopology": lambda: random_weight_smplx().part_topology,
+    "better_human.studio.HumanStudio": _studio,
     "better_human.viz.HumanView": lambda: viz.HumanView(
         random_weight_smplx().bake().forward(random_weight_smplx().model.q_neutral)
     ),

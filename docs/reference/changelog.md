@@ -59,8 +59,9 @@ line that 0.2.0 renames or removes, one table row each.
   `core.Landmarks`, `core.LinearCorrective`, `core.MLPCorrective`, `core.RigBake`, `mass.PartTopology`,
   `families.RegressedRig`, `families.MHRRig`, `families.SOMARig` and the seven `*Classic` records; `==` on two
   loads of one archive raised, and `hash` raised or hashed the tensors' identities.
-- Every public class prints one line naming its sizes (and its dtype and device when it holds floating tensors):
-  `repr(spec)` printed 99 lines and `repr(human.part_topology)` 2,395.
+- Every public class prints one line naming its sizes (and its dtype and device when it holds floating tensors;
+  `studio.HumanStudio` its model and click mode): `repr(spec)` printed 99 lines and `repr(human.part_topology)`
+  2,395.
 - `load(family, path=None, *, dtype, device, density, contact_frames, stream_joints)`: family options go through
   the family loader; the family name is exact, and an unknown one raises `UnknownNameError`.
 - The root's `__all__` lists every subpackage, `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio`, then

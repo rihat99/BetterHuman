@@ -90,6 +90,9 @@ class HumanStudio:
         self.viewer.show()
         self.set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
 
+    def __repr__(self) -> str:
+        return f"HumanStudio({self._key()}, mode={self.mode})"
+
     def _key(self) -> str:
         if self.family == "mhr":
             return persistence.model_key("mhr", lod=self.lod)
