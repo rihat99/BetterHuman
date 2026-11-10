@@ -11,7 +11,7 @@ from better_robot.viewer import LIGHT, FramesLayer, Layer, PointsLayer, Skeleton
 
 from better_human.mass import PartTopology
 from better_human.mass.topology import _majority_face_parts
-from better_human.viz.human_layers import mesh_layer
+from better_human.viz import mesh_layer
 
 from .state import ChangeKind, StudioSession, compact_segmentation
 

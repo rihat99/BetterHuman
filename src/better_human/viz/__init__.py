@@ -1,6 +1,6 @@
 """Visualisation: human layers for the BetterRobot viewer and the studio app."""
 
-from .human_layers import (
+from .layers import (
     HUMAN_THEME,
     HumanView,
     forces_layer,
