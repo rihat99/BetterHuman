@@ -42,10 +42,15 @@ def _volume(vertices: torch.Tensor, faces: torch.Tensor) -> float:
     return float(inertia_of_mesh(vertices, faces, density=1.0)[0])
 
 
-def test_parts_meeting_at_junctions_close_with_shared_caps() -> None:
+@pytest.mark.parametrize("island", [None, 40], ids=["cap-and-halves", "chord-on-own-edge"])
+def test_parts_meeting_at_junctions_close_with_shared_caps(island: int | None) -> None:
     vertices, faces = _uv_sphere()
     # A top cap bordering two halves: each loop meets two neighbours, three parts meet at two junctions.
     part_ids = torch.where(vertices[:, 2] > 0.4, 0, torch.where(vertices[:, 0] >= 0, 1, 2))
+    if island is not None:
+        # Vertex 40 to the cap gives the cap a lone face; part 1's cap chord 40-28 then lies on its own mesh edge
+        # 40-28, which the closed part uses four times (as on MHR's and SOMA's coarse meshes).
+        part_ids[island] = 0
     topology = PartTopology.from_part_ids(faces, part_ids, num_parts=3)
     parts = [_volume(part_vertices, part_faces) for part_vertices, part_faces in topology.meshes(vertices)]
     assert min(parts) > 0

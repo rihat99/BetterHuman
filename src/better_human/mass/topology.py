@@ -209,9 +209,14 @@ def _edges(face: Sequence[int]) -> tuple[tuple[int, int], ...]:
 
 
 def _is_closed(faces: Sequence[Sequence[int]]) -> bool:
-    """Whether every directed edge of ``faces`` occurs once and its reverse once: closed and consistently wound."""
+    """Whether every directed edge of ``faces`` occurs as often as its reverse: closed and consistently wound.
+
+    Not "once each": a shared cap's chord can lie on a mesh edge of its own part (a run around one triangle, as on
+    MHR's and SOMA's coarse meshes), so a closed part may use an edge more than twice; the volume integrals need only
+    the balance.
+    """
     counts = Counter(edge for face in faces for edge in _edges(face))
-    return all(count == 1 and counts[(end, start)] == 1 for (start, end), count in counts.items())
+    return all(count == counts[(end, start)] for (start, end), count in counts.items())
 
 
 def _boundary_loops(part_faces: list[tuple[int, int, int]]) -> tuple[tuple[int, ...], ...]:
