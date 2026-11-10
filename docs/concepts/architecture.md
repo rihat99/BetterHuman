@@ -62,7 +62,10 @@ better_human -> better_robot.exceptions
 family table or viewer; `mass` reads no file: the family loaders read its data through `io` and hand it over.
 `studio`, the optional application (record [0009](../contracts/decisions/0009-studio-placement.md)), sits on top of
 everything but `terms`. Every BetterRobot import goes through BetterRobot's `__all__` tree, and a first-level name
-such as `Viewer` comes from BetterRobot's root (`tests/contract/test_br_imports.py`).
+such as `Viewer` comes from BetterRobot's root (`tests/contract/test_br_imports.py`). The one exception is
+`better_robot.viewer.tools` (the pose gizmo, the camera frustum, the ray and selection helpers), which the studio and
+the IK example import although it is outside that tree; whether it becomes public is BetterRobot's owner's decision,
+an open question of record 0021.
 
 ## Four records
 
@@ -73,7 +76,8 @@ weight file --families.<f>(path, dtype=, device=)--> FamilySpec --HumanModel.fro
 
 - **`FamilySpec`** (`src/better_human/core/spec.py`) is frozen, typed data: the template mesh, the skinning weights,
   the joint tree, the identity and stream blend shapes, the pose corrective, the parts and their density categories,
-  the landmarks and the classic format. Its one behavioural member is `rig`.
+  the landmarks and the classic format. Its behaviour lives in `rig`; its methods (`joint_id`, `skin_matrix`) and
+  properties (the sizes, dtype and device) only read the data.
 - **`HumanModel`** (`src/better_human/core/human_model.py`) is built once from a spec with the body's options
   (`density`, `contact_frames`, `stream_joints`); `bh.load(family)` runs the family's loader with its defaults and
   `HumanModel.from_spec` in one step. Dtype and device are chosen there and never change (record
@@ -84,7 +88,8 @@ weight file --families.<f>(path, dtype=, device=)--> FamilySpec --HumanModel.fro
   output (joint transforms, skin affines, vertices, frame poses) on first use, then keeps it. A new pose is a new
   state; a state is never changed.
 
-The three records are frozen and compare by identity (record [0001](../contracts/decisions/0001-human-model.md)).
+All four records are frozen; `HumanModel`, `Identity` and `HumanState` compare by identity (record
+[0001](../contracts/decisions/0001-human-model.md)).
 The [coupling standard](../contracts/coupling-standard.md) gives the shape and layout of every `HumanState` output,
 and the [API reference](../reference/api/core.md) every member.
 
@@ -129,9 +134,19 @@ The upstream libraries' own inputs (`betas`, `global_orient`, `body_pose`, `tran
 `model_parameters`, ...) enter and leave through one pair for every family (record
 [0004](../contracts/decisions/0004-classic-api.md)):
 
-```python { .no-run data-reason="a call shape: human, betas and body_pose are not built here" }
+```python
+import torch
+import better_human as bh
+from better_human import families
+
+human = bh.load("smplx", "tests/support/random_weights/smplx_random.npz")
+betas, body_pose = torch.zeros(16), torch.full((63,), 0.1)  # this archive's 16 betas; 21 body joints
 identity, q, streams = bh.from_classic(human, families.SMPLXClassic(betas=betas, body_pose=body_pose))
 classic = bh.to_classic(identity, q, streams=streams)  # a families.SMPLXClassic
+print(type(classic).__name__, tuple(q.shape), torch.allclose(classic.body_pose, body_pose))
+```
+```output
+SMPLXClassic (223,) True
 ```
 
 Each family has one keyword-only `<Family>Classic` dataclass that also carries the identity inputs, so

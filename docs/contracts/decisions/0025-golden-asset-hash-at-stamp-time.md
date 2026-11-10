@@ -7,7 +7,7 @@ Record [0014](0014-golden-provenance.md) stamps a `provenance` field into every 
 `asset_sha256` from the local asset hashes. The 104 goldens stamped on 2026-11-06 took the hash of the asset files on
 disk that day, not a hash taken when each golden was dumped: the SMPL, SMPL-X and MHR assets of that machine were
 restored on 2026-10-10, while their goldens date from 2026-07-21. Commit `9d2e3fc` wrote this into 0014 as a note,
-which ruling R-3 does not allow; this record carries it.
+which an accepted record's frozen text does not allow; this record carries it.
 
 ## Decision
 We will read `asset_sha256` as the hash of the assets at the time the golden was stamped, and say so where the goldens

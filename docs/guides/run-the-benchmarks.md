@@ -39,7 +39,7 @@ Counter rows run in the neutral pose with seeded identity coefficients:
 | Row | Function |
 |-----|----------|
 | `fk_vertices/smplx/B{1,64}` | `identity.forward(q).vertices` of one baked SMPL-X identity, without part inertias |
-| `bake_forward/smpl/B{1,64}` | `body.bake(betas=betas).forward(q).vertices`, one identity per pose, `density=None` |
+| `bake_forward/smpl/B{1,64}` | `human.bake(betas=betas).forward(q).vertices`, one identity per pose, `density=None` |
 | `bake_forward_dempster/smpl/B{1,64}` | the same with the default `density="Dempster"`: 24 part inertias per bake |
 
 Each counter row has four counters, the same for every run with one torch version and device: `graph_breaks` (what

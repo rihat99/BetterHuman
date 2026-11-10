@@ -317,15 +317,30 @@ def _format_version_names(package: Path) -> list[str]:
     ]
 
 
-def _allow_pickle_arguments(package: Path) -> list[str]:
-    """``"<path>, line <n>"`` of every ``allow_pickle=`` argument that is not the constant ``False``."""
-    return [
-        f"{path}, line {node.value.lineno}"
-        for path, node in _nodes(package)
-        if isinstance(node, ast.keyword)
-        and node.arg == "allow_pickle"
-        and not (isinstance(node.value, ast.Constant) and node.value.value is False)
-    ]
+#: The modules whose import means a module unpickles: the standard one, its C half, and the two extensions.
+PICKLE_MODULES = {"pickle", "_pickle", "dill", "cloudpickle"}
+#: ``keyword -> the one constant that keeps a load from unpickling``: NumPy's and torch's switch.
+SAFE_LOAD_KEYWORDS = {"allow_pickle": False, "weights_only": True}
+
+
+def _pickle_loads(package: Path) -> list[str]:
+    """``"<path>, line <n>"`` of every import of a pickle module, and of every ``allow_pickle=`` or ``weights_only=``
+    argument that is not the constant that refuses a pickle."""
+    found = []
+    for path, node in _nodes(package):
+        if isinstance(node, ast.Import):
+            modules = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom):
+            modules = [node.module or ""]
+        else:
+            modules = []
+        if any(module.split(".")[0] in PICKLE_MODULES for module in modules) or (
+            isinstance(node, ast.keyword)
+            and node.arg in SAFE_LOAD_KEYWORDS
+            and not (isinstance(node.value, ast.Constant) and node.value.value is SAFE_LOAD_KEYWORDS[node.arg])
+        ):
+            found.append(f"{path}, line {node.lineno if not isinstance(node, ast.keyword) else node.value.lineno}")
+    return found
 
 
 def _converter_headers() -> dict[str, dict[str, Any]]:
@@ -381,15 +396,29 @@ def test_a_planted_format_version_is_found(tmp_path: Path) -> None:
 
 def test_no_module_loads_a_pickle() -> None:
     """Record 0013: no shipped file executes pickle; ``ALLOW_PICKLE_EXCEPTIONS`` names the modules that still do."""
-    found = _allow_pickle_arguments(PACKAGE)
+    found = _pickle_loads(PACKAGE)
     offences = [hit for hit in found if hit.split(",")[0] not in ALLOW_PICKLE_EXCEPTIONS]
     stale = sorted(ALLOW_PICKLE_EXCEPTIONS.keys() - {hit.split(",")[0] for hit in found})
-    assert not offences, "load without allow_pickle=True (decision record 0013):\n  " + "\n  ".join(offences)
+    assert not offences, (
+        "load without pickle: no pickle module, allow_pickle=False, weights_only=True (decision record 0013):\n  "
+        + "\n  ".join(offences)
+    )
     assert not stale, f"these modules no longer load a pickle; remove them from ALLOW_PICKLE_EXCEPTIONS: {stale}"
 
 
-def test_a_planted_allow_pickle_is_found(tmp_path: Path) -> None:
+def test_a_planted_pickle_load_is_found(tmp_path: Path) -> None:
     (tmp_path / "reader.py").write_text(
         "np.load(path, allow_pickle=True)\nnp.load(path, allow_pickle=False)\nnp.load(path)\nnp.load(path, allow_pickle=ok)\n"
     )
-    assert _allow_pickle_arguments(tmp_path) == ["reader.py, line 1", "reader.py, line 4"]
+    (tmp_path / "unpickle.py").write_text(
+        "import pickle\nfrom dill import load\nimport cloudpickle as cp\nimport pickletools\n"
+        "torch.load(path, weights_only=False)\ntorch.load(path, weights_only=True)\n"
+    )
+    assert _pickle_loads(tmp_path) == [
+        "reader.py, line 1",
+        "reader.py, line 4",
+        "unpickle.py, line 1",
+        "unpickle.py, line 2",
+        "unpickle.py, line 3",
+        "unpickle.py, line 5",
+    ]

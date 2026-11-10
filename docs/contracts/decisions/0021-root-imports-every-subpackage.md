@@ -5,7 +5,7 @@
 ## Context
 Principle 1.6 makes a package's `__all__` its public surface: the root's `__all__` lists its subpackages and the
 first-level names, and each public name has one import path, the root for a first-level name. The owner's migration
-plan (B11) lists `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio` in `better_human.__all__`, but the
+plan lists `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio` in `better_human.__all__`, but the
 root listed `families` and `io` only, and 0011's table gave the root no edge to `studio`. The studio imports `Viewer`
 from `better_robot.viewer`, although BetterRobot's root lists it as a first-level name (BetterRobot 0019), and 0011's
 `BR_ALLOWED` row for the studio has no edge to BetterRobot's root.
@@ -37,9 +37,14 @@ None: names are added to the root, nothing is removed or renamed.
 
 ## Enforcement
 `tests/contract/test_layer_dependencies.py` (the two rows above); `tests/contract/test_br_imports.py` (every
-BetterRobot import is a path of BetterRobot's `__all__` tree, a first-level name from its root);
+BetterRobot import is a path of BetterRobot's `__all__` tree, a first-level name from its root, with one named
+exception: `better_robot.viewer.tools`);
 `tests/contract/test_api_snapshot.py` (the root's `__all__` tree). On acceptance, 0011's Status line names this record
 as superseding those two rows.
 
 ## Open questions
-None.
+The studio imports `PoseGizmo`, `CameraFrustum`, `nearest_on_ray`, `ray_hit`, `vertices_in_rect` and
+`vertices_in_sphere` from `better_robot.viewer.tools`, a module outside BetterRobot's `__all__` tree, and
+`examples/03_ik_reach.py` imports `PoseGizmo` from it. Rules H-LAYER-2
+and H-STUDIO-1 and their two tests name it as their one exception. BetterRobot's owner decides whether that module
+becomes public; until then the exception stays written.

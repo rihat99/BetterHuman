@@ -6,7 +6,8 @@
 Record [0013](0013-bh-package-data-and-load-speed.md) found `bh.load("smplx")` taking 60 s on CPU and blamed numpy's
 reading of compressed npz members (`posedirs` alone 5.7 s against 0.27 s through `zipfile.read` plus
 `np.load(BytesIO)`), so it decided that the npz reader reads each member's bytes once. Measured again on 2026-11-06
-(commit `a6b2bce` appended the findings to 0013 as a note, which ruling R-3 does not allow; this record carries them):
+(commit `a6b2bce` appended the findings to 0013 as a note, which an accepted record's frozen text does not allow;
+this record carries them):
 
 - the 5.7 s was the host's transparent huge pages: with them set to `madvise` and memory fragmented, the first touch
   of each large array waits for the kernel to compact memory (`docs/guides/run-the-tests.md`);
@@ -42,5 +43,5 @@ the runner `benchmarks/run.py` (open question 1).
 
 ## Open questions
 1. Record 0013's Enforcement reads like a gate (a load at most 1.5 times the raw read), but the benchmark runner only
-   reports the ratio, and SOMA measured 3.26 to 5.67 in work package X3: is 1.5 a gate the runner enforces, and on
-   which families?
+   reports the ratio, and SOMA measured 3.26 to 5.67 in the runner's runs: is 1.5 a gate the runner enforces, and
+   on which families?

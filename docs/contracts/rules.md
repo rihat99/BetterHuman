@@ -11,7 +11,8 @@ BetterRobot's `C-API-2` under a second name, which BetterHuman now cites directl
 Each unit of `better_human` imports only the units of its row in `ALLOWED`, and only the BetterRobot packages of
 its row in `BR_ALLOWED` (`tests/contract/test_layer_dependencies.py`; decision record
 [0011](decisions/0011-human-package-layout.md) and the records that amend it). The [architecture
-page](../concepts/architecture.md#the-package-map) shows both tables.
+page](../concepts/architecture.md#the-package-map) shows both tables. No module imports a BetterHuman or BetterRobot
+module by a computed name (`importlib.import_module`, `__import__`), which the import walker cannot see.
 
 Rationale: the body model (`core`) and the file readers (`io`) stay usable without any family table or viewer, and
 each BetterRobot package a unit uses is a decision, not an accident.
@@ -23,7 +24,9 @@ Enforcement: `tests/contract/test_layer_dependencies.py`.
 
 Every `better_robot` path a module imports is a path of BetterRobot's `__all__` tree, and a first-level name of
 BetterRobot's root comes from the root: `from better_robot import Viewer`, never
-`from better_robot.viewer import Viewer`.
+`from better_robot.viewer import Viewer`. The one exception: the studio and `examples/03_ik_reach.py` import `better_robot.viewer.tools` (`PoseGizmo`,
+`CameraFrustum`, the ray and selection helpers), which is outside BetterRobot's `__all__` tree; BetterRobot's owner decides whether that
+module becomes public (an open question of record [0021](decisions/0021-root-imports-every-subpackage.md)).
 
 Rationale: BetterRobot's compatibility promise covers its public tree only, and one import path per name keeps a
 rename in BetterRobot to one edit here.
@@ -124,7 +127,9 @@ Enforcement: `tests/contract/test_golden_provenance.py`.
 `better_human.studio` imports only names of BetterHuman's and BetterRobot's `__all__` trees from outside itself,
 reads no `_` attribute its own class does not define (a studio layer may call the subclass hooks BetterRobot's
 `Layer` documents), and writes no environment variable (decision record [0009](decisions/0009-studio-placement.md)).
-A viewer feature that is not human-specific goes to BetterRobot.
+A viewer feature that is not human-specific goes to BetterRobot. The one exception is H-LAYER-2's:
+`better_robot.viewer.tools`, outside BetterRobot's `__all__` tree, until BetterRobot's owner decides whether it
+becomes public.
 
 Rationale: the studio is the first application on the libraries; whatever it needs, every application needs.
 Example: `src/better_human/studio/layers.py::SegmentationLayer` subclasses `better_robot.viewer.Layer`.
@@ -140,13 +145,14 @@ another.
 Rationale: scripts read the same files without the app.
 Example: `src/better_human/studio/persistence.py::StudioPaths`.
 
-Enforcement: `tests/studio/test_persistence.py::test_studio_paths_layout`.
+Enforcement: `tests/studio/test_persistence.py::test_studio_paths_layout`,
+`tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server`.
 
 ## H-LICENSE-1 One licence, Apache-2.0 (MUST)
 
-The `LICENSE` text, the `pyproject.toml` licence and the README's licence line all say Apache-2.0, and the README
-keeps that body-model weights and data derived from them have their own terms (decision record
-[0018](decisions/0018-bh-apache-licence.md)).
+The `LICENSE` text, the `pyproject.toml` licence and the README's licence line all say Apache-2.0, neither the
+README nor `pyproject.toml` names another code licence, and the README keeps that body-model weights and data derived
+from them have their own terms (decision record [0018](decisions/0018-bh-apache-licence.md)).
 
 Rationale: the code's licence is stated once and agrees everywhere it is stated.
 Example: `pyproject.toml` declares `license = "Apache-2.0"`.

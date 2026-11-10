@@ -54,4 +54,4 @@ Caveats:
 - SMPL bake without mass is 0.41 ms on CPU: mass integration dominates `bake`.
 - Batch 8192 vertex cells (ours and upstream) were skipped where the estimate exceeded 8 GB
   (for example SMPL 10.8 GB, SMPL-X 16.5 GB, MHR TorchScript 29.0 GB). fk and rnea ran at 8192.
-- Full tables: `benchmarks/results/p4_bodies_{cpu,cuda}.json` at commit `9ad4093`; results are no longer tracked.
+- Full tables: `git show 9ad4093:benchmarks/results/p4_bodies_cpu.json`, and the same for `p4_bodies_cuda.json`.

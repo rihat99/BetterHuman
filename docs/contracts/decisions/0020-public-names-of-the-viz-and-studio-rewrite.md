@@ -4,10 +4,10 @@
 
 ## Context
 The `viz` rewrite (0010) and the studio move (0009) made names public that no accepted record lists: a reviewer
-found them with an API diff of the two work packages and asked the owner to accept them or park them (open question
-1 of the H5/H6 review). The names exist and are used: the studio reads files only through `io.header` and
-`io.upgrade`, draws contact frames through `HumanState.contact_frame_poses`, and colours parts through
-`PartTopology.face_parts`; the examples and BetterVideoReconstruction use the `viz` layers.
+found them with an API diff of the two rewrites and asked the owner to accept them or park them. The names exist
+and are used: the studio reads files only through `io.header` and `io.upgrade`, draws contact frames through
+`HumanState.contact_frame_poses`, and colours parts through `PartTopology.face_parts`; the examples and
+BetterVideoReconstruction use the `viz` layers.
 
 ## Decision
 We will keep these names public, unchanged:

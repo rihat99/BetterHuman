@@ -14,8 +14,8 @@ what 0.2.0 adds.
 ## Root `better_human`
 
 The root exports `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState`, `from_classic`, `to_classic` and
-`__version__`, and the packages `families` and `io`; import `core`, `mass`, `terms`, `viz` and `studio` by name
-(`import better_human.terms`).
+`__version__`, and its seven packages `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio`
+(`bh.terms.joints`).
 
 | 0.1 | 0.2.0 | note |
 |---|---|---|

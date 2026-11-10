@@ -5,7 +5,7 @@
 ## Context
 Record [0011](0011-human-package-layout.md) fixed the `BR_ALLOWED` table, the BetterRobot packages each BetterHuman
 unit imports. Three changes to it landed in `tests/contract/test_layer_dependencies.py` without a record, which an
-accepted record's frozen text requires (ruling R-3):
+accepted record's frozen text requires:
 
 - every row imports `better_robot.exceptions` (commits `20a4703`, `fbb0efd`): BetterHuman raises BetterRobot's
   error classes and roots its own, `io.FormatError` and `io.AssetNotFoundError`, under `BetterRobotError`
@@ -47,7 +47,7 @@ of a BetterRobot submodule needs no row of its own; a new BetterRobot package do
 
 ## Alternatives
 - A BetterHuman error module re-exporting BetterRobot's classes: a second import path for each class (principle 1.6).
-- For the `lie` edge (weighed in work package H5): a numpy rotation-to-quaternion copy in `viz`, the duplicate
+- For the `lie` edge: a numpy rotation-to-quaternion copy in `viz`, the duplicate
   principle 1.3 names as its anti-example, or a public bind-pose property on `Identity`, a public name beyond record
   [0010](0010-human-viz-surface.md).
 - Keep `better_robot.viewer.tools` as its own entry: the walker never reports it, so the entry could not fail.

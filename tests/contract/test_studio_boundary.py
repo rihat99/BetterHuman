@@ -31,7 +31,8 @@ def _public_paths() -> frozenset[str]:
     packages = [
         "better_human",
         "better_robot",
-        # BetterRobot documents its viewer tools as public, but better_robot.viewer's __all__ does not list them yet.
+        # The one exception (rules H-LAYER-2, H-STUDIO-1): the studio imports better_robot.viewer.tools, which is
+        # outside BetterRobot's __all__ tree; BetterRobot's owner decides whether it becomes public (record 0021).
         "better_robot.viewer.tools",
     ]
     return frozenset(path for package in packages for path in public_objects(package))
@@ -106,7 +107,7 @@ def _private_reads(tree: ast.AST) -> Iterator[tuple[int, str]]:
 
 def _environ_writes(tree: ast.AST) -> Iterator[int]:
     """Lines that assign, delete or update an item of ``os.environ``, or call ``os.putenv`` / ``os.unsetenv``, under
-    any alias (``import os as x``, ``from os import environ as e``)."""
+    any alias (``import os as x``, ``from os import environ as e``, ``e = os.environ``)."""
     aliases = {
         alias.asname or alias.name: alias.name
         for node in ast.walk(tree)
@@ -114,10 +115,22 @@ def _environ_writes(tree: ast.AST) -> Iterator[int]:
         for alias in node.names
     }
 
+    assigned: set[str] = set()
+
     def is_environ(node: ast.AST) -> bool:
         if isinstance(node, ast.Name):
-            return aliases.get(node.id) == "environ"
+            return aliases.get(node.id) == "environ" or node.id in assigned
         return isinstance(node, ast.Attribute) and node.attr == "environ" and isinstance(node.value, ast.Name)
+
+    assignments = [node for node in ast.walk(tree) if isinstance(node, ast.Assign | ast.AnnAssign) and node.value]
+    while new := {  # names assigned from os.environ, then from those names, until nothing new
+        target.id
+        for node in assignments
+        if is_environ(node.value)
+        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+        if isinstance(target, ast.Name) and target.id not in assigned
+    }:
+        assigned |= new
 
     for node in ast.walk(tree):
         targets = []
@@ -125,8 +138,10 @@ def _environ_writes(tree: ast.AST) -> Iterator[int]:
             targets = node.targets
         elif isinstance(node, ast.AugAssign | ast.AnnAssign):
             targets = [node.target]
-        if any(
-            is_environ(target) or (isinstance(target, ast.Subscript) and is_environ(target.value)) for target in targets
+        if any(  # binding an alias (``_ENV = os.environ``) is no write; writing through it is
+            (is_environ(target) and not (isinstance(target, ast.Name) and target.id in assigned))
+            or (isinstance(target, ast.Subscript) and is_environ(target.value))
+            for target in targets
         ):
             yield node.lineno
         elif isinstance(node, ast.Call):
@@ -192,6 +207,7 @@ def test_the_scans_see_every_planted_spelling() -> None:
     environ = (
         "os.environ['X'] = '1'\nos.environ.update(X='1')\nos.environ.setdefault('X', '1')\ndel os.environ['X']\n"
         "os.putenv('X', '1')\nos.environ['X'] += '1'\nfrom os import environ as env, unsetenv\nenv['X'] = '1'\n"
-        "unsetenv('X')\nvalue = os.environ.get('X')\nvalue = env.get('X')\n"
+        "unsetenv('X')\nvalue = os.environ.get('X')\nvalue = env.get('X')\n_ENV = os.environ\nalias = _ENV\n"
+        "alias['X'] = '1'\n_ENV.update(X='1')\n"
     )
-    assert sorted(_environ_writes(ast.parse(environ))) == [1, 2, 3, 4, 5, 6, 8, 9]
+    assert sorted(_environ_writes(ast.parse(environ))) == [1, 2, 3, 4, 5, 6, 8, 9, 14, 15]
