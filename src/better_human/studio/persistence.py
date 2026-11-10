@@ -2,7 +2,7 @@
 
 Round-trips vertex segmentations, named frame sets, and poses as JSON under a
 ``studio_data`` root, and loads the built-in segmentations shipped with
-:mod:`better_human.families.assets`. Pure serialization with range and type
+:mod:`better_human.studio.assets`. Pure serialization with range and type
 validation on load — no viser or model dependencies.
 """
 
@@ -18,7 +18,7 @@ import torch
 
 from better_human.io import read_frame_set, write_frame_set
 
-_ASSET_PACKAGE = "better_human.families.assets"
+_ASSET_PACKAGE = "better_human.studio.assets"
 
 
 @dataclass(frozen=True)

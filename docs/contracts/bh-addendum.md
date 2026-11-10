@@ -40,8 +40,8 @@ Enforcement: `tests/contract/test_keyword_only.py`.
 ## H-ASSET-1 A shipped asset lives in an `assets/` folder beside the package that reads it; licensed weights are never shipped (MUST)
 
 Small, redistributable data ships in an `assets/` folder beside the package that reads it and is read with
-`importlib.resources`: segmentations and densities in `src/better_human/families/assets/`, frame sets in
-`src/better_human/io/assets/`. Licensed weights are never downloaded, bundled or cached (principle 10).
+`importlib.resources`: the mass segmentations, density tables and frame sets in `src/better_human/io/assets/`, the
+studio's vertex segmentations in `src/better_human/studio/assets/`. Licensed weights are never downloaded, bundled or cached (principle 10).
 Example: `src/better_human/io/assets/smplx_contacts.json`, read by `src/better_human/io/frame_sets.py::shipped_frame_set`.
 Enforcement: review.
 
