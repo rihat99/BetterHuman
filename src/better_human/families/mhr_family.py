@@ -73,9 +73,8 @@ def mhr(
     excluded = set() if correctives else set(MHR_CORRECTIVE_FIELDS)
     if not expression:
         excluded.add("expression_basis")
-    arrays = load_model_npz(
-        weight_path("MHR", f"converted/mhr_lod{lod}.npz", path=path), MHR_SCHEMA, exclude_fields=excluded
-    )
+    path = weight_path("MHR", f"converted/mhr_lod{lod}.npz", path=path)
+    arrays = load_model_npz(path, MHR_SCHEMA, exclude_fields=excluded)
     if int(arrays["lod"]) != lod:
         raise FormatError(f"the MHR archive holds lod {int(arrays['lod'])}, expected lod {lod}; pass lod= or its path")
 
@@ -105,7 +104,13 @@ def mhr(
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     part_joints = tuple(joint_groups.index(group) for group in kept)
     density_tables = shipped_density_tables()
-    categories = tuple(_DENSITY_CATEGORIES.get(joint_names[joint]) for joint in part_joints)
+    try:
+        categories = tuple(_DENSITY_CATEGORIES[joint_names[joint]] for joint in part_joints)
+    except KeyError as error:
+        raise FormatError(
+            f"{path}: the part of joint {error.args[0]!r} has no MHR density category; "
+            "pass an archive tools/convert/mhr wrote from MHR"
+        ) from None
     return FamilySpec(
         name="mhr",
         template_vertices=template,

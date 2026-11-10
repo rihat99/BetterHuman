@@ -79,11 +79,8 @@ def soma(
     check_flags(correctives=correctives)
     check_dtype(dtype)
     device = torch.device("cpu" if device is None else device)
-    arrays = load_model_npz(
-        weight_path("SOMA", "soma_mid.npz", path=path),
-        SOMA_SCHEMA,
-        exclude_fields=() if correctives else SOMA_CORRECTIVE_FIELDS,
-    )
+    path = weight_path("SOMA", "soma_mid.npz", path=path)
+    arrays = load_model_npz(path, SOMA_SCHEMA, exclude_fields=() if correctives else SOMA_CORRECTIVE_FIELDS)
 
     def floats(name: str) -> torch.Tensor:
         return arrays[name].to(device=device, dtype=dtype)
@@ -103,7 +100,13 @@ def soma(
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     density_tables = shipped_density_tables()
-    categories = tuple(_DENSITY_CATEGORIES.get(joint_names[joint]) for joint in part_joints.tolist())
+    try:
+        categories = tuple(_DENSITY_CATEGORIES[joint_names[joint]] for joint in part_joints.tolist())
+    except KeyError as error:
+        raise FormatError(
+            f"{path}: the part of joint {error.args[0]!r} has no SOMA density category; "
+            "pass an archive tools/convert/soma wrote from SOMA-X"
+        ) from None
     return FamilySpec(
         name="soma",
         template_vertices=floats("shape_mean"),
