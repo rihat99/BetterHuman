@@ -232,14 +232,11 @@ class HumanStudio:
     def set_status(self, message: str) -> None:
         """Show ``message`` on the status line."""
         self.status = message
-        if hasattr(self, "status_text"):
-            self.status_text.content = message
+        self.status_text.content = message
         # The frames editor reports every frame selection through this line, so the selection label follows it here.
         self._show_selection()
 
     def _show_selection(self) -> None:
-        if not hasattr(self, "selection_text"):
-            return
         model = f"{self.family} {self.gender if self.family != 'mhr' else f'lod {self.lod}'}"
         joint = self.gizmo.joint
         joint_name = "—" if joint is None else self.session.body.spec.joint_names[joint]
@@ -429,8 +426,7 @@ class HumanStudio:
 
     def _update_mass(self) -> None:
         mass = self.session.total_mass
-        if hasattr(self, "mass_text"):
-            self.mass_text.content = "mass: n/a" if mass is None else f"mass: {float(mass):.2f} kg"
+        self.mass_text.content = "mass: n/a" if mass is None else f"mass: {float(mass):.2f} kg"
 
     def run(self) -> None:
         """Block until interrupted."""

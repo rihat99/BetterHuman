@@ -70,9 +70,8 @@ class SegmentEditor:
 
     def refresh(self) -> None:
         """Re-sync dropdowns after a body or segmentation change."""
-        if hasattr(self, "part_dropdown"):
-            self.part_dropdown.options = self._options()
-            self.saved.options = self._saved_options()
+        self.part_dropdown.options = self._options()
+        self.saved.options = self._saved_options()
 
     def set_painting(self, enabled: bool) -> None:  # noqa: FBT001 - the switch is the main operand
         """Enter or leave sphere-brush painting; it is exclusive with the other click modes."""

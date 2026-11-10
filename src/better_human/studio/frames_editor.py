@@ -64,8 +64,7 @@ class FramesEditor:
 
     def refresh(self) -> None:
         """Re-sync the frame dropdown with the session frame set."""
-        if hasattr(self, "frame_dropdown"):
-            self.frame_dropdown.options = self._names()
+        self.frame_dropdown.options = self._names()
 
     def set_adding(self, enabled: bool) -> None:  # noqa: FBT001 - the switch is the main operand
         """Enter or leave add-frame mode; it is exclusive with the other click modes."""
