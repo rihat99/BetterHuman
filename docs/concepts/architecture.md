@@ -68,18 +68,18 @@ categories), `Landmarks`, `up_axis` and `provenance`. Its one behavioural member
 | `joint_transforms(spec, model, *, kinematics)` | `(..., J, 3, 4)` world `[R \| p]` of the native joints; by default BR's. Positions stay BR's joint translations; a rig only post-processes rotations BR cannot model (SOMA twist helpers and world-aligned Hips) |
 | `stream_joint_basis(spec, name)` | `(J, 3, n)` joint motion of a stream group, or `None` (the default) |
 | `placements_from_rest(spec, model, *, rest_joint_translations)` | joint placements for stream-shifted rest joints, or `None` (the default) |
+| `without_joints(spec, dropped)` | the spec without the terminal subtrees rooted at native joints `dropped`, or `None` (the default: the rig cannot drop joints) |
 
-Three rigs exist. `RegressedRig` is `@final`; `MhrRig` and `SomaRig` are not yet (they sit in
-`tests/contract/ratchets/abstract_or_final.json` until the families work closes them):
+Three rigs exist, each `@final`:
 
 - `RegressedRig` (`src/better_human/families/regressed_rig.py`, SMPL family). Joints come from a joint regressor
   `(J, V)` applied to the shaped vertices; every joint binds at its rest translation (`[I | -rest]`). The stream joint
-  basis is `J_regressor @ stream_blendshapes`, so expression moves its joints.
-- `MhrRig` (`src/better_human/families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton: each native
+  basis is `J_regressor @ stream_blendshapes`, so expression moves its joints. It is the one rig that drops joints.
+- `MHRRig` (`src/better_human/families/mhr_rig.py`, MHR). Joints come from the authored MHR skeleton: each native
   joint is a chain of revolutes, one per rotation entry of the parameter transform, with mimics for parameters that
   drive several entries. Proportions set the joint offsets and accumulated scales; the scales fold into the
   inverse-bind affines (`[s R | t - (s - 1) R c]`, record 0003). MHR expression moves vertices only.
-- `SomaRig` (`src/better_human/families/soma_rig.py`, SOMA). Bake fits the template skeleton to the shaped mesh and
+- `SOMARig` (`src/better_human/families/soma_rig.py`, SOMA). Bake fits the template skeleton to the shaped mesh and
   re-poses mesh and skeleton to the template bind, as upstream. Its `joint_transforms` turns the 32 twist helpers by
   the swing-twist of their limb segments and turns the world-aligned Hips free flyer into the upstream Hips frame.
 
@@ -170,9 +170,9 @@ MANO, FLAME (`src/better_human/families/classic.py`), MHR (`src/better_human/fam
 
 ## Partial models
 
-`families.drop_joints(spec, names) -> FamilySpec` removes terminal joint subtrees from a regressed-rig spec (their
-skin weights go to the surviving ancestor). It needs a linear corrective; `src/better_human/core/reduction.py` slices
-the corrective. Loaders expose the common cases: `smplx(hands=False, face=False)` drops the hand and face joints and
+`families.drop_joints(spec, names) -> FamilySpec` removes terminal joint subtrees (their skin weights go to the
+surviving ancestor) through the spec's rig, `Rig.without_joints`; only `RegressedRig` can, with a linear corrective
+that `src/better_human/core/reduction.py` slices, and another rig raises `ArgumentError`. Loaders expose the common cases: `smplx(hands=False, face=False)` drops the hand and face joints and
 the expression group. Converting a pose that uses a dropped joint raises.
 
 ## Mass pipeline (`src/better_human/mass/`)

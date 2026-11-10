@@ -164,6 +164,8 @@ def test_spec_and_classic_validation() -> None:
         families.mhr(path, lod=6, expression=1)
     body = HumanModel.from_spec(families.mhr(path, lod=6, correctives=False, device="cpu"))
     assert body.spec.device == torch.device("cpu")
+    with pytest.raises(ArgumentError, match="MHRRig cannot drop joints"):
+        families.drop_joints(body.spec, [body.spec.joint_names[-1]])
     with pytest.raises(ValueError, match=r"\(\.\.\., 45\)"):
         mhr_from_classic(body, MHRClassic(torch.zeros(44), torch.zeros(204)))
     with pytest.raises(TypeError, match="floating"):
