@@ -18,7 +18,7 @@ import torch
 from better_robot.exceptions import ArgumentError
 from better_robot.lie import so3
 
-from better_human.core.human_model import HumanModel, HumanState, Identity
+import better_human as bh
 from better_human.mass import PartTopology, segment_vertices
 
 from .posing import JointHandle, apply_local_rotation, joint_handles
@@ -49,7 +49,7 @@ def contact_frames(
     }
 
 
-def _vertex_native_joints(body: HumanModel) -> torch.Tensor:
+def _vertex_native_joints(body: bh.HumanModel) -> torch.Tensor:
     """Return the strongest-weighted native skin joint per vertex ``(V,)``."""
     return segment_vertices(body.spec.skin_weights, body.spec.skin_indices)
 
@@ -98,7 +98,7 @@ def compact_segmentation(
 class StudioSession:
     """The single mutable hub the studio front end reads and mutates."""
 
-    def __init__(self, body: HumanModel, model_key: str, frame_set: dict[str, int] | None = None) -> None:
+    def __init__(self, body: bh.HumanModel, model_key: str, frame_set: dict[str, int] | None = None) -> None:
         # The one studio lock: every GUI callback, the gizmo worker and each mutation run under it (re-entrant: nested calls).
         self.lock = threading.RLock()
         self._subscribers: list[Callable[[ChangeKind], None]] = []
@@ -108,7 +108,7 @@ class StudioSession:
 
     def load_body(
         self,
-        body: HumanModel,
+        body: bh.HumanModel,
         model_key: str,
         frame_set: dict[str, FrameEntry] | None = None,
         *,
@@ -140,7 +140,7 @@ class StudioSession:
         self.part_ids = part_ids
         self.part_names = tuple(joint_names[rep] for rep in representatives)
 
-    def _recompute(self, identity: Identity, q: torch.Tensor) -> None:
+    def _recompute(self, identity: bh.Identity, q: torch.Tensor) -> None:
         """Install ``identity`` posed at ``q (nq,)`` with its state, vertices ``(V, 3)``, native world joint poses
         ``(J, 7)`` and frame poses ``(F, 7)``.
 
@@ -149,9 +149,9 @@ class StudioSession:
         state = identity.forward(q)
         vertices, joint_poses = state.vertices, state.joint_poses
         frame_poses = state.contact_frame_poses(contact_frames(self.frame_set, self.body.spec.joint_names))
-        self.identity: Identity = identity
+        self.identity: bh.Identity = identity
         self.q = q
-        self.state: HumanState = state
+        self.state: bh.HumanState = state
         self.vertices, self.joint_poses, self.frame_poses = vertices, joint_poses, frame_poses
 
     # -- pose ----------------------------------------------------------------

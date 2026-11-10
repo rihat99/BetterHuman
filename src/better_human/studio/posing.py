@@ -24,7 +24,7 @@ import torch
 from better_robot.exceptions import ArgumentError
 from better_robot.lie import so3
 
-from better_human.core.human_model import Identity
+import better_human as bh
 
 _AXIS_NAME = {(1.0, 0.0, 0.0): "x", (0.0, 1.0, 0.0): "y", (0.0, 0.0, 1.0): "z"}
 _EULER_INDEX = {"x": 0, "y": 1, "z": 2}
@@ -48,7 +48,7 @@ class JointHandle:
     channels: tuple[tuple[str, int], ...]
 
 
-def joint_handles(identity: Identity) -> tuple[JointHandle, ...]:
+def joint_handles(identity: bh.Identity) -> tuple[JointHandle, ...]:
     """Return one handle per poseable native skin joint of ``identity.model``.
 
     SMPL/SMPLX map native joint ``j`` to BetterRobot joint ``j + 1``: the root
