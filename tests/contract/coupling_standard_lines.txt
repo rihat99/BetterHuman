@@ -1,0 +1,22 @@
+root joint 1 is a free flyer placed without rotation: q[..., :3] moves it along the world axes
+and q[..., 3:7] is its world rotation
+up y: gravity (0, -9.81, 0) in every family
+native J native joints in the family's own order; joint_ids (J,) holds the BetterRobot joint of each
+joint joint_ids[j] moves the body named after native joint j; a native world anchor is joint 0, the universe
+batch a state's batch is broadcast(B..., I...): B... of q, I... of the identity values
+joint_transforms (..., J, 3, 4) world [R | p] of the native joints, in native order
+joint_poses (..., J, 7) the same placements as poses [tx, ty, tz, qx, qy, qz, qw]
+joint_translations (..., J, 3) their world positions: BetterRobot's joint translations at joint_ids
+rest_joint_translations (..., J, 3) the native joints in the skinning rest frame
+skin_affines (..., J, 3, 4) per native joint, the affine (it may scale) from the rest frame to the world;
+it carries rest_joint_translations to joint_translations
+vertices (..., V, 3) the posed mesh, in the family's vertex order
+frame_poses (..., nframes, 7) world poses of the model's frames in frame order, contact frames included
+format direction owner promise
+better_human.mhr read BetterHuman format and format_version fields; every version written stays readable
+better_human.soma read BetterHuman format and format_version fields; every version written stays readable
+better_human.frame_set read, write BetterHuman format and format_version fields; every version written stays readable
+better_human.segmentation read BetterHuman format and format_version fields; every version written stays readable
+better_human.density_tables read BetterHuman format and format_version fields; every version written stays readable
+better_human.studio.segmentation read, write BetterHuman format and format_version fields; every version written stays readable
+better_human.studio.pose read, write BetterHuman format and format_version fields; every version written stays readable
