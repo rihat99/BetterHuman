@@ -119,6 +119,12 @@ def _load_family(
     )
     landmarks = None
     if table.keypoint_vertex_ids:
+        num_vertices, last = arrays["v_template"].shape[0], max(table.keypoint_vertex_ids)
+        if last >= num_vertices:
+            raise FormatError(
+                f"{table.name} weights hold {num_vertices} vertices; the {table.name} landmarks index vertex {last}. "
+                f"Pass an unmodified {table.name} file."
+            )
         landmarks = Landmarks(table.keypoint_names, torch.tensor(table.keypoint_vertex_ids, device=device))
     return FamilySpec(
         name=table.name,
