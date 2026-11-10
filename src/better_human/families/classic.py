@@ -238,11 +238,12 @@ class SMPLFamilyFormat(ClassicFormat):
         for name, joints in self.pose_fields.items():
             value = axes[..., start : start + len(joints), :].flatten(-2)
             start += len(joints)
-            kept = torch.tensor([joint in spec.joint_names for joint in joints], device=q.device)
-            if not bool(kept.any()):
+            kept = [joint in spec.joint_names for joint in joints]  # structure only: decided on the host
+            if not any(kept):
                 continue
             if name in self.hand_means:  # a dropped joint keeps the mean, so it reads zero, as from_classic requires
-                value = value - self.hand_means[name] * kept.repeat_interleave(3)
+                mean = self.hand_means[name]
+                value = value - (mean if all(kept) else mean * mean.new_tensor(kept).repeat_interleave(3))
             components = self.hand_components.get(name)
             if components is not None:
                 delta = value

@@ -357,11 +357,13 @@ class HumanState:
         """
         identity = self.identity
         spec = identity.human.spec
-        parents = _resolve_parents(frames, spec.joint_names, spec.parts.ids)
-        vertices = [int(vertex) for vertex, _ in frames.values()]
-        # A pose update reuses the identity's placements: the rest mesh and the check depend on the frames alone.
-        key = (tuple(zip(frames, vertices, parents)), torch.is_grad_enabled())
+        # A pose update reuses the identity's placements: the rest mesh, the parents and the check depend on the frames
+        # alone. The key holds each vertex id's type, so an entry the check would refuse never matches a checked one.
+        entries = tuple((name, type(vertex), vertex, joint) for name, (vertex, joint) in frames.items())
+        key = (entries, torch.is_grad_enabled())
         if key not in identity._frame_placements:
+            parents = _resolve_parents(frames, spec.joint_names, spec.parts.ids)
+            vertices = [int(vertex) for vertex, _ in frames.values()]
             local = _frame_local_placements(
                 identity.rest_vertices, identity.rest_joint_translations, spec.faces, vertices, parents
             )
