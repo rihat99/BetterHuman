@@ -7,6 +7,8 @@ line that 0.2.0 renames or removes, one table row each.
 
 ## Unreleased
 
+## v0.2.0 (2026-11-10)
+
 ### Added
 - `HumanModel.from_spec(spec, *, density="Dempster", contact_frames=None, stream_joints=True)`: a frozen body
   model built once from a `FamilySpec`, in the dtype and on the device its family loader chose.

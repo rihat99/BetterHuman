@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "better-human"
-version = "0.1.0.dev0"
+version = "0.2.0"
 description = "Parametric human body models on a robotics core."
 readme = "README.md"
 license = "Apache-2.0"
