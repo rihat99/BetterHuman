@@ -1,7 +1,8 @@
 # BetterHuman — Agent Guide
 
 Parametric human bodies (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR, SOMA) as BetterRobot models.
-Design: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Shapes, units, gates, baselines: `docs/contracts/bh-addendum.md`.
+Design, shapes, units: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Rules: `docs/contracts/index.md`; gates:
+`docs/reference/tests.md`; baselines: `docs/reference/benchmarks.md`.
 
 ## Commands
 

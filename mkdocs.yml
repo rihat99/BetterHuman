@@ -115,6 +115,7 @@ nav:
           - viz: reference/api/viz.md
           - studio: reference/api/studio.md
       - reference/tests.md
+      - reference/benchmarks.md
       - reference/glossary.md
       - reference/roadmap.md
       - reference/changelog.md
@@ -130,7 +131,8 @@ nav:
   - Contracts:
       - Index: contracts/index.md
       - Scope: contracts/scope.md
-      - BetterHuman addendum: contracts/bh-addendum.md
+      - Public surface: contracts/public-surface.md
+      - Rules: contracts/rules.md
       - Coupling standard: contracts/coupling-standard.md
       - Decision records:
           - Index: contracts/decisions/index.md

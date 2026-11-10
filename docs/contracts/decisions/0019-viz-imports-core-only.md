@@ -31,7 +31,7 @@ reason is false.
 None: no `viz` module imports `io` today.
 
 ## Enforcement
-`tests/contract/test_layer_dependencies.py` (`ALLOWED["viz"] == {"core"}`); `docs/contracts/bh-addendum.md`
+`tests/contract/test_layer_dependencies.py` (`ALLOWED["viz"] == {"core"}`); `docs/contracts/rules.md`
 (`H-LAYER-1`) and `docs/concepts/architecture.md` show the same row. On acceptance, 0011's Status line names this
 record as superseding its `viz` row.
 

@@ -60,6 +60,7 @@ rule each one enforces.
 | `test_dtype_device.py` | dtype and device are chosen at load; no `to`; a tensor in another dtype raises |
 | `test_error_tree.py` | every BetterHuman error derives from BetterRobot's; `src` raises builtin errors only where listed |
 | `test_coupling_standard.py` | every line of the [coupling standard](../contracts/coupling-standard.md) against the library, and BetterRobot's lines BetterHuman relies on |
+| `test_compile_counters.py` | the CPU counters (graph breaks, recompiles, operators, host syncs) of the benchmark runner's counter rows stay within `benchmarks/thresholds/torch-<version>.json`; `slow` |
 | `test_formats.py` | every file format names itself and its version, reads its past versions and has a spec page |
 | `test_models_dir.py` | tests, examples and tools find weights only through `better_human.io` |
 | `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
@@ -79,3 +80,5 @@ that removes it; it only shrinks, and the fix removes its entry.
 | Test | Guards |
 |------|--------|
 | `test_snippets.py` | every `python` fence runs and every `output` fence equals what it prints (`better_robot.testing.snippets`); every referenced image exists |
+| `test_codemap.py` | the package map of the [architecture page](../concepts/architecture.md#the-package-map) equals the edge tables `ALLOWED` and `BR_ALLOWED` |
+| `test_contract_matrix.py` | the [enforcement matrix](../contracts/index.md#enforcement-matrix) equals the rules' `Enforcement:` paragraphs; every rule has an enforcer that exists; every contract test is in the index; a strength word stands only in a rule heading |
