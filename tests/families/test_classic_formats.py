@@ -3,7 +3,8 @@
 Oracle: the input itself. ``bh.to_classic`` of ``bh.from_classic(human, classic)`` gives back ``classic`` (an omitted
 field as zeros, a field the model was loaded without as ``None``), and ``bh.from_classic`` of that classic gives back
 the same identity, ``q`` and streams. Random fields come from a generator seeded in the case id. FLAME and MANO run on
-synthetic weight files (full tier); the other families read the licensed weights (release tier).
+synthetic weight files (full tier); the other families, and MANO's real hand PCA, read the licensed weights (release
+tier).
 """
 
 from __future__ import annotations
@@ -66,6 +67,11 @@ CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], flo
         SMPLFamilyFormat,
         1e-9,
     ),
+    "mano-pca6-weights": (
+        _licensed(lambda: bh.families.mano(weight_path("mano", "MANO_RIGHT.npz"), num_pca_comps=6, dtype=F64)),
+        SMPLFamilyFormat,
+        1e-9,
+    ),
     "smpl": (
         _licensed(lambda: bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=F64)),
         SMPLFamilyFormat,
@@ -119,29 +125,45 @@ SYNTHETIC = ("flame", "flame-without-jaw", "mano-pca6", "mano-flat")
 def check_round_trip(human: bh.HumanModel, generator: torch.Generator, atol: float) -> None:
     """``to_classic`` inverts ``from_classic`` on a random classic of ``human``'s format, and the other way round.
 
-    Every field the model takes is drawn ``(*BATCH, *shape)`` but the last, which is omitted (zero); a field the model
-    was loaded without must raise when set and come back ``None``; another family's classic must raise.
+    Every field the model takes is drawn ``(*BATCH, *shape)`` and comes back, an identity field exactly; every field of
+    an empty classic comes back as zeros; a field the model was loaded without must raise when set and come back
+    ``None``; another family's classic must raise.
     """
     spec = human.spec
     classic_type = spec.classic.classic_type
     shapes = spec.classic.field_shapes(spec)
     names = [field.name for field in dataclasses.fields(classic_type)]
-    taken = [name for name in names if name in shapes]
     values = {
-        name: 0.3 * torch.randn(*BATCH, *shapes[name], generator=generator, dtype=spec.dtype) for name in taken[:-1]
+        name: 0.3 * torch.randn(*BATCH, *shapes[name], generator=generator, dtype=spec.dtype)
+        for name in names
+        if name in shapes
     }
     identity, q, streams = bh.from_classic(human, classic_type(**values))
     back = bh.to_classic(identity, q, streams=streams)
-    assert type(back) is classic_type
+    empty_identity, empty_q, empty_streams = bh.from_classic(human, classic_type())
+    empty = bh.to_classic(empty_identity, empty_q, streams=empty_streams)
+    assert type(back) is classic_type and type(empty) is classic_type
     for name in names:
         if name not in shapes:
-            assert getattr(back, name) is None, f"{name}: the model was loaded without it, so to_classic returns None"
+            assert getattr(back, name) is None and getattr(empty, name) is None, (
+                f"{name}: the model was loaded without it, so to_classic returns None"
+            )
             with pytest.raises(ArgumentError, match=f"loaded without {name}"):
                 bh.from_classic(human, classic_type(**{name: torch.zeros(3, dtype=spec.dtype)}))
             continue
-        expected = values.get(name, torch.zeros(shapes[name], dtype=spec.dtype)).expand(*BATCH, *shapes[name])
         torch.testing.assert_close(
-            getattr(back, name), expected, rtol=0, atol=atol, msg=lambda text, name=name: f"{name}: {text}"
+            getattr(back, name),
+            values[name],
+            rtol=0,
+            atol=0 if name in identity.values else atol,
+            msg=lambda text, name=name: f"{name}: {text}",
+        )
+        torch.testing.assert_close(
+            getattr(empty, name),
+            torch.zeros(shapes[name], dtype=spec.dtype),
+            rtol=0,
+            atol=atol,
+            msg=lambda text, name=name: f"{name} omitted: {text}",
         )
 
     identity_back, q_back, streams_back = bh.from_classic(human, back)
