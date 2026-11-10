@@ -42,5 +42,5 @@ the runner `benchmarks/run.py` (open question 1).
 
 ## Open questions
 1. Record 0013's Enforcement reads like a gate (a load at most 1.5 times the raw read), but the benchmark runner only
-   reports the ratio, and SOMA measured 3.75 to 5.67 in work package X3: is 1.5 a gate the runner enforces, and on
+   reports the ratio, and SOMA measured 3.26 to 5.67 in work package X3: is 1.5 a gate the runner enforces, and on
    which families?

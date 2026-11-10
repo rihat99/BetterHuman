@@ -104,6 +104,7 @@ nav:
       - guides/convert-weights.md
       - guides/use-the-studio.md
       - guides/run-the-tests.md
+      - guides/run-the-benchmarks.md
   - Reference:
       - API:
           - better_human: reference/api/better_human.md

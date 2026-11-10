@@ -1,6 +1,34 @@
 # Benchmarks
 
-Measured wall times of the body operations against each family's upstream code. They are measurements, not gates.
+Measured wall times of the body operations, against each family's upstream code where it runs. They are
+measurements, not gates; the counters that gate are in `benchmarks/thresholds/` ([Run the
+benchmarks](../guides/run-the-benchmarks.md)).
+
+## The runner at commit 50ea3dc
+
+`benchmarks/run.py` at the clean commit `50ea3dc`, float32, median ms: one Torch thread on an idle core of an AMD
+EPYC 9654, torch 2.13, `NUMPY_MADVISE_HUGEPAGE=0`, a shared host (load average 15 to 26).
+
+| counter row | B=1 | B=64 |
+|---|---:|---:|
+| `fk_vertices/smplx` | 3.10 | 127.6 |
+| `bake_forward/smpl` | 1.71 | 45.0 |
+| `bake_forward_dempster/smpl` | 12.2 | 254.9 |
+
+Load rows, the family loader against the raw read of the same archive, ms (ratio), in two runs:
+
+| row | run 1 | run 2 |
+|---|---:|---:|
+| `load/smpl` | 97.5 / 85.1 (1.15) | 118.2 / 127.9 (0.92) |
+| `load/smplx` | 795.1 / 798.3 (1.00) | 790.1 / 753.9 (1.05) |
+| `load/mhr_lod1` | 704.5 / 1018.2 (0.69) | 685.1 / 969.4 (0.71) |
+| `load/soma` | 376.5 / 115.5 (3.26) | 333.6 / 77.7 (4.29) |
+
+SOMA's loader takes three to four times its raw read, above the 1.5 times decision record
+[0013](../contracts/decisions/0013-bh-package-data-and-load-speed.md) names (open question 1 of record
+[0024](../contracts/decisions/0024-archive-load-speed-measured-again.md)).
+
+## The earlier runner at commit 9ad4093
 
 The earlier `benchmarks/run.py` at commit `9ad4093`, float32, median ms. Ratio = ours / upstream (below 1 = ours
 faster).

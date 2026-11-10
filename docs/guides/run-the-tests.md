@@ -16,6 +16,10 @@ tier before a push, and `uv run pre-commit install` installs the hooks.
 | full | `uv run pytest tests -q -m "not cuda and not licensed"` | nothing: the docs, examples and random-weight parity cases read the archives in `tests/support/random_weights/` |
 | release | `uv run pytest tests -q -m "licensed and not cuda"`, then `uv run pytest tests -q -m cuda` with a free GPU visible | the licensed weights, then a GPU |
 
+Measured on 2026-11-10 on a shared AMD EPYC 9654 host with `NUMPY_MADVISE_HUGEPAGE=0` (below): the fast tier
+takes about 6 s, the full tier about 115 s, of which the counter gate `tests/contract/test_compile_counters.py`
+takes about 50 s ([Run the benchmarks](run-the-benchmarks.md)).
+
 While you edit one package, run the fast tier plus that package's folder, for example `uv run pytest tests/core -q`.
 
 ## Give the release tier the weights
@@ -72,3 +76,4 @@ together, with a decision record when the change is one the [contracts index](..
 
 - [Test suite](../reference/tests.md): the markers, the parity tolerances and every contract test.
 - [Contracts](../contracts/index.md): the rules the contract tests enforce.
+- [Run the benchmarks](run-the-benchmarks.md): the counter gate the full tier runs, and wall time.
