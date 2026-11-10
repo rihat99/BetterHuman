@@ -6,7 +6,7 @@
 Record [0002](0002-rig-abstract-base.md) makes `Rig` an abstract base with four abstract members and "three hooks with
 defaults"; its Example shows `stream_joint_basis`, `placements_from_rest` and a class flag `moves_joints_with_streams`.
 Since then the flag went (commit `44382be`: a rig whose streams move joints says so by returning a basis from
-`stream_joint_basis`), and `without_joints` was added for `families.drop_joints` (commit `21f104d`, work package H3),
+`stream_joint_basis`), and `without_joints` was added for `families.drop_joints` (commit `21f104d`),
 next to the hooks `joint_transforms`, `stream_joint_basis` and `placements_from_rest`. 0002's Enforcement names a
 property, "forward kinematics at `q_neutral` reproduces `rest_vertices` through `skin_affines`", which is false by
 design for SOMA, which binds in its authored A-pose while `q_neutral` is the T-pose, and for MHR with nonzero
@@ -49,7 +49,7 @@ test covers SOMA and MHR instead of excluding them, and a rig that breaks either
 
 ## Alternatives
 - Keep the class flag next to `stream_joint_basis`: two declarations of one fact that can disagree.
-- A `drop=` option on the SMPL-family loaders instead of the `without_joints` hook (parked as P-16): one hook fewer,
+- A `drop=` option on the SMPL-family loaders instead of the `without_joints` hook (parked): one hook fewer,
   but `families.drop_joints` would no longer serve every family through one function.
 - Keep the one-form property and exclude SOMA and MHR: the two families whose binds differ most would go unchecked.
 
@@ -61,4 +61,4 @@ None for users: `Rig` subclasses live in-tree with their families (0002) and cha
 hold); `tests/contract/test_abstract_or_final.py` (`Rig` abstract, every rig `@final`).
 
 ## Open questions
-1. If P-16 replaces `without_joints` with a loader option, this record lists three hooks and says why the fourth went.
+1. If a loader option replaces `without_joints`, this record lists three hooks and says why the fourth went.

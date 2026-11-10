@@ -7,8 +7,8 @@ BetterRobot 0030 lists exactly six formats in the coupling standard, three of th
 `better_human.soma` (record [0012](0012-bh-converted-archives.md)) and `better_human.frame_set` (record
 [0013](0013-bh-package-data-and-load-speed.md)). BetterHuman versions four more (`io.formats.LATEST`), all from 0013:
 `better_human.segmentation` and `better_human.density_tables` (package data) and `better_human.studio.segmentation` and
-`better_human.studio.pose` (the studio's files). Work package X1 put all seven on BetterHuman's page
-(`docs/contracts/coupling-standard.md`), which is a change to what 0030 lists and so needs a record (ruling R-3).
+`better_human.studio.pose` (the studio's files). BetterHuman's page (`docs/contracts/coupling-standard.md`) lists
+all seven, which is a change to what 0030 lists and so needs a record.
 
 ## Decision
 We will list on BetterHuman's coupling page every format `io.formats.LATEST` names, each with the same promise: a

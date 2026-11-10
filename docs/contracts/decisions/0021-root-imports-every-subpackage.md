@@ -5,7 +5,7 @@
 ## Context
 Principle 1.6 makes a package's `__all__` its public surface: the root's `__all__` lists its subpackages and the
 first-level names, and each public name has one import path, the root for a first-level name. The owner's migration
-plan (B11) lists `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio` in `better_human.__all__`, but the
+plan lists `core`, `families`, `io`, `mass`, `terms`, `viz` and `studio` in `better_human.__all__`, but the
 root listed `families` and `io` only, and 0011's table gave the root no edge to `studio`. The studio imports `Viewer`
 from `better_robot.viewer`, although BetterRobot's root lists it as a first-level name (BetterRobot 0019), and 0011's
 `BR_ALLOWED` row for the studio has no edge to BetterRobot's root.

@@ -6,8 +6,9 @@
 Record [0012](0012-bh-converted-archives.md) migrates a version-1 archive to version 2 in memory by adding
 `provenance="unknown (v1)"`. A version-1 SOMA archive is not without provenance: its converter (`tools/convert/soma/`)
 wrote a JSON field `source` naming the package, the asset tag and commit, and the assets' sha256. The migration that
-keeps it landed on 2026-11-06 (commit `0a25bb2`) together with an amendment section appended to 0012, which ruling R-3
-does not allow: an accepted record changes only in its Status line, so the amendment is this record.
+keeps it landed on 2026-11-06 (commit `0a25bb2`) together with an amendment section appended to 0012, which an
+accepted record's frozen text does not allow: an accepted record changes only in its Status line, so the amendment is
+this record.
 
 ## Decision
 We will turn a version-1 SOMA archive's `source` into its `provenance` and drop `source`, and make the reader require
