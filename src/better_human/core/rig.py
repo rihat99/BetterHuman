@@ -14,12 +14,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, final
 
 import torch
-from better_robot import Model
+from better_robot import KinematicState, Model
 from better_robot.exceptions import ArgumentError
 
 if TYPE_CHECKING:
-    from better_robot.kinematics import KinematicState
-
     from .spec import FamilySpec
 
 

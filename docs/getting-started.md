@@ -67,7 +67,7 @@ it unchanged. `vertices` (a property) skins the mesh on first access and memoise
 `human_layers` turns a posed batch into viewer layers: the batch axis is the timeline.
 
 ```python
-from better_robot.viewer import Viewer
+from better_robot import Viewer
 from better_human.viz import HUMAN_THEME, human_layers
 
 viewer = Viewer(theme=HUMAN_THEME)  # viser on 127.0.0.1:8080, +y up

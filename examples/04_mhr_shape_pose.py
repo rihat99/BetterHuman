@@ -12,9 +12,10 @@ import torch
 
 import better_human as bh
 from better_human.viz import HUMAN_THEME, HumanView
+from better_robot import Viewer
 from better_robot.kinematics import integrate
 from better_robot.testing import FakeServer
-from better_robot.viewer import GroundLayer, Viewer
+from better_robot.viewer import GroundLayer
 
 
 def main() -> None:

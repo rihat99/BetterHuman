@@ -11,11 +11,12 @@ from dataclasses import replace
 import numpy as np
 import pytest
 import torch
+from better_robot import Viewer
 from better_robot.exceptions import ArgumentError, ShapeError, UnknownNameError
 from better_robot.kinematics import integrate
 from better_robot.lie import se3
 from better_robot.testing import FakeServer
-from better_robot.viewer import SkinnedMeshLayer, Viewer
+from better_robot.viewer import SkinnedMeshLayer
 
 import better_human as bh
 from better_human.io import weight_path

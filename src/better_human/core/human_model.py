@@ -15,7 +15,7 @@ from typing import final
 from numbers import Real
 
 import torch
-from better_robot import Model
+from better_robot import KinematicState, Model, forward_kinematics
 from better_robot.exceptions import (
     ArgumentError,
     DeviceMismatchError,
@@ -23,7 +23,6 @@ from better_robot.exceptions import (
     ShapeError,
     UnknownNameError,
 )
-from better_robot.kinematics import KinematicState, forward_kinematics
 from better_robot.lie import so3
 
 from better_human.mass import PartTopology, part_densities, part_inertias

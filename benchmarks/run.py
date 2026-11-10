@@ -20,11 +20,10 @@ from typing import Any
 
 import numpy as np
 import torch
+from better_robot import forward_kinematics, inverse_dynamics
 from scipy.sparse import csr_matrix
 
 import better_human as bh
-from better_robot.dynamics import inverse_dynamics
-from better_robot.kinematics import forward_kinematics
 
 ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_PACKAGE_ROOT = ROOT / "references" / "parametric_body" / "smplx"

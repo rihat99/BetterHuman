@@ -14,10 +14,11 @@ import torch
 import better_human as bh
 from better_human import terms
 from better_human.viz import HUMAN_THEME, HumanView
+from better_robot import Viewer
 from better_robot.optim import LevenbergMarquardt, Problem, solve
 from better_robot.terms import RobotManifold
 from better_robot.testing import FakeServer
-from better_robot.viewer import GroundLayer, Viewer
+from better_robot.viewer import GroundLayer
 from better_robot.viewer.tools import PoseGizmo
 
 WRIST = "left_wrist"

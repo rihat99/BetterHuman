@@ -13,8 +13,9 @@ import torch
 import better_human as bh
 from better_human.families import SMPLXClassic
 from better_human.viz import HUMAN_THEME, human_layers
+from better_robot import Viewer
 from better_robot.testing import FakeServer
-from better_robot.viewer import GroundLayer, Viewer
+from better_robot.viewer import GroundLayer
 
 
 def main() -> None:
