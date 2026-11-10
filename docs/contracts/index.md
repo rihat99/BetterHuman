@@ -46,7 +46,8 @@ appears outside a rule's heading on a contracts page.
 | C-EXT-6 pre-1.0 versioning, the public API snapshot (BetterRobot 0024) | `tests/contract/test_api_snapshot.py`, `tests/contract/test_changelog.py` |
 | C-ERR-2 errors from the `BetterRobotError` tree (BetterRobot 0031) | `tests/contract/test_error_tree.py` |
 | C-PERF-3 the counters of the hot entry points do not grow (BetterRobot 0011): graph breaks, recompiles, top-level operators and host-syncing operators of the counter rows of `benchmarks/run.py` stay within `benchmarks/thresholds/torch-<version>.json`; marked `slow` | `tests/contract/test_compile_counters.py` |
-| C-NAME-2 descriptive names; one vocabulary (BetterRobot 0023, 0027, 0030) | `tests/contract/test_naming.py`, `tests/contract/test_vocabulary.py` |
+| C-NAME-2 descriptive names (BetterRobot 0023, 0027): the fields of `HumanModel`, `Identity` and `HumanState`, field by field | `tests/contract/test_naming.py` |
+| principles 3.4, 3.5, 3.8 and 3.9, one vocabulary: one name per thing, acronyms in capitals, no vague module name, every word of every public name in BetterHuman's or BetterRobot's glossary | `tests/contract/test_vocabulary.py` |
 | C-API-4 joints named, not indexed (BetterRobot 0029); no module named like a function (records [0010](decisions/0010-human-viz-surface.md), [0011](decisions/0011-human-package-layout.md)) | `tests/contract/test_public_surface.py` |
 | BetterRobot 0026, the coupling standard | `tests/contract/test_coupling_standard.py` |
 | BetterRobot 0033, the test tiers: nothing skips | `tests/contract/test_no_skips.py`, `tests/contract/test_pytest_config.py` |

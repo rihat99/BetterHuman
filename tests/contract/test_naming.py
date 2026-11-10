@@ -1,4 +1,4 @@
-"""BetterRobot record 0030's vocabulary on BetterHuman's three public records: their field tables, field by field.
+"""BetterRobot record 0027's vocabulary on BetterHuman's three public records: their field tables, field by field.
 
 Plural fields for per-joint and per-vertex tensors, ``_translations`` for positions, ``_ids`` for integer ids,
 ``_affines`` for ``(…, 3, 4)`` maps. A field added, renamed or removed changes this table in the same commit.
