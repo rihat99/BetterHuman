@@ -62,7 +62,10 @@ better_human -> better_robot.exceptions
 family table or viewer; `mass` reads no file: the family loaders read its data through `io` and hand it over.
 `studio`, the optional application (record [0009](../contracts/decisions/0009-studio-placement.md)), sits on top of
 everything but `terms`. Every BetterRobot import goes through BetterRobot's `__all__` tree, and a first-level name
-such as `Viewer` comes from BetterRobot's root (`tests/contract/test_br_imports.py`).
+such as `Viewer` comes from BetterRobot's root (`tests/contract/test_br_imports.py`). The one exception is
+`better_robot.viewer.tools` (the pose gizmo, the camera frustum, the ray and selection helpers), which the studio and
+the IK example import although it is outside that tree; whether it becomes public is BetterRobot's owner's decision,
+an open question of record 0021.
 
 ## Four records
 

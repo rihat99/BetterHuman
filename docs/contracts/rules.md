@@ -24,7 +24,9 @@ Enforcement: `tests/contract/test_layer_dependencies.py`.
 
 Every `better_robot` path a module imports is a path of BetterRobot's `__all__` tree, and a first-level name of
 BetterRobot's root comes from the root: `from better_robot import Viewer`, never
-`from better_robot.viewer import Viewer`.
+`from better_robot.viewer import Viewer`. The one exception: the studio and `examples/03_ik_reach.py` import `better_robot.viewer.tools` (`PoseGizmo`,
+`CameraFrustum`, the ray and selection helpers), which is outside BetterRobot's `__all__` tree; BetterRobot's owner decides whether that
+module becomes public (an open question of record [0021](decisions/0021-root-imports-every-subpackage.md)).
 
 Rationale: BetterRobot's compatibility promise covers its public tree only, and one import path per name keeps a
 rename in BetterRobot to one edit here.
@@ -125,7 +127,9 @@ Enforcement: `tests/contract/test_golden_provenance.py`.
 `better_human.studio` imports only names of BetterHuman's and BetterRobot's `__all__` trees from outside itself,
 reads no `_` attribute its own class does not define (a studio layer may call the subclass hooks BetterRobot's
 `Layer` documents), and writes no environment variable (decision record [0009](decisions/0009-studio-placement.md)).
-A viewer feature that is not human-specific goes to BetterRobot.
+A viewer feature that is not human-specific goes to BetterRobot. The one exception is H-LAYER-2's:
+`better_robot.viewer.tools`, outside BetterRobot's `__all__` tree, until BetterRobot's owner decides whether it
+becomes public.
 
 Rationale: the studio is the first application on the libraries; whatever it needs, every application needs.
 Example: `src/better_human/studio/layers.py::SegmentationLayer` subclasses `better_robot.viewer.Layer`.

@@ -31,7 +31,8 @@ def _public_paths() -> frozenset[str]:
     packages = [
         "better_human",
         "better_robot",
-        # BetterRobot documents its viewer tools as public, but better_robot.viewer's __all__ does not list them yet.
+        # The one exception (rules H-LAYER-2, H-STUDIO-1): the studio imports better_robot.viewer.tools, which is
+        # outside BetterRobot's __all__ tree; BetterRobot's owner decides whether it becomes public (record 0021).
         "better_robot.viewer.tools",
     ]
     return frozenset(path for package in packages for path in public_objects(package))

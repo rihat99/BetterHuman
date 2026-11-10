@@ -3,7 +3,8 @@
 Every ``better_robot`` path that a module of ``src`` or ``examples`` imports (``import a.b`` or ``from a import b``,
 wherever the import sits) is a path of BetterRobot's ``__all__`` tree (``better_robot.testing.public_objects``), and
 a first-level name of BetterRobot's root is imported from the root: ``from better_robot import Viewer``, never
-``from better_robot.viewer import Viewer``, so each name has one import path.
+``from better_robot.viewer import Viewer``, so each name has one import path. The one exception is
+``better_robot.viewer.tools``, named in ``PUBLIC``.
 """
 
 from __future__ import annotations
@@ -17,7 +18,9 @@ from better_robot.testing import public_objects
 REPO = Path(__file__).resolve().parents[2]
 PUBLIC = {
     **public_objects("better_robot"),
-    # BetterRobot documents its viewer tools as public, but better_robot.viewer's __all__ does not list them yet.
+    # The one exception (rules H-LAYER-2, H-STUDIO-1): the studio and examples/03_ik_reach.py import
+    # better_robot.viewer.tools, which is outside BetterRobot's __all__ tree; BetterRobot's owner decides whether it
+    # becomes public (record 0021).
     **public_objects("better_robot.viewer.tools"),
 }
 
