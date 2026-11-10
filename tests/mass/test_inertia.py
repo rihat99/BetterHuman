@@ -218,7 +218,7 @@ def test_argmax_segmentation_cross_check_against_canonical_membership(mass_body:
     )
     overlap_counts = Counter(vertex for vertices in memberships.values() for vertex in vertices)
     assert mismatches == 113
-    assert sum(count > 1 for count in overlap_counts.values()) == 582
+    assert sum(count > 1 for count in overlap_counts.values()) == 580  # 582 with the two shoulder fin faces
 
 
 @pytest.mark.licensed

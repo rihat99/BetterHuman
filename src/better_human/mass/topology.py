@@ -50,13 +50,14 @@ class PartTopology:
         """The topology of authored closed parts: ``closed_faces[p] (F_p, 3)`` indexes ``[vertices; joints]``.
 
         An index ``>= V`` is a joint capping the part. The winding is fixed once on the reference geometry with
-        :func:`~better_robot.spatial.orient_faces_by_component`, which tolerates the open, non-manifold shoulder seam,
-        so the face tables are static and the integration downstream stays differentiable.
+        :func:`~better_robot.spatial.orient_faces_by_component`, so the face tables are static and the integration
+        downstream stays differentiable.
 
         :param closed_faces: part ``0..P-1`` -> its ``(F_p, 3)`` long faces.
         :param reference_vertices: ``(V, 3)`` rest mesh used to orient the faces.
         :param reference_joints: ``(J, 3)`` rest joints, the caps.
-        :raises ~better_robot.exceptions.ArgumentError: for a part with an index outside ``[0, V + J)``.
+        :raises ~better_robot.exceptions.ArgumentError: for a part with an index outside ``[0, V + J)``, or one that
+            is not a closed, consistently wound mesh.
         """
         num_vertices, num_joints = reference_vertices.shape[0], reference_joints.shape[0]
         for part, part_faces in closed_faces.items():
@@ -80,9 +81,12 @@ class PartTopology:
             local[mesh_ids] = torch.arange(mesh_ids.numel(), device=global_faces.device)
             local[num_vertices + cap_ids] = mesh_ids.numel() + torch.arange(cap_ids.numel(), device=global_faces.device)
             reference_mesh = torch.cat((reference_vertices[mesh_ids], reference_joints[cap_ids]), dim=0)
+            oriented = orient_faces_by_component(reference_mesh, local[global_faces])
+            if not _is_closed(oriented.tolist()):
+                raise ArgumentError(f"closed part {part} is not a closed, consistently wound mesh; pass closed parts")
             vertex_tables.append(mesh_ids)
             cap_tables.append(cap_ids)
-            face_tables.append(orient_faces_by_component(reference_mesh, local[global_faces]))
+            face_tables.append(oriented)
         no_centroids: tuple[tuple[torch.Tensor, ...], ...] = ((),) * len(face_tables)
         return cls(tuple(vertex_tables), tuple(cap_tables), no_centroids, tuple(face_tables))
 
@@ -147,8 +151,7 @@ class PartTopology:
                 if len(junctions) > 2:
                     corners = tuple(loop[index] for index in junctions)
                     cap(corners, corners)
-            closed_counts = Counter(edge for face in local_faces for edge in _edges(face))
-            if any(count != 1 or closed_counts[(end, start)] != 1 for (start, end), count in closed_counts.items()):
+            if not _is_closed(local_faces):
                 raise ArgumentError(f"part {part} does not close into a consistently wound mesh")
             vertex_tables.append(torch.tensor(used_vertices, dtype=torch.long, device=faces.device))
             centroid_tables.append(
@@ -203,6 +206,12 @@ def _edges(face: Sequence[int]) -> tuple[tuple[int, int], ...]:
     """The three directed edges of a triangle, in its winding."""
     a, b, c = face
     return (a, b), (b, c), (c, a)
+
+
+def _is_closed(faces: Sequence[Sequence[int]]) -> bool:
+    """Whether every directed edge of ``faces`` occurs once and its reverse once: closed and consistently wound."""
+    counts = Counter(edge for face in faces for edge in _edges(face))
+    return all(count == 1 and counts[(end, start)] == 1 for (start, end), count in counts.items())
 
 
 def _boundary_loops(part_faces: list[tuple[int, int, int]]) -> tuple[tuple[int, ...], ...]:

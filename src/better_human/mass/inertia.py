@@ -29,7 +29,7 @@ def part_inertias(
         :class:`~better_robot.exceptions.ArgumentError` for a face id outside the mesh, a density that is not finite and
         positive, or a degenerate part. ``HumanModel.from_spec`` checks once; bakes integrate unchecked.
     Raises :class:`~better_robot.exceptions.ShapeError` for ``part_poses`` that are neither positions nor poses.
-    Each part is integrated about its own vertices, which is exact for the open seam parts too.
+    Each part is integrated about its own vertices.
     """
     if part_poses.shape[-1] not in (3, 7):
         raise ShapeError(f"part_poses must have shape (..., P, 3) or (..., P, 7); got {tuple(part_poses.shape)}")

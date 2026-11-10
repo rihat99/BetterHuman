@@ -76,3 +76,12 @@ def test_an_authored_part_indexing_past_the_joints_is_an_argument_error() -> Non
     faces = {0: torch.tensor([[0, 1, 2], [0, 2, 4], [0, 4, 1], [1, 4, 2]]), 1: torch.tensor([[0, 1, 5]])}
     with pytest.raises(ArgumentError, match=r"closed part 1 indexes outside \[0, 5\)"):
         PartTopology.from_closed_faces(faces, reference_vertices=vertices, reference_joints=joints)
+
+
+def test_an_authored_part_that_is_open_is_an_argument_error() -> None:
+    vertices, joints = torch.eye(4, 3, dtype=torch.float64), torch.zeros(1, 3, dtype=torch.float64)
+    tetrahedron = torch.tensor([[0, 1, 2], [0, 2, 4], [0, 4, 1], [1, 4, 2]])
+    with pytest.raises(ArgumentError, match="closed part 1 is not a closed, consistently wound mesh"):
+        PartTopology.from_closed_faces(
+            {0: tetrahedron, 1: tetrahedron[:3]}, reference_vertices=vertices, reference_joints=joints
+        )
