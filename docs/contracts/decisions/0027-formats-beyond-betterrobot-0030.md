@@ -12,7 +12,9 @@ BetterRobot 0030 lists exactly six formats in the coupling standard, three of th
 
 ## Decision
 We will list on BetterHuman's coupling page every format `io.formats.LATEST` names, each with the same promise: a
-`format` and a `format_version` field, and every version written stays readable. BetterRobot's page keeps 0030's
+`format` and a `format_version` field, and every version written stays readable, with one exception: the studio
+pose format refuses version 0, the format-less files the studio wrote before poses named a format, because they lack
+the joint names a version-1 file needs (`docs/reference/formats/studio_pose.md`). BetterRobot's page keeps 0030's
 three BetterHuman formats, the ones another repository reads; the four others are read and written by BetterHuman and
 its studio.
 
@@ -41,3 +43,5 @@ None: the formats and their readers exist; only the page changed.
 ## Open questions
 1. BetterHuman cannot write BetterRobot 0030's Status line: does BetterRobot record this amendment of 0030's list
    itself, or is this record enough?
+2. The coupling page's `better_human.studio.pose` row, a frozen line, states the promise without the version-0
+   exception; correcting it changes a frozen line of the coupling standard, which needs the owner's decision.
