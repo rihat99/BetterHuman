@@ -1,8 +1,14 @@
-"""Headless HumanStudio tests on the fake viser server."""
+"""Headless HumanStudio tests on the studio's stand-in viser server.
+
+The unmarked tests run the app on the random-weight SMPL archive (record 0016) in the full tier, found through
+``$BETTERHUMAN_MODELS_DIR`` as a user's weights are; the ``licensed`` ones on the real weights.
+"""
 
 from __future__ import annotations
 
+import json
 import shutil
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,7 +17,10 @@ import pytest
 import torch
 import viser
 
+from better_robot.exceptions import ArgumentError
+
 from better_human.studio import state as studio_state
+from better_human.studio.__main__ import main
 from better_human.studio.app import HumanStudio
 from tests.studio.fake_server import FakeHandle, FakeServer
 
@@ -19,6 +28,69 @@ from tests.studio.fake_server import FakeHandle, FakeServer
 @pytest.fixture
 def studio(tmp_path: Path):
     return HumanStudio(server=FakeServer(), data_root=tmp_path, generator=np.random.default_rng(0))
+
+
+SMPL_RANDOM = Path(__file__).parents[1] / "support" / "random_weights" / "smpl_random.npz"
+
+
+@pytest.fixture
+def random_studio(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> HumanStudio:
+    """The app on the random SMPL archive, placed where ``families.smpl`` looks for the neutral model."""
+    models = tmp_path / "models"
+    (models / "smpl").mkdir(parents=True)
+    shutil.copy(SMPL_RANDOM, models / "smpl" / "SMPL_NEUTRAL.npz")
+    monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(models))
+    return HumanStudio(server=FakeServer(), data_root=tmp_path / "data", generator=np.random.default_rng(0))
+
+
+def test_the_studio_runs_on_the_stand_in_server(random_studio: HumanStudio) -> None:
+    """Smoke test (record 0009): load, pose, shape, segment, frame and save on the random-weight archive."""
+    studio = random_studio
+    assert studio.status.startswith("smpl_neutral loaded")
+    joint = studio.session.state.joint_translations.detach().reshape(-1, 3)[5].numpy()
+    _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
+    assert studio.gizmo.joint == 5
+    before = studio.session.vertices.clone()
+    studio.random_shape("betas")
+    assert not torch.equal(before, studio.session.vertices)
+    studio.segment.load_builtin()
+    assert len(studio.session.part_names) == 24
+    studio.segment.save("builtin")
+    studio.frames.add_at(studio.session.vertices[100].detach().numpy())
+    studio.frames.save("frames")
+    path = studio.save_pose("pose")
+    saved = sorted(file.relative_to(studio.paths.root).parts for file in studio.paths.root.rglob("*.json"))
+    assert saved == [
+        ("frames", "smpl_neutral", "frames.json"),
+        ("poses", "smpl_neutral", "pose.json"),
+        ("segmentations", "smpl_neutral", "builtin.json"),
+    ]
+    assert json.loads(path.read_text())["joint_names"] == list(studio.session.identity.model.joint_names)
+
+
+def test_the_same_seed_draws_the_same_shape(random_studio: HumanStudio, tmp_path: Path) -> None:
+    other = HumanStudio(server=FakeServer(), data_root=tmp_path / "other", generator=np.random.default_rng(0))
+    random_studio.random_shape("betas")
+    other.random_shape("betas")
+    assert torch.equal(random_studio.session.vertices, other.session.vertices)
+
+
+def test_a_pose_saved_on_other_joints_is_refused_on_the_status_line(random_studio: HumanStudio) -> None:
+    path = random_studio.save_pose("pose")
+    payload = json.loads(path.read_text())
+    path.write_text(json.dumps({**payload, "joint_names": payload["joint_names"][:-1]}))
+    with pytest.raises(ArgumentError, match="follows other joints than the smpl_neutral model's"):
+        random_studio.load_pose("pose")
+    random_studio.locked(lambda _event: random_studio.load_pose("pose"))(None)
+    assert random_studio.status.startswith("ArgumentError: ") and "other joints" in random_studio.status
+
+
+def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
+    monkeypatch.setattr(sys, "argv", ["python -m better_human.studio", "--family", "smpl"])
+    with pytest.raises(SystemExit) as exit_info:
+        main()
+    assert exit_info.value.code == 2
+    assert "the following arguments are required: --data-root" in capsys.readouterr().err
 
 
 def _click(studio, origin, target) -> None:
