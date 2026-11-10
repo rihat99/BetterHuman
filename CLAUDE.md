@@ -77,6 +77,8 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   (`tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`).
 - No `to` method: dtype and device are chosen at load, and a tensor in another dtype raises
   (`tests/contract/test_dtype_device.py`); no mutable public dataclass (`tests/contract/test_frozen.py`).
+- No cache beyond `HumanState._memo` and `Identity._frame_placements` (record 0028), and no `functools` cache outside
+  the reasoned `FUNCTOOLS_CACHES` (`tests/contract/test_caches.py`).
 - No public callable with more than two positional parameters (`tests/contract/test_keyword_only.py`); no public
   function takes a joint index, and no module shares a name with an exported function
   (`tests/contract/test_public_surface.py`).
