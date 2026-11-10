@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from better_robot.exceptions import ArgumentError
+from better_robot.exceptions import ArgumentError, ShapeError
 
 import better_human as bh
 from better_human.core import ClassicFormat
@@ -240,6 +240,22 @@ def test_smpl_family_axis_angles_keep_the_quaternion_sign(tmp_path: Path) -> Non
     negated = torch.cat((q[:7], -q[7:]))
     _, q_back, _ = bh.from_classic(human, bh.to_classic(identity, negated, streams=streams))
     torch.testing.assert_close(q_back, negated, rtol=0, atol=1e-12)
+
+
+def test_misused_arguments_raise_library_errors(tmp_path: Path) -> None:
+    """Principle 2.7: batches that do not broadcast raise ``ShapeError`` naming them, and the other function's first
+    argument raises ``ArgumentError``, instead of torch's ``RuntimeError`` or an ``AttributeError``."""
+    human = bh.HumanModel.from_spec(flame_spec(tmp_path), density=None)
+    betas, global_orient = torch.zeros(2, 100, dtype=F64), torch.zeros(3, 3, dtype=F64)
+    with pytest.raises(ShapeError, match=r"betas \(2,\), global_orient \(3,\) do not broadcast"):
+        bh.from_classic(human, FLAMEClassic(betas=betas, global_orient=global_orient))
+    identity = human.bake(betas=betas)
+    with pytest.raises(ShapeError, match=r"q \(3,\), identity \(2,\) do not broadcast"):
+        bh.to_classic(identity, human.model.q_neutral.expand(3, -1))
+    with pytest.raises(ArgumentError, match="to_classic takes an Identity first"):
+        bh.to_classic(human, human.model.q_neutral)
+    with pytest.raises(ArgumentError, match="from_classic takes a HumanModel first"):
+        bh.from_classic(identity, FLAMEClassic())
 
 
 def test_a_hand_pca_field_cannot_lose_some_of_its_joints(tmp_path: Path) -> None:

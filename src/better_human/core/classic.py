@@ -13,12 +13,11 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 import torch
-from better_robot.exceptions import ArgumentError, UnknownNameError
+from better_robot.exceptions import ArgumentError, ShapeError, UnknownNameError
 
-from .human_model import _checked, _checked_groups
+from .human_model import HumanModel, Identity, _checked, _checked_groups
 
 if TYPE_CHECKING:
-    from .human_model import HumanModel, Identity
     from .spec import FamilySpec
 
 
@@ -54,12 +53,15 @@ class ClassicFormat(ABC):
 def from_classic(human: HumanModel, classic: Any) -> tuple[Identity, torch.Tensor, dict[str, torch.Tensor]]:
     """``(identity, q (..., nq), streams)`` of a family's ``*Classic`` parameters; the identity is baked from them.
 
-    An omitted field is zero. Raises :class:`~better_robot.exceptions.ArgumentError` when ``classic`` is not the
-    family's ``*Classic`` or sets a field the model was loaded without (``hands=False``, ``face=False``,
-    ``expression=False``); :class:`~better_robot.exceptions.ShapeError`,
+    An omitted field is zero. Raises :class:`~better_robot.exceptions.ArgumentError` when ``human`` is not a
+    :class:`HumanModel`, when ``classic`` is not the family's ``*Classic`` or sets a field the model was loaded without
+    (``hands=False``, ``face=False``, ``expression=False``); :class:`~better_robot.exceptions.ShapeError`,
     :class:`~better_robot.exceptions.DtypeMismatchError` or :class:`~better_robot.exceptions.DeviceMismatchError`
-    for a field of another trailing shape, dtype or device; ``TypeError`` for a field that is not a floating tensor.
+    for a field of another trailing shape, dtype or device, and ``ShapeError`` for fields whose batch shapes do not
+    broadcast; ``TypeError`` for a field that is not a floating tensor.
     """
+    if not isinstance(human, HumanModel):
+        raise ArgumentError(f"from_classic takes a HumanModel first, got {type(human).__name__}")
     spec = human.spec
     classic_format = spec.classic
     if not isinstance(classic, classic_format.classic_type):
@@ -69,18 +71,21 @@ def from_classic(human: HumanModel, classic: Any) -> tuple[Identity, torch.Tenso
         )
     shapes = classic_format.field_shapes(spec)
     exemplar = spec.template_vertices
-    fields = {}
+    fields, batches = {}, {}
     for name in (field.name for field in dataclasses.fields(classic)):
         value = getattr(classic, name)
         if name in shapes:
-            fields[name] = (
-                exemplar.new_zeros(shapes[name]) if value is None else _checked(name, value, shapes[name], exemplar)
-            )
+            if value is None:
+                fields[name] = exemplar.new_zeros(shapes[name])
+                continue
+            fields[name] = _checked(name, value, shapes[name], exemplar)
+            batches[name] = value.shape[: value.dim() - len(shapes[name])]
         elif value is not None:
             raise ArgumentError(
                 f"from_classic: this {spec.name} model was loaded without {name} (hands=False, face=False or "
                 "expression=False); leave it None"
             )
+    _broadcast("from_classic", batches)
     return classic_format.from_fields(human, fields)
 
 
@@ -89,9 +94,16 @@ def to_classic(identity: Identity, q: torch.Tensor, *, streams: Mapping[str, tor
 
     Every field comes back at the batch of ``q``, the streams and the identity broadcast together; an omitted stream
     group is zero, and a field the model was loaded without is ``None``. Raises
+    :class:`~better_robot.exceptions.ArgumentError` when ``identity`` is not an :class:`Identity`,
     :class:`~better_robot.exceptions.UnknownNameError` for a stream group the family does not have, and the errors of
-    :func:`from_classic` for ``q`` or a stream of another shape, dtype or device.
+    :func:`from_classic` for ``q`` or a stream of another shape, dtype or device, or whose batch shapes do not
+    broadcast with each other and the identity's.
     """
+    if not isinstance(identity, Identity):
+        raise ArgumentError(
+            f"to_classic takes an Identity first (HumanModel.bake or from_classic returns one), "
+            f"got {type(identity).__name__}"
+        )
     spec = identity.human.spec
     exemplar = spec.template_vertices
     streams = dict(streams or {})
@@ -100,8 +112,13 @@ def to_classic(identity: Identity, q: torch.Tensor, *, streams: Mapping[str, tor
             raise UnknownNameError("stream group", name, list(spec.stream_bases))
     q = _checked("q", q, (identity.model.nq,), exemplar)
     streams = _checked_groups(streams, spec.stream_groups, exemplar, require_all=False)
-    batch = torch.broadcast_shapes(
-        q.shape[:-1], identity.root_offset.shape[:-1], *(value.shape[:-1] for value in streams.values())
+    batch = _broadcast(
+        "to_classic",
+        {
+            "q": q.shape[:-1],
+            "identity": identity.root_offset.shape[:-1],
+            **{name: value.shape[:-1] for name, value in streams.items()},
+        },
     )
     streams = {
         name: streams[name].expand(*batch, width) if name in streams else exemplar.new_zeros((*batch, width))
@@ -109,6 +126,19 @@ def to_classic(identity: Identity, q: torch.Tensor, *, streams: Mapping[str, tor
     }
     fields = spec.classic.to_fields(identity, q.expand(*batch, identity.model.nq), streams=streams)
     return spec.classic.classic_type(**fields)
+
+
+def _broadcast(function: str, batches: Mapping[str, torch.Size]) -> torch.Size:
+    """The leading batch shapes ``batches`` broadcast together; :class:`~better_robot.exceptions.ShapeError` naming
+    each one when they do not."""
+    try:
+        return torch.broadcast_shapes(*batches.values())
+    except RuntimeError:
+        listed = ", ".join(f"{name} {tuple(shape)}" for name, shape in batches.items())
+        raise ShapeError(
+            f"{function}: the batch shapes {listed} do not broadcast; give them one batch shape, or 1 on the axes to "
+            "broadcast"
+        ) from None
 
 
 __all__ = ["ClassicFormat", "from_classic", "to_classic"]
