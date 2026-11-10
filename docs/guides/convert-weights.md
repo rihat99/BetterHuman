@@ -1,8 +1,10 @@
 # Convert weights
 
 Some families are released in a form the loaders do not read: SMPL as a Chumpy pickle, MHR and SOMA as their
-authors' asset folders. This guide turns each into the file [Load a family](load-a-family.md) expects. SMPL-H,
-SMPL-X, MANO and FLAME are released as `.npz` files and need no conversion; put them in the layout of that guide.
+authors' asset folders. This guide turns each into the file [Load a family](load-a-family.md) expects. SMPL-H and
+SMPL-X are released as `.npz` files and need no conversion; put them in the layout of that guide. MANO and FLAME are
+released as Chumpy pickles (`MANO_RIGHT.pkl`, `generic_model.pkl`), and no converter here reads them:
+`convert_chumpy.py` takes `--model smpl` only.
 Every converter runs from the repository root, reads the files you downloaded and writes under
 `$BETTERHUMAN_MODELS_DIR`; nothing it writes is committed.
 

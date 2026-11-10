@@ -36,7 +36,9 @@ FOLDER_REASONS = {
     ),
 }
 LICENSED = {
-    "docs/guides/load-a-family.md": "it teaches loading every family's licensed weights from $BETTERHUMAN_MODELS_DIR",
+    "docs/guides/load-a-family.md": (
+        "it loads the licensed SMPL, SMPL-X, MHR and SOMA weights from $BETTERHUMAN_MODELS_DIR"
+    ),
 }
 #: The folders an unlisted page may read weights from: the random-weight archives and the package data.
 WEIGHT_FOLDERS = (REPO / "tests" / "support", REPO / "src" / "better_human" / "io" / "assets")

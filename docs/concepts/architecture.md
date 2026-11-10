@@ -76,7 +76,8 @@ weight file --families.<f>(path, dtype=, device=)--> FamilySpec --HumanModel.fro
 
 - **`FamilySpec`** (`src/better_human/core/spec.py`) is frozen, typed data: the template mesh, the skinning weights,
   the joint tree, the identity and stream blend shapes, the pose corrective, the parts and their density categories,
-  the landmarks and the classic format. Its one behavioural member is `rig`.
+  the landmarks and the classic format. Its behaviour lives in `rig`; its methods (`joint_id`, `skin_matrix`) and
+  properties (the sizes, dtype and device) only read the data.
 - **`HumanModel`** (`src/better_human/core/human_model.py`) is built once from a spec with the body's options
   (`density`, `contact_frames`, `stream_joints`); `bh.load(family)` runs the family's loader with its defaults and
   `HumanModel.from_spec` in one step. Dtype and device are chosen there and never change (record
@@ -87,7 +88,8 @@ weight file --families.<f>(path, dtype=, device=)--> FamilySpec --HumanModel.fro
   output (joint transforms, skin affines, vertices, frame poses) on first use, then keeps it. A new pose is a new
   state; a state is never changed.
 
-The three records are frozen and compare by identity (record [0001](../contracts/decisions/0001-human-model.md)).
+All four records are frozen; `HumanModel`, `Identity` and `HumanState` compare by identity (record
+[0001](../contracts/decisions/0001-human-model.md)).
 The [coupling standard](../contracts/coupling-standard.md) gives the shape and layout of every `HumanState` output,
 and the [API reference](../reference/api/core.md) every member.
 

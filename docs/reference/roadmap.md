@@ -30,7 +30,7 @@ BetterRobot's roadmap.
 
 | Brick | Why | Prerequisite | When |
 |---|---|---|---|
-| `Motion` type for clips | one clip object for import, studio and dynamics | BetterRobot `Trajectory` (now) | next |
+| `Motion` type for clips | one clip object for import, studio and dynamics | none; BetterRobot has no clip or trajectory type to build on | next |
 | Mocap import: C3D, BVH, AMASS | gait labs, datasets | `Motion` type | next |
 | Marker sets and virtual markers for OpenSim-style marker IK | biomechanics labs | mocap import | later |
 | Force-plate / ground-reaction input | gait dynamics | BetterRobot `external_forces` input, contact frames | later |
