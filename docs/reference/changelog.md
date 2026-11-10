@@ -94,6 +94,8 @@ line that 0.2.0 renames or removes, one table row each.
   <index>`, and runs the full tier a second time with BetterRobot's internal checks on. Ruff selects BetterRobot's
   rules; no code changes process-wide torch settings (C-DEP-3) but the benchmark runner and the oracle dumps, each
   with its reason.
+- BetterHuman depends on BetterRobot 0.3.0 at one git revision, which `[tool.uv.sources]` in `pyproject.toml` pins;
+  `uv sync` fetches it, so no BetterRobot checkout beside BetterHuman is needed.
 
 ### Removed
 - `Body`: use `HumanModel` and `HumanModel.from_spec`.
