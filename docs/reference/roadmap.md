@@ -96,7 +96,7 @@ BetterRobot's roadmap.
   `FamilySpec.meta` is gone (record 0008).
 - Time semantics: a clip is `(B, T, nq)` with `fps`/`times` following
   BetterRobot's viewer time model ([addendum](../contracts/bh-addendum.md)).
-- The [studio](../studio.md) registers pointer tools through BetterRobot's
+- The [studio](../guides/use-the-studio.md) registers pointer tools through BetterRobot's
   `Viewer.on_pointer` / `clear_pointer` and picking helper, and resets the
   active frame on a model switch.
 - The MHR runtime is a loader (`src/better_human/families/mhr_family.py`) and a rig (`src/better_human/families/mhr_rig.py`,

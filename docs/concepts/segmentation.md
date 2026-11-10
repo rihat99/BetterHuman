@@ -134,4 +134,4 @@ are absent. Inspect every changed PNG; unchanged inputs give the same bytes.
 ## Where next
 
 - [Architecture](architecture.md): where parts live in the package.
-- [Studio](../studio.md): paint and inspect parts interactively.
+- [Studio](../guides/use-the-studio.md): paint and inspect parts interactively.

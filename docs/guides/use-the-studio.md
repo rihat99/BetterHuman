@@ -4,7 +4,7 @@ HumanStudio is a browser app (viser) for authoring data on SMPL, SMPL-X and MHR 
 mass density, vertex segmentations (body parts) and named contact frames. Everything it saves is a plain
 versioned JSON file under the data root you pass, so scripts can load the same data without the app.
 
-![HumanStudio, segmentation colours](images/studio_segmentation.png)
+![HumanStudio, segmentation colours](../images/studio_segmentation.png)
 
 ## Launch
 
@@ -66,7 +66,7 @@ away from the centre so parts are easy to inspect. All three change the live sce
   skinning-weight partition shipped with the model), **Reset to skinning**, and **Build bodies**,
   which prints the mass of each part.
 
-![HumanStudio, parts with contact frames and skeleton](images/studio_frames_skeleton.png)
+![HumanStudio, parts with contact frames and skeleton](../images/studio_frames_skeleton.png)
 
 ### Frames
 
@@ -93,7 +93,7 @@ them. MHR takes no contact frames, so adding one there is refused on the status 
 `<key>` names the model, for example `smplx_neutral` or `mhr_lod1`, so sets saved for one body
 never load onto another. The SMPL-X contact set ships as package data,
 `better_human.io.shipped_frame_set("smplx_contacts")`, not as a file under the data root. A frame-set file is the
-versioned format `better_human.frame_set` ([spec](reference/formats/frame_set.md)).
+versioned format `better_human.frame_set` ([spec](../reference/formats/frame_set.md)).
 
 ## Known limitations
 

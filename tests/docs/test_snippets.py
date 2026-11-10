@@ -111,7 +111,7 @@ def test_output_fences_follow_python(page: Path) -> None:
 
 
 @pytest.mark.licensed
-@pytest.mark.parametrize("page", [DOCS / "index.md", DOCS / "getting-started.md"], ids=lambda p: p.name)
+@pytest.mark.parametrize("page", [DOCS / "index.md", DOCS / "getting-started" / "first-human.md"], ids=lambda p: p.name)
 def test_getting_started_outputs_fresh(page: Path) -> None:
     """The first line of each output pane matches what the preceding block really prints (cheap staleness guard)."""
     text = page.read_text()

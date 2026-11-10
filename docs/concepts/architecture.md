@@ -218,6 +218,6 @@ The mass package reads no file: the segmentation and the density tables are vers
 
 ## Where next
 - [Segmentation](segmentation.md): how bodies split into parts.
-- [Studio](../studio.md): look at a body and edit its parts and frames.
+- [Studio](../guides/use-the-studio.md): look at a body and edit its parts and frames.
 - [Contracts](../contracts/index.md): the rules these layers obey, parity gates and tolerances.
 - [Vision and roadmap](../reference/roadmap.md): what BetterHuman is for, what landed, and what comes next.

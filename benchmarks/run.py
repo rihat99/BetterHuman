@@ -38,7 +38,7 @@ warm-up call, with the minor page faults per call; the counters are taken after 
 load average sits beside every row. For rows at batch >= ``LARGE_BATCH`` the runner re-executes itself with glibc's
 allocator thresholds fixed (``FIXED_MALLOC``; they must be set before the process starts) and records that time and
 its page faults beside the default ones: the default allocator's dynamic mmap threshold depends on what the process
-freed before. On a host with transparent huge pages a load can stall for seconds (``docs/contributing/testing.md``,
+freed before. On a host with transparent huge pages a load can stall for seconds (``docs/guides/run-the-tests.md``,
 "Timing on a busy host"), so time loads with ``NUMPY_MADVISE_HUGEPAGE=0``; ``meta`` records the setting.
 
 Every number is float32, ``--threads`` Torch threads (default 1), ``BETTER_ROBOT_INTERNAL_CHECKS`` off. Output:

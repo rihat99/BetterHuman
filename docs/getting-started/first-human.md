@@ -77,10 +77,10 @@ viewer.show(3)                    # jump to the most bent frame
 
 For interactive work on one body (shape sliders, part painting, contact frames) use HumanStudio:
 
-![HumanStudio showing segmentation colours](images/studio_segmentation.png)
+![HumanStudio showing segmentation colours](../images/studio_segmentation.png)
 
 ## Where next
 
-- [Architecture](concepts/architecture.md): what BetterHuman adds on top of BetterRobot.
-- [Segmentation](concepts/segmentation.md): how the mesh splits into parts and masses.
-- [Studio](studio.md): launch flags and the sidebar.
+- [Architecture](../concepts/architecture.md): what BetterHuman adds on top of BetterRobot.
+- [Segmentation](../concepts/segmentation.md): how the mesh splits into parts and masses.
+- [Studio](../guides/use-the-studio.md): launch flags and the sidebar.

@@ -49,7 +49,7 @@ Every SMPL joint is a ball joint (4 numbers in `q`, 3 in `v`) under a free-flyer
 
     Install, point at the weights, load, pose and view a body.
 
-    [Getting started](getting-started.md)
+    [Getting started](getting-started/first-human.md)
 
 -   **Concepts**
 
@@ -65,6 +65,6 @@ Every SMPL joint is a ball joint (4 numbers in `q`, 3 in `v`) under a free-flyer
 
     A browser app to look at a body, paint its parts and place contact frames.
 
-    [HumanStudio](studio.md)
+    [HumanStudio](guides/use-the-studio.md)
 
 </div>

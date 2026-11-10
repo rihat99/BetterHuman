@@ -93,13 +93,14 @@ plugins:
 
 nav:
   - Home: index.md
-  - Getting started: getting-started.md
+  - Getting started:
+      - getting-started/first-human.md
   - Concepts:
       - concepts/architecture.md
       - concepts/segmentation.md
-  - Studio: studio.md
-  - Contributing:
-      - Testing: contributing/testing.md
+  - Guides:
+      - guides/use-the-studio.md
+      - guides/run-the-tests.md
   - Reference:
       - reference/glossary.md
       - reference/roadmap.md
