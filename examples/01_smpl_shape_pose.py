@@ -1,14 +1,16 @@
 """SMPL shape and pose sliders on the BetterRobot viewer.
 
 uv run python examples/01_smpl_shape_pose.py            # open the printed URL
-uv run python examples/01_smpl_shape_pose.py --check    # build the scene on the stand-in server, move sliders once, exit
+uv run python examples/01_smpl_shape_pose.py --check    # on the stand-in server: bend the elbow once, check it, exit
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 
 import better_human as bh
@@ -73,9 +75,16 @@ def main() -> None:
     if args.check:
         betas[0] = 2.0
         identity = human.bake(betas=betas)
+        refresh()
+        mesh = view.layers[0]
+        before = mesh.vertices.copy()
         tangent[human.model.idx_vs[human.model.joint_id("left_elbow")] + 1] = 1.0
         refresh()
-        print(f"scene with {len(view.layers)} layers; elbow bent, beta0 = 2")
+        # The bend alone (shape drawn before it): the drawn forearm moves 0.48 m on SMPL, 0.73 m on the random archive.
+        bend = float(np.linalg.norm(mesh.vertices - before, axis=-1).max())
+        if bend < 0.05:
+            sys.exit(f"--check: the elbow bend moved the drawn mesh {bend:.4f} m; expected over 0.05 m")
+        print(f"scene with {len(view.layers)} layers; beta0 = 2, elbow bent: drawn mesh moved {bend:.2f} m")
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
     viewer.server.sleep_forever()

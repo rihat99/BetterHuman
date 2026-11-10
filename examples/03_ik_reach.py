@@ -6,6 +6,7 @@ uv run python examples/03_ik_reach.py [--check]   # --check: move the target onc
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,8 @@ from better_robot.viewer import GroundLayer
 from better_robot.viewer.tools import PoseGizmo
 
 WRIST = "left_wrist"
+#: The wrist reaches the moved target to this distance (metres); a solve that does not converge misses by ~0.19 m.
+REACH_TOLERANCE_M = 1e-4
 
 
 def main() -> None:
@@ -62,8 +65,10 @@ def main() -> None:
         moved = target.clone()
         moved[:3] += torch.tensor([0.15, 0.10, 0.05])
         follow(moved.numpy())
-        reached = identity.forward(current["q"]).joint_translations[0, wrist]
-        print(f"target moved, residual {float((reached - moved[:3]).norm()):.1e} m")
+        residual = float(np.linalg.norm(view.layers[1].joints[0, wrist] - moved[:3].numpy()))
+        if residual > REACH_TOLERANCE_M:
+            sys.exit(f"--check: the drawn wrist is {residual:.1e} m from the moved target; expected under 1e-4 m")
+        print(f"target moved, residual {residual:.1e} m")
         return
     print(f"drag the gizmo (at {gizmo.pose[:3]}) at {viewer.url}; Ctrl-C to exit")
     viewer.server.sleep_forever()

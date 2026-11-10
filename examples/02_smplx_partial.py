@@ -1,11 +1,12 @@
 """Full SMPL-X next to a body-only SMPL-X (hands and face dropped), same pose, one metre apart.
 
-uv run python examples/02_smplx_partial.py [--check]   # --check: build on the stand-in server, show one frame, exit
+uv run python examples/02_smplx_partial.py [--check]   # --check: build on the stand-in server, check the swing, exit
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import torch
@@ -40,6 +41,7 @@ def main() -> None:
 
     viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
     viewer.add([GroundLayer(plane="xz")], group="scene")
+    shoulders = {}
     for body, name, classic, offset in (
         (
             full,
@@ -51,8 +53,15 @@ def main() -> None:
     ):
         identity, q, stream = bh.from_classic(body, classic)
         viewer.add(human_layers(identity.forward(q, stream)), group=name, offset=offset)
+        start = body.model.idx_qs[body.model.joint_id("left_shoulder")]
+        shoulders[name] = q[:, start : start + 4]  # (T, 4) xyzw: the swing reaches the joint the classic names
     if args.check:
         viewer.show(45)
+        for name, rotation in shoulders.items():
+            # Frame 22 is the swing's peak, 0.8 rad (sin = 1.0).
+            angle = float(2.0 * torch.atan2(rotation[22, :3].norm(), rotation[22, 3].abs()))
+            if abs(angle - 0.8) > 1e-3:
+                sys.exit(f"--check: the {name} left shoulder turns {angle:.4f} rad at the peak; expected 0.8")
         print(f"{frames} frames, {len(viewer.layers)} layers; full nq={full.model.nq}, body-only nq={partial.model.nq}")
         return
     print(f"open {viewer.url}; Ctrl-C to exit")

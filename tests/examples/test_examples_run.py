@@ -1,5 +1,6 @@
 """Every example runs headless with ``--check``: it builds its scene on BetterRobot's stand-in server
-(``better_robot.testing.FakeServer``), moves something once, prints one line and exits 0.
+(``better_robot.testing.FakeServer``), moves something once, checks that the drawn arrays moved as asked (03: the
+wrist reaches the target within 1e-4 m), prints one line and exits 0; a check that fails exits 1.
 
 Examples 01-03 read the random-weight archives (record 0016) through ``--model-path``, so they need no licensed
 weights; example 04 (MHR) reads them from ``$BETTERHUMAN_MODELS_DIR``.
