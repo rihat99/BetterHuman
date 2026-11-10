@@ -383,9 +383,15 @@ class HumanStudio:
             self.set_status(f"no saved pose {name!r}")
             return
         pose = persistence.read_pose(path)
-        if pose.joint_names != self.session.identity.model.joint_names:
+        model = self.session.identity.model
+        if pose.joint_names != model.joint_names:
             raise ArgumentError(
                 f"{path}: the pose follows other joints than the {self.session.model_key} model's; load a pose saved on it"
+            )
+        if len(pose.q) != model.nq:
+            raise ArgumentError(
+                f"{path}: the pose holds {len(pose.q)} values of q, the {self.session.model_key} model takes "
+                f"nq={model.nq}; re-save it in the studio"
             )
         self.session.set_q(torch.tensor(pose.q))
 

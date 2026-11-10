@@ -17,7 +17,7 @@ import pytest
 import torch
 import viser
 
-from better_robot.exceptions import ArgumentError
+from better_robot.exceptions import ArgumentError, ShapeError
 
 from better_human.studio import state as studio_state
 from better_human.studio.__main__ import main
@@ -83,6 +83,28 @@ def test_a_pose_saved_on_other_joints_is_refused_on_the_status_line(random_studi
         random_studio.load_pose("pose")
     random_studio.locked(lambda _event: random_studio.load_pose("pose"))(None)
     assert random_studio.status.startswith("ArgumentError: ") and "other joints" in random_studio.status
+
+
+def test_a_pose_of_another_length_is_refused_and_leaves_the_session_unchanged(random_studio: HumanStudio) -> None:
+    studio = random_studio
+    nq = studio.session.identity.model.nq
+    path = studio.save_pose("short")
+    payload = json.loads(path.read_text())
+    path.write_text(json.dumps({**payload, "q": payload["q"][:-1]}))
+    q = studio.session.q.clone()
+    studio.locked(lambda _event: studio.load_pose("short"))(None)
+    assert studio.status.startswith("ArgumentError: ") and f"holds {nq - 1} values of q" in studio.status
+    assert "re-save it in the studio" in studio.status
+    assert torch.equal(studio.session.q, q) and torch.equal(studio.session.state.q, q)
+    assert len(json.loads(studio.save_pose("after").read_text())["q"]) == nq
+
+
+def test_a_refused_pose_edit_leaves_the_session_unchanged(random_studio: HumanStudio) -> None:
+    session = random_studio.session
+    q, state = session.q.clone(), session.state
+    with pytest.raises(ShapeError):
+        session.set_q(q[:-1])
+    assert torch.equal(session.q, q) and session.state is state
 
 
 def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
