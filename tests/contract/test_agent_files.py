@@ -1,8 +1,8 @@
 """The agent files stay short, plain and shared (principles 10.1, 10.2, 10.3).
 
 ``CLAUDE.md`` at the root is the agent file, at most 200 lines; a nested ``CLAUDE.md`` holds the traps of its folder
-in at most 60. ``AGENTS.md`` is one line that sends every other agent to ``CLAUDE.md``, and no other tool's
-instruction file exists. A rule that must hold is a check, so no agent file or skill uses a word in capitals for
+in at most 60. ``AGENTS.md`` at the root is one line that sends every other agent to ``CLAUDE.md``, and no other
+tool's instruction file exists at any depth, a nested ``AGENTS.md`` included. A rule that must hold is a check, so no agent file or skill uses a word in capitals for
 emphasis. The shared agent configuration (``.claude/settings.json``, ``.claude/rules/``, ``.claude/skills/``) is
 tracked, so every contributor's agent reads the same; the rest of ``.claude/`` is per machine and ignored.
 """
@@ -17,8 +17,16 @@ REPO = Path(__file__).resolve().parents[2]
 ROOT_LIMIT = 200
 NESTED_LIMIT = 60
 EMPHASIS = re.compile(r"\b(?:ALWAYS|NEVER|IMPORTANT|CRITICAL|MUST|SHOULD|REQUIRED|NOTE|WARNING|DO|NOT|NO|ONLY)\b")
-# Paths in parts: none of them may exist, and a whole path in tracked text is a citation that must resolve.
-OTHER_INSTRUCTION_FILES = (Path(".cursorrules"), Path(".cursor", "rules"), Path(".github", "copilot-instructions.md"))
+# Other tools' instruction files, by file name or by a folder on their path; AGENTS.md is allowed at the root only.
+OTHER_INSTRUCTION_NAMES = (
+    "AGENTS.md",
+    "GEMINI.md",
+    ".cursorrules",
+    ".windsurfrules",
+    ".clinerules",
+    "copilot-instructions.md",
+)
+OTHER_INSTRUCTION_FOLDERS = (".cursor", ".windsurf", ".clinerules")
 SHARED = ("settings.json", "rules/example", "skills/example")  # under .claude/
 PER_MACHINE = ("settings.local.json", "autoresearch")  # under .claude/
 
@@ -68,10 +76,19 @@ def test_no_capitals_for_emphasis() -> None:
 
 
 def test_one_agent_file() -> None:
-    """``AGENTS.md`` is one line that names ``CLAUDE.md`` only, and no other tool's instruction file exists."""
+    """``AGENTS.md`` is one line that names ``CLAUDE.md`` only, and no other tool's instruction file exists at any
+    depth, tracked or new."""
     lines = (REPO / "AGENTS.md").read_text().splitlines()
     named = set(re.findall(r"[\w./-]+\.md\b", "\n".join(lines)))
-    others = [str(path) for path in OTHER_INSTRUCTION_FILES if (REPO / path).exists()]
+    others = [
+        path
+        for path in _git("ls-files", "--cached", "--others", "--exclude-standard")
+        if path != "AGENTS.md"
+        and (
+            path.rsplit("/", 1)[-1] in OTHER_INSTRUCTION_NAMES
+            or any(folder in OTHER_INSTRUCTION_FOLDERS for folder in path.split("/")[:-1])
+        )
+    ]
     assert len(lines) == 1 and named == {"CLAUDE.md"}, f"AGENTS.md is one line that names CLAUDE.md only: {lines}"
     assert not others, f"fold these into CLAUDE.md and remove them (principle 10.1): {others}"
 

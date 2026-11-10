@@ -1,8 +1,11 @@
-"""The changelog groups changes by type and every removal reaches the migration page (principle 7.10).
+"""The changelog groups changes by type, names every added public path, and every removal reaches the migration
+page (principle 7.10).
 
 ``docs/reference/changelog.md`` opens with ``## Unreleased``; under it and under each ``## vX.Y.Z (YYYY-MM-DD)``
 release, every ``###`` heading is one of the six change types, and every Removed or Deprecated entry names its
-replacement (``use ... `name```) or says why there is none (``no replacement; <reason>``).
+replacement (``use ... `name```) or says why there is none (``no replacement; <reason>``). A path of the current tree
+that the old tree lacks is added: a backticked name of a changelog entry covers it when the name's dotted parts end
+it, and the members of an added class or module are covered with it.
 
 ``docs/reference/migration-0.2.0.md`` maps the public names of the 0.1 line to 0.2.0 in tables whose first column
 is the old name and whose second is the new one, both written relative to ``better_human`` (``core.Rig``). The old
@@ -130,6 +133,21 @@ def test_every_removed_public_name_is_on_the_migration_page() -> None:
 
     missing = sorted(path for path in removed if not covered(path))
     assert missing == [], f"add these to {MIGRATION_PAGE.name}:\n  " + "\n  ".join(missing)
+
+
+def test_every_added_public_path_has_a_changelog_line() -> None:
+    """Each path of the current tree that the 0.1 tree lacks is covered by a backticked name of a changelog entry."""
+    names = {name for _, _, entries in _sections(CHANGELOG.read_text()) for entry in entries for name in _names(entry)}
+    added = set(CURRENT) - set(json.loads(BEFORE.read_text()))
+    assert added
+
+    def covered(path: str) -> bool:
+        parts = tuple(path.split("."))[1:]
+        parent = path.rsplit(".", 1)[0]
+        return any(parts[-len(name) :] == name for name in names) or (parent in added and covered(parent))
+
+    missing = sorted(path for path in added if not covered(path))
+    assert missing == [], f"name these in {CHANGELOG.name} (an Added line):\n  " + "\n  ".join(missing)
 
 
 def test_every_new_name_on_the_migration_page_exists() -> None:

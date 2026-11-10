@@ -20,7 +20,8 @@ line that 0.2.0 renames or removes, one table row each.
 - `FamilySpec.file_joint_ids`, `FamilySpec.classic`, `FamilySpec.provenance`; `Parts.density_categories`,
   `Parts.density_tables` and `Parts.closed_faces`.
 - `Rig.without_joints`, the hook `families.drop_joints` asks a rig to reduce its data with.
-- `families` exports `RegressedRig`, `MHRRig`, `SOMARig`, `drop_joints` and the seven `*Classic` records;
+- `families` exports `RegressedRig`, `MHRRig`, `SOMARig`, `drop_joints` and the seven classic records
+  `SMPLClassic`, `SMPLHClassic`, `SMPLXClassic`, `MANOClassic`, `FLAMEClassic`, `MHRClassic` and `SOMAClassic`;
   `families.smplx` and `families.mano` take `num_pca_comps`.
 - The `mass` package: `mass.PartTopology` (`from_closed_faces`, `from_part_ids`, `meshes`, `face_parts`),
   `mass.part_inertias`, `mass.part_densities` and `mass.segment_vertices`.

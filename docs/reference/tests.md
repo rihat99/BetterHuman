@@ -53,7 +53,7 @@ rule each one enforces.
 | `test_studio_boundary.py` | the studio reads only public BetterHuman and BetterRobot names and writes no environment variable |
 | `test_public_surface.py` | no module shares a name with an exported function; no public function takes a joint index |
 | `test_api_snapshot.py` | the public API equals its snapshot, `tests/contract/public_api.json` |
-| `test_changelog.py` | the changelog groups changes by type, and every removed public name is on the migration page |
+| `test_changelog.py` | the changelog groups changes by type and names every added public name, and every removed public name is on the migration page |
 | `test_vocabulary.py` | one name per thing, acronyms in capitals, no vague module name, every word of every public name in a glossary |
 | `test_naming.py` | the field tables of `HumanModel`, `Identity` and `HumanState`, field by field |
 | `test_keyword_only.py` | public callables take at most two positional parameters |
@@ -69,11 +69,11 @@ rule each one enforces.
 | `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
 | `test_license.py` | the licence file, `pyproject.toml` and the README agree on Apache-2.0 |
 | `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited |
-| `test_repository_layout.py` | the tracked top-level entries are the standard set; each `src` package has its `tests/` folder and every other `tests/` folder is a named suite; no tracked symlink and no tracked file over 1 MiB (record [0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)); no directory under `src/`, `tests/` or `tools/` without a tracked file |
-| `test_agent_files.py` | the root `CLAUDE.md` is at most 200 lines and a nested one 60; no capitals for emphasis in an agent file or skill; `AGENTS.md` is one line naming `CLAUDE.md`; the shared `.claude/` files are tracked and the rest ignored |
+| `test_repository_layout.py` | the tracked top-level entries are the standard set; each `src` package has its `tests/` folder and every other `tests/` folder is a named suite; no tracked symlink and no tracked file over 1 MiB (record [0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)); no directory of the working tree without a tracked file, ignored ones aside |
+| `test_agent_files.py` | the root `CLAUDE.md` is at most 200 lines and a nested one 60; no capitals for emphasis in an agent file or skill; `AGENTS.md` is one line naming `CLAUDE.md`, and no other tool's instruction file exists at any depth; the shared `.claude/` files are tracked and the rest ignored |
 | `test_decision_records.py` | every decision record follows the template, has an allowed status and an index row, and an accepted record keeps its accepted text |
 | `test_no_skips.py` | no test module spells a skip or an xfail, the deselected ones included |
-| `test_pytest_config.py` | pytest runs strictly, with exactly the tier markers |
+| `test_pytest_config.py` | pytest runs strictly, with exactly the tier markers; each warning filter after `error` names its warning under a comment with the reason |
 | `test_python_version.py` | the Python floor, the lint target and the pinned version agree |
 
 A ratchet is a JSON file under `tests/contract/ratchets/` that lists today's violations of a rule, each with the fix
