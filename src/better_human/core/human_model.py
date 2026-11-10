@@ -73,7 +73,7 @@ class HumanModel:
         contact_frames: Mapping[str, tuple[int, str | None]] | None = None,
         stream_joints: bool = True,
     ) -> HumanModel:
-        """Compute every input from ``spec``, then construct once.
+        """A model of ``spec``: every input computed from it, then the record constructed once.
 
         ``density`` is a density table name (``"Dempster"``: each part at its category's density, from
         ``spec.parts``), kg/m³ as a float or a ``()`` or ``(P,)`` tensor on the spec's dtype and device, or ``None``
@@ -136,7 +136,7 @@ class HumanModel:
         )
 
     def bake(self, **identity: torch.Tensor) -> Identity:
-        """Bake identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast) into an :class:`Identity`.
+        """The :class:`Identity` of identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast).
 
         Raises :class:`~better_robot.exceptions.UnknownNameError` for a group the family does not have.
         """
@@ -207,7 +207,8 @@ class Identity:
         object.__setattr__(self, "values", _read_only(self.values))
 
     def forward(self, q: torch.Tensor, streams: Tensors | None = None) -> HumanState:
-        """Pose ``q (B..., nq)`` with optional stream groups ``(B..., n)``; ``B...`` broadcasts with ``I...``.
+        """The :class:`HumanState` of pose ``q (B..., nq)`` and optional stream groups ``(B..., n)``; ``B...`` broadcasts
+        with ``I...``.
 
         Raises :class:`~better_robot.exceptions.UnknownNameError` for a stream group the family does not have.
         """
@@ -301,7 +302,8 @@ class HumanState:
 
     @property
     def joint_transforms(self) -> torch.Tensor:
-        """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints, as the rig's ``joint_transforms`` reports them."""
+        """``(..., J, 3, 4)`` world ``[R | p]`` of the native joints, as the rig's ``joint_transforms`` reports them; a
+        copy of the memo, which skinning reads."""
         spec = self.identity.human.spec
         transforms = self._memoised(
             "joint_transforms", lambda: spec.rig.joint_transforms(spec, self.model, kinematics=self.kinematics)
@@ -310,7 +312,11 @@ class HumanState:
 
     @property
     def skin_affines(self) -> torch.Tensor:
-        """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world."""
+        """``(..., J, 3, 4)`` affine map of every joint from the rest frame to the world.
+
+        The memoised tensor itself, which ``vertices`` was or will be skinned with: treat it as read-only (an in-place
+        edit changes what this state reports). ``joint_transforms`` returns a copy instead.
+        """
         return self._memoised("skin_affines", lambda: skin_affines(self.joint_transforms, self.inverse_bind_affines))
 
     @property
@@ -339,7 +345,11 @@ class HumanState:
 
     @property
     def vertices(self) -> torch.Tensor:
-        """``(..., V, 3)`` posed mesh."""
+        """``(..., V, 3)`` posed mesh.
+
+        The memoised tensor itself, returned on every read: treat it as read-only (an in-place edit changes what this
+        state reports).
+        """
         return self._memoised(
             "vertices",
             lambda: linear_blend_skinning(

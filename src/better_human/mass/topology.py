@@ -37,6 +37,7 @@ class PartTopology:
 
     @property
     def num_parts(self) -> int:
+        """``P``, the number of closed part meshes."""
         return len(self.faces)
 
     def __repr__(self) -> str:

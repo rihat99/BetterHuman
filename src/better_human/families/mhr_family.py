@@ -59,7 +59,7 @@ def mhr(
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """Load ``MHR/converted/mhr_lod{lod}.npz`` (``tools/convert/mhr``): 127 joints, ``identity (V, 3, 45)``.
+    """The MHR spec of ``MHR/converted/mhr_lod{lod}.npz`` (``tools/convert/mhr``): 127 joints, ``identity (V, 3, 45)``.
 
     ``proportions (V, 3, 73)`` is a zero mesh basis whose values reach the rig. ``expression=False`` drops the
     ``expression (V, 3, 72)`` stream, ``correctives=False`` the pose-corrective MLP. The spec is built

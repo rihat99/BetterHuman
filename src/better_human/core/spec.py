@@ -105,6 +105,7 @@ class Parts:
 
     @property
     def count(self) -> int:
+        """``P``, the number of parts."""
         return len(self.joints)
 
     def __repr__(self) -> str:
@@ -178,26 +179,32 @@ class FamilySpec:
 
     @property
     def num_vertices(self) -> int:
+        """``V``, the template's vertex count."""
         return self.template_vertices.shape[0]
 
     @property
     def num_joints(self) -> int:
+        """``J``, the native joint count."""
         return len(self.joint_names)
 
     @property
     def dtype(self) -> torch.dtype:
+        """The dtype of every floating tensor of the spec."""
         return self.template_vertices.dtype
 
     @property
     def device(self) -> torch.device:
+        """The device of every tensor of the spec."""
         return self.template_vertices.device
 
     @property
     def identity_groups(self) -> dict[str, int]:
+        """Identity group name to its coefficient count ``n``."""
         return {name: basis.shape[-1] for name, basis in self.identity_bases.items()}
 
     @property
     def stream_groups(self) -> dict[str, int]:
+        """Stream group name to its coefficient count ``n``."""
         return {name: basis.shape[-1] for name, basis in self.stream_bases.items()}
 
     def joint_id(self, name: str) -> int:
