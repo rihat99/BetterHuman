@@ -32,7 +32,7 @@ leave them off, as users run), and last the `licensed` tests (`-m "licensed and 
 
 While you edit one package, run the fast tier plus that package's folder, for example `uv run pytest tests/core -q`.
 The hooks live in `.pre-commit-config.yaml`, BetterRobot's file but for the two marker expressions, and run through
-`uv run --locked`, so a lockfile that no longer matches `pyproject.toml` fails them: ruff check, ruff format --check
+`uv run --locked`, so a lockfile that does not match `pyproject.toml` fails them: ruff check, ruff format --check
 and the fast tier before each commit, the full tier before each push. `uv run pre-commit install` installs both
 stages; `uv run pre-commit run --all-files --hook-stage pre-push` runs one stage without installing it.
 

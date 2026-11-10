@@ -93,6 +93,8 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   `tests/contract/test_vocabulary.py`).
 - No skip or xfail spelled in a test module, deselected ones included (`tests/contract/test_no_skips.py`).
 - No dead path citation and no line-number citation in tracked text (`tests/contract/test_citations.py`).
+- No plan code and no history on a docs page outside the changelog, the migration pages and the records
+  (`tests/docs/test_docs_text.py`).
 - No tracked symlink, file over 1 MiB, or directory without a tracked file (`tests/contract/test_repository_layout.py`).
 - No agent file over its length and no capitals for emphasis (`tests/contract/test_agent_files.py`).
 

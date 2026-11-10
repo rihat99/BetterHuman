@@ -90,3 +90,4 @@ that removes it; it only shrinks, and the fix removes its entry.
 | `test_api_reference.py` | every path of `tests/contract/public_api.json` has an entry on a page of the API reference |
 | `test_codemap.py` | the package map of the [architecture page](../concepts/architecture.md#the-package-map) equals the edge tables `ALLOWED` and `BR_ALLOWED` |
 | `test_contract_matrix.py` | the [enforcement matrix](../contracts/index.md#enforcement-matrix) equals the rules' `Enforcement:` paragraphs; every rule has an enforcer that exists; every contract test is in the index; a strength word stands only in a rule heading |
+| `test_docs_text.py` | a page outside the changelog, the migration pages and the decision records names no plan code and tells no history: it says what holds now (principle 7.9) |
