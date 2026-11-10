@@ -1,7 +1,7 @@
 """Every part of the SMPL family closes, and the part volumes sum to the mesh volume (H2 review finding H2).
 
 The mesh volume is the mesh closed the way its parts are (SMPL-X has holes; one part caps each about its centroid).
-Each tolerance is the measured residual's cause, bounded (wp/H2.md, "Review fixes", H2):
+Each tolerance bounds the measured residual, whose cause is:
 
 - SMPL, authored parts: where spine3 meets a collar, three cap triangles per shoulder and the dropped shoulder face
   leave a 2.6 mL sliver in no part; measured -7.06e-5.
