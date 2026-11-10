@@ -35,8 +35,8 @@ core     ->  mass
 io, mass      (nothing)
 ```
 
-`studio` arrives with the record's package layout; until then the studio is `viz/studio`, and its imports of the
-root, `mass` and `better_robot.lie` are listed with their reasons in `tests/contract/ratchets/edges.json`.
+`studio` is the optional application `better_human.studio` (record 0009): it may import the root and every unit but
+`terms`, and from BetterRobot `lie` and `viewer`.
 
 ## The four objects
 

@@ -1,4 +1,4 @@
-"""Command-line entry point: ``python -m better_human.viz.studio``."""
+"""Command-line entry point: ``python -m better_human.studio``."""
 
 from __future__ import annotations
 

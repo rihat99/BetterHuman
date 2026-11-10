@@ -9,7 +9,6 @@
   "docs/contracts/decisions/0005-dtype-and-device-at-load.md: families/mhr_rig.py": "a path inside src/better_human/ written without that prefix; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
   "docs/contracts/decisions/0005-dtype-and-device-at-load.md: families/soma_rig.py": "a path inside src/better_human/ written without that prefix; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
   "docs/contracts/decisions/0009-studio-placement.md: tests/contract/test_studio_boundary.py": "the record's enforcer; the work package that implements the record creates it",
-  "docs/contracts/decisions/0009-studio-placement.md: tests/studio/test_app.py": "the record's enforcer; the work package that implements the record creates it",
   "docs/contracts/decisions/0010-human-viz-surface.md: viz/__init__.py": "a path inside src/better_human/ written without that prefix; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
   "docs/contracts/decisions/0010-human-viz-surface.md: viz/layers.py": "a path or symbol of the package layout the record plans or replaces, without src/better_human/; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
   "docs/contracts/decisions/0011-human-package-layout.md: core/mass.py": "a path inside src/better_human/ written without that prefix; ruling R-3: an accepted record changes only in its status, so H9's superseding record corrects it",
@@ -26,7 +25,5 @@
   "tests/docs/test_snippets.py: concepts/viewer/index.html": "a path in the built site, which is not tracked; describe it without a path",
   "tests/io/test_archive_reader.py: converted/mhr_lod1.npz": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument",
   "tests/io/test_load.py: converted/mhr_lod6.npz": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument",
-  "tests/parity/mhr/test_mhr_torchscript.py: assets/mhr_model.pt": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument",
-  "tests/viz/test_studio_gizmo.py: converted/mhr_lod1.npz": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument",
-  "tests/viz/test_studio_posing.py: converted/mhr_lod1.npz": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument"
+  "tests/parity/mhr/test_mhr_torchscript.py: assets/mhr_model.pt": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument"
 }

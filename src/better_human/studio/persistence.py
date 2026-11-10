@@ -21,8 +21,8 @@ from better_human.io import read_frame_set, write_frame_set
 _ASSET_PACKAGE = "better_human.families.assets"
 
 
-# The repo's ``studio_data`` (src/better_human/viz/studio -> repo root), so the studio finds it from any cwd.
-DEFAULT_ROOT = Path(__file__).resolve().parents[4] / "studio_data"
+# The repo's ``studio_data`` (src/better_human/studio -> repo root), so the studio finds it from any cwd.
+DEFAULT_ROOT = Path(__file__).resolve().parents[3] / "studio_data"
 
 
 @dataclass(frozen=True)

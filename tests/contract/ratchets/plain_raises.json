@@ -1,8 +1,8 @@
 {
-  "src/better_human/viz/studio/persistence.py::_checked_vertex_id": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/studio/persistence.py::_validate_segmentation": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/studio/persistence.py::load_pose": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/studio/posing.py::apply_local_rotation": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/studio/state.py::move_root": "raises a builtin; the viz and studio rewrite (H6) converts it",
-  "src/better_human/viz/studio/state.py::shape_tensor": "raises a builtin; the viz and studio rewrite (H6) converts it"
+  "src/better_human/studio/persistence.py::_checked_vertex_id": "raises a builtin; the viz and studio rewrite (H6) converts it",
+  "src/better_human/studio/persistence.py::_validate_segmentation": "raises a builtin; the viz and studio rewrite (H6) converts it",
+  "src/better_human/studio/persistence.py::load_pose": "raises a builtin; the viz and studio rewrite (H6) converts it",
+  "src/better_human/studio/posing.py::apply_local_rotation": "raises a builtin; the viz and studio rewrite (H6) converts it",
+  "src/better_human/studio/state.py::move_root": "raises a builtin; the viz and studio rewrite (H6) converts it",
+  "src/better_human/studio/state.py::shape_tensor": "raises a builtin; the viz and studio rewrite (H6) converts it"
 }

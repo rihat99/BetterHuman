@@ -11,11 +11,11 @@ from better_robot import Viewer
 
 import better_human as bh
 from better_human.io import weight_path
-from better_human.viz.studio import layers as studio_layers
-from better_human.viz.studio.layers import StudioLayers
-from better_human.viz.studio.state import StudioSession
+from better_human.studio import layers as studio_layers
+from better_human.studio.layers import StudioLayers
+from better_human.studio.state import StudioSession
 
-from .studio_fake_server import FakeServer
+from .fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 

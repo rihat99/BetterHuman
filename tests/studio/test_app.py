@@ -11,9 +11,9 @@ import pytest
 import torch
 import viser
 
-from better_human.viz.studio import state as studio_state
-from better_human.viz.studio.app import HumanStudio
-from tests.viz.studio_fake_server import FakeHandle, FakeServer
+from better_human.studio import state as studio_state
+from better_human.studio.app import HumanStudio
+from tests.studio.fake_server import FakeHandle, FakeServer
 
 
 @pytest.fixture

@@ -26,7 +26,7 @@ PACKAGES = [
     "better_human.mass",
     "better_human.terms",
     "better_human.viz",
-    "better_human.viz.studio",
+    "better_human.studio",
 ]
 MAX_POSITIONAL = 2
 KEYWORD_ONLY_RATCHET: dict[str, str] = json.loads(

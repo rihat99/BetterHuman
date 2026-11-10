@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from better_human.viz.studio import persistence
-from better_human.viz.studio.state import FrameEntry
+from better_human.studio import persistence
+from better_human.studio.state import FrameEntry
 
 if TYPE_CHECKING:
-    from better_human.viz.studio.app import HumanStudio
+    from better_human.studio.app import HumanStudio
 
 _DEFAULT_JOINT = "(skinning default)"
 

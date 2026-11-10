@@ -9,10 +9,10 @@ import torch
 from better_robot.viewer.tools import vertices_in_sphere
 
 from better_human.mass import PartTopology, part_inertias
-from better_human.viz.studio import persistence
+from better_human.studio import persistence
 
 if TYPE_CHECKING:
-    from better_human.viz.studio.app import HumanStudio
+    from better_human.studio.app import HumanStudio
 
 _BUILTIN = {"smpl": "smpl_vert_segmentation.json", "smplx": "smplx_vert_segmentation.json"}
 _UNASSIGNED = "(unassigned)"

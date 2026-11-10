@@ -7,8 +7,8 @@ import torch
 
 import better_human as bh
 from better_human.io import weight_path
-from better_human.viz.studio.posing import apply_local_rotation, joint_handles
-from better_human.viz.studio.state import StudioSession
+from better_human.studio.posing import apply_local_rotation, joint_handles
+from better_human.studio.state import StudioSession
 
 pytestmark = pytest.mark.licensed
 
@@ -20,7 +20,7 @@ def smpl() -> bh.HumanModel:
 
 @pytest.fixture(scope="module")
 def mhr() -> bh.HumanModel:
-    return bh.load("mhr", weight_path("MHR", "converted/mhr_lod1.npz"))
+    return bh.load("mhr", weight_path("MHR/converted", "mhr_lod1.npz"))
 
 
 @pytest.fixture(scope="module")

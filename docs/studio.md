@@ -10,7 +10,7 @@ JSON/NPZ file under `studio_data/`, so scripts can load the same data without th
 
 ```bash
 cd BetterHuman
-BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.viz.studio --family smplx
+BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.studio --family smplx
 # open http://127.0.0.1:8080
 ```
 
@@ -23,7 +23,7 @@ BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.viz.studio --fa
 | `--models-dir` | `$BETTERHUMAN_MODELS_DIR` | weights directory, read through `better_human.io.models_dir()`; with neither set the load fails naming the variable, nothing is guessed |
 | `--data-dir` | `<repo>/studio_data` | root for everything the studio saves |
 
-From Python, `better_human.viz.studio.launch(family="smplx", port=8080)` does the same and blocks;
+From Python, `better_human.studio.launch(family="smplx", port=8080)` does the same and blocks;
 `HumanStudio(..., server=viser.ViserServer(...))` builds the app without blocking.
 
 ## The sidebar

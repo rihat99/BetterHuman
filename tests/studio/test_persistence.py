@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from better_human.viz.studio import persistence
+from better_human.studio import persistence
 
 SMPL_NUM_VERTICES = 6890
 SMPLX_NUM_VERTICES = 10475

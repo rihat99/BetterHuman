@@ -13,12 +13,12 @@ from better_robot.viewer import LIGHT, Viewer
 from better_robot.viewer.tools import CameraFrustum, nearest_on_ray, ray_hit, vertices_in_rect
 
 import better_human as bh
-from better_human.viz.studio import persistence
-from better_human.viz.studio.frames_editor import FramesEditor
-from better_human.viz.studio.gizmo import GizmoController
-from better_human.viz.studio.layers import StudioLayers
-from better_human.viz.studio.segment_editor import SegmentEditor
-from better_human.viz.studio.state import FrameEntry, StudioSession
+from better_human.studio import persistence
+from better_human.studio.frames_editor import FramesEditor
+from better_human.studio.gizmo import GizmoController
+from better_human.studio.layers import StudioLayers
+from better_human.studio.segment_editor import SegmentEditor
+from better_human.studio.state import FrameEntry, StudioSession
 
 _TABLE_FAMILIES = ("smpl", "smplh")
 _DENSITY_TABLES = (

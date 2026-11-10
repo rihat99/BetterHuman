@@ -1,7 +1,7 @@
 """Interactive viser studio for inspecting and authoring parametric bodies.
 
-The public surface is :class:`~better_human.viz.studio.app.HumanStudio` and the
-:func:`~better_human.viz.studio.app.launch` helper. viser is an optional
+The public surface is :class:`~better_human.studio.app.HumanStudio` and the
+:func:`~better_human.studio.app.launch` helper. viser is an optional
 dependency (the ``studio`` extra), so ``HumanStudio`` and ``launch`` load
 lazily: importing this package (or its pure submodules ``persistence``,
 ``posing``, ``picking``) never imports viser until the app itself is requested.
