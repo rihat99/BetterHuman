@@ -93,8 +93,8 @@ HumanModel.from_spec(spec, *, density="Dempster", contact_frames=None, stream_jo
 - `human.model` is the zero-identity BR `Model` (contact frames attached); `human.spec` holds the data
   (`human.spec.faces`, `human.spec.parents`, ...); `skin_matrix (V, J)`, `joint_ids (J,)`, `part_body_ids (P,)`.
 - `density` is a table name (`"Dempster"`, the default), a uniform float or a `()` / `(P,)` tensor in kg/m³, or `None`
-  (the baked models carry no inertias). A table needs a density category for every part; a family without one
-  raises `ArgumentError` naming the parts (SOMA, MANO and FLAME until their tables ship: pass `None` or a float).
+  (the baked models carry no inertias). A table needs a density category for every part: every family declares one
+  (decision record 0007), and a spec without one raises `ArgumentError` naming the parts (pass `None` or a float).
 - `contact_frames` is a mapping `name -> (vertex_id, parent joint name | None)`, from a frame-set file through
   `io.read_frame_set(path)` or shipped as `io.shipped_frame_set("smplx_contacts")`. Each entry becomes a BR
   operational frame, re-placed on every bake.
