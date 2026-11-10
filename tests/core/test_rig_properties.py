@@ -1,10 +1,12 @@
 """Decision records 0002 and 0003: every rig's bake and forward kinematics agree through the one skinning path.
 
 Oracle: the bake itself. At ``q_neutral``, ``skin_affines`` (forward kinematics composed with the baked
-``inverse_bind_affines``) carry every baked rest joint to its forward-kinematics position, for every rig and identity.
-Where a rig binds at its neutral configuration (the SMPL family, and MHR at zero proportions), they also carry the
-rest mesh onto itself: forward kinematics at ``q_neutral`` reproduces ``rest_vertices``. ``NOT_HELD`` lists the cases
-where a form does not hold, each with its measured gap and reason; they are left out, never loosened.
+``inverse_bind_affines``) carry every baked rest joint (``RigBake.rest_joint_translations``, the native joints in the
+skinning rest frame) to its forward-kinematics position, for every rig and identity (joint form). At the bind
+configuration, where every skin affine is the identity, forward kinematics reproduces ``rest_vertices`` (mesh form).
+The SMPL family and MHR bind at ``q_neutral``; SOMA binds in its authored A-pose (``q_neutral`` is the T-pose), whose
+configuration the test reads from the bake's inverse binds. ``NOT_HELD`` lists the cases where the mesh form does not
+hold, each with its measured gap and reason; they are left out, never loosened.
 """
 
 from __future__ import annotations
@@ -14,6 +16,8 @@ from pathlib import Path
 
 import pytest
 import torch
+
+from better_robot.lie import so3
 
 import better_human as bh
 from better_human.io import weight_path
@@ -25,12 +29,9 @@ EXACT = 1e-12
 #: 1.5e-7 m (LOD 6, measured 2026-11-10), not to float64 rounding.
 MHR_AUTHORED_BINDS = 1e-6
 
-#: ``(form, family, identity)`` cases where the property does not hold: gap measured 2026-11-10 (LOD 1, float64), reason.
+#: ``(family, identity)`` cases where the mesh form does not hold: gap measured 2026-11-10 (LOD 1, float64), reason.
 NOT_HELD = {
-    ("joints", "mhr", "random"): "0.31 m: MHR's proportions scale the joints through the skinning",
-    ("mesh", "mhr", "random"): "0.18 m: MHR's proportions scale the mesh through the skinning",
-    ("mesh", "soma", "zero"): "0.97 m: SOMA binds in its authored A-pose and q_neutral is the T-pose",
-    ("mesh", "soma", "random"): "0.89 m: SOMA binds in its authored A-pose and q_neutral is the T-pose",
+    ("mhr", "random"): "0.18 m: MHR's proportions scale its skin affines (joint scales s != 1): none is I at any q",
 }
 
 LICENSED: dict[str, Callable[[], bh.FamilySpec]] = {
@@ -51,10 +52,10 @@ def _identities(human: bh.HumanModel) -> dict[str, bh.Identity]:
     return {"zero": human.bake(), "random": human.bake(**values)}
 
 
-def _held(form: str, family: str, identities: dict[str, bh.Identity]) -> dict[str, bh.Identity]:
-    """The ``identities`` of ``family`` whose ``form`` (``"joints"`` or ``"mesh"``) is not in ``NOT_HELD``."""
-    held = {name: identity for name, identity in identities.items() if (form, family, name) not in NOT_HELD}
-    assert held, f"every {family} identity is in NOT_HELD for the {form} form: leave {family} out of the parameters"
+def _held(family: str, identities: dict[str, bh.Identity]) -> dict[str, bh.Identity]:
+    """The ``identities`` of ``family`` whose mesh form is not in ``NOT_HELD``."""
+    held = {name: identity for name, identity in identities.items() if (family, name) not in NOT_HELD}
+    assert held, f"every {family} identity is in NOT_HELD: leave {family} out of the parameters"
     return held
 
 
@@ -66,9 +67,38 @@ def _joint_error(identity: bh.Identity) -> float:
     return float((carried - state.joint_translations).abs().max())
 
 
-def _mesh_error(identity: bh.Identity) -> float:
-    """Largest distance between the vertices at ``q_neutral`` and ``rest_vertices``."""
-    return float((identity.forward(identity.model.q_neutral).vertices - identity.rest_vertices).abs().max())
+def _soma_bind_configuration(identity: bh.Identity) -> torch.Tensor:
+    """``q (nq,)`` that puts every SOMA joint at its bind frame, read from the bake's inverse binds.
+
+    Native joint ``j`` is BR joint ``j`` (``Root`` the universe). A joint's bind rotation and position invert its
+    inverse bind affine; its local rotation is the bind rotation seen from its parent's bind frame and its placement.
+    The BR Hips body frame is the upstream Hips frame turned back by its T-pose rotation (``SOMARig``).
+    """
+    model = identity.model
+    inverse_binds = identity.inverse_bind_affines
+    rotations = inverse_binds[..., :3].mT.clone()
+    positions = -(rotations @ inverse_binds[..., 3:]).squeeze(-1)
+    rotations[1] = rotations[1] @ identity.human.spec.rig.t_pose_rotations[1].mT
+    placements = so3.to_matrix(model.joint_placements[..., 3:])
+    q = model.q_neutral.clone()
+    for joint in range(1, model.njoints):
+        if model.nqs[joint] == 0:  # twist helpers follow their limb segments
+            continue
+        parent = model.parent_joint_ids[joint]
+        parent_rotation = rotations[parent] if parent > 0 else torch.eye(3, dtype=q.dtype)
+        local = so3.from_matrix(placements[joint].mT @ parent_rotation.mT @ rotations[joint])
+        start = model.idx_qs[joint]
+        if model.nqs[joint] == 7:
+            q[start : start + 3] = positions[joint] - model.joint_placements[joint, :3]
+            q[start + 3 : start + 7] = local
+        else:
+            q[start : start + 4] = local
+    return q
+
+
+def _mesh_error(identity: bh.Identity, q: torch.Tensor) -> float:
+    """Largest distance between the vertices at ``q`` and ``rest_vertices``."""
+    return float((identity.forward(q).vertices - identity.rest_vertices).abs().max())
 
 
 def _weight_defect(identity: bh.Identity) -> float:
@@ -83,7 +113,7 @@ def _weight_defect(identity: bh.Identity) -> float:
 def test_regressed_rig_reproduces_its_rest_mesh_and_joints(tmp_path: Path) -> None:
     human = bh.HumanModel.from_spec(flame_spec(tmp_path), density=None)
     for name, identity in _identities(human).items():
-        mesh, joints = _mesh_error(identity), _joint_error(identity)
+        mesh, joints = _mesh_error(identity, identity.model.q_neutral), _joint_error(identity)
         assert mesh <= EXACT + _weight_defect(identity), f"{name}: vertices at q_neutral differ from rest by {mesh} m"
         assert joints <= EXACT, f"{name}: skin_affines move the rest joints off the joints by {joints} m"
 
@@ -93,17 +123,18 @@ def test_regressed_rig_reproduces_its_rest_mesh_and_joints(tmp_path: Path) -> No
 def test_skin_affines_carry_the_rest_joints_to_the_joints(family: str) -> None:
     human = bh.HumanModel.from_spec(LICENSED[family](), density=None)
     tolerance = MHR_AUTHORED_BINDS if family == "mhr" else EXACT
-    for name, identity in _held("joints", family, _identities(human)).items():
+    for name, identity in _identities(human).items():
         error = _joint_error(identity)
         assert error <= tolerance, f"{name}: skin_affines move the rest joints off the joints by {error} m"
 
 
 @pytest.mark.licensed
-@pytest.mark.parametrize("family", ["smpl", "smplx", "mhr"])  # soma: both identities in NOT_HELD
-def test_forward_kinematics_at_q_neutral_reproduces_the_rest_mesh(family: str) -> None:
+@pytest.mark.parametrize("family", list(LICENSED))
+def test_forward_kinematics_at_the_bind_configuration_reproduces_the_rest_mesh(family: str) -> None:
     human = bh.HumanModel.from_spec(LICENSED[family](), density=None)
     tolerance = MHR_AUTHORED_BINDS if family == "mhr" else EXACT
-    for name, identity in _held("mesh", family, _identities(human)).items():
-        error = _mesh_error(identity)
+    for name, identity in _held(family, _identities(human)).items():
+        q = _soma_bind_configuration(identity) if family == "soma" else identity.model.q_neutral
+        error = _mesh_error(identity, q)
         bound = tolerance + _weight_defect(identity)
-        assert error <= bound, f"{name}: vertices at q_neutral differ from rest_vertices by {error} m"
+        assert error <= bound, f"{name}: vertices at the bind configuration differ from rest_vertices by {error} m"

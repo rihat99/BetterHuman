@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
-from better_robot.exceptions import ArgumentError, DtypeMismatchError
+from better_robot.exceptions import ArgumentError
 
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import FormatError, weight_path
@@ -20,6 +20,7 @@ from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 from better_human.mass import segment_vertices
 
+from ._checks import check_dtype, check_flags
 from .classic import MHRFormat
 from .mhr_rig import MHRRig
 
@@ -66,20 +67,14 @@ def mhr(
     """
     if not isinstance(lod, int) or isinstance(lod, bool) or lod not in LODS:
         raise ArgumentError(f"lod must be one of {LODS}, got {lod!r}")
-    if not isinstance(expression, bool) or not isinstance(correctives, bool):
-        raise ArgumentError(f"expression and correctives must be bool, got {expression!r} and {correctives!r}")
-    if dtype not in (torch.float32, torch.float64):
-        raise DtypeMismatchError(
-            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
-            "pass dtype=torch.float32 or dtype=torch.float64"
-        )
+    check_flags(expression=expression, correctives=correctives)
+    check_dtype(dtype)
     device = torch.device("cpu" if device is None else device)
     excluded = set() if correctives else set(MHR_CORRECTIVE_FIELDS)
     if not expression:
         excluded.add("expression_basis")
-    arrays = load_model_npz(
-        weight_path("MHR", f"converted/mhr_lod{lod}.npz", path=path), MHR_SCHEMA, exclude_fields=excluded
-    )
+    path = weight_path("MHR", f"converted/mhr_lod{lod}.npz", path=path)
+    arrays = load_model_npz(path, MHR_SCHEMA, exclude_fields=excluded)
     if int(arrays["lod"]) != lod:
         raise FormatError(f"the MHR archive holds lod {int(arrays['lod'])}, expected lod {lod}; pass lod= or its path")
 
@@ -109,7 +104,13 @@ def mhr(
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     part_joints = tuple(joint_groups.index(group) for group in kept)
     density_tables = shipped_density_tables()
-    categories = tuple(_DENSITY_CATEGORIES.get(joint_names[joint]) for joint in part_joints)
+    try:
+        categories = tuple(_DENSITY_CATEGORIES[joint_names[joint]] for joint in part_joints)
+    except KeyError as error:
+        raise FormatError(
+            f"{path}: the part of joint {error.args[0]!r} has no MHR density category; "
+            "pass an archive tools/convert/mhr wrote from MHR"
+        ) from None
     return FamilySpec(
         name="mhr",
         template_vertices=template,

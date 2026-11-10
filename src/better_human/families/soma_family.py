@@ -10,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
-from better_robot.exceptions import ArgumentError, DtypeMismatchError
 
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import FormatError, weight_path
@@ -18,6 +17,7 @@ from better_human.io.load import load_model_npz
 from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
+from ._checks import check_dtype, check_flags
 from .classic import SOMAFormat
 from .soma_rig import SOMARig
 
@@ -76,19 +76,11 @@ def soma(
     limb segments. ``correctives=False`` drops the pose-corrective MLP. The spec is built once in ``dtype`` on
     ``device`` (decision record 0005).
     """
-    if not isinstance(correctives, bool):
-        raise ArgumentError(f"correctives must be bool, got {correctives!r}")
-    if dtype not in (torch.float32, torch.float64):
-        raise DtypeMismatchError(
-            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
-            "pass dtype=torch.float32 or dtype=torch.float64"
-        )
+    check_flags(correctives=correctives)
+    check_dtype(dtype)
     device = torch.device("cpu" if device is None else device)
-    arrays = load_model_npz(
-        weight_path("SOMA", "soma_mid.npz", path=path),
-        SOMA_SCHEMA,
-        exclude_fields=() if correctives else SOMA_CORRECTIVE_FIELDS,
-    )
+    path = weight_path("SOMA", "soma_mid.npz", path=path)
+    arrays = load_model_npz(path, SOMA_SCHEMA, exclude_fields=() if correctives else SOMA_CORRECTIVE_FIELDS)
 
     def floats(name: str) -> torch.Tensor:
         return arrays[name].to(device=device, dtype=dtype)
@@ -108,7 +100,13 @@ def soma(
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)
     joint_names = tuple(str(name) for name in arrays["joint_names"])
     density_tables = shipped_density_tables()
-    categories = tuple(_DENSITY_CATEGORIES.get(joint_names[joint]) for joint in part_joints.tolist())
+    try:
+        categories = tuple(_DENSITY_CATEGORIES[joint_names[joint]] for joint in part_joints.tolist())
+    except KeyError as error:
+        raise FormatError(
+            f"{path}: the part of joint {error.args[0]!r} has no SOMA density category; "
+            "pass an archive tools/convert/soma wrote from SOMA-X"
+        ) from None
     return FamilySpec(
         name="soma",
         template_vertices=floats("shape_mean"),

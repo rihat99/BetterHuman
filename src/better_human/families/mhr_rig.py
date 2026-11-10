@@ -21,7 +21,7 @@ import torch
 from better_robot import Model, ModelBuilder
 from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
-from better_robot.kinematics import forward_kinematics, full_configuration
+from better_robot.kinematics import full_configuration
 from better_robot.lie import se3, so3
 
 from better_human.core.rig import Rig, RigBake, gravity
@@ -48,7 +48,7 @@ class MHRRig(Rig):
     translation_basis: torch.Tensor  #: ``(J, 3, P)`` offset change per proportion parameter.
     scale_basis: torch.Tensor  #: ``(J, P)`` local log2 scale per proportion parameter.
     inverse_bind_poses: torch.Tensor  #: ``(J, 7)`` authored inverse bind poses.
-    bind_joint_positions: torch.Tensor  #: ``(J, 3)`` bind pivots of the accumulated joint scales.
+    bind_joint_positions: torch.Tensor  #: ``(J, 3)`` bind pivots of the accumulated joint scales: the rest joints.
     root_transform: torch.Tensor  #: ``(6, 6)`` root channels (translation, Euler xyz) from the root parameters.
     pose_columns: torch.Tensor  #: ``(N,)`` model parameter of every host angle ``q[..., 7:]``.
     host_weights: torch.Tensor  #: ``(N,)`` host angle per unit of its model parameter.
@@ -97,7 +97,8 @@ class MHRRig(Rig):
         """Placements and scaled inverse binds for the proportions ``identity["proportions"] (I..., P)``.
 
         The accumulated joint scales ``s`` fold into the inverse binds ``[s R_b | t_b - (s - 1) R_b c]`` (bind rotation
-        ``R_b``, translation ``t_b``, pivot ``c``), so skinning is one affine per joint (decision record 0003).
+        ``R_b``, translation ``t_b``, pivot ``c``), so skinning is one affine per joint (decision record 0003). Each
+        affine carries its pivot ``c`` to the joint whatever the proportions, so the rest joints are the pivots.
         """
         proportions = identity["proportions"]
         delta = torch.einsum("...p,jcp->...jc", proportions, self.translation_basis)
@@ -108,15 +109,13 @@ class MHRRig(Rig):
         placements = base.expand(*translations.shape[:-2], *base.shape).index_copy(
             -2, self.origin_joints, torch.cat((translations, rotations), dim=-1)
         )
-        baked = model.with_values(joint_placements=placements)
-        kinematics = forward_kinematics(baked, baked.q_neutral)
         bind_rotations = so3.to_matrix(self.inverse_bind_poses[..., 3:])
         pivots = (bind_rotations @ self.bind_joint_positions[..., None]).squeeze(-1)
         bind_translations = self.inverse_bind_poses[..., :3] - (scales - 1.0)[..., None] * pivots
         return RigBake(
             joint_placements=placements,
             rest_vertices=shaped_vertices,
-            rest_joint_translations=self.joint_transforms(spec, baked, kinematics=kinematics)[..., 3],
+            rest_joint_translations=self.bind_joint_positions.expand(*scales.shape, 3),
             inverse_bind_affines=torch.cat(
                 (scales[..., None, None] * bind_rotations, bind_translations[..., None]), -1
             ),

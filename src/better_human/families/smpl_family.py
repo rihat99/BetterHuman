@@ -1,7 +1,7 @@
 """One loader for the SMPL family (SMPL, SMPL-H, SMPL-X, MANO, FLAME): a weight file plus a table.
 
 Each loader builds in ``dtype`` torch.float32 or torch.float64 and raises
-:class:`~better_robot.exceptions.DtypeMismatchError` for another, as ``better_human.load`` does.
+:class:`~better_robot.exceptions.DtypeMismatchError` for another, like every family loader.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import torch
-from better_robot.exceptions import ArgumentError, DtypeMismatchError, UnknownNameError
+from better_robot.exceptions import ArgumentError, UnknownNameError
 
 from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
@@ -23,6 +23,7 @@ from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH
 from better_human.mass import segment_vertices
 
 from . import _tables
+from ._checks import check_dtype, check_flags
 from .classic import FLAMEClassic, MANOClassic, SMPLClassic, SMPLFamilyFormat, SMPLHClassic, SMPLXClassic
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 
@@ -31,10 +32,10 @@ FLAME_SHAPE_DIM, FLAME_EXPRESSION_DIM = 300, 100
 HAND_DIM = 45
 
 
-def _gender(gender: str) -> str:
+def _gender(gender: str, choices: tuple[str, ...] = ("female", "male", "neutral")) -> str:
     normalized = gender.lower()
-    if normalized not in {"female", "male", "neutral"}:
-        raise UnknownNameError("gender", gender, ["female", "male", "neutral"])
+    if normalized not in choices:
+        raise UnknownNameError("gender", gender, list(choices))
     return normalized
 
 
@@ -42,14 +43,6 @@ def _check_width(name: str, value: int, limit: int) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 1 or value > limit:
         raise ArgumentError(f"{name} must be an int in [1, {limit}], got {value!r}")
     return value
-
-
-def _check_dtype(dtype: torch.dtype) -> None:
-    if dtype not in (torch.float32, torch.float64):
-        raise DtypeMismatchError(
-            f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "
-            "pass dtype=torch.float32 or dtype=torch.float64"
-        )
 
 
 def _pose_fields(table: _tables.FamilyTable, *counts: tuple[str, int]) -> dict[str, tuple[str, ...]]:
@@ -76,6 +69,7 @@ def _parents_from_kintree(kintree_table: torch.Tensor) -> tuple[int, ...]:
 
 def _load_family(
     table: _tables.FamilyTable,
+    path: Path,
     arrays: Mapping[str, torch.Tensor],
     *,
     identity: Mapping[str, int],
@@ -87,7 +81,7 @@ def _load_family(
     dtype: torch.dtype = torch.float32,
     device: torch.device | str | None = None,
 ) -> FamilySpec:
-    """Build a :class:`FamilySpec` from the ``arrays`` of an SMPL-family ``.npz`` (``io.load.load_model_npz``).
+    """Build a :class:`FamilySpec` from the ``arrays`` (``io.load.load_model_npz``) of the SMPL-family file ``path``.
 
     ``identity`` and ``streams`` give the requested width of each blend group; ``columns`` says
     where each group lives in ``shapedirs`` (default: one group ``betas`` spanning the file).
@@ -95,6 +89,12 @@ def _load_family(
     arrays are reduced in float64, then the spec is built once in ``dtype`` on ``device``; ``classic`` (with the hand
     pose PCA) must already be there.
     """
+    num_vertices = arrays["v_template"].shape[0]
+    if num_vertices != table.num_vertices:
+        raise FormatError(
+            f"{path}: {table.name} weights hold {num_vertices} vertices; expected {table.num_vertices}. "
+            f"Pass an unmodified {table.name} file."
+        )
     joint_count = arrays["weights"].shape[-1]
     if joint_count != len(table.joint_names):
         raise FormatError(
@@ -112,12 +112,7 @@ def _load_family(
     weights, indices = top_k_skin(arrays["weights"].to(torch.float64))
     closed_faces = None
     if table.closed_segmentation is not None:
-        num_vertices, closed_faces = shipped_segmentation(table.closed_segmentation)
-        if num_vertices != arrays["v_template"].shape[0]:
-            raise FormatError(
-                f"{table.name} weights hold {arrays['v_template'].shape[0]} vertices; the shipped "
-                f"{table.closed_segmentation} segmentation needs {num_vertices}. Pass an unmodified {table.name} file."
-            )
+        _, closed_faces = shipped_segmentation(table.closed_segmentation)
         closed_faces = {part: faces.to(device) for part, faces in closed_faces.items()}
     density_tables = shipped_density_tables()
     data = _reduce_joints(
@@ -141,12 +136,6 @@ def _load_family(
     )
     landmarks = None
     if table.keypoint_vertex_ids:
-        num_vertices, last = arrays["v_template"].shape[0], max(table.keypoint_vertex_ids)
-        if last >= num_vertices:
-            raise FormatError(
-                f"{table.name} weights hold {num_vertices} vertices; the {table.name} landmarks index vertex {last}. "
-                f"Pass an unmodified {table.name} file."
-            )
         landmarks = Landmarks(table.keypoint_names, torch.tensor(table.keypoint_vertex_ids, device=device))
     return FamilySpec(
         name=table.name,
@@ -176,11 +165,12 @@ def smpl(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL (24 joints, 6890 vertices)."""
-    _check_dtype(dtype)
+    check_dtype(dtype)
     gender = _gender(gender)
     path = weight_path(_tables.SMPL.folder, _tables.SMPL.file_pattern.format(gender=gender.upper()), path=path)
     return _load_family(
         _tables.SMPL,
+        path,
         load_model_npz(path, SMPL_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         classic=SMPLFamilyFormat(SMPLClassic, _pose_fields(_tables.SMPL, ("body_pose", 23))),
@@ -199,13 +189,15 @@ def smplh(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL+H (52 joints; the hand pose is given per joint, the file ships no hand PCA)."""
-    _check_dtype(dtype)
+    check_flags(hands=hands)
+    check_dtype(dtype)
     gender = _gender(gender)
     table = _tables.SMPLH
     path = weight_path(table.folder, table.file_pattern.format(gender_lower=gender), path=path)
     drop = () if hands else tuple(table.joint_names[j] for j in (*table.left_hand_joints, *table.right_hand_joints))
     return _load_family(
         table,
+        path,
         load_model_npz(path, SMPLH_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, 300)},
         drop=drop,
@@ -236,7 +228,8 @@ def smplx(
     ``num_pca_comps`` in ``[1, 45]`` makes the classic hand poses ``(..., num_pca_comps)`` PCA coefficients; ``None``
     keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
     """
-    _check_dtype(dtype)
+    check_flags(hands=hands, face=face, flat_hand_mean=flat_hand_mean)
+    check_dtype(dtype)
     gender = _gender(gender)
     if num_pca_comps is not None:
         _check_width("num_pca_comps", num_pca_comps, HAND_DIM)
@@ -274,6 +267,7 @@ def smplx(
     streams = {"expression": _check_width("num_expression", num_expression, SMPLX_EXPRESSION_DIM)} if face else {}
     return _load_family(
         table,
+        path,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, SMPLX_SHAPE_DIM)},
         streams=streams,
@@ -303,7 +297,8 @@ def mano(
     ``num_pca_comps`` in ``[1, 45]`` makes the classic hand pose ``(..., num_pca_comps)`` PCA coefficients; ``None``
     keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
     """
-    _check_dtype(dtype)
+    check_flags(flat_hand_mean=flat_hand_mean)
+    check_dtype(dtype)
     if side not in {"left", "right"}:
         raise UnknownNameError("side", side, ["left", "right"])
     if num_pca_comps is not None:
@@ -320,6 +315,7 @@ def mano(
     )
     return _load_family(
         table,
+        path,
         arrays,
         identity={"betas": _check_width("num_betas", num_betas, 10)},
         side=side,
@@ -339,11 +335,13 @@ def flame(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """FLAME head (5 joints, 5023 vertices); expression is a stream group like SMPL-X."""
-    _check_dtype(dtype)
+    check_dtype(dtype)
+    gender = _gender(gender, ("female", "generic", "male"))
     table = _tables.FLAME
-    path = weight_path(table.folder, table.file_pattern.format(gender=gender.lower()), path=path)
+    path = weight_path(table.folder, table.file_pattern.format(gender=gender), path=path)
     return _load_family(
         table,
+        path,
         load_model_npz(path, FLAME_SCHEMA),
         identity={"betas": _check_width("num_betas", num_betas, FLAME_SHAPE_DIM)},
         streams={"expression": _check_width("num_expression", num_expression, FLAME_EXPRESSION_DIM)},

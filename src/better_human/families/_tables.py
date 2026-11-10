@@ -15,6 +15,9 @@ class FamilyTable:
     joint_names: tuple[str, ...]
     file_pattern: str  #: file under ``$BETTERHUMAN_MODELS_DIR/<folder>/``; ``{gender}`` / ``{side}`` placeholders.
     folder: str
+    #: Vertices of the authored mesh: the loader reads a file of exactly this many, so the shipped landmarks, contact
+    #: frames and segmentation index the right vertices.
+    num_vertices: int
     #: The density category of each joint's part (decision record 0007): one of the shipped tables' categories, which
     #: are SMPL's 24 part names; ``{side}`` is MANO's side. Fingers take the hand, face joints and eyes the head.
     density_categories: tuple[str, ...]
@@ -84,6 +87,7 @@ SMPL = FamilyTable(
     joint_names=SMPL_JOINT_NAMES,
     file_pattern="SMPL_{gender}.npz",
     folder="smpl",
+    num_vertices=6890,
     density_categories=SMPL_JOINT_NAMES,
     keypoint_names=KEYPOINT_NAMES,
     keypoint_vertex_ids=(
@@ -151,6 +155,7 @@ SMPLH = FamilyTable(
     ),
     file_pattern="smplh/{gender_lower}/model.npz",
     folder="smplh",
+    num_vertices=6890,
     density_categories=SMPL_JOINT_NAMES[:22] + ("left_hand",) * 15 + ("right_hand",) * 15,
     keypoint_names=KEYPOINT_NAMES,
     keypoint_vertex_ids=SMPL.keypoint_vertex_ids,
@@ -219,6 +224,7 @@ SMPLX = FamilyTable(
     ),
     file_pattern="SMPLX_{gender}.npz",
     folder="smplx",
+    num_vertices=10475,
     density_categories=SMPL_JOINT_NAMES[:22] + ("head",) * 3 + ("left_hand",) * 15 + ("right_hand",) * 15,
     keypoint_names=KEYPOINT_NAMES,
     keypoint_vertex_ids=(
@@ -271,6 +277,7 @@ MANO = FamilyTable(
     ),
     file_pattern="MANO_{side}.npz",
     folder="mano",
+    num_vertices=778,
     density_categories=("{side}_wrist",) + ("{side}_hand",) * 15,
 )
 
@@ -279,6 +286,7 @@ FLAME = FamilyTable(
     joint_names=("global", "neck", "jaw", "left_eye", "right_eye"),
     file_pattern="{gender}_model.npz",
     folder="flame",
+    num_vertices=5023,
     density_categories=("head", "neck", "head", "head", "head"),  # FLAME's root part "global" is the head
 )
 
