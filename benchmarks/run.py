@@ -432,8 +432,9 @@ def context(args: argparse.Namespace, device: torch.device) -> dict[str, Any]:
         "commit": git("rev-parse", "--short", "HEAD"),
         "dirty": bool(git("status", "--porcelain")),
         "command": shlex.join(sys.argv),
-        # BetterRobot may come from another checkout (PYTHONPATH); relative: no home directory in a tracked file
-        "better_robot_file": os.path.relpath(br.__file__, REPO_ROOT),
+        # inside BetterRobot's own checkout, as its runner records it, under the repository's name as BetterHuman cites
+        # BetterRobot paths: no lane or home directory in a tracked file
+        "better_robot_file": "BetterRobot/" + os.path.relpath(br.__file__, Path(br.__file__).parents[2]),
         "torch": torch.__version__,
         "python": platform.python_version(),
         "device": args.device,
