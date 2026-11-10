@@ -127,8 +127,10 @@ class SMPLFamilyFormat(ClassicFormat):
     axis-angle field ``(..., 3 n)`` to its ``n`` native joints, fields in native joint order after the root. A hand
     field in ``hand_components`` holds ``(..., C)`` coefficients of its ``(C, 3 n)`` PCA basis instead, and
     ``hand_means[field] (3 n,)`` is added to its axis-angles; both are fixed at load (``num_pca_comps``,
-    ``flat_hand_mean``). Axis-angles keep their angle in ``[0, 2 pi]``: a rotation by more than ``pi`` comes back as
-    given, not as its principal equivalent.
+    ``flat_hand_mean``). A joint the model was loaded without reads zero in its field, before the hand mean; a PCA
+    field cannot lose some of its joints (``field_shapes`` raises :class:`~better_robot.exceptions.ArgumentError`, and
+    so does ``families.drop_joints``). Axis-angles keep their angle in ``[0, 2 pi]``: a rotation by more than ``pi``
+    comes back as given, not as its principal equivalent.
     """
 
     classic_type: type
@@ -144,9 +146,20 @@ class SMPLFamilyFormat(ClassicFormat):
         shapes = {"global_orient": (3,), "transl": (3,)}
         shapes.update({name: (width,) for name, width in (*spec.identity_groups.items(), *spec.stream_groups.items())})
         for name, joints in self.pose_fields.items():
-            if any(joint in spec.joint_names for joint in joints):
-                components = self.hand_components.get(name)
-                shapes[name] = (3 * len(joints),) if components is None else (components.shape[0],)
+            dropped = [joint for joint in joints if joint not in spec.joint_names]
+            if len(dropped) == len(joints):
+                continue
+            components = self.hand_components.get(name)
+            if components is None:
+                shapes[name] = (3 * len(joints),)
+                continue
+            if dropped:  # a PCA coefficient moves every joint of the hand, so none can be left out
+                raise ArgumentError(
+                    f"{name} holds {components.shape[0]} hand PCA coefficients, which move every joint of the hand, so "
+                    f"{dropped} cannot be left out; load the model with num_pca_comps=None (full axis-angle hands) "
+                    "to drop single hand joints"
+                )
+            shapes[name] = (components.shape[0],)
         return shapes
 
     def from_fields(
@@ -164,19 +177,17 @@ class SMPLFamilyFormat(ClassicFormat):
             value = fields[name].expand(*batch, fields[name].shape[-1])
             if name in self.hand_components:
                 value = value @ self.hand_components[name]
+            dropped = [index for index, joint in enumerate(joints) if joint not in spec.joint_names]
+            # checked before the hand mean: a dropped joint reads zero in the classic, like to_classic writes it
+            if dropped and bool(value.unflatten(-1, (len(joints), 3))[..., dropped, :].any()):
+                raise ArgumentError(
+                    f"from_classic: {name} sets {[joints[index] for index in dropped]}, which this model was loaded "
+                    "without (drop_joints); leave them zero"
+                )
             if name in self.hand_means:
                 value = value + self.hand_means[name]
             axes.append(value.unflatten(-1, (len(joints), 3)))
-        axes = torch.cat(axes, dim=-2)
-        reduced_ids = spec.file_joint_ids[1:] - 1
-        reduced = axes.index_select(-2, reduced_ids)
-        if reduced.shape[-2] < axes.shape[-2]:
-            kept = torch.zeros(axes.shape[-2], dtype=torch.bool, device=axes.device)
-            kept[reduced_ids] = True
-            if bool(axes[..., ~kept, :].any()):
-                raise ArgumentError(
-                    "from_classic: pose given for joints this model was loaded without (drop_joints); leave them zero"
-                )
+        reduced = torch.cat(axes, dim=-2).index_select(-2, spec.file_joint_ids[1:] - 1)
         pelvis = _pelvis(identity, streams).expand(*batch, 3)
         root = torch.cat(
             (fields["transl"].expand(*batch, 3) + pelvis, so3.exp(fields["global_orient"].expand(*batch, 3))), dim=-1
@@ -201,10 +212,11 @@ class SMPLFamilyFormat(ClassicFormat):
         for name, joints in self.pose_fields.items():
             value = axes[..., start : start + len(joints), :].flatten(-2)
             start += len(joints)
-            if not any(joint in spec.joint_names for joint in joints):
+            kept = torch.tensor([joint in spec.joint_names for joint in joints], device=q.device)
+            if not bool(kept.any()):
                 continue
-            if name in self.hand_means:
-                value = value - self.hand_means[name]
+            if name in self.hand_means:  # a dropped joint keeps the mean, so it reads zero, as from_classic requires
+                value = value - self.hand_means[name] * kept.repeat_interleave(3)
             components = self.hand_components.get(name)
             if components is not None:
                 delta = value

@@ -3,11 +3,12 @@
 The archive has the family's native vertex and joint counts and the fields and dtypes that BetterHuman's loader and
 the ``smplx`` oracle read, but every array is drawn from one seeded generator: no number comes from licensed
 weights. Values are small integers times a power of two, exact in float32 and float64, and the shape and pose blend
-shapes are non-zero on 256 random vertices only, so each archive deflates to under 1 MiB (principle 9.3). The
-kinematic tree is random: a joint's parent is an earlier joint of its own group (body, face, left hand, right hand)
-or a body joint, so the hands and the face stay terminal subtrees. The faces are a consistently wound strip over the
-vertex order, a band the mass code can close part by part, so the archive also loads with a density; its masses are
-those of a random mesh, not of a body.
+shapes are non-zero on 256 random vertices only, so each archive deflates to under 1 MiB (principle 9.3). The joint
+regressor reads those vertices only, so every joint, the root included, moves with shape and expression and a gate on
+these weights sees each joint's shape-dependent pivot. The kinematic tree is random: a joint's parent is an earlier
+joint of its own group (body, face, left hand, right hand) or a body joint, so the hands and the face stay terminal
+subtrees. The faces are a consistently wound strip over the vertex order, a band the mass code can close part by
+part, so the archive also loads with a density; its masses are those of a random mesh, not of a body.
 
 Every zip entry carries one fixed timestamp, so a seed always writes the same bytes with the same numpy and zlib::
 
@@ -26,7 +27,8 @@ from pathlib import Path
 import numpy as np
 
 SEED = 20261110
-#: Vertices that carry shape and pose blend shapes; every column of both bases is random on them.
+#: Vertices that carry shape and pose blend shapes (every column of both bases is random on them) and that the joint
+#: regressor reads.
 BLENDED_VERTICES = 256
 
 
@@ -91,21 +93,23 @@ def make_arrays(family: str, seed: int = SEED) -> dict[str, np.ndarray]:
     num_vertices, num_joints = layout.num_vertices, sum(layout.groups)
     blended = np.sort(rng.choice(num_vertices, size=BLENDED_VERTICES, replace=False))
 
-    def blend_shapes(columns: int) -> np.ndarray:
-        basis = np.zeros((num_vertices, 3, columns))
+    def blend_shapes(columns: int, dtype: type[np.floating]) -> np.ndarray:
+        basis = np.zeros((num_vertices, 3, columns), dtype=dtype)
         basis[blended] = _steps(rng, (blended.size, 3, columns), step=2**-8, largest=4)
         return basis
 
     parents = _parents(rng, layout.groups)
+    regressor = np.zeros((num_joints, num_vertices))
+    regressor[:, blended] = _convex_rows(rng, num_joints, blended.size, counts=(8,), total=64)
     root = np.iinfo(layout.kintree).max if np.issubdtype(layout.kintree, np.unsignedinteger) else -1
     strip = np.arange(num_vertices - 2)
     faces = np.stack((strip, strip + 1, strip + 2), axis=1)
     faces[1::2, :2] = faces[1::2, 1::-1]  # every other face reversed: neighbours cross their shared edge oppositely
     arrays = {
         "v_template": _steps(rng, (num_vertices, 3), step=2**-8, largest=128).astype(layout.floats),
-        "shapedirs": blend_shapes(layout.shape_columns).astype(layout.shapedirs),
-        "posedirs": blend_shapes((num_joints - 1) * 9).astype(layout.floats),
-        "J_regressor": _convex_rows(rng, num_joints, num_vertices, counts=(8,), total=64).astype(layout.floats),
+        "shapedirs": blend_shapes(layout.shape_columns, layout.shapedirs),
+        "posedirs": blend_shapes((num_joints - 1) * 9, layout.floats),
+        "J_regressor": regressor.astype(layout.floats),
         "weights": _convex_rows(rng, num_vertices, num_joints, counts=(1, 2, 3, 4), total=16).astype(layout.floats),
         "kintree_table": np.array([[root, *parents[1:]], range(num_joints)], dtype=layout.kintree),
         "f": faces.astype(np.uint32),

@@ -11,7 +11,9 @@ carries a marker that the tier commands select on, and a selected test whose wei
 | release | `uv run pytest tests -q -m "licensed and not cuda"`, then `uv run pytest tests -q -m cuda` with a free GPU visible | the tests that read licensed weights on the CPU, then the GPU tests | a test fails, or the weights or the device is missing |
 
 Tip: on a host with transparent huge pages, exporting `NUMPY_MADVISE_HUGEPAGE=0` cuts the CPU release tier from about
-16 min to about 2.5 min ([Timing on a busy host](#timing-on-a-busy-host)); the tier commands stay as written.
+16 min to about 2.5 min and the full tier from about 110 s to about 26 s
+([Timing on a busy host](#timing-on-a-busy-host)); the tier commands stay as written, and neither the library nor
+the tests change the setting.
 
 `.pre-commit-config.yaml` defines the hooks: lint, the format check and the fast tier before a commit, the full tier
 before a push.
@@ -59,6 +61,12 @@ compact memory. Reading the SMPL-X archive took 6 to 12 s that way, against 0.8 
 the same hour on the same machine. A load-time gate is therefore a ratio measured in one process (the loader
 against a raw read of the same archive, both in the same memory state), and a timing comparison records the
 `NUMPY_MADVISE_HUGEPAGE` setting and the load average with its numbers. The library never changes this setting.
+
+The full tier reads each random-weight archive (decision record 0016) once per session: the tests load them through
+`tests/support/random_archives.py`, which runs the family loader on cached arrays for every option set, and each
+example reads its archive once in its own process. On 2026-11-10 (load average 18 to 48) that took the full tier from
+293 s to 110 s with default huge pages and from 32 s to 26 s with `NUMPY_MADVISE_HUGEPAGE=0`; most of the rest with
+huge pages is `tests/families/test_vertex_count.py`, which writes and reads synthetic SMPL-X and SMPL+H files.
 
 ## Stale bytecode and the assertion hook
 

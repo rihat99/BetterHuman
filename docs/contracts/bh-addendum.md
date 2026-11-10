@@ -140,7 +140,9 @@ therefore passes its `times` to the viewer; BH never resamples `q`.
   leaves the model's PCA subspace.
 - Dropped joints: a field whose joints the model was loaded without (`hands=False`, `face=False`, `drop_joints`) or
   whose stream group it lacks (`expression=False`) raises `ArgumentError` when set, and `to_classic` returns `None`
-  for it, so the round trip is closed.
+  for it. In a field that keeps some of its joints, a dropped joint reads zero both ways (before the hand mean), so
+  the round trip is closed. A hand PCA field cannot keep only some of its joints: `drop_joints` raises
+  `ArgumentError` naming the fix, `num_pca_comps=None`.
 - Round trips are exact to float precision, both ways. The SMPL family keeps axis-angles beyond π (the sign of each
   quaternion survives); MHR's Euler angles and SOMA's axis-angles come back on the principal branch.
 
