@@ -13,7 +13,6 @@ import pytest
 
 REPO = Path(__file__).parents[2]
 DOCS = REPO / "docs"
-FAKE_SERVER = REPO / "tests" / "viz" / "fake_server.py"
 # Decision records are immutable history: their examples show the API as decided, not as it is now, so they never run.
 RECORDS = DOCS / "contracts" / "decisions"
 PAGE_TIMEOUT_S = 120
@@ -31,20 +30,18 @@ CAPTURE_DIR = Path(os.environ.get("BR_DOCS_CAPTURE_DIR", "/tmp/br_docs_outputs")
 FIGURE = re.compile(r"(?P<path>(?:\.\./)*(?:figures|images)/[\w./-]+\.(?:svg|png|jpg|gif|webm|mp4|webp))")
 
 # Runs in a fresh interpreter so the CPU-only environment is set before torch loads, and so viser never binds:
-# ``viser.ViserServer`` is replaced by the recording fake from the viewer tests.
+# ``viser.ViserServer`` is replaced by BetterRobot's stand-in server, ``better_robot.testing.FakeServer``.
 RUNNER = """
-import importlib.util, sys
-spec = importlib.util.spec_from_file_location("docs_fake_server", sys.argv[1])
-fake = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(fake)
+import sys
+from better_robot.testing import FakeServer
 try:
     import viser
-    viser.ViserServer = lambda *args, **kwargs: fake.FakeServer()
+    viser.ViserServer = lambda *args, **kwargs: FakeServer()
 except ImportError:
     pass
 namespace = {"__name__": "__docs__"}
 outputs = []
-for index, source in enumerate(sys.argv[2:]):
+for index, source in enumerate(sys.argv[1:]):
     if __import__("os").environ.get("BR_DOCS_CAPTURE") == "1":
         import io, contextlib
         buffer = io.StringIO()
@@ -77,7 +74,7 @@ def test_page_snippets_execute(page: Path) -> None:
     """Run a page's Python blocks in order in one namespace, CPU only, with a fake viser server."""
     env = {**os.environ, "CUDA_VISIBLE_DEVICES": "", "OMP_NUM_THREADS": "2", "MPLBACKEND": "Agg"}
     completed = subprocess.run(
-        [sys.executable, "-c", RUNNER, str(FAKE_SERVER), *_runnable_blocks(page)],
+        [sys.executable, "-c", RUNNER, *_runnable_blocks(page)],
         cwd=REPO,
         env=env,
         capture_output=True,
@@ -130,7 +127,7 @@ def test_getting_started_outputs_fresh(page: Path) -> None:
         "BR_DOCS_CAPTURE": "1",
     }
     completed = subprocess.run(
-        [sys.executable, "-c", RUNNER, str(FAKE_SERVER), *runnable],
+        [sys.executable, "-c", RUNNER, *runnable],
         cwd=REPO,
         env=env,
         capture_output=True,
