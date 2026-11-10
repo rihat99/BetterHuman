@@ -57,6 +57,7 @@ appears outside a rule's heading on a contracts page.
 | principle 7.7, the codemap is the edge table | `tests/docs/test_codemap.py` |
 | principle 7.8, citations resolve | `tests/contract/test_citations.py` |
 | principles 9.1, 9.2, 9.3 and 9.6, one repository layout: the standard top-level entries, a `tests/` folder per package, no tracked symlink or file over 1 MiB (record [0015](decisions/0015-licensed-goldens-out-of-git.md)), no ghost directory | `tests/contract/test_repository_layout.py` |
+| principles 10.1, 10.2 and 10.3, the agent files: one `CLAUDE.md` of at most 200 lines, a nested one of at most 60, a one-line `AGENTS.md`, no capitals for emphasis, the shared `.claude/` files tracked | `tests/contract/test_agent_files.py` |
 | principle 8.2, an accepted record changes only through a new record (BetterRobot's records test) | `tests/contract/test_decision_records.py` |
 
 Every test module under `tests/contract/` is in one of the two tables (`tests/docs/test_contract_matrix.py` checks

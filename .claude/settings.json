@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "deny": ["Read(./site/**)", "Read(./benchmarks/results/**)", "Read(./htmlcov/**)"]
+  }
+}

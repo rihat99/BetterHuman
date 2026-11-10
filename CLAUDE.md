@@ -1,102 +1,142 @@
-# BetterHuman — Agent Guide
+# BetterHuman
 
-Parametric human bodies (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR, SOMA) as BetterRobot models.
-Design, shapes, units: `docs/concepts/architecture.md` (site: `uv run mkdocs serve`). Rules: `docs/contracts/rules.md`,
-each with its enforcer in `docs/contracts/index.md`; gates: `docs/reference/tests.md`; benchmarks:
-`docs/guides/run-the-benchmarks.md` and `docs/reference/benchmarks.md`.
+Parametric human bodies (SMPL, SMPL-H, SMPL-X, MANO, FLAME, MHR, SOMA) as batched, differentiable BetterRobot
+models. This file holds what the code cannot tell. `AGENTS.md` sends every other agent here.
 
 ## Commands
 
+From the repository root, with BetterRobot checked out beside it (`[tool.uv.sources]` in `pyproject.toml`). Wall
+times measured on a shared 384-thread AMD EPYC host at load average 17 to 96, with `NUMPY_MADVISE_HUGEPAGE=0` (below).
+
 ```bash
-export BETTERHUMAN_MODELS_DIR=$PWD/models                       # licensed weights, never committed
-uv run pytest tests/contract -q -m "not slow and not licensed"  # fast tier, about 6 s
-uv run pytest tests -q -m "not cuda and not licensed"           # full tier, no weights needed, about 2 min
-uv run pytest tests -q -m "licensed and not cuda"               # release tier on CPU, about 3 min, needs the weights
-uv run pytest tests -q -m cuda                                  # release tier on a free GPU, 10 s
-uv run ruff check . && uv run ruff format --check .             # lint and format, as the pre-commit hook runs them
-uv run python tools/api_snapshot.py --check                     # the public API against its snapshot
-node ../BetterRobot/tools/docs_screenshots.mjs temp/shots --repo .  # every docs page as light/dark PNGs (BETTER_ROBOT_CHROME)
-uv run python examples/01_smpl_shape_pose.py --check            # each example 01-04 supports --check
-uv run python benchmarks/run.py --counters-only                 # the counter gate (also in the full tier), about 50 s
+uv sync --extra studio                                           # the environment and the dev group, under a second
+uv run pytest tests/contract -q -m "not slow and not licensed"   # fast tier, about 10 s
+uv run pytest tests -q -m "not cuda and not licensed"            # full tier, about 2 min
+uv run pytest tests -q -m "licensed and not cuda"                # release tier on CPU, needs the weights, about 3 min
+CUDA_VISIBLE_DEVICES=<index> uv run pytest tests -q -m cuda      # release tier on a GPU nobody else uses, about 8 s
+uv run pytest tests/docs -q -m "not licensed"                    # every docs snippet against its output, about 25 s
+uv run mkdocs build --strict                                     # the docs site into site/, about 3 s
+uv run ruff check . && uv run ruff format --check .              # lint and format, under a second
+uv run python tools/api_snapshot.py --check                      # the public API against its snapshot, about 2.5 s
+uv run python benchmarks/run.py --counters-only                  # the counter gate, about 50 s
+node ../BetterRobot/tools/docs_screenshots.mjs temp/shots --repo .   # light and dark PNG of every page, about 5 min
 ```
 
-Tier times are pytest's, measured on 2026-11-10 on a shared 384-thread host (load average 20 to 80) with
-`NUMPY_MADVISE_HUGEPAGE=0`; `uv run` adds about 3 s. The full tier's counter gate,
-`tests/contract/test_compile_counters.py`, takes about 50 s of it. With the host's default transparent huge pages the
-large archive loads stall: the full tier took 201 s before the counter gate joined it, and the CPU release tier 15
-to 17 min. `docs/guides/run-the-tests.md` has the tiers in full and the huge-page story.
+While editing a package, run its folder beside the fast tier (`uv run pytest tests/core -q -m "not cuda and not
+licensed"`, about 6 s). `.pre-commit-config.yaml` runs ruff and the fast tier before a commit and the full tier
+before a push, once installed (`uv run pre-commit install`). `docs/guides/run-the-tests.md` explains the tiers;
+`docs/reference/tests.md` says what each group of tests guards.
 
-## Layering rule
+## What the tiers need
 
-Each package imports only the packages of its row in decision record 0011's two edge tables, as the proposed records
-0019, 0021 and 0022 amend them: `ALLOWED` (among BetterHuman's packages) and `BR_ALLOWED` (into BetterRobot), which
-`tests/contract/test_layer_dependencies.py` holds and checks on every import; an edge that breaks them today sits in
-`tests/contract/ratchets/edges.json` until its fix lands:
-
-```text
-io, mass  -> nothing
-core      -> mass
-families  -> core io mass
-terms     -> core
-viz       -> core
-studio    -> better_human core families io mass viz
-the root  -> core families io mass studio terms viz
-```
-
-BetterRobot is imported through the public modules of the importer's `BR_ALLOWED` row only, a first-level name
-(`Viewer`, `forward_kinematics`) from its root (`tests/contract/test_br_imports.py`). Never edit BetterRobot from
-this repo.
-
-## Where things live
-
-| path | what |
-|---|---|
-| `src/better_human/__init__.py` | the subpackages; `load`, `HumanModel`, `Identity`, `HumanState`, `FamilySpec`, `from_classic`, `to_classic`; `__version__` from the installed metadata |
-| `src/better_human/core/spec.py`, `src/better_human/core/rig.py` | `FamilySpec` data; the abstract `Rig` and `RigBake` |
-| `src/better_human/core/human_model.py` | `HumanModel.from_spec` -> `bake` -> `Identity` -> `forward` -> `HumanState` |
-| `src/better_human/core/skinning.py` | blend shapes and skinning |
-| `src/better_human/mass/` | part topology, densities and inertias; its data are versioned archives read by `src/better_human/io/mass_data.py` |
-| `src/better_human/families/smpl_family.py`, `src/better_human/families/_tables.py` | SMPL-family loaders; file patterns and joint names |
-| `src/better_human/families/regressed_rig.py` | `RegressedRig` (SMPL family), `drop_joints` |
-| `src/better_human/core/classic.py`, `src/better_human/families/classic.py` | `from_classic` / `to_classic` and the abstract `ClassicFormat`; every `*Classic` and the three formats |
-| `src/better_human/families/mhr_family.py` | MHR loader |
-| `src/better_human/families/mhr_rig.py` | `MHRRig` |
-| `src/better_human/families/soma_family.py`, `src/better_human/families/soma_rig.py` | SOMA loader; `SOMARig` |
-| `src/better_human/io/load.py`, `src/better_human/io/schema.py` | weight paths (`models_dir`, `weight_path`); internal archive reader and schemas |
-| `src/better_human/io/formats.py`, `src/better_human/io/frame_sets.py` | file formats, `check_format`, the migrations (spec: `docs/reference/formats/`); frame sets |
-| `src/better_human/terms/`, `src/better_human/viz/layers.py` | optimisation terms (state, fitting, physics); viewer layers and `HumanView` |
-| `tests/parity/` | parity gates; the licensed goldens live in `$BETTERHUMAN_MODELS_DIR/goldens/` (release tier), the random-weight goldens in `tests/parity/smplx/random/` (full tier) |
-| `tests/docs/test_snippets.py` | runs every Python fence of `docs/` and the README on the random-weight archives of `tests/support/random_weights/` and compares its output |
-| `docs/contracts/decisions/` | decision records; `tests/contract/test_decision_records.py` checks their template, and that an accepted record keeps its text |
-| `tools/api_snapshot.py` | `--check` the public API against `tests/contract/public_api.json`; `--write` after an intended change; `--diff tests/contract/public_api_before_0.2.0.json` lists what changed since 0.1 |
-| `tools/convert/`, `tools/parity/`, `tools/render_segmentation.py` | weight converters; oracle dumps, each folder with its environment and README; the images of `docs/concepts/segmentation.md` |
-
-## Numerical contracts
-
-- Metres, y-up, BR pose order in `q`; native joint order in `HumanState.joint_translations`.
-- `q (B..., nq)` broadcasts with identity dims `I...`; never hard-code `nq`.
-- Family behaviour goes in the `Rig` or the loader, never in `HumanModel` branches.
-- Native parameters enter and leave only through `bh.from_classic` / `bh.to_classic`.
-- Every shape, layout and format another repository reads is on `docs/contracts/coupling-standard.md`, which adds
-  BetterHuman's to BetterRobot's page and only grows.
+- Nothing skips: `tests/conftest.py` loads BetterRobot's plugin `better_robot.testing.no_skips`, which turns every
+  skip and xfail into a failure (`tests/contract/test_no_skips.py`). A test that reads licensed weights carries the
+  `licensed` marker and one that needs a GPU `cuda`; the fast and full tiers deselect both.
+- The fast and full tiers need no weights: their docs snippets, examples and parity read the random-weight
+  archives of `tests/support/random_weights/`.
+- The weights live in `$BETTERHUMAN_MODELS_DIR`, one folder per family (`docs/guides/load-a-family.md` names each
+  folder and file) and the licensed goldens in `goldens/<family>/`. Nothing guesses a default: a run that selects a
+  `licensed` test without the variable stops at collection with the fix. A `models` folder at the root is ignored.
+- On a host whose transparent huge pages are in `madvise` mode, NumPy's huge-page advice stalls each read of a large
+  archive for seconds; `NUMPY_MADVISE_HUGEPAGE=0` turns it off for a run (`docs/guides/run-the-tests.md`). Neither
+  the library nor the tests set it.
+- `benchmarks/run.py` refuses `BETTER_ROBOT_INTERNAL_CHECKS=1`: BetterRobot's checks add host syncs and operators.
+- The screenshot command needs `BETTER_ROBOT_CHROME` (a headless Chromium) and builds the site with a plain
+  `uv run`.
+- `uv.lock` records the version of the BetterRobot checkout beside it. When that version changes, a plain `uv run`
+  rewrites the lockfile and the hooks' `uv run --locked` fails until the new lockfile is committed.
 
 ## Gates that must not be weakened
 
-- SMPL-X parity 1e-6 m (float32 and float64, expression streamed); current worst 5.1e-7 m.
-- MHR parity on all 7 LODs and vs TorchScript (tolerances in `tests/parity/`).
-- SOMA parity on 14 goldens and their identity batch, all 110 skin joints, float32 and float64 (tolerances in
-  `tests/parity/`).
-- SMPL, SMPL+H and SMPL-X parity on the random-weight goldens, 1e-6 m in float32 and float64, full tier
-  (`tests/parity/smplx/test_random_weights.py`; worst 3.6e-7 m).
-- `stream_joints=False` error stays in (1e-5, 2e-3) m.
-- The counters (graph breaks, recompiles, operators, host syncs) of the benchmark runner's counter rows never exceed
-  `benchmarks/thresholds/torch-2.13.0.json` (`tests/contract/test_compile_counters.py`, full tier).
-Never skip, xfail or loosen a test to get green; report the number instead.
+Never skip, xfail, loosen a tolerance or delete an assertion to get green; report the number instead. Gate data (a
+tolerance, a counter threshold, a golden) changes only in a commit of its own that says why.
 
-## Housekeeping
+- SMPL and SMPL-X against the `smplx` package, 1e-6 m in float32 and float64, expression streamed: 85 tests in
+  `tests/parity/smplx/test_smpl_parity.py` and `tests/parity/smplx/test_smplx_parity.py`, release tier; current
+  worst 5.1e-7 m.
+- SMPL, SMPL-H and SMPL-X on the random-weight archives, the same 1e-6 m: 120 tests, full tier
+  (`tests/parity/smplx/test_random_weights.py`); current worst 6.0e-7 m.
+- SMPL-X with `stream_joints=False`: the joint error stays in (1e-5, 2e-3) m.
+- MHR at levels of detail 0 to 6 against `pymomentum` and against its TorchScript model; SOMA mid on 14 goldens and
+  their identity batch, all 110 skin joints, float32 and float64. Their tolerances are `PARITY_ATOLS` and the
+  constants beside it in each test (`docs/reference/tests.md` lists them).
+- Counters: graph breaks, recompiles, operators and host syncs of the counter rows never exceed
+  `benchmarks/thresholds/torch-2.13.0.json` (rule C-PERF-3, `tests/contract/test_compile_counters.py`, full tier).
+- Ratchets in `tests/contract/ratchets/` only shrink; the test that reads each one fails on a stale entry, so an
+  entry leaves in the commit that fixes it. Open today: dead_citations 5; the other five are empty.
+- The public API equals `tests/contract/public_api.json` (`tests/contract/test_api_snapshot.py`); an intended change
+  is recorded with `uv run python tools/api_snapshot.py --write` and an entry in `docs/reference/changelog.md`
+  (`tests/contract/test_changelog.py`).
 
-- Never `rm`. Move files with `trash <paths>` (goes to `<repo>/trash/`).
-- A new word in a public name enters `docs/reference/glossary.md` in the same change, unless BetterRobot's glossary
-  has it (`tests/contract/test_vocabulary.py::test_glossary_words`).
-- No new dependencies without asking. Tests that read licensed weights are marked `licensed` and fail, never
-  skip, when the weights are missing.
+## Absences, each with its enforcer
+
+- No package imports outside its row of `ALLOWED` (among BetterHuman's packages) and `BR_ALLOWED` (into
+  BetterRobot) in `tests/contract/test_layer_dependencies.py`, nor by a computed name; `docs/concepts/architecture.md`
+  prints both tables, and `tests/docs/test_codemap.py` checks that copy.
+- No BetterRobot import outside its `__all__` tree but the one exception rules H-LAYER-2 and H-STUDIO-1 of
+  `docs/contracts/rules.md` name (`tests/contract/test_br_imports.py`, `tests/contract/test_studio_boundary.py`).
+- No class in `src` that is neither abstract nor `@final`, and none that derives from a `@final` class: a partial
+  model is a loader option (`tests/contract/test_abstract_or_final.py`); `load` dispatches to every family loader
+  (`tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`).
+- No `to` method: dtype and device are chosen at load, and a tensor in another dtype raises
+  (`tests/contract/test_dtype_device.py`); no mutable public dataclass (`tests/contract/test_frozen.py`).
+- No public callable with more than two positional parameters (`tests/contract/test_keyword_only.py`); no public
+  function takes a joint index, and no module shares a name with an exported function
+  (`tests/contract/test_public_surface.py`).
+- No builtin `ValueError`, `TypeError`, `RuntimeError`, `KeyError`, `IndexError` or `AssertionError` raised in `src`
+  outside `PLAIN_RAISES`: every error derives from BetterRobot's `BetterRobotError`
+  (`tests/contract/test_error_tree.py`).
+- No weight lookup but `better_human.io.models_dir` and `better_human.io.weight_path`, in the package, tests,
+  examples, tools, benchmarks or docs scripts (`tests/contract/test_models_dir.py`).
+- No licensed weights or goldens computed from them in git: git holds no `.npz` beyond the random-weight archives
+  and goldens, the format fixtures and the shipped data (`tests/contract/test_golden_provenance.py`).
+- No file format without its name and version, no pickle load, and no module but `src/better_human/io/formats.py`
+  and `src/better_human/io/schema.py` naming `format_version` (`tests/contract/test_formats.py`).
+- No word of a public name outside BetterHuman's or BetterRobot's glossary (`docs/reference/glossary.md`,
+  `tests/contract/test_vocabulary.py`).
+- No skip or xfail spelled in a test module, deselected ones included (`tests/contract/test_no_skips.py`).
+- No dead path citation and no line-number citation in tracked text (`tests/contract/test_citations.py`).
+- No tracked symlink, file over 1 MiB, or directory without a tracked file (`tests/contract/test_repository_layout.py`).
+- No agent file over its length and no capitals for emphasis (`tests/contract/test_agent_files.py`).
+
+## Conventions the code does not announce
+
+- Units are metres and radians, the world is y-up, and `q` has BetterRobot's layout (poses
+  `[tx, ty, tz, qx, qy, qz, qw]`, quaternion scalar last).
+- `HumanState.joint_translations` and `joint_poses` are in the family's native joint order; `HumanState.kinematics`
+  is in the model's joint order. Every layout another repository reads is in `docs/contracts/coupling-standard.md`,
+  which only grows.
+- `q (B..., nq)` broadcasts with the identity's batch axes `I...`; read `nq` from the model, never hard-code it.
+- A family's own behaviour goes in its `Rig` or its loader, never in a `HumanModel` branch (rule H-API-1).
+- Native parameters enter and leave only through `bh.from_classic` and `bh.to_classic` (record 0004).
+- BetterRobot changes in its own repository, never from this one.
+
+## Working rules
+
+These come from the principles repository (its README's ten laws and chapters 01-12; chapter 10 governs this
+file); no test checks them, a reviewer does.
+
+- Write the least code that solves the problem; a change's net line count per package is a design signal
+  (principle 4.1).
+- Add an abstraction only when two in-tree callers need it.
+- No forwarding layer: a module whose public functions each forward to one other module merges into it (1.2).
+- One obvious place per concept (Law 2); prefer a few deep modules to many tiny ones, and a family of modules
+  becomes a folder at three (1.2, 3.8).
+- Delete only after a search shows no caller; back every claim in a report with its command and output (4.1, 10.5).
+- Update the docs and the nearest agent file in the change that changes a contract. A change of a contract or a
+  layout gets a decision record (`docs/contracts/index.md` says when); an accepted record keeps its text, Status line
+  aside (`tests/contract/test_decision_records.py`).
+- A new family meets the inclusion bar of `docs/contracts/scope.md`; before reopening a settled idea, read its
+  "Commonly rejected".
+
+## Where things live
+
+- Rules and their enforcers: `docs/contracts/index.md`; scope, non-goals and rejected ideas:
+  `docs/contracts/scope.md`; the public plan: `docs/reference/roadmap.md`.
+- Procedures: `.claude/skills/add-body-family/SKILL.md`, `.claude/skills/regenerate-goldens/SKILL.md` and
+  `.claude/skills/release/SKILL.md`.
+- `tools/convert/` turns upstream releases into the archives the loaders read; `tools/parity/` holds one folder per
+  oracle, each with its pinned environment, dump scripts and a README; `tools/render_segmentation.py` draws the
+  images of `docs/concepts/segmentation.md`.
+- `agent_notes/` (one folder per task: plan, state, notes) and `trash/` are ignored whole; nothing tracked cites
+  them.
