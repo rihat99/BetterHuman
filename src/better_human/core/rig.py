@@ -34,6 +34,13 @@ class RigBake:
     inverse_bind_affines: torch.Tensor
     root_offset: torch.Tensor  #: ``(I..., 3)`` root from the native origin; ``transl + root_offset`` places the root.
 
+    def __repr__(self) -> str:
+        vertices, joints = self.rest_vertices.shape[-2], self.rest_joint_translations.shape[-2]
+        return (
+            f"RigBake(batch={tuple(self.root_offset.shape[:-1])}, vertices={vertices}, joints={joints}, "
+            f"dtype={self.root_offset.dtype}, device={self.root_offset.device})"
+        )
+
 
 class Rig(ABC):
     """The behaviour of a family: its BetterRobot model, its bake, its joint numbering and its corrective features."""

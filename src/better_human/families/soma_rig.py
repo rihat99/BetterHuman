@@ -75,6 +75,13 @@ class SOMARig(Rig):
     t_pose_rotations: torch.Tensor  #: ``(P, 3, 3)`` T-pose world rotations; upstream poses are relative to them.
     corrective_frames: torch.Tensor  #: ``(P, 3, 3)`` corrective bind transposed times T-pose local rotation (Hips: I).
 
+    def __repr__(self) -> str:
+        vertices, public = self.public_weights.shape
+        return (
+            f"SOMARig(joints={self.parents.shape[0]}, public_joints={public}, vertices={vertices}, "
+            f"dtype={self.public_weights.dtype}, device={self.public_weights.device})"
+        )
+
     @classmethod
     def from_arrays(cls, arrays: Mapping[str, Any], *, dtype: torch.dtype, device: torch.device) -> SOMARig:
         """Rig from validated ``soma_mid.npz`` arrays (``tools/convert/soma``), derived in float64, built in ``dtype``.

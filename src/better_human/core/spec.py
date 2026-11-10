@@ -39,6 +39,13 @@ class LinearCorrective(Corrective):
     def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
         return _offsets(feature, self.posedirs, vertex_ids)
 
+    def __repr__(self) -> str:
+        features, width = self.posedirs.shape
+        return (
+            f"LinearCorrective(features={features}, vertices={width // 3}, dtype={self.posedirs.dtype}, "
+            f"device={self.posedirs.device})"
+        )
+
 
 @final
 @dataclass(frozen=True, eq=False)
@@ -50,6 +57,13 @@ class MLPCorrective(Corrective):
 
     def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
         return _offsets(torch.nn.functional.linear(feature, self.first_layer).relu(), self.output, vertex_ids)
+
+    def __repr__(self) -> str:
+        (hidden, features), width = self.first_layer.shape, self.output.shape[1]
+        return (
+            f"MLPCorrective(features={features}, hidden={hidden}, vertices={width // 3}, dtype={self.output.dtype}, "
+            f"device={self.output.device})"
+        )
 
 
 def _read_only(mapping: Mapping[Any, Any]) -> MappingProxyType:
@@ -93,6 +107,9 @@ class Parts:
     def count(self) -> int:
         return len(self.joints)
 
+    def __repr__(self) -> str:
+        return f"Parts(count={self.count}, vertices={self.ids.shape[0]})"
+
 
 @final
 @dataclass(frozen=True, eq=False)
@@ -101,6 +118,9 @@ class Landmarks:
 
     names: tuple[str, ...]
     vertex_ids: torch.Tensor
+
+    def __repr__(self) -> str:
+        return f"Landmarks(count={len(self.names)})"
 
 
 @final
@@ -185,6 +205,12 @@ class FamilySpec:
         if name not in self.joint_names:
             raise UnknownNameError("joint", name, valid=self.joint_names)
         return self.joint_names.index(name)
+
+    def __repr__(self) -> str:
+        return (
+            f"FamilySpec({self.name}, vertices={self.num_vertices}, joints={self.num_joints}, dtype={self.dtype}, "
+            f"device={self.device})"
+        )
 
     def skin_matrix(self) -> torch.Tensor:
         """Dense ``(V, J)`` skin weights."""

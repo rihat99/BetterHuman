@@ -59,7 +59,7 @@ rule each one enforces.
 | `test_keyword_only.py` | public callables take at most two positional parameters |
 | `test_frozen.py` | public dataclasses are frozen; every one that holds tensors compares and hashes by identity; mapping fields are read-only |
 | `test_caches.py` | `HumanState._memo` and `Identity._frame_placements` are the only caches (record [0028](../contracts/decisions/0028-identity-frame-placements-cache.md)): each reached by one function, empty after `dataclasses.replace`, keyed by the grad mode; no module-level store and no unreasoned `functools` cache |
-| `test_repr.py` | the reprs of `HumanModel`, `Identity` and `HumanState` are one short line each |
+| `test_repr.py` | every public class, built from the random-weight archive or large tensors, prints one short line that names it and no tensor; `HumanModel`, `Identity` and `HumanState` name the family |
 | `test_abstract_or_final.py` | every class in `src` is abstract or `@final` |
 | `test_dtype_device.py` | dtype and device are chosen at load; no `to`; a tensor in another dtype raises |
 | `test_error_tree.py` | every BetterHuman error derives from BetterRobot's; `src` raises builtin errors only where listed |

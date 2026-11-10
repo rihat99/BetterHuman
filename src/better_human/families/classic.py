@@ -9,7 +9,7 @@ zero. The expression of SMPL-X, FLAME and MHR is a stream group, not shape state
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, final
 
@@ -29,6 +29,14 @@ _MHR_PARAMETER_COUNT = 204
 _SOMA_POSE_JOINT_COUNT = 77  # public joints after the virtual Root, Hips first
 
 
+def _classic_repr(record: object) -> str:
+    """One line: the record's type, how many of its fields are given, and the dtype and device of the first."""
+    values = [getattr(record, item.name) for item in fields(record)]
+    given = [value for value in values if value is not None]
+    head = f"{type(record).__name__}(given={len(given)}/{len(values)}"
+    return f"{head}, dtype={given[0].dtype}, device={given[0].device})" if given else f"{head})"
+
+
 @final
 @dataclass(frozen=True, eq=False, kw_only=True)
 class SMPLClassic:
@@ -38,6 +46,8 @@ class SMPLClassic:
     global_orient: torch.Tensor | None = None  #: ``(..., 3)``
     body_pose: torch.Tensor | None = None  #: ``(..., 69)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
+
+    __repr__ = _classic_repr
 
 
 @final
@@ -51,6 +61,8 @@ class SMPLHClassic:
     left_hand_pose: torch.Tensor | None = None  #: ``(..., 45)``
     right_hand_pose: torch.Tensor | None = None  #: ``(..., 45)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
+
+    __repr__ = _classic_repr
 
 
 @final
@@ -69,6 +81,8 @@ class SMPLXClassic:
     expression: torch.Tensor | None = None  #: ``(..., num_expression)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
 
+    __repr__ = _classic_repr
+
 
 @final
 @dataclass(frozen=True, eq=False, kw_only=True)
@@ -79,6 +93,8 @@ class MANOClassic:
     global_orient: torch.Tensor | None = None  #: ``(..., 3)``
     hand_pose: torch.Tensor | None = None  #: ``(..., 45)``, or ``(..., num_pca_comps)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
+
+    __repr__ = _classic_repr
 
 
 @final
@@ -95,6 +111,8 @@ class FLAMEClassic:
     expression: torch.Tensor | None = None  #: ``(..., num_expression)``
     transl: torch.Tensor | None = None  #: ``(..., 3)``
 
+    __repr__ = _classic_repr
+
 
 @final
 @dataclass(frozen=True, eq=False, kw_only=True)
@@ -104,6 +122,8 @@ class MHRClassic:
     identity_coeffs: torch.Tensor | None = None  #: ``(..., 45)``
     model_parameters: torch.Tensor | None = None  #: ``(..., 204)``: root, pose and proportion parameters
     expression: torch.Tensor | None = None  #: ``(..., 72)``
+
+    __repr__ = _classic_repr
 
 
 @final
@@ -115,6 +135,8 @@ class SOMAClassic:
     #: ``(..., 77, 3)`` axis-angle per public joint relative to its T-pose orientation, ``Hips`` first.
     poses: torch.Tensor | None = None
     transl: torch.Tensor | None = None  #: ``(..., 3)`` world position of the ``Hips`` joint in metres
+
+    __repr__ = _classic_repr
 
 
 @final
@@ -141,6 +163,10 @@ class SMPLFamilyFormat(ClassicFormat):
     def __post_init__(self) -> None:
         for name in ("pose_fields", "hand_means", "hand_components"):
             object.__setattr__(self, name, MappingProxyType(dict(getattr(self, name))))
+
+    def __repr__(self) -> str:
+        components = {name: basis.shape[0] for name, basis in self.hand_components.items()}
+        return f"SMPLFamilyFormat({self.classic_type.__name__}, hand_components={components})"
 
     def field_shapes(self, spec: FamilySpec) -> dict[str, tuple[int, ...]]:
         shapes = {"global_orient": (3,), "transl": (3,)}

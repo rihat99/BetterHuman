@@ -39,6 +39,9 @@ class PartTopology:
     def num_parts(self) -> int:
         return len(self.faces)
 
+    def __repr__(self) -> str:
+        return f"PartTopology(parts={self.num_parts}, faces={sum(faces.shape[0] for faces in self.faces)})"
+
     @staticmethod
     def face_parts(faces: torch.Tensor, part_ids: torch.Tensor) -> torch.Tensor:
         """The part ``(F,)`` each face of ``faces (F, 3)`` joins under the vertex labelling ``part_ids (V,)``.
