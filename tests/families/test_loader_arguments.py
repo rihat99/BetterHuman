@@ -1,8 +1,8 @@
 """Every family loader checks its arguments before it reads a file (no weights needed).
 
-A flag that is not a bool raises ArgumentError naming the flag (H3 review M3: ``smplx(hands="no")`` used to keep the
-hands). A dtype other than float32 or float64 raises DtypeMismatchError in every loader, the one place that rule lives
-(``bh.load`` passes ``dtype`` through), and an unknown gender raises UnknownNameError, FLAME's too (H3 review L6).
+A flag that is not a bool raises ArgumentError naming the flag, so ``smplx(hands="no")`` cannot keep the hands. A
+dtype other than float32 or float64 raises DtypeMismatchError in every loader, the one place that rule lives
+(``bh.load`` passes ``dtype`` through), and an unknown gender raises UnknownNameError, FLAME's too.
 """
 
 from __future__ import annotations

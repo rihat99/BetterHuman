@@ -1,4 +1,4 @@
-"""Every part of the SMPL family closes, and the part volumes sum to the mesh volume (H2 review finding H2).
+"""Every part of the SMPL family closes, and the part volumes sum to the mesh volume.
 
 The mesh volume is the mesh closed the way its parts are (SMPL-X has holes; one part caps each about its centroid).
 Each tolerance bounds the measured residual, whose cause is:
@@ -86,7 +86,7 @@ def test_drop_joints_merges_authored_parts_and_conserves_mass(dropped: list[str]
 
 
 def test_drop_joints_keeps_the_volume_and_gives_the_merged_volume_the_survivor_density() -> None:
-    """At a non-uniform density the merged part keeps its survivor's density (H3 review L2).
+    """At a non-uniform density the merged part keeps its survivor's density.
 
     The total volume is kept; the total mass changes by each dropped part's volume times its density difference to
     the survivor: SMPL's left forearm and hand (Dempster 1130 and 1160 kg/m³) join the upper arm (1070), -0.085 kg.

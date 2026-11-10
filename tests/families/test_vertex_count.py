@@ -2,7 +2,7 @@
 
 The shipped landmarks (SMPL, SMPL-H, SMPL-X), contact frames (SMPL-X) and closed segmentation (SMPL) index the
 authored meshes: a file with fewer or more vertices is not the family's file, and with more its landmarks would land
-on other vertices (H3 review L1). Synthetic files of each family's joint count, without weights.
+on other vertices. Synthetic files of each family's joint count, without weights.
 """
 
 from __future__ import annotations

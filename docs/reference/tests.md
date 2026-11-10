@@ -71,7 +71,7 @@ rule each one enforces.
 | `test_models_dir.py` | tests, examples and tools find weights only through `better_human.io` |
 | `test_golden_provenance.py` | every golden stamps its provenance; git holds no `.npz` but the random-weight archives and goldens |
 | `test_license.py` | the licence file, `pyproject.toml` and the README agree on Apache-2.0 |
-| `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited |
+| `test_citations.py` | every path and `path::symbol` cited in tracked text resolves; no line number is cited; tracked text gives a reason, never the code of a plan, a review or its finding |
 | `test_repository_layout.py` | the tracked top-level entries are the standard set; each `src` package has its `tests/` folder and every other `tests/` folder is a named suite; no tracked symlink and no tracked file over 1 MiB (record [0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)); no directory of the working tree without a tracked file, ignored ones aside |
 | `test_agent_files.py` | the root `CLAUDE.md` is at most 200 lines and a nested one 60; no capitals for emphasis in an agent file or skill; `AGENTS.md` is one line naming `CLAUDE.md`, and no other tool's instruction file exists at any depth; the shared `.claude/` files are tracked and the rest ignored |
 | `test_decision_records.py` | every decision record follows the template, has an allowed status and an index row, and an accepted record keeps its accepted text |
