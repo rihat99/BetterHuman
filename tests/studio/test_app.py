@@ -381,6 +381,27 @@ def test_a_refused_file_shows_on_the_status_line(
     assert re.match(match, studio.status), studio.status
 
 
+@pytest.mark.parametrize("name", ["../x", "absolute", ""], ids=["parent", "absolute", "empty"])
+def test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing(
+    random_studio: HumanStudio, tmp_path: Path, name: str
+) -> None:
+    """Rule H-STUDIO-2: each Save button refuses a name that would leave ``<data root>/<kind>/<model key>/``."""
+    studio = random_studio
+    name = str(tmp_path / "outside" / "x") if name == "absolute" else name
+    studio.segment.load_builtin()
+    studio.frames.add_at(studio.session.vertices[100].detach().numpy())
+    for field, button in (
+        (studio.pose_name, "Save pose"),
+        (studio.segment.save_name, "Save segmentation"),
+        (studio.frames.save_name, "Save frames"),
+    ):
+        field.value = name
+        studio.set_status("")
+        _control(studio, button).fire()
+        assert studio.status.startswith(f"ArgumentError: the name {name!r} is not one file name"), studio.status
+    assert sorted(tmp_path.rglob("*.json")) == []
+
+
 def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
     monkeypatch.setattr(sys, "argv", ["python -m better_human.studio", "--family", "smpl"])
     with pytest.raises(SystemExit) as exit_info:

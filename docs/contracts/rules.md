@@ -140,13 +140,14 @@ Enforcement: `tests/contract/test_studio_boundary.py`.
 
 Everything the studio saves is a versioned JSON file under the data root the user passes: vertex segmentations,
 frame sets and poses each in their own folder, keyed by the model, so a set saved for one body never loads onto
-another.
+another. A name typed in the studio is one file name; the studio refuses any other and writes nothing.
 
 Rationale: scripts read the same files without the app.
 Example: `src/better_human/studio/persistence.py::StudioPaths`.
 
 Enforcement: `tests/studio/test_persistence.py::test_studio_paths_layout`,
-`tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server`.
+`tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server`,
+`tests/studio/test_app.py::test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing`.
 
 ## H-LICENSE-1 One licence, Apache-2.0 (MUST)
 

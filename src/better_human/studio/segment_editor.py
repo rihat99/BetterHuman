@@ -121,8 +121,9 @@ class SegmentEditor:
         self.refresh()
 
     def save(self, name: str) -> None:
-        """Write the current segmentation to ``<data>/segmentations/<model_key>/<name>.json``."""
-        path = self._directory() / f"{name}.json"
+        """Write the current segmentation to ``<data>/segmentations/<model_key>/<name>.json``; ``name`` is one file
+        name."""
+        path = persistence.saved_path(self._directory(), name)
         persistence.write_segmentation(path, self._as_parts())
         self.refresh()
         self.studio.set_status(f"saved segmentation {path}")

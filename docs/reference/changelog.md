@@ -180,3 +180,8 @@ line that 0.2.0 renames or removes, one table row each.
   raises `ShapeError`.
 - `viz.human_layers` draws forces of shapes `(T, 3)` and `(3,)` together, as documented (torch's `RuntimeError`
   came before), and raises `ShapeError` for any other shape.
+
+### Security
+- The studio's Save buttons refuse a name that is not one file name (empty, `.`, `..`, an absolute path, or a name
+  holding `/` or `\`) with an `ArgumentError` on the status line and write nothing: a typed name could place a file
+  anywhere the user can write.

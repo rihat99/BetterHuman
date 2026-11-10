@@ -372,8 +372,8 @@ class HumanStudio:
         return tuple(persistence.list_saved(self.paths.pose_dir(self.session.model_key))) or ("(none)",)
 
     def save_pose(self, name: str) -> Path:
-        """Save ``q`` to ``<data>/poses/<model_key>/<name>.json``."""
-        path = self.paths.pose_dir(self.session.model_key) / f"{name}.json"
+        """Save ``q`` to ``<data>/poses/<model_key>/<name>.json``; ``name`` is one file name."""
+        path = persistence.saved_path(self.paths.pose_dir(self.session.model_key), name)
         model = self.session.identity.model
         persistence.write_pose(path, persistence.Pose(joint_names=model.joint_names, q=tuple(self.session.q.tolist())))
         self.saved_poses.options = self._pose_options()
@@ -383,7 +383,7 @@ class HumanStudio:
 
     def load_pose(self, name: str) -> None:
         """Load a saved pose by name."""
-        path = self.paths.pose_dir(self.session.model_key) / f"{name}.json"
+        path = persistence.saved_path(self.paths.pose_dir(self.session.model_key), name)
         if not path.is_file():
             self.set_status(f"no saved pose {name!r}")
             return
