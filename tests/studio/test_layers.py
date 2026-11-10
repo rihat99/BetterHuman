@@ -9,14 +9,13 @@ import pytest
 import torch
 from better_robot import Viewer
 from better_robot.exceptions import ArgumentError
+from better_robot.testing import FakeServer
 
 import better_human as bh
 from better_human.io import weight_path
 from better_human.studio import layers as studio_layers
 from better_human.studio.layers import StudioLayers
 from better_human.studio.state import StudioSession
-
-from .fake_server import FakeServer
 
 pytestmark = pytest.mark.licensed
 

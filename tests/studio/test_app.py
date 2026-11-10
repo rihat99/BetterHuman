@@ -1,4 +1,4 @@
-"""Headless HumanStudio tests on the studio's stand-in viser server.
+"""Headless HumanStudio tests on BetterRobot's stand-in viser server, ``better_robot.testing.FakeServer``.
 
 The unmarked tests run the app on the random-weight SMPL archive (record 0016) in the full tier, found through
 ``$BETTERHUMAN_MODELS_DIR`` as a user's weights are; the ``licensed`` ones on the real weights.
@@ -13,6 +13,7 @@ import sys
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
@@ -22,11 +23,11 @@ import viser
 from better_robot.exceptions import ArgumentError, ShapeError
 from better_robot.kinematics import integrate
 from better_robot.lie import so3
+from better_robot.testing import FakeServer
 
 from better_human.studio import state as studio_state
 from better_human.studio.__main__ import main
 from better_human.studio.app import HumanStudio
-from tests.studio.fake_server import FakeHandle, FakeServer
 
 
 @pytest.fixture
@@ -75,60 +76,70 @@ def test_the_studio_runs_on_the_stand_in_server(random_studio: HumanStudio) -> N
 
 def test_every_control_drives_the_state_it_names(random_studio: HumanStudio) -> None:
     """Smoke test (record 0009): every GUI control and the pose gizmo is fired as the browser fires it, and the
-    session field, layer, scene node or file it drives is checked. A live control with a callback left unfired fails.
+    session field, layer, scene node or file it drives is checked. A control with a callback that is neither removed
+    nor fired fails.
     """
     studio = random_studio
-    _body_tab(studio)
-    _gizmo_and_selection_row(studio)
-    _display_tab(studio)
-    _segment_tab(studio)
-    _frames_tab(studio)
-    _layers_folder(studio)
-    _model_tab(studio)
+    fired: list[Any] = []
+    fire = partial(_fire, studio, fired)
+    _body_tab(studio, fire)
+    _gizmo_and_selection_row(studio, fire)
+    _display_tab(studio, fire)
+    _segment_tab(studio, fire)
+    _frames_tab(studio, fire)
+    _layers_folder(studio, fire)
+    _model_tab(studio, fire, fired)
 
 
-def _fire(studio: HumanStudio, control: str | FakeHandle, *value: object) -> FakeHandle:
-    """Set ``value`` on the control (a label or a handle), if given, and fire it as the browser does."""
-    handle = studio.viewer.server.gui.control(control) if isinstance(control, str) else control
+def _fire(studio: HumanStudio, fired: list[Any], control: Any, *value: object) -> Any:
+    """Set ``value`` on the control (a label or a handle), if given, fire it as the browser does, and add it to
+    ``fired``."""
+    handle = _control(studio, control) if isinstance(control, str) else control
     if value:
         handle.value = value[0]
     handle.fire()
+    fired.append(handle)
     return handle
 
 
-def _body_tab(studio: HumanStudio) -> None:
+def _control(studio: HumanStudio, label: str) -> Any:
+    """The one control labelled ``label`` that was not removed: a rebuilt layer leaves its removed controls behind."""
+    (control,) = [
+        control for control in studio.viewer.server.gui.controls if control.name == label and not control.removed
+    ]
+    return control
+
+
+def _body_tab(studio: HumanStudio, fire: Any) -> None:
     """The Body tab: shape sliders and buttons, density, saved poses."""
-    fire = partial(_fire, studio)
     session = studio.session
-    gui = studio.viewer.server.gui
     for k in range(10):
         fire(f"betas[{k}]", 0.5 * (k + 1))
         assert session.shape["betas"][k].item() == 0.5 * (k + 1)
     fire("Reset betas")
-    assert not session.shape["betas"].any() and gui.control("betas[0]").value == 0.0
+    assert not session.shape["betas"].any() and _control(studio, "betas[0]").value == 0.0
     fire("Random betas")
-    drawn = [gui.control(f"betas[{k}]").value for k in range(10)]
+    drawn = [_control(studio, f"betas[{k}]").value for k in range(10)]
     assert any(drawn) and session.shape["betas"][:10].tolist() == pytest.approx(drawn)
-    gui.control("Density table").value = "Dempster"
+    _control(studio, "Density table").value = "Dempster"
     fire("Apply density")
     assert studio.density == "Dempster" and session.body.density.numel() > 1
     tangent = torch.zeros(session.identity.model.nv)
     tangent[6 + 3 * 15] = 0.7
     posed = integrate(session.identity.model, session.q, tangent)
     session.set_q(posed)
-    gui.control("Pose name").value = "p1"
+    _control(studio, "Pose name").value = "p1"
     fire("Save pose")
     assert (studio.paths.pose_dir("smpl_neutral") / "p1.json").is_file() and studio.saved_poses.value == "p1"
     fire("Reset pose")
     assert torch.equal(session.q, session.identity.model.q_neutral)
-    gui.control("Saved poses").value = "p1"
+    _control(studio, "Saved poses").value = "p1"
     fire("Load pose")
     assert torch.allclose(session.q, posed)
 
 
-def _gizmo_and_selection_row(studio: HumanStudio) -> None:
+def _gizmo_and_selection_row(studio: HumanStudio, fire: Any) -> None:
     """The pose gizmo (picked by a click) and the selection row's joint buttons."""
-    fire = partial(_fire, studio)
     session = studio.session
     joint = session.state.joint_translations.detach().reshape(-1, 3)[5].numpy()
     _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
@@ -144,9 +155,8 @@ def _gizmo_and_selection_row(studio: HumanStudio) -> None:
     fire("Reset pose")
 
 
-def _display_tab(studio: HumanStudio) -> None:
+def _display_tab(studio: HumanStudio, fire: Any) -> None:
     """The Display tab: opacity, joint radius, explode."""
-    fire = partial(_fire, studio)
     scene = studio.viewer.server.scene
     fire("Opacity", 0.6)
     mesh_node = scene.nodes["/human/mesh/mesh"]
@@ -159,16 +169,15 @@ def _display_tab(studio: HumanStudio) -> None:
     fire("Explode", 0.0)
 
 
-def _segment_tab(studio: HumanStudio) -> None:
+def _segment_tab(studio: HumanStudio, fire: Any) -> None:
     """The Segment tab: colour modes as the scene draws them, parts, painting, files, marquee, bodies."""
-    fire = partial(_fire, studio)
     session = studio.session
-    gui, scene = studio.viewer.server.gui, studio.viewer.server.scene
+    scene = studio.viewer.server.scene
     fire("Load built-in")
     assert len(session.part_names) == 24
     fire("Colour", "segmentation")
     assert studio.layers.mesh.mode == "segmentation"
-    parts = [node for name, node in scene.nodes.items() if name.startswith("/human/mesh/part_") and node.live]
+    parts = [node for name, node in scene.nodes.items() if name.startswith("/human/mesh/part_") and not node.removed]
     assert len(parts) == 24 and len({tuple(np.asarray(node.props["color"]).tolist()) for node in parts}) == 24
     fire("Colour", "parts")
     assert studio.layers.mesh.mode == "parts"
@@ -183,12 +192,12 @@ def _segment_tab(studio: HumanStudio) -> None:
     fire("Colour", "skin")
     fire("Part", session.part_names[3])
     assert studio.segment.part == session.part_names[3]
-    gui.control("New part").value = "blob"
+    _control(studio, "New part").value = "blob"
     fire("Add part")
     assert session.part_names[-1] == "blob" and studio.segment.part == "blob"
     fire("Paint (click mesh)", True)
     assert studio.segment.painting and studio.mode == "segment"
-    gui.control("Brush radius").value = 0.05
+    _control(studio, "Brush radius").value = 0.05
     center = session.vertices[0].detach().numpy()
     _click(studio, center + np.array([0.0, 0.0, 2.0]), center)
     assert int((session.part_ids == session.part_names.index("blob")).sum()) > 0
@@ -203,22 +212,20 @@ def _segment_tab(studio: HumanStudio) -> None:
     fire("Load segmentation")
     assert session.part_names[-1] == "blob"
     fire("Marquee select")
-    assert set(scene.pointer_callbacks) == {"rect-select"}
+    assert _pointer_events(studio) == ["rect-select"]
     camera = SimpleNamespace(position=(0.0, -0.3, 4.0), wxyz=(0.0, 0.0, 1.0, 0.0), fov=1.0, aspect=1.0)
     rect = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_min=(0.0, 0.0), screen_max=(1.0, 1.0))
-    scene.pointer_callbacks["rect-select"](rect)
+    _pointer(studio, "rect-select")(rect)
     assert bool((session.part_ids == session.part_names.index("blob")).all())
-    assert set(scene.pointer_callbacks) == {"click"}
+    assert _pointer_events(studio) == ["click"]
     fire("Load built-in")
     fire("Build bodies")
     assert "| total |" in studio.segment.mass_table.content
 
 
-def _frames_tab(studio: HumanStudio) -> None:
+def _frames_tab(studio: HumanStudio, fire: Any) -> None:
     """The Frames tab and the selection row's frame button."""
-    fire = partial(_fire, studio)
     session = studio.session
-    gui = studio.viewer.server.gui
     fire("Add frames (click mesh)", True)
     assert studio.frames.adding and studio.mode == "frames"
     for vertex in (100, 2000):
@@ -231,7 +238,7 @@ def _frames_tab(studio: HumanStudio) -> None:
     assert studio.frames.active == first
     fire("Parent joint", session.body.spec.joint_names[1])
     assert session.frame_set[first].joint == 1
-    gui.control("Name").value = "toe"
+    _control(studio, "Name").value = "toe"
     fire("Rename")
     assert list(session.frame_set) == ["toe", second] and studio.frames.active == "toe"
     studio.frames.save_name.value = "set1"
@@ -249,9 +256,8 @@ def _frames_tab(studio: HumanStudio) -> None:
     assert studio.frames.active is None
 
 
-def _layers_folder(studio: HumanStudio) -> None:
+def _layers_folder(studio: HumanStudio, fire: Any) -> None:
     """The viewer's Layers checkboxes."""
-    fire = partial(_fire, studio)
     for name, layer in studio.layers.layers.items():
         box = fire(f"human/{name}", False)
         assert not layer.visible
@@ -259,19 +265,20 @@ def _layers_folder(studio: HumanStudio) -> None:
         assert layer.visible
 
 
-def _model_tab(studio: HumanStudio) -> None:
+def _model_tab(studio: HumanStudio, fire: Any, fired: list[Any]) -> None:
     """The Model tab; Load rebuilds every tab, so it goes last, once every other control was fired."""
-    fire = partial(_fire, studio)
     session = studio.session
     gui = studio.viewer.server.gui
     fire("Family", "mhr")
-    assert gui.control("Gender").disabled and not gui.control("LOD").disabled
+    assert _control(studio, "Gender").disabled and not _control(studio, "LOD").disabled
     fire("Family", "smpl")
-    assert not gui.control("Gender").disabled and gui.control("LOD").disabled
-    unfired = [control.name for control in gui.controls if control.live and control.callbacks and not control.fired]
+    assert not _control(studio, "Gender").disabled and _control(studio, "LOD").disabled
+    unfired = [
+        control.name for control in gui.controls if not control.removed and control.callbacks and control not in fired
+    ]
     assert unfired == ["Load"]
-    gui.control("Gender").value = "female"
-    gui.control("LOD").value = 3
+    _control(studio, "Gender").value = "female"
+    _control(studio, "LOD").value = 3
     fire("Load")
     assert (session.model_key, studio.lod) == ("smpl_female", 3)
 
@@ -385,7 +392,18 @@ def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, 
 def _click(studio, origin, target) -> None:
     origin = np.asarray(origin, float)
     event = SimpleNamespace(ray_origin=origin, ray_direction=np.asarray(target, float) - origin)
-    studio.viewer.server.scene.pointer_callbacks["click"](event)
+    _pointer(studio, "click")(event)
+
+
+def _pointer_events(studio: HumanStudio) -> list[str]:
+    """The event types of the scene's pointer callbacks, in registration order."""
+    return [event_type for event_type, _ in studio.viewer.server.scene.pointers]
+
+
+def _pointer(studio: HumanStudio, event_type: str) -> Any:
+    """The one scene callback registered for ``event_type`` (``"click"`` or ``"rect-select"``)."""
+    (callback,) = [callback for held, callback in studio.viewer.server.scene.pointers if held == event_type]
+    return callback
 
 
 def test_imports_without_running_server() -> None:
@@ -395,8 +413,8 @@ def test_imports_without_running_server() -> None:
 @pytest.mark.licensed
 def test_layers_session_and_tabs_built(studio) -> None:
     assert studio.session.model_key == "smpl_neutral"
-    assert "click" in studio.viewer.server.scene.pointer_callbacks
-    assert isinstance(studio.viewer.server.gui.control("Build bodies"), FakeHandle)
+    assert _pointer_events(studio) == ["click"]
+    assert _control(studio, "Build bodies").kind == "GuiButtonHandle"
     assert studio.status.startswith("smpl_neutral loaded")
 
 
@@ -536,9 +554,9 @@ def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
     studio.start_marquee()
     camera = SimpleNamespace(position=(0.0, -0.3, 4.0), wxyz=(0.0, 0.0, 1.0, 0.0), fov=1.0, aspect=1.0)
     event = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_min=(0.0, 0.0), screen_max=(1.0, 1.0))
-    studio.viewer.server.scene.pointer_callbacks["rect-select"](event)
+    _pointer(studio, "rect-select")(event)
     assert int((studio.session.part_ids == blob).sum()) == studio.session.vertices.shape[-2]
-    assert set(studio.viewer.server.scene.pointer_callbacks) == {"click"}
+    assert _pointer_events(studio) == ["click"]
 
 
 @pytest.mark.licensed
