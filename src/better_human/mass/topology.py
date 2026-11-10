@@ -39,6 +39,16 @@ class PartTopology:
     def num_parts(self) -> int:
         return len(self.faces)
 
+    @staticmethod
+    def face_parts(faces: torch.Tensor, part_ids: torch.Tensor) -> torch.Tensor:
+        """The part ``(F,)`` each face of ``faces (F, 3)`` joins under the vertex labelling ``part_ids (V,)``.
+
+        A face joins the part held by at least two of its vertices, else its first vertex's: the rule of
+        :meth:`from_part_ids`, which raises for a part that no face joins.
+        """
+        first, second, third = part_ids[faces].unbind(dim=-1)
+        return torch.where((first == second) | (first == third), first, torch.where(second == third, second, first))
+
     @classmethod
     def from_closed_faces(
         cls,
@@ -107,7 +117,7 @@ class PartTopology:
         consistently wound manifold surface (then its boundary cannot be walked), or that does not close into a
         consistently wound mesh.
         """
-        face_parts = _majority_face_parts(faces, part_ids)
+        face_parts = cls.face_parts(faces, part_ids)
         faces_cpu = faces.detach().cpu().tolist()
         face_parts_cpu = face_parts.detach().cpu().tolist()
         edge_parts = {
@@ -190,17 +200,6 @@ class PartTopology:
                 part = torch.cat((part, centroids), dim=-2)
             meshes.append((part, faces.to(device=vertices.device)))
         return tuple(meshes)
-
-
-def _majority_face_parts(faces: torch.Tensor, part_ids: torch.Tensor) -> torch.Tensor:
-    """Label each face with the part held by at least two of its vertices."""
-    labels = part_ids[faces]
-    first, second, third = labels.unbind(dim=-1)
-    return torch.where(
-        (first == second) | (first == third),
-        first,
-        torch.where(second == third, second, first),
-    )
 
 
 def _edges(face: Sequence[int]) -> tuple[tuple[int, int], ...]:

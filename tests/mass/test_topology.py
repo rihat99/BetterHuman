@@ -90,3 +90,9 @@ def test_an_authored_part_that_is_open_is_an_argument_error() -> None:
         PartTopology.from_closed_faces(
             {0: tetrahedron, 1: tetrahedron[:3]}, reference_vertices=vertices, reference_joints=joints
         )
+
+
+def test_a_face_joins_the_part_two_of_its_vertices_hold_else_its_first_vertex_part() -> None:
+    faces = torch.tensor([[0, 1, 2], [1, 2, 3], [2, 3, 4], [0, 2, 4]])
+    part_ids = torch.tensor([0, 0, 1, 1, 2])
+    assert PartTopology.face_parts(faces, part_ids).tolist() == [0, 1, 1, 0]

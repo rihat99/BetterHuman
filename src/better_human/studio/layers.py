@@ -10,7 +10,6 @@ import torch
 from better_robot.viewer import LIGHT, FramesLayer, Layer, PointsLayer, SkeletonLayer, Theme
 
 from better_human.mass import PartTopology
-from better_human.mass.topology import _majority_face_parts
 from better_human.viz import mesh_layer
 
 from .state import ChangeKind, StudioSession, compact_segmentation
@@ -68,7 +67,7 @@ class SegmentationLayer(Layer):
 
     def face_groups(self) -> list[tuple[np.ndarray, tuple[float, float, float]]]:
         """Return ``(faces (F_p, 3), rgb)`` per part, then the unassigned faces; empty groups are omitted."""
-        face_parts = _majority_face_parts(self.session.body.spec.faces, self.session.part_ids).cpu().numpy()
+        face_parts = PartTopology.face_parts(self.session.body.spec.faces, self.session.part_ids).cpu().numpy()
         colors = part_colors(len(self.session.part_names))
         groups = [(self.faces[face_parts == p], tuple(colors[p])) for p in range(len(self.session.part_names))]
         groups.append((self.faces[(face_parts < 0) | (face_parts >= len(colors))], _UNASSIGNED))
@@ -148,7 +147,7 @@ class PartsLayer(Layer):
                 (kept[p], used.cpu().numpy(), vertices.detach().cpu().numpy(), part_faces.cpu().numpy())
                 for p, (used, (vertices, part_faces)) in enumerate(zip(topology.vertex_ids, meshes, strict=True))
             ]
-        face_parts = _majority_face_parts(faces, session.part_ids).cpu().numpy()
+        face_parts = PartTopology.face_parts(faces, session.part_ids).cpu().numpy()
         faces_np, rest_np = faces.cpu().numpy(), rest_vertices.detach().cpu().numpy()
         meshes_open = []
         for part in range(len(session.part_names)):

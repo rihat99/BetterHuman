@@ -18,8 +18,7 @@ import torch
 from better_robot.lie import so3
 
 from better_human.core.human_model import HumanModel, HumanState, Identity
-from better_human.mass import segment_vertices
-from better_human.mass.topology import _majority_face_parts
+from better_human.mass import PartTopology, segment_vertices
 
 from .posing import JointHandle, apply_local_rotation, joint_handles
 
@@ -73,7 +72,7 @@ def compact_segmentation(
     names = list(part_names)
     while True:
         num_parts = len(names)
-        face_parts = _majority_face_parts(faces, ids)
+        face_parts = PartTopology.face_parts(faces, ids)
         present = sorted({int(part) for part in face_parts.unique().tolist() if 0 <= part < num_parts})
         if len(present) == num_parts:
             return ids, tuple(names)
