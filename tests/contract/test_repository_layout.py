@@ -20,6 +20,7 @@ LARGE_ON_PURPOSE: dict[str, str] = {}
 # Principle 9.1's set without `.github/`: this major has no CI (BetterRobot record 0033). `agent_notes/` is ignored
 # whole.
 TOP_LEVEL = {
+    ".claude",
     ".gitignore",
     ".pre-commit-config.yaml",
     ".python-version",
