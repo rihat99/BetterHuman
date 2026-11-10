@@ -24,12 +24,10 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    full = bh.HumanModel.from_spec(
-        bh.families.smplx(args.model_path, num_betas=10, num_expression=10, num_pca_comps=6), density=None
-    )
-    partial = bh.HumanModel.from_spec(
-        bh.families.smplx(args.model_path, num_betas=10, hands=False, face=False), density=None
-    )
+    spec = bh.families.smplx(args.model_path, num_betas=10, num_expression=10, num_pca_comps=6)
+    full = bh.HumanModel.from_spec(spec, density=None)
+    # The face and hand joints follow the 22 body joints; dropping them from the same spec reads the file once.
+    partial = bh.HumanModel.from_spec(bh.families.drop_joints(spec, spec.joint_names[22:]), density=None)
     torch.manual_seed(0)
     frames = 90
     phase = torch.linspace(0.0, 2.0 * torch.pi, frames)

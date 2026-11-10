@@ -7,7 +7,6 @@ weights. Scenes are built on BetterRobot's stand-in server (``better_robot.testi
 from __future__ import annotations
 
 from dataclasses import replace
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -21,14 +20,14 @@ from better_robot.viewer import SkinnedMeshLayer, Viewer
 import better_human as bh
 from better_human.io import weight_path
 from better_human.viz import HumanView, forces_layer, human_layers, skinned_layer
+from tests.support.random_archives import random_weight_spec
 
-SMPL_RANDOM = Path(__file__).parents[1] / "support" / "random_weights" / "smpl_random.npz"
 SKINNED_TOLERANCE_M = 1e-6
 
 
 @pytest.fixture(scope="module")
 def clip():
-    body = bh.HumanModel.from_spec(bh.families.smpl(SMPL_RANDOM), density=None, contact_frames={"heel": (3387, None)})
+    body = bh.HumanModel.from_spec(random_weight_spec("smpl"), density=None, contact_frames={"heel": (3387, None)})
     identity = body.bake()
     frames = 5
     tangent = torch.zeros(frames, identity.model.nv)
@@ -77,7 +76,7 @@ def test_skinned_layer_matches_state_vertices(family: str) -> None:
     vertices; SOMA's binds rotate (0.292 m off with identity-rotation binds). At the neutral pose, without SOMA's
     correctives (SMPL's vanish there), compared with every skin weight."""
     spec = (
-        bh.families.smpl(SMPL_RANDOM)
+        random_weight_spec("smpl")
         if family == "smpl"
         else bh.families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=False)
     )

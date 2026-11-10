@@ -4,7 +4,8 @@ Decision record 0016: ``tests/support/random_weights/<family>_random.npz`` (writ
 ``tools/parity/smplx/make_random_archive.py``) holds random weights in each family's upstream layout, and
 ``tools/parity/smplx/dump_{smpl,smplh,smplx}.py`` wrote the oracle's outputs on them to
 ``tests/parity/smplx/random/<family>/``. The gate is the licensed one, 1e-6 m in float64 and float32. The models load
-with ``density=None``, as in the licensed parity tests: mass does not enter vertices or joints.
+with ``density=None``, as in the licensed parity tests: mass does not enter vertices or joints. Each archive is read
+once per session (``tests.support.random_archives``); every option set runs the full loader.
 """
 
 from __future__ import annotations
@@ -19,8 +20,8 @@ import torch
 
 import better_human as bh
 from better_human.families import SMPLClassic, SMPLHClassic, SMPLXClassic
+from tests.support.random_archives import random_weight_arrays, random_weight_spec
 
-ARCHIVES = Path(__file__).parents[2] / "support" / "random_weights"
 GOLDENS = Path(__file__).parent / "random"
 ATOL = 1e-6
 #: Least motion in metres per unit coefficient of every joint, the root included, with the first ten shape columns
@@ -36,12 +37,11 @@ _SMPL_GRID = (
     *(f"random_{index:02d}" for index in range(8)),
     "root_wart",
 )
-#: family -> (loader, classic type, the dump script's case names).
-FAMILIES: dict[str, tuple[Any, type, tuple[str, ...]]] = {
-    "smpl": (bh.families.smpl, SMPLClassic, (*_SMPL_GRID, "zero")),
-    "smplh": (bh.families.smplh, SMPLHClassic, (*_SMPL_GRID, "left_hand", "right_hand", "zero")),
+#: family -> (classic type, the dump script's case names).
+FAMILIES: dict[str, tuple[type, tuple[str, ...]]] = {
+    "smpl": (SMPLClassic, (*_SMPL_GRID, "zero")),
+    "smplh": (SMPLHClassic, (*_SMPL_GRID, "left_hand", "right_hand", "zero")),
     "smplx": (
-        bh.families.smplx,
         SMPLXClassic,
         (
             "beta_minus_two",
@@ -75,7 +75,7 @@ _MODELS: dict[tuple[Any, ...], bh.HumanModel] = {}
 def _model(family: str, dtype: torch.dtype, options: dict[str, Any]) -> bh.HumanModel:
     key = (family, dtype, *sorted(options.items()))
     if key not in _MODELS:
-        spec = FAMILIES[family][0](ARCHIVES / f"{family}_random.npz", dtype=dtype, **options)
+        spec = random_weight_spec(family, dtype=dtype, **options)
         _MODELS[key] = bh.HumanModel.from_spec(spec, density=None)
     return _MODELS[key]
 
@@ -96,17 +96,17 @@ def _options(golden: np.lib.npyio.NpzFile) -> dict[str, Any]:
 @pytest.mark.parametrize("family", FAMILIES)
 def test_random_weight_goldens_are_the_dump_grid(family: str) -> None:
     found = {path.stem for path in (GOLDENS / family).glob("*.npz")}
-    assert found == set(FAMILIES[family][2]), f"random-weight goldens in {GOLDENS / family} are missing or unexpected"
+    assert found == set(FAMILIES[family][1]), f"random-weight goldens in {GOLDENS / family} are missing or unexpected"
 
 
 @pytest.mark.parametrize("family", FAMILIES)
 def test_every_random_weight_joint_moves_with_shape(family: str) -> None:
-    with np.load(ARCHIVES / f"{family}_random.npz", allow_pickle=False) as archive:
-        regressor, shapedirs = archive["J_regressor"].astype(np.float64), archive["shapedirs"]
+    arrays = random_weight_arrays(family)
+    regressor, shapedirs = arrays["J_regressor"].double(), arrays["shapedirs"].double()
     for group, start in _GROUP_COLUMNS[family].items():
-        joint_bases = np.einsum("jv,vcs->jcs", regressor, shapedirs[..., start : start + 10])
-        motion = np.linalg.norm(joint_bases, axis=(1, 2))
-        still = np.flatnonzero(motion < MIN_JOINT_SHAPE_MOTION).tolist()
+        joint_bases = torch.einsum("jv,vcs->jcs", regressor, shapedirs[..., start : start + 10])
+        motion = torch.linalg.vector_norm(joint_bases, dim=(1, 2))
+        still = torch.nonzero(motion < MIN_JOINT_SHAPE_MOTION).flatten().tolist()
         assert not still, (
             f"{family}: joints {still} move less than {MIN_JOINT_SHAPE_MOTION} m per unit {group} coefficient, so the "
             "random-weight gate cannot see their shape-dependent pivots; regenerate the archive"
@@ -119,7 +119,7 @@ def test_every_random_weight_joint_moves_with_shape(family: str) -> None:
 )
 def test_random_weight_parity(family: str, case: str, dtype: torch.dtype) -> None:
     golden_path = GOLDENS / family / f"{case}.npz"
-    classic_type = FAMILIES[family][1]
+    classic_type = FAMILIES[family][0]
     with np.load(golden_path, allow_pickle=False) as golden:
         human = _model(family, dtype, _options(golden))
         fields = {field.name for field in dataclasses.fields(classic_type)} & set(golden.files)
