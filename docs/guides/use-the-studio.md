@@ -1,8 +1,9 @@
-# HumanStudio
+# Use the studio
 
-HumanStudio is a browser app (viser) for authoring data on SMPL, SMPL-X and MHR bodies: shape and pose,
-mass density, vertex segmentations (body parts) and named contact frames. Everything it saves is a plain
-versioned JSON file under the data root you pass, so scripts can load the same data without the app.
+HumanStudio is a browser app (viser) for authoring data on SMPL, SMPL-X and MHR bodies: shape and pose, mass
+density, vertex segmentations (body parts) and named contact frames. Everything it saves is a plain versioned JSON
+file under the data root you pass, so scripts load the same data without the app. This guide launches it and walks
+through the sidebar. It reads licensed weights: set `$BETTERHUMAN_MODELS_DIR` first ([Load a family](load-a-family.md)).
 
 ![HumanStudio, segmentation colours](../images/studio_segmentation.png)
 
@@ -10,7 +11,7 @@ versioned JSON file under the data root you pass, so scripts can load the same d
 
 ```bash
 uv sync --extra studio
-BETTERHUMAN_MODELS_DIR=$PWD/models uv run python -m better_human.studio --data-root ~/studio_data --family smplx
+uv run python -m better_human.studio --data-root ~/studio_data --family smplx
 # open http://127.0.0.1:8080
 ```
 
@@ -100,3 +101,8 @@ versioned format `better_human.frame_set` ([spec](../reference/formats/frame_set
 - viser meshes have no per-vertex colour channel, so switching the colour mode rebuilds the mesh layer
   (the checkbox and visibility are kept). It takes a fraction of a second on SMPL-X.
 - Edits from several browser tabs at once are serialised by one lock; the last edit wins.
+
+## Where next
+
+- [Load a family](load-a-family.md): read a saved frame set with `io.read_frame_set` and attach it as contact frames.
+- [Segmentation](../concepts/segmentation.md): how the parts the studio paints become closed solids with masses.

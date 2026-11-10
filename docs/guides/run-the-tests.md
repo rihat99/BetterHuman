@@ -1,76 +1,74 @@
-# Testing
+# Run the tests
 
-BetterHuman has three test tiers, each one command run on this machine (decision record
-`BetterRobot/docs/contracts/decisions/0033-test-tiers.md`). No test skips: a test that cannot run everywhere
-carries a marker that the tier commands select on, and a selected test whose weights or device is missing fails.
+The test suite is the contract: parity tests pin the numbers against each family's upstream code, contract tests pin
+the architecture, and docs tests keep every page runnable. This guide shows how to run it; [Test
+suite](../reference/tests.md) lists what each group guards.
 
-| tier | command | runs | fails when |
-|---|---|---|---|
-| fast | `uv run pytest tests/contract -q -m "not slow and not licensed"` | the contract tests that need no weights | a test fails |
-| full | `uv run pytest tests -q -m "not cuda and not licensed"` | every test that needs neither weights nor a GPU | a test fails |
-| release | `uv run pytest tests -q -m "licensed and not cuda"`, then `uv run pytest tests -q -m cuda` with a free GPU visible | the tests that read licensed weights on the CPU, then the GPU tests | a test fails, or the weights or the device is missing |
+## Run a tier
 
-Tip: on a host with transparent huge pages, exporting `NUMPY_MADVISE_HUGEPAGE=0` cuts the CPU release tier from about
-16 min to about 2.5 min and the full tier from about 110 s to about 26 s
-([Timing on a busy host](#timing-on-a-busy-host)); the tier commands stay as written, and neither the library nor
-the tests change the setting.
+`uv sync --extra studio` installs everything the tests need (the `dev` group comes by default). Each tier is one
+command (BetterRobot decision record 0033); `.pre-commit-config.yaml` runs the fast tier before a commit and the full
+tier before a push, and `uv run pre-commit install` installs the hooks.
 
-`.pre-commit-config.yaml` defines the hooks: lint, the format check and the fast tier before a commit, the full tier
-before a push.
+| Tier | Command | Needs |
+|------|---------|-------|
+| fast | `uv run pytest tests/contract -q -m "not slow and not licensed"` | nothing |
+| full | `uv run pytest tests -q -m "not cuda and not licensed"` | nothing: the docs, examples and random-weight parity cases read the archives in `tests/support/random_weights/` |
+| release | `uv run pytest tests -q -m "licensed and not cuda"`, then `uv run pytest tests -q -m cuda` with a free GPU visible | the licensed weights, then a GPU |
 
-## Markers
+While you edit one package, run the fast tier plus that package's folder, for example `uv run pytest tests/core -q`.
 
-| marker | meaning | deselected by |
-|---|---|---|
-| `licensed` | reads licensed weights through `better_human.io.weight_path` | fast, full |
-| `cuda` | needs a CUDA device | fast, full |
-| `slow` | takes seconds | fast |
+## Give the release tier the weights
 
-pytest runs strictly (`[tool.pytest.ini_options]` in `pyproject.toml`): an unknown marker or config key is an error,
-a passing `xfail` fails, an empty parameter set fails at collection, and every warning is an error unless a named
-filter with its reason lets it through. `tests/contract/test_pytest_config.py` holds these settings. `tests/conftest.py`
-loads BetterRobot's plugin `better_robot.testing.no_skips`, which turns every skipped or xfailed outcome into a
-failure, however it was produced. It sees only the tests a run selects, so `tests/contract/test_no_skips.py` also finds
-the usual skip spellings in every test module in the fast tier, including the tests only the release tier runs.
-
-## Weights
-
-`$BETTERHUMAN_MODELS_DIR` names the directory that holds the licensed weights; `better_human.io.models_dir()` is its
-one reader and `better_human.io.weight_path(folder, filename)` names a file under it. When a run selects a
-`licensed` test and the variable is unset or names no directory, collection stops with a usage error that names the
-variable and the fix (`tests/conftest.py`); a file missing inside the directory fails the test that reads it.
+The release tier reads the licensed weights and the parity goldens computed from them, both under
+`$BETTERHUMAN_MODELS_DIR` (the goldens in `goldens/<family>/`, decision record
+[0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)):
 
 ```bash
 export BETTERHUMAN_MODELS_DIR=/path/to/models
 uv run pytest tests -q -m "licensed and not cuda"
 ```
 
-The parity goldens are computed from licensed weights, so they live in the same directory, in
-`$BETTERHUMAN_MODELS_DIR/goldens/<family>/` (decision record 0015), never in git. Tests reach them through
-`tests/support/goldens.py::golden_dir`, called inside fixtures only, so collecting the fast and full tiers never needs
-the directory, and `tests/contract/test_golden_provenance.py` checks that every golden stamps what produced it
-(decision record 0014). `tools/parity/smplx/README.md`, `tools/parity/mhr/README.md` and
-`tools/parity/soma/README.md` give the commands that regenerate them.
+Nothing skips. A run that selects a `licensed` test while the variable is unset, or names no folder, stops at
+collection with the fix; a file missing inside the folder fails the test that reads it. `tools/parity/smplx/`,
+`tools/parity/mhr/` and `tools/parity/soma/` each have a README with the commands that regenerate their goldens.
 
-## Timing on a busy host
+## Speed up loads on a host with huge pages
 
-Load times of the weights depend on the host's memory state through transparent huge pages. NumPy advises the kernel
-to back every array of 4 MiB or more with huge pages, and on a host whose `/sys/kernel/mm/transparent_hugepage`
-settings are `madvise` and whose memory is fragmented, the first touch of such an array waits for the kernel to
-compact memory. Reading the SMPL-X archive took 6 to 12 s that way, against 0.8 s with `NUMPY_MADVISE_HUGEPAGE=0`, in
-the same hour on the same machine. A load-time gate is therefore a ratio measured in one process (the loader
-against a raw read of the same archive, both in the same memory state), and a timing comparison records the
-`NUMPY_MADVISE_HUGEPAGE` setting and the load average with its numbers. The library never changes this setting.
+On a host whose transparent huge pages are set to `madvise` and whose memory is fragmented, NumPy's advice to back
+large arrays with huge pages makes the first touch of each array wait for the kernel to compact memory: reading the
+SMPL-X archive took 6 to 12 s that way, against 0.8 s with the advice off, on the same machine in the same hour.
+Turn it off for a run:
 
-The full tier reads each random-weight archive (decision record 0016) once per session: the tests load them through
-`tests/support/random_archives.py`, which runs the family loader on cached arrays for every option set, and each
-example reads its archive once in its own process. On 2026-11-10 (load average 18 to 48) that took the full tier from
-293 s to 110 s with default huge pages and from 32 s to 26 s with `NUMPY_MADVISE_HUGEPAGE=0`; most of the rest with
-huge pages is `tests/families/test_vertex_count.py`, which writes and reads synthetic SMPL-X and SMPL+H files.
+```bash
+NUMPY_MADVISE_HUGEPAGE=0 uv run pytest tests -q -m "not cuda and not licensed"
+```
 
-## Stale bytecode and the assertion hook
+The tier commands stay as written, and neither the library nor the tests change the setting. A timing you compare
+records the setting and the load average with its numbers.
 
-pytest caches each test module after rewriting its asserts, keyed by the interpreter, the pytest version and the
-source file's modification time and size, but not by `enable_assertion_pass_hook`, so a cache written by an ordinary
-run silently disables that hook in a later run. The parity margin recorder, which relies on the hook, therefore sets
-its own `sys.pycache_prefix` to a fresh directory, and its command needs no flag for it.
+## Check the docs pages
+
+`tests/docs/test_snippets.py` runs every `python` fence of each page and compares every `output` fence with what
+the fence prints; a page runs on the random-weight archives with `$BETTERHUMAN_MODELS_DIR` unset, unless the test
+lists it as needing the licensed weights:
+
+```bash
+uv run pytest tests/docs -q -k first-human                                        # one page
+BR_DOCS_CAPTURE=1 BR_DOCS_CAPTURE_DIR=/tmp/out uv run pytest tests/docs -q -k first-human   # write real outputs
+uv run pytest tests/docs -q -m licensed                                           # the pages that need weights
+uv run mkdocs build --strict                                                      # broken links fail the build
+```
+
+The capture run writes `<page>.outputs.json` with each fence's output; copy it into the `output` fence.
+
+## Never weaken a test
+
+Do not skip, `xfail`, loosen a tolerance or delete an assertion to land a change. If a parity or contract test
+fails, the change is wrong, or the contract changes on purpose: then the test, the docs and `CLAUDE.md` change
+together, with a decision record when the change is one the [contracts index](../contracts/index.md) names.
+
+## Where next
+
+- [Test suite](../reference/tests.md): the markers, the parity tolerances and every contract test.
+- [Contracts](../contracts/index.md): the rules the contract tests enforce.

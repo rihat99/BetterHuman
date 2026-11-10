@@ -1,30 +1,27 @@
-# Getting started
+# Your first human
 
-This page installs BetterHuman, points it at the body weights, loads an SMPL body, poses a
-batch of four frames, and shows them in the BetterRobot viewer.
+This page installs BetterHuman, loads an SMPL body, bakes a subject, poses a batch of four frames and shows them in
+the BetterRobot viewer. It needs no licensed weights: it reads the random-weight SMPL archive that the repository
+ships for its tests, `tests/support/random_weights/smpl_random.npz` (decision record
+[0016](../contracts/decisions/0016-random-weight-goldens.md)). Its arrays are random in SMPL's layout, so the body
+looks like noise, but every call, name and shape on this page is the one the licensed SMPL file gives.
 
 ## Install with uv
 
-BetterHuman depends on [BetterRobot](https://github.com/rihat99/BetterRobot); `uv sync` fetches the
-commit pinned in `uv.lock` from GitHub. To develop against a local BetterRobot checkout instead, run
-`uv pip install -e ../BetterRobot --no-deps` after the sync (a later `uv sync` reverts it), and
-`uv lock --upgrade-package better-robot` when BetterHuman should follow new BetterRobot commits.
+BetterHuman depends on [BetterRobot](https://github.com/rihat99/BetterRobot); `uv sync` fetches the commit pinned in
+`uv.lock`. The `studio` extra adds the browser viewer and HumanStudio.
 
 ```bash
 cd BetterHuman
-uv sync                      # add --extra studio for the browser viewer and HumanStudio
-export BETTERHUMAN_MODELS_DIR=$PWD/models
+uv sync --extra studio
 ```
 
-!!! note "Weights are not shipped"
-    Licensed weights stay outside git. Loaders read `<family>/` (`smpl/`, `smplx/`, `MHR/`, ...) under
-    `better_human.io.models_dir()`, which reads `$BETTERHUMAN_MODELS_DIR` and raises with the fix when it
-    is unset; the `README` lists the expected file names and the chumpy-to-npz converter.
+Run the programs below from the repository root, where the archive's relative path resolves.
 
 ## Load a body and bake a subject
 
-`load` builds one `HumanModel` per family. `bake` applies the identity (shape) once and returns an
-`Identity` whose `model` is a BetterRobot `Model`.
+`load` reads a weight file and builds one `HumanModel` for the family. `bake` applies an identity (the shape
+coefficients `betas`) once and returns an `Identity`, whose `model` is a BetterRobot `Model`.
 
 ```python
 import torch
@@ -40,10 +37,13 @@ better_robot.model.model 99 75
 ('pelvis', 'left_hip', 'right_hip', 'spine1')
 ```
 
+Every SMPL joint is a ball joint (4 numbers in `q`, 3 in `v`) under a free-flyer root (7 and 6), hence
+`nq = 7 + 23 * 4` and `nv = 6 + 23 * 3`.
+
 ## Pose a batch and run forward kinematics
 
-`q` has `nq` entries and the tangent `v` has `nv`; build poses with `kinematics.integrate`, never by
-adding to `q`. `forward` runs BetterRobot forward kinematics once for the whole batch.
+`q` has `nq` entries and the tangent `v` has `nv`; build poses with `kinematics.integrate`, never by adding to `q`.
+`forward` runs BetterRobot forward kinematics once for the whole batch.
 
 ```python
 from better_robot.kinematics import integrate
@@ -59,12 +59,12 @@ print(type(state.kinematics).__name__, tuple(state.joint_translations.shape), tu
 KinematicState (4, 24, 3) (4, 6890, 3)
 ```
 
-`state.kinematics` is the BetterRobot `KinematicState`, so frame Jacobians and dynamics work on
-it unchanged. `vertices` (a property) skins the mesh on first access and memoises the result.
+`state.kinematics` is BetterRobot's `KinematicState`, so frame Jacobians and dynamics work on it unchanged.
+`vertices` skins the mesh on first access and keeps the result.
 
 ## View the clip
 
-`human_layers` turns a posed batch into viewer layers: the batch axis is the timeline.
+`human_layers` turns a posed batch into viewer layers; the batch axis is the timeline.
 
 ```python
 from better_robot import Viewer
@@ -72,15 +72,13 @@ from better_human.viz import HUMAN_THEME, human_layers
 
 viewer = Viewer(theme=HUMAN_THEME)  # viser on 127.0.0.1:8080, +y up
 viewer.add(human_layers(state))
-viewer.show(3)                    # jump to the most bent frame
+viewer.show(3)  # jump to the most bent frame
 ```
 
-For interactive work on one body (shape sliders, part painting, contact frames) use HumanStudio:
-
-![HumanStudio showing segmentation colours](../images/studio_segmentation.png)
+Open `http://127.0.0.1:8080` in a browser while the program runs.
 
 ## Where next
 
+- [Load a family](../guides/load-a-family.md): your own weights, every family and its options.
+- [Use the studio](../guides/use-the-studio.md): shape sliders, part painting and contact frames in the browser.
 - [Architecture](../concepts/architecture.md): what BetterHuman adds on top of BetterRobot.
-- [Segmentation](../concepts/segmentation.md): how the mesh splits into parts and masses.
-- [Studio](../guides/use-the-studio.md): launch flags and the sidebar.

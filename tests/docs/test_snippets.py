@@ -32,7 +32,12 @@ FOLDER_REASONS = {
         "does not build"
     ),
 }
-LICENSED: dict[str, str] = {}
+LICENSED = {
+    "docs/guides/load-a-family.md": "it teaches loading every family's licensed weights from $BETTERHUMAN_MODELS_DIR",
+}
+# Loading MHR, SOMA and SMPL-X from licensed files takes about a minute on a host whose transparent huge pages stall
+# large reads (docs/guides/run-the-tests.md); a page that does it gets the time.
+LICENSED_TIMEOUT_S = 600.0
 
 
 def _pages() -> list[Path]:
@@ -40,7 +45,7 @@ def _pages() -> list[Path]:
 
 
 def _name(page: Path) -> str:
-    return page.relative_to(DOCS).as_posix()
+    return page.relative_to(REPO).as_posix()
 
 
 @pytest.mark.parametrize(
@@ -55,13 +60,14 @@ def test_page_fences_run_and_print_their_output_fences(page: Path, monkeypatch: 
     """Every fence runs once; every output fence is compared in full; only a ``LICENSED`` page sees the weights."""
     if _name(page) not in LICENSED:
         monkeypatch.delenv("BETTERHUMAN_MODELS_DIR", raising=False)
-    compared = check_page(page, root=REPO, folder_reasons=FOLDER_REASONS)
+    timeout_s = LICENSED_TIMEOUT_S if _name(page) in LICENSED else 120.0
+    compared = check_page(page, root=REPO, folder_reasons=FOLDER_REASONS, timeout_s=timeout_s)
     assert compared == len(OUTPUT_FENCE.findall(page.read_text())), f"{page.name}: an output fence went unchecked"
 
 
 def test_licensed_pages_exist() -> None:
     """A ``LICENSED`` key names a page, so a moved page cannot leave the release tier silently."""
-    assert all((DOCS / name).is_file() for name in LICENSED), sorted(LICENSED)
+    assert all((REPO / name).is_file() for name in LICENSED), sorted(LICENSED)
 
 
 def _output_fences(page: Path) -> list[tuple[int, str, str]]:

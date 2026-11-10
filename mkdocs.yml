@@ -97,11 +97,24 @@ nav:
       - getting-started/first-human.md
   - Concepts:
       - concepts/architecture.md
+      - concepts/skinning.md
       - concepts/segmentation.md
   - Guides:
+      - guides/load-a-family.md
+      - guides/convert-weights.md
       - guides/use-the-studio.md
       - guides/run-the-tests.md
   - Reference:
+      - API:
+          - better_human: reference/api/better_human.md
+          - core: reference/api/core.md
+          - families: reference/api/families.md
+          - io: reference/api/io.md
+          - mass: reference/api/mass.md
+          - terms: reference/api/terms.md
+          - viz: reference/api/viz.md
+          - studio: reference/api/studio.md
+      - reference/tests.md
       - reference/glossary.md
       - reference/roadmap.md
       - reference/changelog.md
@@ -116,6 +129,7 @@ nav:
           - Studio pose: reference/formats/studio_pose.md
   - Contracts:
       - Index: contracts/index.md
+      - Scope: contracts/scope.md
       - BetterHuman addendum: contracts/bh-addendum.md
       - Coupling standard: contracts/coupling-standard.md
       - Decision records:
