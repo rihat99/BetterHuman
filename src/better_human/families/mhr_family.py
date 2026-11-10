@@ -20,6 +20,7 @@ from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 from better_human.mass import segment_vertices
 
+from ._checks import check_flags
 from .classic import MHRFormat
 from .mhr_rig import MHRRig
 
@@ -66,8 +67,7 @@ def mhr(
     """
     if not isinstance(lod, int) or isinstance(lod, bool) or lod not in LODS:
         raise ArgumentError(f"lod must be one of {LODS}, got {lod!r}")
-    if not isinstance(expression, bool) or not isinstance(correctives, bool):
-        raise ArgumentError(f"expression and correctives must be bool, got {expression!r} and {correctives!r}")
+    check_flags(expression=expression, correctives=correctives)
     if dtype not in (torch.float32, torch.float64):
         raise DtypeMismatchError(
             f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "

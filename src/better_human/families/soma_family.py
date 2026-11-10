@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import torch
-from better_robot.exceptions import ArgumentError, DtypeMismatchError
+from better_robot.exceptions import DtypeMismatchError
 
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import FormatError, weight_path
@@ -18,6 +18,7 @@ from better_human.io.load import load_model_npz
 from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import SOMA_CORRECTIVE_FIELDS, SOMA_SCHEMA
 
+from ._checks import check_flags
 from .classic import SOMAFormat
 from .soma_rig import SOMARig
 
@@ -76,8 +77,7 @@ def soma(
     limb segments. ``correctives=False`` drops the pose-corrective MLP. The spec is built once in ``dtype`` on
     ``device`` (decision record 0005).
     """
-    if not isinstance(correctives, bool):
-        raise ArgumentError(f"correctives must be bool, got {correctives!r}")
+    check_flags(correctives=correctives)
     if dtype not in (torch.float32, torch.float64):
         raise DtypeMismatchError(
             f"dtype={dtype!r} is not torch.float32 or torch.float64, the floating dtypes BetterRobot computes in; "

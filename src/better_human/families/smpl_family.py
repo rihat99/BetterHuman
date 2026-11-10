@@ -23,6 +23,7 @@ from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH
 from better_human.mass import segment_vertices
 
 from . import _tables
+from ._checks import check_flags
 from .classic import FLAMEClassic, MANOClassic, SMPLClassic, SMPLFamilyFormat, SMPLHClassic, SMPLXClassic
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 
@@ -199,6 +200,7 @@ def smplh(
     device: torch.device | str | None = None,
 ) -> FamilySpec:
     """SMPL+H (52 joints; the hand pose is given per joint, the file ships no hand PCA)."""
+    check_flags(hands=hands)
     _check_dtype(dtype)
     gender = _gender(gender)
     table = _tables.SMPLH
@@ -236,6 +238,7 @@ def smplx(
     ``num_pca_comps`` in ``[1, 45]`` makes the classic hand poses ``(..., num_pca_comps)`` PCA coefficients; ``None``
     keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
     """
+    check_flags(hands=hands, face=face, flat_hand_mean=flat_hand_mean)
     _check_dtype(dtype)
     gender = _gender(gender)
     if num_pca_comps is not None:
@@ -303,6 +306,7 @@ def mano(
     ``num_pca_comps`` in ``[1, 45]`` makes the classic hand pose ``(..., num_pca_comps)`` PCA coefficients; ``None``
     keeps full 45-D axis-angles. ``flat_hand_mean`` drops the hand mean pose.
     """
+    check_flags(flat_hand_mean=flat_hand_mean)
     _check_dtype(dtype)
     if side not in {"left", "right"}:
         raise UnknownNameError("side", side, ["left", "right"])
