@@ -86,22 +86,22 @@ for row in thresholds["rows"]:
     print(f"{row['row']:31}", *(f"{row[name]:>12}" for name in counters))
 ```
 ```output
-8c7a5c0 benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json
+af974d0 benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json
 row                             graph_breaks   recompiles          ops   host_syncs
-fk_vertices/smplx/B1                       0            1          118            0
-fk_vertices/smplx/B64                      0            2          118            0
-fk_streams/smplx/B1                        0            1          239            0
-fk_streams/smplx/B64                       0            2          239            0
-joint_poses/smplx/B1                       0            1          145            0
-joint_poses/smplx/B64                      0            2          145            0
-contact_frame_poses/smplx/B1               0            1          190            0
-contact_frame_poses/smplx/B64              0            2          190            0
+fk_vertices/smplx/B1                       0            1          111            0
+fk_vertices/smplx/B64                      0            2          111            0
+fk_streams/smplx/B1                        0            1          192            0
+fk_streams/smplx/B64                       0            2          192            0
+joint_poses/smplx/B1                       0            1           79            0
+joint_poses/smplx/B64                      0            2           79            0
+contact_frame_poses/smplx/B1               0            1          124            0
+contact_frame_poses/smplx/B64              0            2          124            0
 to_classic/smplx/B1                        0            1           84            0
 to_classic/smplx/B64                       0            2           84            0
-bake_forward/smpl/B1                       0            1          233            0
-bake_forward/smpl/B64                      0            2          233            0
-bake_forward_dempster/smpl/B1              0            1         3583            0
-bake_forward_dempster/smpl/B64             0            2         3583            0
+bake_forward/smpl/B1                       0            1          186            0
+bake_forward/smpl/B64                      0            2          186            0
+bake_forward_dempster/smpl/B1              0            1         3430            0
+bake_forward_dempster/smpl/B64             0            2         3430            0
 ```
 
 When a change adds a counter, remove what added it. When the change needs it, or when a change lowers a counter,

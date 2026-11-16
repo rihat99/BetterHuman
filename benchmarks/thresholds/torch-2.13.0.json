@@ -1,6 +1,6 @@
 {
  "meta": {
-  "commit": "8c7a5c0",
+  "commit": "af974d0",
   "dirty": false,
   "command": "benchmarks/run.py --counters-only --out benchmarks/thresholds/torch-2.13.0.json",
   "better_robot_file": "BetterRobot/site-packages/better_robot/__init__.py",
@@ -18,17 +18,17 @@
    "MALLOC_TRIM_THRESHOLD_": null,
    "NUMPY_MADVISE_HUGEPAGE": "0"
   },
-  "date": "2026-11-10T19:51:46",
-  "loadavg_start": "11.23 16.64 23.25 9/20828 1521753",
-  "loadavg_end": "17.01 17.33 23.07 3/20686 1522660",
-  "total_s": 62.4
+  "date": "2026-11-16T19:53:42",
+  "loadavg_start": "5.14 10.51 14.83 15/17843 3493851",
+  "loadavg_end": "5.28 9.57 14.24 4/17834 3494635",
+  "total_s": 58.7
  },
  "rows": [
   {
    "row": "fk_vertices/smplx/B1",
    "batch": 1,
-   "loadavg": "11.23 16.64 23.25 13/20836 1521840",
-   "ops": 118,
+   "loadavg": "5.14 10.51 14.83 4/17843 3493878",
+   "ops": 111,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 1
@@ -36,8 +36,8 @@
   {
    "row": "fk_vertices/smplx/B64",
    "batch": 64,
-   "loadavg": "11.23 16.64 23.25 8/20774 1521944",
-   "ops": 118,
+   "loadavg": "5.05 10.40 14.77 4/17854 3493900",
+   "ops": 111,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 2
@@ -45,8 +45,8 @@
   {
    "row": "fk_streams/smplx/B1",
    "batch": 1,
-   "loadavg": "10.89 16.48 23.17 9/20688 1521953",
-   "ops": 239,
+   "loadavg": "5.05 10.40 14.77 6/17840 3493934",
+   "ops": 192,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 1
@@ -54,8 +54,8 @@
   {
    "row": "fk_streams/smplx/B64",
    "batch": 64,
-   "loadavg": "10.89 16.48 23.17 5/20667 1521983",
-   "ops": 239,
+   "loadavg": "5.04 10.31 14.72 5/17846 3493996",
+   "ops": 192,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 2
@@ -63,8 +63,8 @@
   {
    "row": "joint_poses/smplx/B1",
    "batch": 1,
-   "loadavg": "10.42 16.29 23.07 4/20647 1522022",
-   "ops": 145,
+   "loadavg": "5.12 10.24 14.67 3/17847 3494048",
+   "ops": 79,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 1
@@ -72,8 +72,8 @@
   {
    "row": "joint_poses/smplx/B64",
    "batch": 64,
-   "loadavg": "9.91 16.09 22.97 4/20647 1522027",
-   "ops": 145,
+   "loadavg": "5.12 10.24 14.67 7/17838 3494054",
+   "ops": 79,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 2
@@ -81,8 +81,8 @@
   {
    "row": "contact_frame_poses/smplx/B1",
    "batch": 1,
-   "loadavg": "9.91 16.09 22.97 4/20666 1522052",
-   "ops": 190,
+   "loadavg": "5.12 10.24 14.67 4/17838 3494059",
+   "ops": 124,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 1
@@ -90,8 +90,8 @@
   {
    "row": "contact_frame_poses/smplx/B64",
    "batch": 64,
-   "loadavg": "9.91 16.09 22.97 7/20666 1522063",
-   "ops": 190,
+   "loadavg": "5.12 10.24 14.67 7/17836 3494084",
+   "ops": 124,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 2
@@ -99,7 +99,7 @@
   {
    "row": "to_classic/smplx/B1",
    "batch": 1,
-   "loadavg": "9.43 15.89 22.87 5/20693 1522102",
+   "loadavg": "5.03 10.13 14.62 2/17815 3494099",
    "ops": 84,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -108,7 +108,7 @@
   {
    "row": "to_classic/smplx/B64",
    "batch": 64,
-   "loadavg": "9.43 15.89 22.87 7/20700 1522109",
+   "loadavg": "5.03 10.13 14.62 4/17815 3494113",
    "ops": 84,
    "host_syncs": 0,
    "graph_breaks": 0,
@@ -117,8 +117,8 @@
   {
    "row": "bake_forward/smpl/B1",
    "batch": 1,
-   "loadavg": "9.43 15.89 22.87 5/20693 1522123",
-   "ops": 233,
+   "loadavg": "5.03 10.13 14.62 3/17819 3494119",
+   "ops": 186,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 1
@@ -126,8 +126,8 @@
   {
    "row": "bake_forward/smpl/B64",
    "batch": 64,
-   "loadavg": "9.24 15.74 22.78 3/20699 1522146",
-   "ops": 233,
+   "loadavg": "5.11 10.07 14.57 11/17805 3494149",
+   "ops": 186,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 2
@@ -135,8 +135,8 @@
   {
    "row": "bake_forward_dempster/smpl/B1",
    "batch": 1,
-   "loadavg": "9.24 15.74 22.78 4/20692 1522221",
-   "ops": 3583,
+   "loadavg": "5.11 10.07 14.57 3/17823 3494205",
+   "ops": 3430,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 1
@@ -144,8 +144,8 @@
   {
    "row": "bake_forward_dempster/smpl/B64",
    "batch": 64,
-   "loadavg": "21.46 18.13 23.45 4/20642 1522376",
-   "ops": 3583,
+   "loadavg": "4.99 9.80 14.41 5/17839 3494414",
+   "ops": 3430,
    "host_syncs": 0,
    "graph_breaks": 0,
    "recompiles": 2
