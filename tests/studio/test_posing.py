@@ -49,6 +49,9 @@ def _rotated(world: torch.Tensor, quat: list[float]) -> torch.Tensor:
 
 
 def _angle(quat_a: torch.Tensor, quat_b: torch.Tensor) -> float:
+    # Normalised in float64: in float32 a unit quaternion's dot with itself can round one ulp below 1, and
+    # 2 acos(1 - 6e-8) reads 6.9e-4 rad for two equal rotations.
+    quat_a, quat_b = (quat.double() / quat.double().norm() for quat in (quat_a, quat_b))
     return float(2 * torch.acos(torch.clamp((quat_a * quat_b).sum().abs(), max=1.0)))
 
 
