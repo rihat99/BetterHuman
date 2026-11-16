@@ -20,6 +20,7 @@ page fails `tests/contract/test_vocabulary.py`.
 |---|---|
 | **identity, `Identity`** | One subject's body shape, baked once: `HumanModel.bake(**identity)` turns the values of the identity groups into an `Identity` (or an identity batch `I...`) holding the rest mesh, the rest joints and a BetterRobot `Model` with the subject's placements and inertias. The studio and `terms.shape_prior` call it *shape* (`HumanStudio.random_shape`); MHR names one identity group `identity`. In BetterRobot, *identity* is an everyday word: the element that changes nothing (`se3.identity()`, an identity placement). |
 | **rest** | The unposed body of one identity, in the skinning rest frame that the binds are measured in, root at the origin: `Identity.rest_vertices (I..., V, 3)`, `rest_joint_translations (I..., J, 3)`, `Rig.placements_from_rest`. `HumanState.rest_vertices()` adds the streams and the corrective, before skinning. BetterRobot's *rest configuration* (`terms.rest`, `ik_problem(rest_weight=)`) is the value of `q` a regularizing term pulls towards. |
+| **row** | One row of a matrix: `MHRRig.corrective_rows (E, 3 (J - 2))` holds one row per corrective entry, the one-hot Euler angle that entry reads. In BetterRobot, a *row* is one linear constraint of a quadratic program (`optim.solve_qp(rows=)`). |
 
 ## Families and loading
 
@@ -132,6 +133,6 @@ These words keep their ordinary English meaning in public names, and BetterRobot
 
 action, ancestor, array, centroid, children, chosen, click, closed, coefficient, confidence, count, deselect,
 direction, drop, dropped, event, expansion, file, filename, first, fit, fitted, found, gender, global, hand, header,
-indices, inherited, jaw, launch, left, linear, locked, marquee, mask, mean, message, mode, neck, not, only, parameter,
-pick, provenance, reload, reset, right, row, select, shaped, shipped, side, single, status, turned, type, update,
+indices, inherited, jaw, launch, left, linear, locked, marquee, mask, mean, message, neck, not, only, parameter,
+pick, provenance, reload, reset, right, select, shaped, shipped, side, single, status, turned, type, update,
 upgrade, version, vertex, without, write

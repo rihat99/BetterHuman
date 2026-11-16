@@ -7,6 +7,11 @@ line that 0.2.0 renames or removes, one table row each.
 
 ## Unreleased
 
+### Changed
+- BetterHuman depends on BetterRobot at revision 0086feb of its `dev` branch instead of 3654884; BetterHuman's
+  public API is unchanged. BetterRobot's glossary now defines *row* (a constraint of a quadratic program), so
+  BetterHuman's glossary lists it among the words BetterRobot uses with another meaning (`MHRRig.corrective_rows`).
+
 ## v0.2.0 (2026-11-10)
 
 ### Added

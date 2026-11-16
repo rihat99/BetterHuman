@@ -76,8 +76,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "better-robot", git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab" },
-    { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab" },
+    { name = "better-robot", git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" },
+    { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
 ]
@@ -85,7 +85,7 @@ provides-extras = ["studio"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "better-robot", extras = ["viewer"], git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab" },
+    { name = "better-robot", extras = ["viewer"], git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "mkdocs", specifier = ">=1.6,<2" },
     { name = "mkdocs-material", specifier = ">=9.5" },
@@ -99,7 +99,7 @@ dev = [
 [[package]]
 name = "better-robot"
 version = "0.3.0"
-source = { git = "https://github.com/rihat99/BetterRobot?rev=3654884e13b9debe0c86cd36bf11493a8bb576ab#3654884e13b9debe0c86cd36bf11493a8bb576ab" }
+source = { git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a#0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" }
 dependencies = [
     { name = "numpy" },
     { name = "torch" },
