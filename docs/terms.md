@@ -67,7 +67,7 @@ fit = human.bake(betas=result.x["betas"]).forward(result.x["q"]).points(markers)
 print(f"largest marker error: {float((fit - data).norm(dim=-1).max()):.1e} m")
 ```
 ```output
-largest marker error: 1.5e-07 m
+largest marker error: 9.1e-08 m
 ```
 
 `examples/03_ik_reach.py` runs a pose fit live in the viewer: drag a target and the wrist follows.

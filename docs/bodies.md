@@ -82,5 +82,35 @@ print(betas.grad.shape, q.grad.shape)
 torch.Size([16]) torch.Size([223])
 ```
 
+## Faster repeated calls
+
+When you call the same function many times, in a fitting loop or over a long clip in chunks, BetterRobot's
+`kinematics.compiled` compiles it once with `torch.compile` and reuses the graph. It takes any function of tensors,
+so a body's forward pass goes in as it is:
+
+```python
+from better_robot import kinematics
+
+vertices = kinematics.compiled(lambda q: subject.forward(q).vertices)  # build it once
+q = model.q_neutral.expand(64, -1)
+with torch.no_grad():
+    vertices(q)  # the first call runs eagerly
+    vertices(q)  # the second compiles, which takes seconds
+    print(torch.allclose(vertices(q), subject.forward(q).vertices, atol=1e-5))
+```
+```output
+True
+```
+
+Gradients flow through the compiled call too; with gradients on it compiles a graph of its own. A new batch size
+compiles again, at most three graphs per key (the first size, one for every later size, and batch 1).
+
+On the licensed SMPL-X body at batch 64 (float32, one call), the compiled forward pass takes 9.5 ms against 16 ms on
+8 threads of an AMD EPYC 9654, and 0.46 ms against 1.5 ms on an NVIDIA RTX PRO 6000, where its gradient takes 2.4 ms
+against 8.1 ms. Compiling takes 3 to 30 seconds per graph. MHR gains on the GPU (1.6 ms against 3.5 ms) but not on
+CPU, where its pose corrective, a large matrix product, takes most of the time. On CPU, torch 2.13 aborts the process
+when it runs MHR's compiled backward at a batch above 1 (a fault in its vectorised CPU kernels): compile MHR without
+gradients on CPU, or run it on a GPU.
+
 See also: [Mass](mass.md), which gives the subject its inertias, and [Fitting terms](terms.md), which fits `q` and
 `betas` to data.
