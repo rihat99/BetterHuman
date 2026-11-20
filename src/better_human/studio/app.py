@@ -50,8 +50,9 @@ class HumanStudio:
     ``"frames"`` (add a frame on the nearest vertex). ``data_root`` is the directory the studio reads and writes its
     segmentations, frame sets and poses in; the weights come from ``better_human.io.models_dir()``. ``family`` is
     ``"smpl"``, ``"smplx"`` or ``"mhr"``; another raises :class:`~better_robot.exceptions.UnknownNameError`.
-    ``generator`` draws the random shapes. ``host`` and ``port`` default to the viewer's (``127.0.0.1:8080``);
-    ``server`` injects a viser-compatible server instead (tests).
+    ``generator`` draws the random shapes. ``density`` is the body's at start and after a family switch: a table name
+    (the library's default, ``"Dempster"``) or kg/m^3. ``host`` and ``port`` default to the viewer's
+    (``127.0.0.1:8080``); ``server`` injects a viser-compatible server instead (tests).
     """
 
     def __init__(
@@ -64,13 +65,13 @@ class HumanStudio:
         port: int | None = None,
         host: str | None = None,
         generator: np.random.Generator,
-        density: float | None = None,
+        density: str | float = "Dempster",
         server: Any = None,
     ) -> None:
         self.family, self.gender, self.lod = _family(family), gender, lod
         self.generator = generator
-        self.density = 1000.0 if density is None else float(density)
-        self._uniform_density, self.opacity = self.density, 1.0
+        self.density, self._start_density, self.opacity = density, density, 1.0
+        self._uniform_density = 1000.0 if isinstance(density, str) else float(density)  # the dropdown's uniform entry
         self.paths = persistence.StudioPaths(Path(data_root).expanduser())
         self.mode = "pose"
         self.status = ""
@@ -184,8 +185,9 @@ class HumanStudio:
         with sidebar.section("Body"):
             if tables:
                 self._uniform = f"uniform {self._uniform_density:g} kg/m^3"
+                start = self.density if self.density in tables else self._uniform
                 self.density_input = gui.add_dropdown(
-                    "Density table", options=(self._uniform, *tables), initial_value=self._uniform
+                    "Density table", options=(self._uniform, *tables), initial_value=start
                 )
             else:
                 self.density_input = gui.add_number("Density (kg/m^3)", initial_value=self._uniform_density)
@@ -230,7 +232,7 @@ class HumanStudio:
         family = _family(family)
         self.set_mode("pose")
         self.family, self.gender, self.lod = family, gender, lod
-        self.density = self._uniform_density  # density tables are per family; start uniform
+        self.density = self._start_density
         body = self._load_body()
         self.session.load_body(body, self._key(), self._default_frames(body))
         self.frames.active = None  # frame names belong to the previous model
@@ -454,7 +456,7 @@ def launch(
     lod: int = 1,
     port: int | None = None,
     host: str | None = None,
-    density: float | None = None,
+    density: str | float = "Dempster",
 ) -> None:
     """Build a :class:`HumanStudio` (the arguments are its constructor's), print the URL it serves and block until
     interrupted."""

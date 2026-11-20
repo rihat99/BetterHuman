@@ -37,6 +37,7 @@ page fails `tests/contract/test_vocabulary.py`.
 | **MHR** | Meta's Momentum Human Rig: an authored skeleton whose native joints are chains of revolutes, the identity groups `identity` and `proportions`, an MLP corrective and seven levels of detail (`families.mhr`, `MHRRig`). |
 | **SOMA** | NVIDIA's SOMA-X body with its own shape space (identity group `shape`): 78 public joints, 32 twist helpers and a skeleton fitted to each shape at bake (`families.soma`, `SOMARig`). |
 | **asset** | A data file BetterHuman reads and does not compute: in `io.AssetNotFoundError`, a licensed weight file or the weights directory under `$BETTERHUMAN_MODELS_DIR`; in the source tree, a file shipped in the package (`io/assets`, `studio/assets`). |
+| **MHR to SMPL-X mapping, mapping** | Where each SMPL-X vertex lies on the MHR mesh at level of detail 1: a triangle and its barycentric weights, from MHR's authors (`io.mhr_to_smplx_mapping()`). |
 | **core** | `better_human.core`: the family data, rigs, identities, states and skinning that the other packages build on. |
 
 ## Identity, streams and skinning
@@ -58,7 +59,7 @@ page fails `tests/contract/test_vocabulary.py`.
 | **linear blend skinning** | `core.linear_blend_skinning(rest_vertices, affines, *, weights)`: BetterRobot's *skinning*, the one path every rig skins through. |
 | **top-K, K** | The `K` strongest skin weights of each vertex, `skin_weights` and `skin_indices (V, K)` padded with zero weights (`top_k_skin(weights, k)`). |
 | **corrective** | Pose-dependent vertex offsets from the rig's corrective features (`Corrective.apply`): `LinearCorrective` for the SMPL family, `MLPCorrective` for MHR and SOMA. `mhr(correctives=False)` and `soma(correctives=False)` load without one. |
-| **corrective feature, feature** | The vector `(..., P)` a corrective reads, computed from `q` by `Rig.corrective_features` (`HumanState.corrective_feature`); for the SMPL family, the flattened `R - I` of every joint but the root. |
+| **corrective feature, feature** | The vector `(..., P)` a corrective reads, computed from `q` by `Rig.corrective_features` (`HumanState.corrective_features`); for the SMPL family, the flattened `R - I` of every joint but the root. |
 | **`posedirs`** | Pose directions: the SMPL family's linear corrective matrix `(P, V * 3)` (upstream's name, `LinearCorrective(posedirs=)`). |
 
 See [Architecture](../concepts/architecture.md) for the four objects and the one skinning path.

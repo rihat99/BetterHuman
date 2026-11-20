@@ -1,4 +1,4 @@
-"""The physics residual of a motion: the free-flyer rows of inverse dynamics with contact forces."""
+"""The physics of a motion: contact forces as joint wrenches, and the free-flyer rows of inverse dynamics."""
 
 from __future__ import annotations
 
@@ -26,7 +26,9 @@ def root_wrench(
     for ``q`` that is not a batched trajectory of three or more knots, or ``forces`` that do not match it.
     """
     model = identity.model
-    frame_ids = torch.as_tensor([model.frame_id(name) for name in contacts], dtype=torch.long)
+    contacts = tuple(contacts)
+    for name in contacts:
+        model.frame_id(name)  # an unknown frame raises here, not at the first evaluation
 
     def residual(pose: torch.Tensor, force: torch.Tensor) -> torch.Tensor:
         if pose.ndim != 3 or pose.shape[1] < 3:
@@ -37,22 +39,29 @@ def root_wrench(
         acceleration = (velocity[:, 1:] - velocity[:, :-1]) / dt  # (B, T-2, nv)
         mid_velocity = 0.5 * (velocity[:, 1:] + velocity[:, :-1])
         kinematics = forward_kinematics(model, pose[:, 1:-1])
-        wrenches = _contact_wrenches(model, kinematics, frame_ids.to(force.device), force[:, 1:-1])
+        wrenches = contact_wrenches(model, kinematics, forces=force[:, 1:-1], frames=contacts)
         return inverse_dynamics(model, kinematics, v=mid_velocity, a=acceleration, external_forces=wrenches)[..., :6]
 
     return TermFn(fn=residual, reads=(q, forces), window=3)
 
 
-def _contact_wrenches(
-    model: Model, kinematics: KinematicState, frame_ids: torch.Tensor, forces: torch.Tensor
+def contact_wrenches(
+    model: Model, state: KinematicState, *, forces: torch.Tensor, frames: Sequence[str]
 ) -> torch.Tensor:
-    """``external_forces (..., njoints, 6)`` in joint frames from world ``forces (..., C, 3)`` at frames ``frame_ids``."""
-    parents = torch.as_tensor(
-        [model.frame_parent_joint_ids[int(f)] for f in frame_ids], dtype=torch.long, device=forces.device
-    )
-    joint = kinematics.joint_transforms[..., parents, :, :]  # (..., C, 3, 4)
+    """``external_forces (..., njoints, 6)`` for BetterRobot's ``inverse_dynamics``: world ``forces (..., C, 3)``
+    pushing at the origins of the model frames named in ``frames (C,)``.
+
+    Each force becomes a wrench ``[force, torque]`` on the body of its frame's parent joint, expressed in that joint's
+    frame, as ``inverse_dynamics`` reads it; forces on frames of one joint add up. ``state`` is the
+    ``KinematicState`` of the same poses, and ``forces`` broadcasts against its batch axes. Raises
+    :class:`~better_robot.exceptions.UnknownNameError` for a frame the model does not have.
+    """
+    ids = [model.frame_id(name) for name in frames]
+    frame_ids = torch.as_tensor(ids, dtype=torch.long, device=forces.device)
+    parents = torch.as_tensor([model.frame_parent_joint_ids[i] for i in ids], dtype=torch.long, device=forces.device)
+    joint = state.joint_transforms[..., parents, :, :]  # (..., C, 3, 4)
     forces = forces.expand(*joint.shape[:-2], 3)
-    lever = kinematics.frame_translations[..., frame_ids, :] - joint[..., 3]
+    lever = state.frame_translations[..., frame_ids, :] - joint[..., 3]
     rotation = joint[..., :3]
     linear = (rotation.mT @ forces[..., None]).squeeze(-1)
     angular = (rotation.mT @ torch.linalg.cross(lever, forces)[..., None]).squeeze(-1)

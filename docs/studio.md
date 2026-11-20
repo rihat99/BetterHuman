@@ -25,8 +25,8 @@ The sidebar has a section per job:
 - **Model**: switch family, gender and level of detail.
 - **Display**: colour the body by skin, by part, or as separate part solids you can pull apart; opacity and joint
   size.
-- **Body**: a slider per shape coefficient (and expression on SMPL-X), random and reset; the density, with the mass
-  it gives.
+- **Body**: a slider per shape coefficient (and expression on SMPL-X), random and reset; the density (the
+  `"Dempster"` table, as in the library, until you pick another), with the mass it gives.
 - **Pose**: click a joint, drag the gizmo to rotate it (the root also moves), save and load poses.
 - **Segment**: paint vertices into parts with a brush or a rectangle, load the built-in parts, build the part solids
   and read each part's mass.

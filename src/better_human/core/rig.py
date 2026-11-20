@@ -102,15 +102,15 @@ class Rig(ABC):
         return None
 
 
-def gravity(up_axis: str, magnitude: float = 9.81) -> tuple[float, float, float]:
-    """World gravity ``(3,)`` pointing against ``up_axis`` (``"+y"``, ``"-z"``, ...).
+def gravity(up_axis: str) -> tuple[float, float, float]:
+    """World gravity ``(3,)``, 9.81 m/s² against ``up_axis`` (``"+y"``, ``"-z"``, ...).
 
     Raises :class:`~better_robot.exceptions.ArgumentError` for another ``up_axis``.
     """
     if up_axis not in _UP_AXES:
         raise ArgumentError(f"up_axis={up_axis!r} is not one of {list(_UP_AXES)}; pass a sign and an axis, e.g. '+y'")
     sign, axis = up_axis[0], "xyz".index(up_axis[1])
-    value = -magnitude if sign == "+" else magnitude
+    value = -9.81 if sign == "+" else 9.81
     return tuple(value if i == axis else 0.0 for i in range(3))
 
 

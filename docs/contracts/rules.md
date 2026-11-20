@@ -85,7 +85,8 @@ Enforcement: `tests/io/test_load.py`, `tests/contract/test_models_dir.py`.
 Each file format BetterHuman reads or writes is in `io.formats.LATEST` with a spec page under
 `docs/reference/formats/`; a file carries `format` and `format_version`, a past version reads through its
 migration, and a later version or another format is refused naming both. No module
-loads a pickle.
+loads a pickle. Third-party data shipped unchanged keeps its authors' layout and is named, with its source and
+licence, in `src/better_human/io/assets/NOTICE` (MHR's `mhr2smplx_mapping.npz`).
 
 Rationale: a file outlives the code that wrote it; the reader, not the user, carries old files forward.
 Example: `io.read_frame_set(path)` reads a version-1 frame set and refuses a version-2 one naming the newest it

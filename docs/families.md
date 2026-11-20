@@ -16,6 +16,7 @@ The names you will use:
 | `families.drop_joints(spec, names)` | the spec without some end joints, their skin moved to the parent |
 | `io.read_frame_set`, `io.write_frame_set`, `io.shipped_frame_set` | contact frames as files |
 | `bh.from_classic`, `bh.to_classic` | the family's own parameters (`betas`, `body_pose`, ...) to and from `q` |
+| `io.mhr_to_smplx_mapping()` | the MHR triangle and barycentric weights of each SMPL-X vertex, from MHR's authors |
 
 Dtype and device are chosen once, at load: `bh.load("smplx", dtype=torch.float64, device="cuda")`. No BetterHuman
 object has a `to` method, and a tensor in another dtype raises instead of being cast.

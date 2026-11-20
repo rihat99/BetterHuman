@@ -55,7 +55,7 @@ STATE_MEMBERS: dict[str, Callable[[bh.HumanState], object]] = {
     "joint_translations": lambda state: state.joint_translations,
     "joint_transforms": lambda state: state.joint_transforms,
     "skin_affines": lambda state: state.skin_affines,
-    "corrective_feature": lambda state: state.corrective_feature,
+    "corrective_features": lambda state: state.corrective_features,
     "rest_vertices": lambda state: state.rest_vertices,
     "vertices": lambda state: state.vertices,
     "points": lambda state: state.points(torch.tensor([0, 10, 20])),
@@ -83,6 +83,12 @@ TERMS: dict[str, Callable[[], tuple[Callable[..., object], tuple[object, ...]]]]
     "shape_prior": lambda: _term(terms.shape_prior, _betas(2)),
     "root_wrench": lambda: _term(
         lambda: terms.root_wrench(_identity(), list(SMPLX_FRAMES), dt=0.01), _pose(1, 4), torch.ones(1, 4, 2, 3)
+    ),
+    "contact_wrenches": lambda: (
+        lambda state, forces: terms.contact_wrenches(
+            state.model, state.kinematics, forces=forces, frames=list(SMPLX_FRAMES)
+        ),
+        (_state(), torch.ones(2, 2, 3)),
     ),
 }
 CASES: dict[str, Callable[[], tuple[Callable[..., object], tuple[object, ...]]]] = {

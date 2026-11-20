@@ -52,6 +52,7 @@ RANDOM: dict[str, tuple[str, str, str]] = {
 #: random-weight archives.
 TRACKED_NPZ = {
     "src/better_human/io/assets/density_tables.npz",
+    "src/better_human/io/assets/mhr2smplx_mapping.npz",
     "src/better_human/io/assets/smpl_segmentation.npz",
     *(
         f"tests/support/formats/{name}.npz"

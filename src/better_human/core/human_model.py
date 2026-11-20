@@ -320,7 +320,7 @@ class HumanState:
         return self._memoised("skin_affines", lambda: skin_affines(self.joint_transforms, self.inverse_bind_affines))
 
     @property
-    def corrective_feature(self) -> torch.Tensor | None:
+    def corrective_features(self) -> torch.Tensor | None:
         """``(..., P)`` features the family's corrective reads, or ``None`` for a family without one."""
         spec = self.identity.human.spec
         if spec.corrective is None:
@@ -339,8 +339,8 @@ class HumanState:
             offsets = None if offsets is None else offsets[..., vertex_ids, :]
         if offsets is not None:
             vertices = vertices + offsets
-        feature = self.corrective_feature
-        corrective = None if feature is None else self.identity.human.spec.corrective.apply(feature, vertex_ids)
+        features = self.corrective_features
+        corrective = None if features is None else self.identity.human.spec.corrective.apply(features, vertex_ids)
         return vertices if corrective is None else vertices + corrective
 
     @property

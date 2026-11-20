@@ -15,6 +15,7 @@ The names you will use:
 | `terms.ground` | mesh points below the ground plane |
 | `terms.pose_prior`, `terms.shape_prior` | keep the pose near a mean and the shape near zero |
 | `terms.root_wrench` | the root rows of inverse dynamics along a trajectory with contact forces: zero for a motion physics allows |
+| `terms.contact_wrenches(model, state, forces=, frames=)` | world forces at named frames as the `external_forces` of BetterRobot's `inverse_dynamics` |
 
 ## Fit poses to joints
 
