@@ -33,31 +33,37 @@ class SegmentEditor:
     def session(self) -> StudioSession:
         return self.studio.session
 
-    def build(self, gui: Any) -> None:
-        """Add the Segment tab controls to ``gui`` (a viser tab or the GUI root)."""
-        layers = self.studio.layers
-        self.color_mode = gui.add_dropdown(
-            "Colour", options=("skin", "segmentation", "parts"), initial_value=layers.mesh.mode
+    def build(self, sidebar: Any) -> None:
+        """Add the Segment section to the viewer's ``Sidebar``."""
+        locked, gui = self.studio.locked, sidebar.gui
+        self.part_dropdown = sidebar.dropdown(
+            "Segment", "Part", options=self._options(), value=_UNASSIGNED, on_change=locked(self._set_part)
         )
-        self.color_mode.on_update(self.studio.locked(lambda _event: layers.set_mode(self.color_mode.value)))
-        self.part_dropdown = gui.add_dropdown("Part", options=self._options(), initial_value=_UNASSIGNED)
-        self.part_dropdown.on_update(self.studio.locked(lambda _event: setattr(self, "part", self.part_dropdown.value)))
-        self.new_part = gui.add_text("New part", initial_value="")
-        gui.add_button("Add part").on_click(self.studio.locked(lambda _event: self.add_part(self.new_part.value)))
-        self.paint_toggle = gui.add_checkbox("Paint (click mesh)", initial_value=False)
-        self.paint_toggle.on_update(self.studio.locked(lambda _event: self.set_painting(bool(self.paint_toggle.value))))
-        self.brush = gui.add_slider("Brush radius", min=0.005, max=0.2, step=0.005, initial_value=0.03)
-        gui.add_button("Marquee select").on_click(self.studio.locked(lambda _event: self.studio.start_marquee()))
-        self.saved = gui.add_dropdown("Saved", options=self._saved_options(), initial_value=self._saved_options()[0])
-        self.save_name = gui.add_text("Save as", initial_value="custom")
-        gui.add_button("Save segmentation").on_click(self.studio.locked(lambda _event: self.save(self.save_name.value)))
-        gui.add_button("Load segmentation").on_click(self.studio.locked(lambda _event: self.load(self.saved.value)))
-        gui.add_button("Load built-in").on_click(self.studio.locked(lambda _event: self.load_builtin()))
-        gui.add_button("Reset to skinning").on_click(
-            self.studio.locked(lambda _event: self.session.reset_segmentation())
+        with sidebar.section("Segment"):
+            self.new_part = gui.add_text("New part", initial_value="")
+        sidebar.button("Segment", "Add part", on_click=locked(lambda _=None: self.add_part(self.new_part.value)))
+        self.paint_toggle = sidebar.checkbox(
+            "Segment", "Paint (click mesh)", value=False, on_change=locked(lambda value: self.set_painting(bool(value)))
         )
-        gui.add_button("Build bodies").on_click(self.studio.locked(lambda _event: self.build_bodies()))
-        self.mass_table = gui.add_markdown("")
+        with sidebar.section("Segment"):
+            self.brush = gui.add_slider("Brush radius", min=0.005, max=0.2, step=0.005, initial_value=0.03)
+        sidebar.button("Segment", "Marquee select", on_click=locked(lambda _=None: self.studio.start_marquee()))
+        with sidebar.section("Segment"):
+            self.saved = gui.add_dropdown("Saved", options=self._saved_options())
+            self.save_name = gui.add_text("Save as", initial_value="custom")
+        for label, action in (
+            ("Save segmentation", lambda: self.save(self.save_name.value)),
+            ("Load segmentation", lambda: self.load(self.saved.value)),
+            ("Load built-in", self.load_builtin),
+            ("Reset to skinning", self.session.reset_segmentation),
+            ("Build bodies", self.build_bodies),
+        ):
+            sidebar.button("Segment", label, on_click=locked(lambda _=None, action=action: action()))
+        with sidebar.section("Segment"):
+            self.mass_table = gui.add_markdown("")
+
+    def _set_part(self, part: str) -> None:
+        self.part = part
 
     def _options(self) -> tuple[str, ...]:
         return (_UNASSIGNED, *self.session.part_names)

@@ -23,7 +23,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, help="default 8080, or the next free port")
     args = parser.parse_args()
 
     spec = bh.families.smplx(args.model_path, num_betas=10, num_expression=10, num_pca_comps=6)
@@ -38,8 +38,7 @@ def main() -> None:
     hands = 0.5 * torch.sin(phase)[:, None] * torch.ones(frames, 6)
     expression = 2.0 * torch.sin(phase)[:, None] * torch.ones(frames, 10)
 
-    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
-    viewer.add([GroundLayer(plane="xz")], group="scene")
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, ground=False, server=FakeServer() if args.check else None)
     shoulders = {}
     for body, name, classic, offset in (
         (
@@ -48,12 +47,14 @@ def main() -> None:
             SMPLXClassic(body_pose=body_pose, left_hand_pose=hands, right_hand_pose=hands, expression=expression),
             (-0.5, 0.0, 0.0),
         ),
-        (partial, "body only", SMPLXClassic(body_pose=body_pose), (0.5, 0.0, 0.0)),
+        (partial, "body_only", SMPLXClassic(body_pose=body_pose), (0.5, 0.0, 0.0)),
     ):
         identity, q, stream = bh.from_classic(body, classic)
-        viewer.add(human_layers(identity.forward(q, stream)), group=name, offset=offset)
+        state = identity.forward(q, stream)
+        viewer.add(human_layers(state), tags=name, pose=offset)
         start = body.model.idx_qs[body.model.joint_id("left_shoulder")]
         shoulders[name] = q[:, start : start + 4]  # (T, 4) xyzw: the swing reaches the joint the classic names
+    viewer.add(GroundLayer(height=float(state.vertices[..., 1].min())))  # under the feet: the pelvis is at the origin
     if args.check:
         viewer.show(45)
         for name, rotation in shoulders.items():
@@ -64,7 +65,7 @@ def main() -> None:
         print(f"{frames} frames, {len(viewer.layers)} layers; full nq={full.model.nq}, body-only nq={partial.model.nq}")
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
-    viewer.play()
+    viewer.serve()
 
 
 if __name__ == "__main__":

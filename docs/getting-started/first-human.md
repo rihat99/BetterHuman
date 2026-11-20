@@ -64,18 +64,23 @@ KinematicState (4, 24, 3) (4, 6890, 3)
 
 ## View the clip
 
-`human_layers` turns a posed batch into viewer layers; the batch axis is the timeline.
+`human_layers` turns a posed batch into viewer layers (the exact mesh and the native skeleton); the batch axis is the
+timeline. The pelvis sits at the origin, so the ground goes under the lowest vertex.
 
 ```python
 from better_robot import Viewer
+from better_robot.viewer import GroundLayer
 from better_human.viz import HUMAN_THEME, human_layers
 
-viewer = Viewer(theme=HUMAN_THEME)  # viser on 127.0.0.1:8080, +y up
-viewer.add(human_layers(state))
+viewer = Viewer(theme=HUMAN_THEME, ground=False)  # viser on 127.0.0.1:8080, +y up
+viewer.add(GroundLayer(height=float(state.vertices[..., 1].min())))
+viewer.add(human_layers(state), tags="smpl")
 viewer.show(3)  # jump to the most bent frame
 ```
 
-Open `http://127.0.0.1:8080` in a browser while the program runs.
+Open `http://127.0.0.1:8080` in a browser while the program runs; in a script, end with `viewer.serve()`.
+`human_layers(state, mesh="skinned")` draws the body as BetterRobot's `RobotVisual` instead, skinned in the browser
+from the joint poses (lighter on a long clip, without pose correctives), with the viewer's Style control.
 
 ## Where next
 

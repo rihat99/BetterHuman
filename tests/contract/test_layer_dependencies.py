@@ -45,7 +45,7 @@ BR_ALLOWED: dict[str, set[str]] = {
         "core": {"better_robot", "better_robot.kinematics", "better_robot.lie"},
         "families": {"better_robot", "better_robot.io", "better_robot.kinematics", "better_robot.lie"},
         "terms": {"better_robot", "better_robot.dynamics", "better_robot.kinematics", "better_robot.optim"},
-        # Record 0022 (proposed): skinned_layer turns record 0003's inverse bind affines into bind poses (so3).
+        # viz.skin checks that the binds are the model's joint poses at q_neutral (so3).
         "viz": {"better_robot.lie", "better_robot.viewer"},
         # Record 0021 (proposed): the studio takes Viewer, a first-level name, from BetterRobot's root.
         "studio": {"better_robot", "better_robot.lie", "better_robot.viewer"},

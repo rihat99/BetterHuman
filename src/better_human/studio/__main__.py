@@ -6,7 +6,7 @@ import argparse
 
 import numpy as np
 
-from .app import DEFAULT_HOST, DEFAULT_PORT, launch
+from .app import launch
 
 
 def _parse_args() -> argparse.Namespace:
@@ -14,11 +14,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--family", default="smpl", choices=("smpl", "smplx", "mhr"))
     parser.add_argument("--gender", default="neutral", choices=("neutral", "male", "female"))
     parser.add_argument("--lod", type=int, default=1, help="MHR level of detail")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--port", type=int, help="Port to serve on (default 8080, or the next free one)")
     parser.add_argument(
         "--data-root", required=True, help="Directory the studio reads and writes its segmentations, frames and poses"
     )
-    parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument("--host", help="Address to listen on (default 127.0.0.1, this machine only)")
     parser.add_argument("--seed", type=int, default=0, help="Seed of the random shapes the Body tab draws")
     return parser.parse_args()
 

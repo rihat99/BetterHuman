@@ -43,7 +43,7 @@ def test_session_pose_shape_and_notify(body: bh.HumanModel) -> None:
 
 def test_gizmo_and_layers_follow_the_session(body: bh.HumanModel) -> None:
     server = FakeServer()
-    viewer = Viewer(server=server)
+    viewer = Viewer(server=server, ground=False)
     session = StudioSession(body, "smpl")
     layers = StudioLayers(viewer, session)
     status: list[str] = []
@@ -53,9 +53,9 @@ def test_gizmo_and_layers_follow_the_session(body: bh.HumanModel) -> None:
     pose = session.joint_poses[18].numpy().copy()
     pose[3:] = [0.0, 0.3827, 0.0, 0.9239]
     gizmo._on_drag(gizmo.handle_for(18), pose)
-    np.testing.assert_allclose(layers.mesh.segmentation.vertices[0], session.vertices.numpy(), atol=1e-5)
+    np.testing.assert_allclose(layers.mesh.vertices[0], session.vertices.numpy(), atol=1e-5)
     layers.set_highlight(18)
-    assert layers.skeleton.colors[0, 18].tolist() == [255, 200, 40]
+    np.testing.assert_allclose(layers.selected.centers[0, 0], session.joint_poses[18, :3].numpy(), atol=1e-6)
     session.reset_segmentation()
     layers.set_explode(0.5)
     session.load_body(body, "smpl")

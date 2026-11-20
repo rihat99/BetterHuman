@@ -7,10 +7,34 @@ line that 0.2.0 renames or removes, one table row each.
 
 ## Unreleased
 
+### Added
+- `viz.skin(identity)`: the rest mesh as a BetterRobot `Skin` over the model's joints, for
+  `RobotVisual(identity.model, q, skin=viz.skin(identity))`; `viz.skeleton_layers(state)`: the native skeleton as a
+  `SpheresLayer` and a `LinesLayer`; `viz.mesh_layer(state, colors=)` paints each vertex.
+
 ### Changed
-- BetterHuman depends on BetterRobot at revision 0086feb of its `dev` branch instead of 3654884; BetterHuman's
-  public API is unchanged. BetterRobot's glossary now defines *row* (a constraint of a quadratic program), so
-  BetterHuman's glossary lists it among the words BetterRobot uses with another meaning (`MHRRig.corrective_rows`).
+- BetterHuman reads BetterRobot from its `dev` checkout beside this one (`path = "../BetterRobot"`, version 0.1.0)
+  instead of revision 0086feb, until that revision is pushed and pinned; viser moves from 1.0.30 to 1.1.1.
+- `viz` and `studio` are built on BetterRobot's new viewer: layers go under tags (`viewer.add(layers, tags=)`), a
+  skinned body is BetterRobot's `RobotVisual`, `HUMAN_THEME` takes the body colour as its first hue, and
+  `HumanView.update` redraws its layers itself. `human_layers` and `HumanView` name the skeleton's layers `joints`
+  and `bones`; `forces_layer` keeps the forces unscaled in `vectors` and applies `scale` when it draws.
+- The studio's tabs are sections of BetterRobot's sidebar (Status, Model, Display, Body, Pose, Segment, Frames; the
+  Colour control moved to Display), its Layers checkboxes are one per tag (Body, Skeleton, Selection, Frames), the
+  selected joint is a highlight sphere, a ground stands under the feet, and the segmentation colours are per vertex.
+  `HumanStudio` and `launch` take `host=None` and `port=None` for the viewer's defaults.
+- BetterRobot's glossary now lists *click*, *direction*, *side* and *update* and no longer *contact*, *group* or
+  *human*: BetterHuman's everyday words follow.
+- BetterRobot's glossary now defines *row* (a constraint of a quadratic program), so BetterHuman's glossary lists it
+  among the words BetterRobot uses with another meaning (`MHRRig.corrective_rows`).
+
+### Removed
+- `viz.skinned_layer`: use `RobotVisual(identity.model, q, skin=viz.skin(identity))` (BetterRobot), or
+  `human_layers(state, mesh="skinned")`.
+- `viz.skeleton_layer`: use `viz.skeleton_layers`.
+- `viz.frames_layer`: use `viz.human_layers(state, frames=True)`.
+- The `color` arguments of `viz.human_layers` and `viz.HumanView` and the `theme` argument of `viz.forces_layer`: no
+  replacement; the body takes the theme's first hue and the arrows BetterRobot's default red.
 
 ## v0.2.0 (2026-11-10)
 

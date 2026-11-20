@@ -31,7 +31,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, help="default 8080, or the next free port")
     args = parser.parse_args()
 
     human = bh.HumanModel.from_spec(bh.families.smpl(args.model_path, num_betas=10), density=None)
@@ -40,9 +40,9 @@ def main() -> None:
     q = identity.model.q_neutral[None].clone()
     state = identity.forward(q)
     view = HumanView(state)
-    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
-    viewer.add([GroundLayer(plane="xz")], group="scene")
-    viewer.add(view, group="smpl")
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, ground=False, server=FakeServer() if args.check else None)
+    viewer.add(GroundLayer(height=float(state.vertices[..., 1].min())))  # under the feet: the pelvis is at the origin
+    viewer.add(view, tags="smpl")
 
     wrist = human.spec.joint_id(WRIST)
     target = state.joint_poses[0, wrist].clone()
@@ -58,20 +58,19 @@ def main() -> None:
         result = solve(moved, LevenbergMarquardt(), iterations=20, x=current)
         current["q"] = result.x["q"]
         view.update(identity.forward(current["q"]))
-        viewer.show()
 
     gizmo = PoseGizmo(viewer, "wrist target", pose=target.numpy(), on_change=follow, scale=0.1)
     if args.check:
         moved = target.clone()
         moved[:3] += torch.tensor([0.15, 0.10, 0.05])
         follow(moved.numpy())
-        residual = float(np.linalg.norm(view.layers[1].joints[0, wrist] - moved[:3].numpy()))
+        residual = float(np.linalg.norm(view.layers[1].centers[0, wrist] - moved[:3].numpy()))
         if residual > REACH_TOLERANCE_M:
             sys.exit(f"--check: the drawn wrist is {residual:.1e} m from the moved target; expected under 1e-4 m")
         print(f"target moved, residual {residual:.1e} m")
         return
     print(f"drag the gizmo (at {gizmo.pose[:3]}) at {viewer.url}; Ctrl-C to exit")
-    viewer.server.sleep_forever()
+    viewer.serve()
 
 
 if __name__ == "__main__":

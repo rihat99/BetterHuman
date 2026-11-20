@@ -24,49 +24,49 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, help="default 8080, or the next free port")
     args = parser.parse_args()
 
     human = bh.load("mhr", args.model_path, density=None)
     coefficients = torch.zeros(45)
     tangent = torch.zeros(human.model.nv)
     identity = human.bake(identity=coefficients)
-    view = HumanView(identity.forward(identity.model.q_neutral))
-    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
-    viewer.add([GroundLayer(plane="xz")], group="scene")
-    viewer.add(view, group="mhr")
+    state = identity.forward(identity.model.q_neutral)
+    view = HumanView(state)
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, ground=False, server=FakeServer() if args.check else None)
+    viewer.add(GroundLayer(height=float(state.vertices[:, 1].min())))  # MHR stands on y = 0
+    viewer.add(view, tags="mhr")
 
     def refresh() -> None:
         view.update(identity.forward(integrate(identity.model, identity.model.q_neutral, tangent)))
-        viewer.show()
 
-    gui = viewer.server.gui
-    with gui.add_folder("Identity"):
-        for index in range(8):
-            slider = gui.add_slider(f"identity {index}", min=-3.0, max=3.0, step=0.1, initial_value=0.0)
+    def on_identity(value: float, index: int) -> None:
+        nonlocal identity
+        coefficients[index] = value
+        identity = human.bake(identity=coefficients)
+        refresh()
 
-            def on_identity(_: object, index: int = index, slider: object = slider) -> None:
-                nonlocal identity
-                coefficients[index] = float(slider.value)
-                identity = human.bake(identity=coefficients)
-                refresh()
-
-            slider.on_update(on_identity)
+    for index in range(8):
+        viewer.sidebar.slider(
+            "Identity", f"identity {index}", low=-3.0, high=3.0, step=0.1, value=0.0,
+            on_change=lambda value, index=index: on_identity(value, index),
+        )  # fmt: skip
     # MHR's shoulder is its upper-arm joint, one revolute joint per axis.
     arm = human.model.idx_vs[human.model.joint_id("l_uparm_rz")]
-    with gui.add_folder("Pose"):
-        slider = gui.add_slider("left upper arm", min=-1.5, max=1.5, step=0.05, initial_value=0.0)
-        slider.on_update(lambda _: (tangent.__setitem__(arm, float(slider.value)), refresh()))
+    viewer.sidebar.slider(
+        "Pose", "left upper arm", low=-1.5, high=1.5, step=0.05, value=0.0,
+        on_change=lambda value: (tangent.__setitem__(arm, value), refresh()),
+    )  # fmt: skip
 
     if args.check:
         coefficients[0] = 2.0
         identity = human.bake(identity=coefficients)
         refresh()
-        skeleton, wrist = view.layers[1], human.spec.joint_names.index("l_wrist")
-        before = skeleton.joints[0, wrist].copy()
+        joints, wrist = view.layers[1], human.spec.joint_names.index("l_wrist")
+        before = joints.centers[0, wrist].copy()
         tangent[arm] = 1.0
         refresh()
-        moved = float(np.linalg.norm(skeleton.joints[0, wrist] - before))
+        moved = float(np.linalg.norm(joints.centers[0, wrist] - before))
         if moved < 0.1:
             sys.exit(
                 f"--check: the drawn left wrist moved {moved:.4f} m after the upper-arm swing; expected over 0.1 m"
@@ -77,7 +77,7 @@ def main() -> None:
         )
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
-    viewer.server.sleep_forever()
+    viewer.serve()
 
 
 if __name__ == "__main__":

@@ -31,46 +31,44 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-path", type=Path, help="SMPL .npz; otherwise $BETTERHUMAN_MODELS_DIR")
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--port", type=int, help="default 8080, or the next free port")
     args = parser.parse_args()
 
     human = bh.HumanModel.from_spec(bh.families.smpl(args.model_path, num_betas=10), density=None)
     betas = torch.zeros(10)
     tangent = torch.zeros(human.model.nv)
     identity = human.bake(betas=betas)
-    view = HumanView(identity.forward(identity.model.q_neutral))
+    state = identity.forward(identity.model.q_neutral)
+    view = HumanView(state)
 
-    viewer = Viewer(port=args.port, theme=HUMAN_THEME, server=FakeServer() if args.check else None)
-    viewer.add([GroundLayer(plane="xz")], group="scene")
-    viewer.add(view, group="smpl")
+    viewer = Viewer(port=args.port, theme=HUMAN_THEME, ground=False, server=FakeServer() if args.check else None)
+    viewer.add(GroundLayer(height=float(state.vertices[:, 1].min())))  # under the feet: the pelvis is at the origin
+    viewer.add(view, tags="smpl")
 
     def refresh() -> None:
-        nonlocal identity
         view.update(identity.forward(integrate(identity.model, identity.model.q_neutral, tangent)))
-        viewer.show()
 
-    gui = viewer.server.gui
-    with gui.add_folder("Shape"):
-        for index in range(10):
-            slider = gui.add_slider(f"beta {index}", min=-3.0, max=3.0, step=0.1, initial_value=0.0)
+    def on_beta(value: float, index: int) -> None:
+        nonlocal identity
+        betas[index] = value
+        identity = human.bake(betas=betas)
+        refresh()
 
-            def on_beta(_: object, index: int = index, slider: object = slider) -> None:
-                nonlocal identity
-                betas[index] = float(slider.value)
-                identity = human.bake(betas=betas)
-                refresh()
+    def on_pose(value: float, coordinate: int) -> None:
+        tangent[coordinate] = value
+        refresh()
 
-            slider.on_update(on_beta)
-    with gui.add_folder("Pose"):
-        for label, joint, axis in POSE_SLIDERS:
-            coordinate = human.model.idx_vs[human.model.joint_id(joint)] + axis
-            slider = gui.add_slider(label, min=-1.5, max=1.5, step=0.05, initial_value=0.0)
-
-            def on_pose(_: object, coordinate: int = coordinate, slider: object = slider) -> None:
-                tangent[coordinate] = float(slider.value)
-                refresh()
-
-            slider.on_update(on_pose)
+    for index in range(10):
+        viewer.sidebar.slider(
+            "Shape", f"beta {index}", low=-3.0, high=3.0, step=0.1, value=0.0,
+            on_change=lambda value, index=index: on_beta(value, index),
+        )  # fmt: skip
+    for label, joint, axis in POSE_SLIDERS:
+        coordinate = human.model.idx_vs[human.model.joint_id(joint)] + axis
+        viewer.sidebar.slider(
+            "Pose", label, low=-1.5, high=1.5, step=0.05, value=0.0,
+            on_change=lambda value, coordinate=coordinate: on_pose(value, coordinate),
+        )  # fmt: skip
 
     if args.check:
         betas[0] = 2.0
@@ -87,7 +85,7 @@ def main() -> None:
         print(f"scene with {len(view.layers)} layers; beta0 = 2, elbow bent: drawn mesh moved {bend:.2f} m")
         return
     print(f"open {viewer.url}; Ctrl-C to exit")
-    viewer.server.sleep_forever()
+    viewer.serve()
 
 
 if __name__ == "__main__":

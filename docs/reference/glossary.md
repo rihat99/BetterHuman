@@ -18,6 +18,7 @@ page fails `tests/contract/test_vocabulary.py`.
 
 | Term | Meaning |
 |---|---|
+| **bind** | A joint's frame in the rest pose, the one its skin weights act from (`inverse bind`). BetterHuman's binds are affine: MHR folds its joint scales in. In BetterRobot, a *bind pose* is the rigid pose a skinned mesh's vertices are given in (`SkinnedMeshLayer(bind_poses=)`, `Skin(bind=)`); `viz.skin` draws a body only where its binds are its model's joint poses at `q_neutral`. |
 | **identity, `Identity`** | One subject's body shape, baked once: `HumanModel.bake(**identity)` turns the values of the identity groups into an `Identity` (or an identity batch `I...`) holding the rest mesh, the rest joints and a BetterRobot `Model` with the subject's placements and inertias. The studio and `terms.shape_prior` call it *shape* (`HumanStudio.random_shape`); MHR names one identity group `identity`. In BetterRobot, *identity* is an everyday word: the element that changes nothing (`se3.identity()`, an identity placement). |
 | **rest** | The unposed body of one identity, in the skinning rest frame that the binds are measured in, root at the origin: `Identity.rest_vertices (I..., V, 3)`, `rest_joint_translations (I..., J, 3)`, `Rig.placements_from_rest`. `HumanState.rest_vertices()` adds the streams and the corrective, before skinning. BetterRobot's *rest configuration* (`terms.rest`, `ik_problem(rest_weight=)`) is the value of `q` a regularizing term pulls towards. |
 | **row** | One row of a matrix: `MHRRig.corrective_rows (E, 3 (J - 2))` holds one row per corrective entry, the one-hot Euler angle that entry reads. In BetterRobot, a *row* is one linear constraint of a quadratic program (`optim.solve_qp(rows=)`). |
@@ -53,7 +54,7 @@ page fails `tests/contract/test_vocabulary.py`.
 | **basis, bases** | The columns of a linear map from coefficients to offsets: a blend-shape group `(V, 3, n)` (`identity_bases`, `stream_bases`), a stream group's joint motion `(J, 3, n)` (`stream_joint_bases`), MHR's `translation_basis (J, 3, P)` and `scale_basis (J, P)`. |
 | **forward** | `Identity.forward(q, streams=)`: kinematics plus skinning, returning a `HumanState`. BetterRobot's `forward_kinematics(model, q)` computes kinematics only (BetterRobot decision record 0027). |
 | **human state, `HumanState`** | One posed batch: BetterRobot's `KinematicState` (`kinematics`) and the skinned body (`vertices`, `points`, `landmarks`), each computed on first use. Joint fields are in native joint order. `terms.human_state` caches one in an optimization problem. |
-| **bind, inverse bind** | A joint's frame in the rest pose, the one its skin weights act from. The inverse bind maps the rest frame into each joint's frame, `inverse_bind_affines (I..., J, 3, 4)`, and skinning composes the world joint transforms with it (`skin_affines`): the SMPL family binds `[I | -rest]`, MHR folds its joint scales in, SOMA uses its authored binds (`bind_rotations`). |
+| **inverse bind** | The map from the rest frame into each joint's frame, `inverse_bind_affines (I..., J, 3, 4)`; skinning composes the world joint transforms with it (`skin_affines`): the SMPL family binds `[I | -rest]`, MHR folds its joint scales in, SOMA uses its authored binds (`bind_rotations`). |
 | **linear blend skinning** | `core.linear_blend_skinning(rest_vertices, affines, *, weights)`: BetterRobot's *skinning*, the one path every rig skins through (decision record 0003). |
 | **top-K, K** | The `K` strongest skin weights of each vertex, `skin_weights` and `skin_indices (V, K)` padded with zero weights (`top_k_skin(weights, k)`). |
 | **corrective** | Pose-dependent vertex offsets from the rig's corrective features (`Corrective.apply`): `LinearCorrective` for the SMPL family, `MLPCorrective` for MHR and SOMA. `mhr(correctives=False)` and `soma(correctives=False)` load without one. |
@@ -107,8 +108,8 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 
 | Term | Meaning |
 |---|---|
-| **human view, `HumanView`** | The viewer layers of one `HumanState` (mesh, skeleton, frames), updated in place by `HumanView.update(state)`. |
-| **skinned** | Skinned in the browser: `viz.skinned_layer` is BetterRobot's `SkinnedMeshLayer` of a state (the rest mesh once, joint poses per step, no correctives or stream offsets); `HumanView(mesh="skinned")` draws it instead of the exact mesh. |
+| **human view, `HumanView`** | The viewer layers of one `HumanState` (body, native skeleton, frames), which `HumanView.update(state)` redraws with another pose. |
+| **skinned** | Skinned in the browser: BetterRobot's `RobotVisual(identity.model, q, skin=viz.skin(identity))` sends the rest mesh once and the joint poses per step, without correctives or stream offsets; `human_layers(mesh="skinned")` and `HumanView(mesh="skinned")` draw it instead of the exact mesh. |
 | **studio, `HumanStudio`** | The optional browser app `better_human.studio` (the `studio` extra): pose, shape, segment and place contact frames on a body (decision record 0009). |
 
 ## Abbreviations and symbols
@@ -131,8 +132,8 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 
 These words keep their ordinary English meaning in public names, and BetterRobot's page does not list them.
 
-action, ancestor, array, centroid, children, chosen, click, closed, coefficient, confidence, count, deselect,
-direction, drop, dropped, event, expansion, file, filename, first, fit, fitted, found, gender, global, hand, header,
+action, ancestor, array, centroid, children, chosen, closed, coefficient, confidence, contact, count, deselect, drop,
+dropped, event, expansion, file, filename, first, fit, fitted, found, gender, global, group, hand, header, human,
 indices, inherited, jaw, launch, left, linear, locked, marquee, mask, mean, message, neck, not, only, parameter,
-pick, provenance, reload, reset, right, select, shaped, shipped, side, single, status, turned, type, update,
-upgrade, version, vertex, without, write
+pick, provenance, reload, reset, right, select, shaped, shipped, single, status, turned, type, upgrade, version,
+vertex, without, write

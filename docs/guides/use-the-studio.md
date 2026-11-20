@@ -20,7 +20,7 @@ uv run python -m better_human.studio --data-root ~/studio_data --family smplx
 | `--family` | `smpl` | `smpl`, `smplx` or `mhr` |
 | `--gender` | `neutral` | `neutral`, `male`, `female` |
 | `--lod` | `1` | MHR level of detail |
-| `--port` / `--host` | `8080` / `127.0.0.1` | where viser listens; keep the host local |
+| `--port` / `--host` | `8080` / `127.0.0.1` | where viser listens (the next free port when 8080 is taken); keep the host local |
 | `--data-root` | required | the directory everything the studio saves goes to; there is no default |
 
 The weights come from `$BETTERHUMAN_MODELS_DIR` through `better_human.io.models_dir()`; unset, the load fails naming
@@ -31,38 +31,49 @@ the same and blocks;
 
 ## The sidebar
 
-The sidebar has a status line, a **Layers** folder and five tabs.
+The scene holds the body, its native skeleton, the selected joint and the named frames, on a ground under the feet.
+The sidebar is BetterRobot's: **Layers** first, then the studio's sections.
 
-**Layers** holds one checkbox per scene layer: `mesh`, `skeleton` (joints and bones) and `frames`
-(the named frames as small axes). Unchecking hides the layer; the app keeps updating it in the background.
+**Layers** holds one checkbox per group of layers: **Body**, **Skeleton** (joints and bones), **Selection** (the
+selected joint and the vertices an editor marks) and **Frames** (the named frames as small axes). Unchecking hides
+the group; the app keeps updating it in the background.
+
+### Status
+
+The status line (what was loaded, saved or refused), the selection (model, joint, frame) and the buttons **Reset
+pose**, **Deselect joint** and **Deselect frame**.
 
 ### Model
 
-Pick **Family**, **Gender** and **LOD** (MHR only), then press **Load**. The current shape, pose and
-layers are rebuilt for the new body; the layer checkboxes and colour mode keep their state.
-
-### Body
-
-- One folder per shape group (`betas`, and `expression` on SMPL-X) with a slider per coefficient,
-  plus **Reset** and **Random** buttons for the group.
-- **Density**: a uniform value in kg/m^3 or a saved per-part density; **Apply density** rebuilds the
-  body and the status line shows the new total mass.
-- Pose: click a joint in the 3D view (or use the drag gizmo that appears) to rotate it; **Save pose** under **Pose name**,
-  and **Saved poses** + **Load pose**.
+Pick **Family**, **Gender** and **LOD** (MHR only), then press **Load**. The shape, pose and layers are rebuilt
+for the new body, and so are the sections below; the layer checkboxes keep their state.
 
 ### Display
 
-**Opacity** of the mesh, **Joint radius** of the skeleton, and **Explode**, which pushes each body part
-away from the centre so parts are easy to inspect. All three change the live scene in place.
+- **Colour** chooses how the body is drawn:
+  - `skin`: one flat skin colour;
+  - `segmentation`: each vertex in its part's colour (the editing view; always opaque);
+  - `parts`: each part drawn as its own closed mesh riding its joint, which also enables Explode.
+- **Opacity** of the body, **Joint radius** of the skeleton, and **Explode**, which pushes each part away from the
+  centre so parts are easy to inspect. All three change the live scene in place.
+
+### Body
+
+- A slider per coefficient of each shape group (`betas`, and `expression` on SMPL-X), plus **Reset** and
+  **Random** buttons for the group.
+- **Density**: a uniform value in kg/m^3 or a saved per-part density; **Apply density** rebuilds the body, and
+  the mass line below shows the new total mass.
+
+### Pose
+
+Click a joint in the 3D view to select it and drag the gizmo that appears to rotate it (the root also moves). **Save
+pose** under **Pose name**, and **Saved poses** + **Load pose**.
 
 ### Segment
 
-- **Colour** chooses how the mesh is coloured:
-  - `skin`: one flat skin colour;
-  - `segmentation`: each vertex coloured by its part (the editing view);
-  - `parts`: each part drawn as its own mesh, which also enables Explode.
 - **Part** selects the part to paint; **New part** + **Add part** creates one.
-- Clicking the mesh paints vertices into the selected part; **Marquee select** paints a screen rectangle.
+- **Paint (click mesh)**: clicking the mesh paints the vertices within **Brush radius** into the selected part;
+  **Marquee select** paints a screen rectangle.
 - **Saved** + **Load segmentation**, **Save as** + **Save segmentation**, **Load built-in** (the
   skinning-weight partition shipped with the model), **Reset to skinning**, and **Build bodies**,
   which prints the mass of each part.
@@ -75,8 +86,9 @@ Named frames (for example foot contact points) are the model's contact frames: e
 with a parent joint, its z axis the rest surface normal there, drawn as `HumanState.contact_frame_poses` places
 them. MHR takes no contact frames, so adding one there is refused on the status line.
 
+- **Add frames (click mesh)**: click the mesh to drop a frame on the nearest vertex, parented to its dominant
+  skinning joint.
 - **Frame** picks the active frame; **Name** + **Rename**; **Parent joint** re-parents it; **Delete**.
-- **Add frame** mode: click the mesh to drop a frame on the nearest vertex, parented to its dominant skinning joint.
 - **Saved** lists the frame sets saved for this model (for example `contacts`); **Load frames**,
   **Save as** + **Save frames**, and **Export as config**, which prints a Python dict for
   `better_human` body construction.
@@ -98,8 +110,11 @@ versioned format `better_human.frame_set` ([spec](../reference/formats/frame_set
 
 ## Known limitations
 
-- viser meshes have no per-vertex colour channel, so switching the colour mode rebuilds the mesh layer
-  (the checkbox and visibility are kept). It takes a fraction of a second on SMPL-X.
+- The body is always the exact mesh (pose correctives included), never a mesh skinned in the browser: viser 1.1.1
+  turns the page white when a skinned mesh is removed or replaced with a browser open, and a body swap replaces the
+  body. A change of colour mode or body therefore sends the whole mesh again; it takes a fraction of a second on
+  SMPL-X.
+- In the `segmentation` mode the colours blend across the faces that join two parts, and the body stays opaque.
 - Edits from several browser tabs at once are serialised by one lock; the last edit wins.
 
 ## Where next

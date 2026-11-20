@@ -26,6 +26,7 @@ from better_robot.lie import so3
 from better_robot.testing import FakeServer
 
 from better_human.studio import app, launch
+from better_human.studio import layers as studio_layers
 from better_human.studio import state as studio_state
 from better_human.studio.__main__ import main
 from better_human.studio.app import HumanStudio
@@ -89,13 +90,13 @@ def test_every_control_drives_the_state_it_names(random_studio: HumanStudio) -> 
     studio = random_studio
     fired: list[Any] = []
     fire = partial(_fire, studio, fired)
-    _body_tab(studio, fire)
+    _body_section(studio, fire)
     _gizmo_and_selection_row(studio, fire)
-    _display_tab(studio, fire)
-    _segment_tab(studio, fire)
-    _frames_tab(studio, fire)
+    _display_section(studio, fire)
+    _segment_section(studio, fire)
+    _frames_section(studio, fire)
     _layers_folder(studio, fire)
-    _model_tab(studio, fire, fired)
+    _model_section(studio, fire, fired)
 
 
 def _fire(studio: HumanStudio, fired: list[Any], control: Any, *value: object) -> Any:
@@ -117,8 +118,8 @@ def _control(studio: HumanStudio, label: str) -> Any:
     return control
 
 
-def _body_tab(studio: HumanStudio, fire: Any) -> None:
-    """The Body tab: shape sliders and buttons, density, saved poses."""
+def _body_section(studio: HumanStudio, fire: Any) -> None:
+    """The Body and Pose sections: shape sliders and buttons, density, saved poses."""
     session = studio.session
     for k in range(10):
         fire(f"betas[{k}]", 0.5 * (k + 1))
@@ -146,7 +147,7 @@ def _body_tab(studio: HumanStudio, fire: Any) -> None:
 
 
 def _gizmo_and_selection_row(studio: HumanStudio, fire: Any) -> None:
-    """The pose gizmo (picked by a click) and the selection row's joint buttons."""
+    """The pose gizmo (picked by a click) and the Status section's joint buttons."""
     session = studio.session
     joint = session.state.joint_translations.detach().reshape(-1, 3)[5].numpy()
     _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
@@ -162,36 +163,36 @@ def _gizmo_and_selection_row(studio: HumanStudio, fire: Any) -> None:
     fire("Reset pose")
 
 
-def _display_tab(studio: HumanStudio, fire: Any) -> None:
-    """The Display tab: opacity, joint radius, explode."""
+def _display_section(studio: HumanStudio, fire: Any) -> None:
+    """The Display section: opacity, joint radius, explode (the colour modes are fired with the Segment section)."""
     scene = studio.viewer.server.scene
     fire("Opacity", 0.6)
-    mesh_node = scene.nodes["/human/mesh/mesh"]
-    assert studio.opacity == 0.6 and studio.layers.mesh.skin.opacity == pytest.approx(0.6)
+    mesh_node = scene.nodes["/body/mesh/mesh"]
+    assert studio.opacity == 0.6 and studio.layers.mesh.opacity == pytest.approx(0.6)
     assert mesh_node.opacity == pytest.approx(0.6)
     fire("Joint radius", 0.03)
-    assert studio.layers.radius == 0.03 and np.all(studio.layers.skeleton.radius == np.float32(0.03))
+    assert studio.layers.radius == 0.03 and np.all(studio.layers.joints.radii == np.float32(0.03))
     fire("Explode", 0.5)
-    assert studio.layers.explode == studio.layers.mesh.parts.explode == 0.5
+    assert studio.layers.explode == 0.5
     fire("Explode", 0.0)
 
 
-def _segment_tab(studio: HumanStudio, fire: Any) -> None:
-    """The Segment tab: colour modes as the scene draws them, parts, painting, files, marquee, bodies."""
+def _segment_section(studio: HumanStudio, fire: Any) -> None:
+    """The Segment section and the Display section's colour modes, as the scene draws them: parts, painting, files,
+    marquee, bodies."""
     session = studio.session
     scene = studio.viewer.server.scene
     fire("Load built-in")
     assert len(session.part_names) == 24
     fire("Colour", "segmentation")
-    assert studio.layers.mesh.mode == "segmentation"
-    parts = [node for name, node in scene.nodes.items() if name.startswith("/human/mesh/part_") and not node.removed]
-    assert len(parts) == 24 and len({tuple(np.asarray(node.props["color"]).tolist()) for node in parts}) == 24
+    assert studio.layers.mode == "segmentation" and scene.nodes["/body/mesh/mesh"].kind == "GlbHandle"
+    assert len(np.unique(studio.layers.mesh.colors, axis=0)) == 24
     fire("Colour", "parts")
-    assert studio.layers.mesh.mode == "parts"
+    assert studio.layers.mode == "parts"
     neutral = session.identity.forward(session.identity.model.q_neutral).vertices.detach()
-    for part, used, _, _ in studio.layers.mesh.parts.part_meshes(neutral):
+    for index, (part, used, _, _) in enumerate(studio_layers.part_meshes(session, neutral)[0]):
         # A part mesh rides its joint rigidly: at the neutral pose it lies on the posed mesh.
-        node = scene.nodes[f"/human/mesh/part_{part}"]
+        node = scene.nodes[f"/body/mesh/mesh_{index}"]
         wxyz = np.asarray(node.wxyz, dtype=np.float32)
         rotation = so3.to_matrix(torch.from_numpy(wxyz[[1, 2, 3, 0]])).numpy()
         world = node.props["vertices"][: len(used)] @ rotation.T + np.asarray(node.position)
@@ -230,8 +231,8 @@ def _segment_tab(studio: HumanStudio, fire: Any) -> None:
     assert "| total |" in studio.segment.mass_table.content
 
 
-def _frames_tab(studio: HumanStudio, fire: Any) -> None:
-    """The Frames tab and the selection row's frame button."""
+def _frames_section(studio: HumanStudio, fire: Any) -> None:
+    """The Frames section and the Status section's frame button."""
     session = studio.session
     fire("Add frames (click mesh)", True)
     assert studio.frames.adding and studio.mode == "frames"
@@ -264,16 +265,19 @@ def _frames_tab(studio: HumanStudio, fire: Any) -> None:
 
 
 def _layers_folder(studio: HumanStudio, fire: Any) -> None:
-    """The viewer's Layers checkboxes."""
-    for name, layer in studio.layers.layers.items():
-        box = fire(f"human/{name}", False)
-        assert not layer.visible
+    """The viewer's Layers checkboxes, one per tag."""
+    gui = studio.viewer.server.gui
+    for tag in ("body", "skeleton", "selection", "frames"):
+        (box,) = [c for c in gui.controls if c.name == tag.capitalize() and c.kind == "GuiCheckboxHandle"]
+        tagged = [layer for layer in studio.viewer.layers if tag in layer.tags]
+        fire(box, False)
+        assert tagged and not any(layer.visible for layer in tagged)
         fire(box, True)
-        assert layer.visible
+        assert all(layer.visible for layer in tagged)
 
 
-def _model_tab(studio: HumanStudio, fire: Any, fired: list[Any]) -> None:
-    """The Model tab; Load rebuilds every tab, so it goes last, once every other control was fired."""
+def _model_section(studio: HumanStudio, fire: Any, fired: list[Any]) -> None:
+    """The Model section; Load rebuilds the sections after it, so it goes last, once every other control was fired."""
     session = studio.session
     gui = studio.viewer.server.gui
     fire("Family", "mhr")
@@ -470,7 +474,7 @@ def test_imports_without_running_server() -> None:
 
 
 @pytest.mark.licensed
-def test_layers_session_and_tabs_built(studio) -> None:
+def test_layers_session_and_sections_built(studio) -> None:
     assert studio.session.model_key == "smpl_neutral"
     assert _pointer_events(studio) == ["click"]
     assert _control(studio, "Build bodies").kind == "GuiButtonHandle"
@@ -545,22 +549,22 @@ def test_frame_add_rename_delete_export(studio) -> None:
 def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
     opacities: list[float] = []
     studio.layers.set_opacity = opacities.append
-    before = np.array(studio.layers.skeleton.colors, copy=True)
+    selected = studio.layers.selected
     studio.select_joint(5)
-    during = np.array(studio.layers.skeleton.colors, copy=True)
-    changed = np.flatnonzero(~np.isclose(during, before).all(-1).reshape(-1))
-    assert changed.tolist() == [5]
+    joint = studio.session.state.joint_translations[5].detach().numpy()
+    assert studio.layers.highlight == 5 and selected.radii[0] > studio.layers.radius
+    np.testing.assert_allclose(selected.centers[0, 0], joint, atol=1e-6)
     studio.set_opacity(0.8)
     assert opacities[-1] == pytest.approx(0.8 * 0.35)
     studio.select_joint(None)
     assert opacities[-1] == pytest.approx(0.8)
-    np.testing.assert_allclose(studio.layers.skeleton.colors, before)
+    assert studio.layers.highlight is None and selected.radii[0] == 0.0
 
 
 @pytest.mark.licensed
 def test_selection_row_buttons_and_label(studio) -> None:
     gui = studio.viewer.server.gui
-    # Moved out of the Body tab: only the row's buttons remain.
+    # Only the Status section's buttons carry these labels.
     for name in ("Reset pose", "Deselect joint"):
         assert [c for c in gui.controls if c.name == name] == [studio.actions[name]]
     joint_name = studio.session.body.spec.joint_names[5]
@@ -674,7 +678,7 @@ def test_model_switch_clears_active_frame(studio) -> None:
 
 @pytest.mark.licensed
 def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
-    """Regression: viser's tab-group remove() raised when the Model tab rebuilt the tabs."""
+    """A body swap removes and rebuilds the sidebar sections and the scene's layers on a real viser server."""
     server = viser.ViserServer(host="127.0.0.1", port=8097, verbose=False)
     try:
         studio = HumanStudio(server=server, data_root=tmp_path, generator=np.random.default_rng(0))
