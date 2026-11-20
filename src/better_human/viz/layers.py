@@ -55,8 +55,8 @@ def skin(identity: Identity) -> Skin:
     The weights ``(V, njoints)`` are the family's skin weights in model joint order, the universe and the joints
     without a native counterpart at zero. The browser skins without pose correctives and stream offsets
     (:func:`mesh_layer` draws them). Raises ``ShapeError`` for an identity batch and ``ArgumentError`` for a body the
-    model's joints cannot skin: one whose native joints turn away from their model joints (SOMA's) or whose binds are
-    not its pose at ``q_neutral``, or scale (MHR with a scaled identity).
+    model's joints cannot skin: one whose native joints turn away from their model joints (SOMA's), or whose binds are
+    not its pose at ``q_neutral`` or scale, which rigid bones cannot draw.
     """
     human = identity.human
     if identity.rest_vertices.ndim != 2:
@@ -68,7 +68,7 @@ def skin(identity: Identity) -> Skin:
         rest = identity.forward(identity.model.q_neutral)
         joints = rest.kinematics.joint_poses.index_select(-2, human.joint_ids)  # (J, 7) model joints, native order
         native, affines = rest.joint_transforms, rest.skin_affines  # (J, 3, 4) each
-        bound = torch.cat((torch.eye(3, dtype=affines.dtype).expand(len(affines), 3, 3), affines[..., 3:] * 0), -1)
+        bound = torch.eye(3, 4, dtype=affines.dtype, device=affines.device).expand_as(affines)  # [I | 0]
         follows = (
             torch.allclose(native[..., :3], so3.to_matrix(joints[..., 3:]), atol=_BIND_ATOL)
             and torch.allclose(native[..., 3], joints[..., :3], atol=_BIND_ATOL)
@@ -228,7 +228,7 @@ class HumanView:
             if isinstance(layer, MeshLayer):
                 writes.append((layer.vertices, state.vertices))
             elif isinstance(layer, RobotVisual):
-                writes.append((layer.q.numpy(), state.q))
+                writes.append((_numpy(layer.q), state.q))
             elif isinstance(layer, SpheresLayer):
                 writes.append((layer.centers, state.joint_translations))
             elif isinstance(layer, LinesLayer):
