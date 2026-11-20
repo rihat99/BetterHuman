@@ -44,7 +44,7 @@ def load(
 
     ``path`` is the weight file (default: found under ``$BETTERHUMAN_MODELS_DIR``). ``density``, ``contact_frames``
     and ``stream_joints`` are :meth:`HumanModel.from_spec`'s. Family options (gender, ``num_betas``, ...) go
-    through ``HumanModel.from_spec(families.smplx(path, gender=...), ...)`` (decision record 0006). Raises
+    through ``HumanModel.from_spec(families.smplx(path, gender=...), ...)``. Raises
     :class:`~better_robot.exceptions.UnknownNameError` for an unknown family and
     :class:`~better_robot.exceptions.DtypeMismatchError` (from the family loader) for a ``dtype`` other than
     ``torch.float32`` or ``torch.float64``, the floating dtypes BetterRobot computes in.

@@ -7,7 +7,7 @@ ships one, `src/better_human/io/assets/smpl_segmentation.npz` (SMPL's 24 parts),
 
 | version | status | written by |
 |---|---|---|
-| 1 | current | converted from the pickled `smpl_3d_segmentation.npy` shipped before decision record 0013; the two shoulder faces that spine3 and a collar both listed were later dropped from every part, so every part is closed |
+| 1 | current | converted from the pickled `smpl_3d_segmentation.npy` that BetterHuman shipped earlier; the two shoulder faces that spine3 and a collar both listed were later dropped from every part, so every part is closed |
 
 ## Header
 

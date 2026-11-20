@@ -1,4 +1,4 @@
-"""The studio's files: round trips, refused files, vertex range checks and the built-in segmentations (record 0009).
+"""The studio's files: round trips, refused files, vertex range checks and the built-in segmentations.
 
 The format contract (versions, other formats, spec pages, fixtures) is ``tests/contract/test_formats.py``'s.
 """

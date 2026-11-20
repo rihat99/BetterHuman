@@ -1,4 +1,4 @@
-"""The one skinning path of every rig (decision record 0003): blend shapes, skin affines, linear blend skinning."""
+"""The one skinning path of every rig: blend shapes, skin affines, linear blend skinning."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def skin_affines(joint_transforms: torch.Tensor, inverse_bind_affines: torch.Ten
     """Per-joint rest-to-world affines ``(..., J, 3, 4)``: world ``[R | p]`` joint transforms ``(..., J, 3, 4)``
     composed with ``inverse_bind_affines (..., J, 3, 4)``, each the affine from the rest frame into its joint's frame.
 
-    Every rig skins through this one path (decision record 0003): the SMPL family binds ``[I | -rest_joints]``, SOMA
+    Every rig skins through this one path: the SMPL family binds ``[I | -rest_joints]``, SOMA
     its authored binds, MHR its binds with the joint scales folded in.
     """
     rotation, translation = joint_transforms[..., :3], joint_transforms[..., 3]
@@ -39,9 +39,12 @@ def linear_blend_skinning(rest_vertices: torch.Tensor, affines: torch.Tensor, *,
     """Skinned vertices ``(..., V, 3)`` of ``rest_vertices (..., V, 3)``, ``affines (..., J, 3, 4)`` and ``weights (V, J)``."""
     batch = torch.broadcast_shapes(rest_vertices.shape[:-2], affines.shape[:-3])
     flat = affines.expand(*batch, *affines.shape[-3:]).flatten(-2)
-    blended = torch.einsum("vj,...jx->...vx", weights, flat).unflatten(-1, (3, 4))
-    rest_vertices = rest_vertices.expand(*batch, *rest_vertices.shape[-2:])
-    return (blended[..., :3] @ rest_vertices[..., None]).squeeze(-1) + blended[..., 3]
+    # The blended affine [A | t] of each vertex, as A's three columns and t, each (..., V, 3).
+    columns = torch.einsum("vj,...jx->...vx", weights, flat).unflatten(-1, (3, 4)).unbind(-1)
+    # A x + t as the columns of A scaled by the coordinates of x, accumulated into one new tensor: a batched 3x3
+    # product per vertex, or a temporary per term, is three to four times slower at batch 64.
+    x, y, z = rest_vertices.unsqueeze(-2).unbind(-1)  # each (..., V, 1)
+    return (columns[0] * x).addcmul_(columns[1], y).addcmul_(columns[2], z).add_(columns[3])
 
 
 def top_k_skin(weights: torch.Tensor, k: int | None = None) -> tuple[torch.Tensor, torch.Tensor]:

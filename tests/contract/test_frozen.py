@@ -1,4 +1,4 @@
-"""Decision record 0001 and principle 2.9: public records are frozen, and a record that holds tensors compares by
+"""Principle 2.9: public records are frozen, and a record that holds tensors compares by
 identity.
 
 Every dataclass a public ``__all__`` exports is frozen; each one with a field whose annotation names a tensor also sets

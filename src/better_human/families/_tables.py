@@ -18,7 +18,7 @@ class FamilyTable:
     #: Vertices of the authored mesh: the loader reads a file of exactly this many, so the shipped landmarks, contact
     #: frames and segmentation index the right vertices.
     num_vertices: int
-    #: The density category of each joint's part (decision record 0007): one of the shipped tables' categories, which
+    #: The density category of each joint's part: one of the shipped tables' categories, which
     #: are SMPL's 24 part names; ``{side}`` is MANO's side. Fingers take the hand, face joints and eyes the head.
     density_categories: tuple[str, ...]
     keypoint_names: tuple[str, ...] = ()

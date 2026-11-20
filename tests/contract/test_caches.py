@@ -1,4 +1,4 @@
-"""The declared caches and no other (principles 5.6 and 11.6; decision record 0028).
+"""The declared caches and no other (principles 5.6 and 11.6).
 
 ``HumanState._memo`` (a state's outputs) and ``Identity._frame_placements`` (an identity's contact-frame placements)
 are the only caches: both are ``init=False``, so ``dataclasses.replace`` starts them empty, each is reached by one
@@ -121,7 +121,7 @@ def test_the_declared_caches_are_the_only_late_fields() -> None:
     """A field outside the constructor is a cache; the declared ones stay out of ``init`` and ``repr``, and their
     classes compare by identity, so a cache never enters ``==``."""
     found = {field for _, tree in _modules() for field in _late_fields(tree)}
-    assert found == CACHES.keys(), f"declare a new cache in a decision record and in CACHES: {sorted(found)}"
+    assert found == CACHES.keys(), f"a new cache is the owner's decision; declare it in CACHES: {sorted(found)}"
     for cls in (bh.Identity, bh.HumanState):
         assert cls.__eq__ is object.__eq__, cls.__name__
         for field in dataclasses.fields(cls):
@@ -132,7 +132,7 @@ def test_the_declared_caches_are_the_only_late_fields() -> None:
 def test_no_module_level_store_in_src() -> None:
     """No module binds a name to an empty container, which a function would fill as a process-wide cache."""
     found = [f"{path}: {store}" for path, tree in _modules() for store in _module_stores(tree)]
-    assert found == [], "a store that outlives its call is a cache (record 0028):\n  " + "\n  ".join(found)
+    assert found == [], "a store that outlives its call is a cache:\n  " + "\n  ".join(found)
 
 
 def test_only_its_function_reaches_a_cache() -> None:

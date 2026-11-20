@@ -1,7 +1,6 @@
 # Roadmap
 
-What BetterHuman plans to build. What it will not build is in [Scope](../contracts/scope.md); what landed is in the
-[changelog](changelog.md).
+What BetterHuman plans to build. What it will not build is in [Scope](../contracts/scope.md).
 
 The plan below lists one *brick* (a self-contained piece of work) per row,
 why it is wanted, what must exist first, and when it is planned:

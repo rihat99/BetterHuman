@@ -90,7 +90,7 @@ def test_missing_explicit_path_names_the_path_and_the_variable(tmp_path: Path) -
 
 
 def test_asset_not_found_sits_under_better_robot_error() -> None:
-    # One `except BetterRobotError` catches the stack (BetterRobot record 0031); `except FileNotFoundError` still works.
+    # One `except BetterRobotError` catches the stack; `except FileNotFoundError` still works.
     assert issubclass(AssetNotFoundError, BetterRobotError)
     assert issubclass(AssetNotFoundError, FileNotFoundError)
 
@@ -234,7 +234,7 @@ def test_mhr_loader_binds_dimensions_from_selected_fields(
 
 
 def test_mhr_v1_archive_loads_through_its_migration(tmp_path: Path, mhr_data: dict[str, np.ndarray]) -> None:
-    # Record 0012: a v1 archive on disk stays valid; v2's format and provenance are added in memory.
+    # A v1 archive on disk stays valid; v2's format and provenance are added in memory.
     model_path = tmp_path / "mhr_lod6.npz"
     del mhr_data["format"], mhr_data["provenance"]
     mhr_data["format_version"] = np.asarray(1, dtype=np.int64)

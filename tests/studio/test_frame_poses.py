@@ -1,6 +1,6 @@
 """The studio draws the frames the model attaches: one frame rule, ``HumanState.contact_frame_poses``.
 
-Full tier: the random-weight SMPL-X archive (record 0016, read once per session) with the shipped SMPL-X contact set.
+Full tier: the random-weight SMPL-X archive (read once per session) with the shipped SMPL-X contact set.
 """
 
 from __future__ import annotations

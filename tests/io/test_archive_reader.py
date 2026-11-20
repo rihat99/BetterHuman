@@ -1,8 +1,8 @@
 """``load_model_npz`` returns every schema field a licensed archive stores exactly as stored.
 
 The oracle is ``np.load`` of the same archive; equal means equal dtype, shape and bytes. The loader promises never to
-cast, and a faster reader (decision record 0013) must keep that promise. The header (``format``, ``format_version``,
-``provenance``) of a v1 archive comes from its in-memory migration (decision record 0012), not from the file.
+cast, and a faster reader must keep that promise. The header (``format``, ``format_version``,
+``provenance``) of a v1 archive comes from its in-memory migration, not from the file.
 """
 
 from __future__ import annotations

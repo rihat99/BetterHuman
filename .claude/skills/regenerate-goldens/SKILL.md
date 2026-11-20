@@ -12,12 +12,12 @@ gate (a re-dump on another CPU or BLAS path differs in the last bits), and repla
 Two kinds, and who can regenerate each:
 
 - Licensed goldens, computed from the licensed weights: `$BETTERHUMAN_MODELS_DIR/goldens/` holds `smpl_neutral`,
-  `smplx_neutral`, `mhr_lod0` to `mhr_lod6` and `soma_mid` (record 0015). Only a machine with the weights and the
+  `smplx_neutral`, `mhr_lod0` to `mhr_lod6` and `soma_mid`. Only a machine with the weights and the
   oracle's environment can dump them. They stay in the models directory, and no array of a golden or of the weights
   is copied into a tracked file; git holds no array file, of any format, beyond the allowed ones
   (`tests/contract/test_golden_provenance.py::test_git_holds_no_array_file_but_the_allowed_ones`).
 - Random-weight archives and goldens, tracked: `tests/support/random_weights/{smpl,smplh,smplx}_random.npz` and
-  `tests/parity/smplx/random/{smpl,smplh,smplx}/` (record 0016). Anyone can regenerate them: every array comes from a
+  `tests/parity/smplx/random/{smpl,smplh,smplx}/`. Anyone can regenerate them: every array comes from a
   fixed seed, and the archive is the same bytes on every run. Regenerate the archives only when their layout
   changes, then the goldens from them, in a commit of their own that says why.
 
@@ -32,7 +32,7 @@ The commands live once, in the README of each oracle's folder:
 
 Checks:
 
-- Every golden stamps its `provenance` (record 0014). `tests/contract/test_golden_provenance.py` holds the oracle
+- Every golden stamps its `provenance`. `tests/contract/test_golden_provenance.py` holds the oracle
   pins, generators and dtypes, checks the random-weight goldens in every tier, rebuilds each archive from its seed
   (`slow`), and checks the licensed goldens in the release tier.
 - Random-weight parity: `uv run pytest tests/parity/smplx/test_random_weights.py -q`.

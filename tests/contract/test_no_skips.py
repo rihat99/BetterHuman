@@ -1,6 +1,6 @@
 """No test module spells a skip or an xfail, including the tests the running tier deselects.
 
-Decision record: ``BetterRobot/docs/contracts/decisions/0033-test-tiers.md``. The rule itself holds at run time:
+The rule itself holds at run time:
 BetterRobot's plugin ``better_robot.testing.no_skips`` (loaded by ``tests/conftest.py``) fails every skipped or xfailed
 outcome however it was produced, but it sees only the tests a run selects, so a skip in a ``licensed`` or ``cuda``
 test would surface only in the release tier. Until BetterRobot ships a shared scan, this static one reads every module

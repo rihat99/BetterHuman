@@ -2,6 +2,14 @@ site_name: BetterHuman
 site_description: SMPL, SMPL-X and MHR human bodies as batched, differentiable BetterRobot models.
 docs_dir: docs
 strict: true
+# Pages kept for the tests and the agents (the rule chapters, the codemap, the file formats, the glossary and the
+# roadmap) build but stay out of the navigation.
+not_in_nav: |
+  /contracts/
+  /concepts/architecture.md
+  /reference/formats/
+  /reference/glossary.md
+  /reference/roadmap.md
 
 theme:
   name: material
@@ -94,76 +102,11 @@ plugins:
 
 nav:
   - Home: index.md
-  - Getting started:
-      - getting-started/first-human.md
-  - Concepts:
-      - concepts/architecture.md
-      - concepts/skinning.md
-      - concepts/segmentation.md
-  - Guides:
-      - guides/load-a-family.md
-      - guides/convert-weights.md
-      - guides/use-the-studio.md
-      - guides/run-the-tests.md
-      - guides/run-the-benchmarks.md
-      - guides/release.md
-  - Reference:
-      - API:
-          - better_human: reference/api/better_human.md
-          - core: reference/api/core.md
-          - families: reference/api/families.md
-          - io: reference/api/io.md
-          - mass: reference/api/mass.md
-          - terms: reference/api/terms.md
-          - viz: reference/api/viz.md
-          - studio: reference/api/studio.md
-      - reference/tests.md
-      - reference/benchmarks.md
-      - reference/glossary.md
-      - reference/roadmap.md
-      - reference/changelog.md
-      - reference/migration-0.2.0.md
-      - File formats:
-          - MHR archive: reference/formats/mhr.md
-          - SOMA archive: reference/formats/soma.md
-          - Frame set: reference/formats/frame_set.md
-          - Closed segmentation: reference/formats/segmentation.md
-          - Density tables: reference/formats/density_tables.md
-          - Studio segmentation: reference/formats/studio_segmentation.md
-          - Studio pose: reference/formats/studio_pose.md
-  - Contracts:
-      - Index: contracts/index.md
-      - Scope: contracts/scope.md
-      - Public surface: contracts/public-surface.md
-      - Rules: contracts/rules.md
-      - Coupling standard: contracts/coupling-standard.md
-      - Decision records:
-          - Index: contracts/decisions/index.md
-          - 0001 HumanModel: contracts/decisions/0001-human-model.md
-          - 0002 Rig base: contracts/decisions/0002-rig-abstract-base.md
-          - 0003 One skinning path: contracts/decisions/0003-one-skinning-path.md
-          - 0004 Classic API: contracts/decisions/0004-classic-api.md
-          - 0005 dtype and device at load: contracts/decisions/0005-dtype-and-device-at-load.md
-          - 0006 bh.load signature: contracts/decisions/0006-level-one-loader.md
-          - 0007 Mass and density: contracts/decisions/0007-mass-and-density.md
-          - 0008 Typed FamilySpec: contracts/decisions/0008-typed-family-spec.md
-          - 0009 Studio placement: contracts/decisions/0009-studio-placement.md
-          - 0010 viz surface: contracts/decisions/0010-human-viz-surface.md
-          - 0011 Package layout: contracts/decisions/0011-human-package-layout.md
-          - 0012 Converted archives: contracts/decisions/0012-bh-converted-archives.md
-          - 0013 Package data and load speed: contracts/decisions/0013-bh-package-data-and-load-speed.md
-          - 0014 Golden provenance: contracts/decisions/0014-golden-provenance.md
-          - 0015 Licensed goldens out of git: contracts/decisions/0015-licensed-goldens-out-of-git.md
-          - 0016 Random-weight goldens: contracts/decisions/0016-random-weight-goldens.md
-          - 0017 Models directory: contracts/decisions/0017-models-directory.md
-          - 0018 Apache-2.0 licence: contracts/decisions/0018-bh-apache-licence.md
-          - 0019 viz imports core only: contracts/decisions/0019-viz-imports-core-only.md
-          - 0020 Public names of viz and the studio: contracts/decisions/0020-public-names-of-the-viz-and-studio-rewrite.md
-          - 0021 The root imports every subpackage: contracts/decisions/0021-root-imports-every-subpackage.md
-          - 0022 Edges into BetterRobot since 0011: contracts/decisions/0022-edges-into-betterrobot-since-0011.md
-          - 0023 SOMA v1 source becomes provenance: contracts/decisions/0023-soma-v1-source-becomes-provenance.md
-          - 0024 Archive load speed measured again: contracts/decisions/0024-archive-load-speed-measured-again.md
-          - 0025 Golden asset hash at stamp time: contracts/decisions/0025-golden-asset-hash-at-stamp-time.md
-          - 0026 Rig hooks and properties: contracts/decisions/0026-rig-hooks-and-properties.md
-          - 0027 Formats beyond BetterRobot 0030: contracts/decisions/0027-formats-beyond-betterrobot-0030.md
-          - 0028 Identity frame-placements cache: contracts/decisions/0028-identity-frame-placements-cache.md
+  - Install and weights: install.md
+  - Modules:
+      - Families and files: families.md
+      - Bodies: bodies.md
+      - Mass: mass.md
+      - Fitting terms: terms.md
+      - Viewer: viewer.md
+      - Studio: studio.md

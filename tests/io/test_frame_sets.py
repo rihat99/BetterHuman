@@ -1,4 +1,4 @@
-"""Frame-set files (decision record 0013): the v1 round trip, the v0 migration, refusals, and the shipped set."""
+"""Frame-set files: the v1 round trip, the v0 migration, refusals, and the shipped set."""
 
 from __future__ import annotations
 
@@ -156,7 +156,7 @@ def test_shipped_frame_set_reads_package_data() -> None:
 
 
 def test_shipped_frame_names_are_not_body_names() -> None:
-    """BetterRobot refuses a frame named like a body (its record 0018), and every family body carries its joint's name.
+    """BetterRobot refuses a frame named like a body, and every family body carries its joint's name.
 
     A shipped set's family is its name's first word (``smplx_contacts`` -> SMPL-X).
     """

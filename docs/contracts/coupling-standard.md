@@ -1,8 +1,8 @@
 # Coupling standard
 
 The shapes, layouts, identifiers and file formats through which BetterVideoReconstruction and BetterRetarget read
-BetterHuman. The standard changes only by addition: removing or changing a line needs a decision record that shows
-each consumer's migration (BetterRobot 0026). It names no function, so a function can be renamed without touching it.
+BetterHuman. The standard changes only by addition: removing or changing a line is the owner's decision, and its
+commit shows each consumer's migration. It names no function, so a function can be renamed without touching it.
 Units are SI (metres, radians, kilograms, seconds). `B...` are the leading batch axes of an input, `I...` those of the
 identity values.
 
@@ -44,8 +44,7 @@ vertices                 (..., V, 3)        the posed mesh, in the family's vert
 frame_poses              (..., nframes, 7)  world poses of the model's frames in frame order, contact frames included
 ```
 
-A transform `[R | p]` is rigid; an affine may scale (BetterRobot 0027). The batch rule is BetterRobot's (BetterRobot
-0028).
+A transform `[R | p]` is rigid; an affine may scale. The batch rule is BetterRobot's.
 
 ## Files
 
@@ -60,8 +59,6 @@ better_human.studio.segmentation  read, write  BetterHuman   format and format_v
 better_human.studio.pose          read, write  BetterHuman   format and format_version fields; every version written stays readable
 ```
 
-These are all seven formats BetterHuman versions. BetterRobot's page lists the first three, the ones BetterRobot 0030
-names. The converted archives are record [0012](decisions/0012-bh-converted-archives.md); the frame set, the package
-data and the studio formats are record [0013](decisions/0013-bh-package-data-and-load-speed.md). A format this page
-does not list carries no promise. `tests/contract/test_formats.py` checks each one's promise, and each one's spec is a
+These are all seven formats BetterHuman versions; BetterRobot's page lists the first three. A format this page does not
+list carries no promise. `tests/contract/test_formats.py` checks each one's promise, and each one's spec is a
 page under `docs/reference/formats/`.

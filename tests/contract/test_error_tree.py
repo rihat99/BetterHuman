@@ -1,4 +1,4 @@
-"""One error tree (BR decision record 0031): BetterHuman raises BetterRobot's exception classes and its own subclasses.
+"""One error tree: BetterHuman raises BetterRobot's exception classes and its own subclasses.
 
 Every exception class under ``better_human`` derives from ``BetterRobotError``; ``src`` raises a builtin
 ``ValueError``, ``TypeError``, ``RuntimeError``, ``KeyError``, ``IndexError`` or ``AssertionError`` (called or bare,

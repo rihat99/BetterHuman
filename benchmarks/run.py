@@ -6,45 +6,44 @@ Usage (from the repository root)::
     uv run python benchmarks/run.py                     # the counter rows with wall time
     NUMPY_MADVISE_HUGEPAGE=0 uv run python benchmarks/run.py --licensed   # also the sweep and the load rows
 
-Counter rows (principle 5.8; BetterRobot decision record 0011) run on the tracked random-weight archives
-(``tests/support/random_weights``, decision record 0016), so the gate needs no licensed weights. Those archives have
-the families' vertex and joint counts but a random kinematic tree and face strip: graph breaks, recompiles and host
-syncs equal the licensed archives', the operator counts do not. Rows: ``fk_vertices/smplx/B{1,64}``
-(``identity.forward(q).vertices`` of one baked SMPL-X identity without part inertias), ``fk_streams/smplx/B{1,64}``
-(the same with the expression stream), ``joint_poses/smplx/B{1,64}`` (``identity.forward(q).joint_poses``),
-``contact_frame_poses/smplx/B{1,64}`` (``identity.forward(q).contact_frame_poses(CONTACT_FRAMES)``, the identity's
-placements cached by the warm-up call), ``to_classic/smplx/B{1,64}`` (``better_human.to_classic(identity, q)``),
-``bake_forward/smpl/B{1,64}``
+Counter rows (principle 5.8) run on the tracked random-weight archives (``tests/support/random_weights``), so the gate
+needs no licensed weights. Those archives have the families' vertex and joint counts but a random kinematic tree and
+face strip: graph breaks, recompiles and host syncs equal the licensed archives', the operator counts do not. Rows:
+``fk_vertices/smplx/B{1,64}`` (``identity.forward(q).vertices`` of one baked SMPL-X identity without part inertias),
+``fk_streams/smplx/B{1,64}`` (the same with the expression stream), ``joint_poses/smplx/B{1,64}``
+(``identity.forward(q).joint_poses``), ``contact_frame_poses/smplx/B{1,64}``
+(``identity.forward(q).contact_frame_poses(CONTACT_FRAMES)``, the identity's placements cached by the warm-up call),
+``to_classic/smplx/B{1,64}`` (``better_human.to_classic(identity, q)``), ``bake_forward/smpl/B{1,64}``
 (``body.bake(betas=betas).forward(q).vertices``, one identity per pose, ``density=None``) and
-``bake_forward_dempster/smpl/B{1,64}`` (the same with the default ``density="Dempster"``: 24 part inertias per bake,
-decision record 0007), in the neutral pose with seeded identity coefficients. Each has four counters, deterministic for
-one torch version and device: ``graph_breaks`` (``torch._dynamo.explain``), ``recompiles`` (frames compiled when
-``torch.compile(fn, backend="eager")``, first called at the row's batch, is called at each batch of ``SWEEP``),
-``ops`` (top-level ``aten::`` operators of one call) and ``host_syncs`` (calls of the operators that make the host
-wait for a CUDA queue, ``SYNC_OPS``). The run exits 1 when a counter row exceeds its threshold in
+``bake_forward_dempster/smpl/B{1,64}`` (the same with the default ``density="Dempster"``: 24 part inertias per bake), in
+the neutral pose with seeded identity coefficients. Each has four counters, deterministic for one torch version and
+device: ``graph_breaks`` (``torch._dynamo.explain``), ``recompiles`` (frames compiled when ``torch.compile(fn,
+backend="eager")``, first called at the row's batch, is called at each batch of ``SWEEP``), ``ops`` (top-level
+``aten::`` operators of one call) and ``host_syncs`` (calls of the operators that make the host wait for a CUDA queue,
+``SYNC_OPS``). The run exits 1 when a counter row exceeds its threshold in
 ``benchmarks/thresholds/torch-<version>.json``, has none, or no such file exists for the installed torch; a thresholds
 file is this runner's ``--counters-only`` output from a clean commit, changed only in a commit of its own.
 
-``--licensed`` adds the rows that read licensed weights through ``better_human.io`` (``$BETTERHUMAN_MODELS_DIR``).
-Sweep rows (principle 5.7) of SMPL, SMPL-X, MHR (LOD 1) and SOMA, ``<family>/<op>/B<batch>/<variant>`` (the earlier
-runner's keys, so its result files compare row by row): ``bake`` at batch 1 with part inertias (``mass``, the default
-density) and without (``no_mass``); at each ``--batches`` size, ``vertices`` under ``no_grad`` and
-``vertices_backward`` (the gradient of ``sum(vertices)`` with respect to ``q``) of one baked identity (``default``: no
-stream, except MHR's expression; SMPL-X also with its expression stream moving the joints,
-``expression_stream_joints``, and not, ``expression_frozen_joints``), and BetterRobot's ``fk`` and ``rnea`` (on a
-precomputed state) on the baked model; MHR's parity oracle, its released TorchScript model, beside them (variant
-``torchscript``). Load rows ``load/{smpl,smplx,mhr_lod1,soma}``: the family loader's time beside the raw read of the
-same archive (each member's bytes, then ``np.load`` of every member without object dtype) and their ``ratio``
-(decision record 0013).
+``--licensed`` adds the rows that read licensed weights through ``better_human.io`` (``$BETTERHUMAN_MODELS_DIR``). Sweep
+rows (principle 5.7) of SMPL, SMPL-X, MHR (LOD 1) and SOMA, ``<family>/<op>/B<batch>/<variant>`` (the earlier runner's
+keys, so its result files compare row by row): ``bake`` at batch 1 with part inertias (``mass``, the default density)
+and without (``no_mass``); at each ``--batches`` size, ``vertices`` under ``no_grad`` and ``vertices_backward`` (the
+gradient of ``sum(vertices)`` with respect to ``q``) of one baked identity (``default``: no stream, except MHR's
+expression; SMPL-X also with its expression stream moving the joints, ``expression_stream_joints``, and not,
+``expression_frozen_joints``; the default identity's ``vertices`` also through ``better_robot.kinematics.compiled``,
+``compiled``, timed after the two warm-up calls in which it runs eagerly and compiles, without its backward: torch
+2.13's compiled MHR backward aborts the process on CPU), and BetterRobot's ``fk`` and ``rnea`` (on a precomputed state)
+on the baked model; MHR's parity oracle, its released TorchScript model, beside them (variant ``torchscript``). Load
+rows ``load/{smpl,smplx,mhr_lod1,soma}``: the family loader's time beside the raw read of the same archive (each
+member's bytes, then ``np.load`` of every member without object dtype) and their ``ratio``.
 
 Wall time is the median of up to ``--repeats`` calls (at least 3; fewer once a row passes ``ROW_BUDGET_S``) after one
 warm-up call, with the minor page faults per call; the counters are taken after it. It is recorded, never gated: the
 load average sits beside every row. For rows at batch >= ``LARGE_BATCH`` the runner re-executes itself with glibc's
 allocator thresholds fixed (``FIXED_MALLOC``; they must be set before the process starts) and records that time and
 its page faults beside the default ones: the default allocator's dynamic mmap threshold depends on what the process
-freed before. On a host with transparent huge pages a load can stall for seconds
-(``docs/guides/run-the-tests.md``, "Speed up loads on a host with huge pages"), so time loads with
-``NUMPY_MADVISE_HUGEPAGE=0``; ``meta`` records the setting.
+freed before. On a host with transparent huge pages a load can stall for seconds (``CLAUDE.md``, "What the tiers
+need"), so time loads with ``NUMPY_MADVISE_HUGEPAGE=0``; ``meta`` records the setting.
 
 Every number is float32, ``--threads`` Torch threads (default 1), ``BETTER_ROBOT_INTERNAL_CHECKS`` off. Output:
 ``{"meta": {...}, "rows": [{"row": id, ...}, ...]}`` in ``--out`` (default
@@ -85,7 +84,7 @@ from torch.profiler import ProfilerActivity, profile
 import better_human as bh
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ARCHIVES = REPO_ROOT / "tests" / "support" / "random_weights"  # tracked random weights (record 0016): no licence
+ARCHIVES = REPO_ROOT / "tests" / "support" / "random_weights"  # tracked random weights: no licence
 THRESHOLDS = REPO_ROOT / "benchmarks" / "thresholds" / f"torch-{torch.__version__.split('+')[0]}.json"
 DTYPE = torch.float32
 ROW_BUDGET_S = 2.0
@@ -116,6 +115,7 @@ class Case:
     fn: Callable[..., Any] | None = None
     args: tuple[torch.Tensor, ...] = ()
     sweep: tuple[tuple[torch.Tensor, ...], ...] = ()
+    warmups: int = 1
 
 
 def identity_coefficients(spec: bh.FamilySpec, device: torch.device) -> dict[str, torch.Tensor]:
@@ -208,6 +208,11 @@ def sweep_cases(args: argparse.Namespace, device: torch.device) -> list[Case]:
         if family == "SMPL-X":
             frozen = bh.HumanModel.from_spec(spec, density=None, stream_joints=False).bake(**coefficients)
             identities |= {"expression_stream_joints": (identity, True), "expression_frozen_joints": (frozen, True)}
+        forwards = {
+            variant: (partial(posed_vertices, posed), with_streams)
+            for variant, (posed, with_streams) in identities.items()
+        }
+        forwards["compiled"] = (br.kinematics.compiled(forwards["default"][0]), forwards["default"][1])
         model = identity.model
         # torch 2.13 deprecates torch.jit.load and still loads the released file
         oracle = (
@@ -222,10 +227,12 @@ def sweep_cases(args: argparse.Namespace, device: torch.device) -> list[Case]:
                 name: (0.3 * torch.randn(batch, width, generator=generator)).to(device)
                 for name, width in spec.stream_groups.items()
             }
-            for variant, (posed, with_streams) in identities.items():
-                for op in ("vertices", "vertices_backward"):
-                    call = partial(vertices, posed, q, streams if with_streams else None, backward=op != "vertices")
-                    cases.append(sweep_case(family, op, batch, variant, call))
+            for variant, (forward, with_streams) in forwards.items():
+                for op in ("vertices",) if variant == "compiled" else ("vertices", "vertices_backward"):
+                    call = partial(vertices, forward, q, streams if with_streams else None, backward=op != "vertices")
+                    cases.append(
+                        sweep_case(family, op, batch, variant, call, warmups=2 if variant == "compiled" else 1)
+                    )
             generator = torch.Generator().manual_seed(3)
             v, a = ((0.1 * torch.randn(batch, model.nv, generator=generator)).to(device) for _ in range(2))
             state = br.forward_kinematics(model, q)
@@ -237,18 +244,28 @@ def sweep_cases(args: argparse.Namespace, device: torch.device) -> list[Case]:
     return cases
 
 
-def sweep_case(family: str, op: str, batch: int, variant: str, call: Callable[[], Any]) -> Case:
+def sweep_case(family: str, op: str, batch: int, variant: str, call: Callable[[], Any], *, warmups: int = 1) -> Case:
     """A sweep row ``<family>/<op>/B<batch>/<variant>``."""
     fields = {"family": family, "op": op, "variant": variant}
-    return Case(f"{family}/{op}/B{batch}/{variant}", batch, call, fields)
+    return Case(f"{family}/{op}/B{batch}/{variant}", batch, call, fields, warmups=warmups)
 
 
-def vertices(identity: bh.Identity, q: torch.Tensor, streams: dict[str, torch.Tensor] | None, *, backward: bool) -> Any:
-    """``(B, V, 3)`` vertices under ``no_grad``, or the gradient of ``sum(vertices)`` with respect to ``q (B, nq)``."""
+def posed_vertices(
+    identity: bh.Identity, q: torch.Tensor, streams: dict[str, torch.Tensor] | None = None
+) -> torch.Tensor:
+    """``identity.forward(q, streams).vertices``: the function a ``compiled`` row compiles."""
+    return identity.forward(q, streams).vertices
+
+
+def vertices(
+    forward: Callable[..., torch.Tensor], q: torch.Tensor, streams: dict[str, torch.Tensor] | None, *, backward: bool
+) -> Any:
+    """``forward(q, streams)`` (``(B, V, 3)`` vertices) under ``no_grad``, or the gradient of their sum with respect to
+    ``q (B, nq)``."""
     if backward:
         leaf = q.detach().requires_grad_(True)
-        return torch.autograd.grad(identity.forward(leaf, streams).vertices.sum(), leaf)
-    return no_grad(lambda: identity.forward(q, streams).vertices)
+        return torch.autograd.grad(forward(leaf, streams).sum(), leaf)
+    return no_grad(forward, q, streams)
 
 
 def no_grad(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
@@ -361,9 +378,10 @@ def time_ms(call: Callable[[], object], sync: Callable[[], None], repeats: int) 
 
 
 def measure(case: Case, args: argparse.Namespace, sync: Callable[[], None]) -> dict[str, Any]:
-    """One case's row: a warm-up call, wall time unless ``--counters-only``, counters unless ``--timing-only``."""
+    """One case's row: its warm-up calls, wall time unless ``--counters-only``, counters unless ``--timing-only``."""
     row: dict[str, Any] = {"row": case.row, "batch": case.batch, **case.fields, "loadavg": loadavg()}
-    case.call()
+    for _ in range(case.warmups):
+        case.call()
     if not args.counters_only:
         row |= time_ms(case.call, sync, args.repeats)
     if not args.timing_only and case.fn is not None:

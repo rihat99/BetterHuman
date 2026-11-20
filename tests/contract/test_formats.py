@@ -1,14 +1,14 @@
-"""Every BetterHuman file format names itself and its version, and old files keep loading (records 0012, 0013).
+"""Every BetterHuman file format names itself and its version, and old files keep loading.
 
 For each format in ``io.formats.LATEST``: the latest version round-trips, a fixture of every past version in
 ``tests/support/formats/`` reads through its migration and equals the latest fixture, a later version and another
 format are refused naming both, and ``docs/reference/formats/<name>.md`` specifies it. No module but
-``src/better_human/io/formats.py`` and ``src/better_human/io/schema.py`` names ``format_version`` (8.8), and none loads a pickle but the listed exception (record 0013).
-The fixtures are synthetic and frozen: ``tests/support/formats/make_fixtures.py`` wrote them (every field a distinct
-constant; the v1 archives as the converters wrote them before record 0012), ``SHA256SUMS`` there lists them, and a
-rerun writes the same bytes. Each
-spec page's field tables equal the reader's schema, field by field, and each ``json`` example of a spec page names
-its format at the latest version and reads through the format's reader.
+``src/better_human/io/formats.py`` and ``src/better_human/io/schema.py`` names ``format_version`` (8.8), and none
+loads a pickle but the listed exception. The fixtures are synthetic and frozen:
+``tests/support/formats/make_fixtures.py`` wrote them (every field a distinct constant; the v1 archives as the
+converters first wrote them), ``SHA256SUMS`` there lists them, and a rerun writes the same bytes. Each spec page's
+field tables equal the reader's schema, field by field, and each ``json`` example of a spec page names its format at
+the latest version and reads through the format's reader.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ FIXTURES = REPO / "tests" / "support" / "formats"
 CONVERTERS = REPO / "tools" / "convert"
 #: The modules that may name ``format_version``: the one check with its migrations, and the archive schemas.
 FORMAT_VERSION_MODULES = ("io/formats.py", "io/schema.py")
-#: ``path -> reason`` for each module that still loads a pickle; an entry leaves with its fix (record 0013).
+#: ``path -> reason`` for each module that still loads a pickle; an entry leaves with its fix.
 ALLOW_PICKLE_EXCEPTIONS: dict[str, str] = {}
 READERS: dict[str, tuple[str, Callable[[Path], Any]]] = {
     MHR: ("npz", lambda path: load_model_npz(path, MHR_SCHEMA)),
@@ -398,7 +398,7 @@ def test_format_version_is_named_only_in_io_formats_and_schema() -> None:
 
 
 def test_a_planted_format_version_is_found(tmp_path: Path) -> None:
-    """A comparison, the whole-metadata equality the MHR loader (``families.mhr``) had before record 0012, and a match."""
+    """A comparison, the whole-metadata equality the MHR loader (``families.mhr``) once had, and a match."""
     planted = {
         "io/formats.py": "ok = data['format_version'] < 2\n",
         "io/schema.py": "FIELDS = {'format_version': ()}\n",
@@ -413,13 +413,12 @@ def test_a_planted_format_version_is_found(tmp_path: Path) -> None:
 
 
 def test_no_module_loads_a_pickle() -> None:
-    """Record 0013: no shipped file executes pickle; ``ALLOW_PICKLE_EXCEPTIONS`` names the modules that still do."""
+    """No shipped file executes pickle; ``ALLOW_PICKLE_EXCEPTIONS`` names the modules that still do."""
     found = _pickle_loads(PACKAGE)
     offences = [hit for hit in found if hit.split(",")[0] not in ALLOW_PICKLE_EXCEPTIONS]
     stale = sorted(ALLOW_PICKLE_EXCEPTIONS.keys() - {hit.split(",")[0] for hit in found})
     assert not offences, (
-        "load without pickle: no pickle module, allow_pickle=False, weights_only=True (decision record 0013):\n  "
-        + "\n  ".join(offences)
+        "load without pickle: no pickle module, allow_pickle=False, weights_only=True:\n  " + "\n  ".join(offences)
     )
     assert not stale, f"these modules no longer load a pickle; remove them from ALLOW_PICKLE_EXCEPTIONS: {stale}"
 

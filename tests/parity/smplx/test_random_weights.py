@@ -1,6 +1,6 @@
 """Golden parity of SMPL, SMPL+H and SMPL-X on tracked random weights against the pinned upstream smplx.
 
-Decision record 0016: ``tests/support/random_weights/<family>_random.npz`` (written by
+``tests/support/random_weights/<family>_random.npz`` (written by
 ``tools/parity/smplx/make_random_archive.py``) holds random weights in each family's upstream layout, and
 ``tools/parity/smplx/dump_{smpl,smplh,smplx}.py`` wrote the oracle's outputs on them to
 ``tests/parity/smplx/random/<family>/``. The gate is the licensed one, 1e-6 m in float64 and float32. The models load

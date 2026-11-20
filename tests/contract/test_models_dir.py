@@ -1,6 +1,6 @@
 """The package, tests, examples, tools, benchmarks and docs scripts find weights only through ``better_human.io``.
 
-Decision record 0017 (one way to find the weights): ``io.models_dir()`` is the one reader of
+One way to find the weights: ``io.models_dir()`` is the one reader of
 ``$BETTERHUMAN_MODELS_DIR`` and ``io.weight_path`` the one way to name a file under it. A second lookup rule comes
 back through a ``models`` path joined onto a base built from ``__file__``, the working directory (``cwd()``,
 ``getcwd()``) or the home directory (``home()``, ``expanduser``), directly or through a name assigned from one, with

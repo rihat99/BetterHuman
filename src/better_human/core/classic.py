@@ -1,4 +1,4 @@
-"""Classic parameters, the upstream libraries' own inputs, to and from ``(identity, q, streams)`` (decision record 0004).
+"""Classic parameters, the upstream libraries' own inputs, to and from ``(identity, q, streams)``.
 
 Every family's spec carries one :class:`ClassicFormat` (``FamilySpec.classic``). :func:`from_classic` and
 :func:`to_classic` are the one way in and out for every family: they check every tensor in one place, so a format maps
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 class ClassicFormat(ABC):
-    """How one family's ``*Classic`` dataclass maps to ``(identity, q, streams)`` and back (decision record 0004).
+    """How one family's ``*Classic`` dataclass maps to ``(identity, q, streams)`` and back.
 
     ``classic_type`` is that dataclass; each of its fields is a tensor or ``None`` (zero). The hooks see checked
     tensors only.

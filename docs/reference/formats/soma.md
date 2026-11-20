@@ -6,8 +6,8 @@ NumPy `.npz` archive, read with `allow_pickle=False`.
 
 | version | status | written by |
 |---|---|---|
-| 2 | current | `convert_soma.py` from decision record 0012 on |
-| 1 | read through migration | `convert_soma.py` before record 0012 (no `format`; its provenance JSON was `source`) |
+| 2 | current | `convert_soma.py` |
+| 1 | read through migration | earlier `convert_soma.py` (no `format`; its provenance JSON was `source`) |
 
 ## Header
 

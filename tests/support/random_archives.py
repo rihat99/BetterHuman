@@ -1,4 +1,4 @@
-"""The random-weight archives (decision record 0016), each read once per test session.
+"""The random-weight archives, each read once per test session.
 
 The SMPL-X archive inflates to 166 MB of arrays, and on a host with transparent huge pages one read of it can stall
 for about 10 s, so every test that loads an archive reads it through :func:`random_weight_arrays` or builds its spec

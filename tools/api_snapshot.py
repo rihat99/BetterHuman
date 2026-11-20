@@ -1,13 +1,13 @@
-"""Write, check or diff the public-API snapshot of ``better_human`` (BetterRobot decision records 0024 and 0035).
+"""Write, check or diff the public-API snapshot of ``better_human``.
 
 ``tests/contract/public_api.json`` maps every path of the ``__all__`` tree to one line describing it
 (``better_robot.testing.public_api``; the root lists every subpackage). ``--write`` rewrites it after an
 intended API change; ``--check`` prints the differences and exits 1 when the package no longer matches it;
-``--diff OLD.json`` prints the paths added (``+``), removed (``-``) and changed (``~``) since an older snapshot, the
-draft of the next migration table (``tests/contract/public_api_before_0.2.0.json`` is the 0.1 side).
+``--diff OLD.json`` prints the paths added (``+``), removed (``-``) and changed (``~``) since an older snapshot,
+such as the last release's.
 
     uv run python tools/api_snapshot.py --check
-    uv run python tools/api_snapshot.py --diff tests/contract/public_api_before_0.2.0.json
+    uv run python tools/api_snapshot.py --diff /tmp/public_api_0.1.0.json
 """
 
 from __future__ import annotations

@@ -26,10 +26,7 @@ and meshes and skinning are outputs, not the organising principle.
 
 ## The package map
 
-Each unit of `better_human` imports only the units of its row (decision record
-[0011](../contracts/decisions/0011-human-package-layout.md) and the records proposed to amend it,
-[0019](../contracts/decisions/0019-viz-imports-core-only.md), [0021](../contracts/decisions/0021-root-imports-every-subpackage.md)
-and [0022](../contracts/decisions/0022-edges-into-betterrobot-since-0011.md)). This copy of the edge tables is
+Each unit of `better_human` imports only the units of its row. This copy of the edge tables is
 checked against `ALLOWED` and `BR_ALLOWED` in `tests/contract/test_layer_dependencies.py` by
 `tests/docs/test_codemap.py`:
 
@@ -57,10 +54,9 @@ studio       -> better_robot better_robot.exceptions better_robot.lie better_rob
 better_human -> better_robot.exceptions
 ```
 
-`better_human` is the package root, and it lists every subpackage (record
-[0021](../contracts/decisions/0021-root-imports-every-subpackage.md)). The body model (`core`) and the file readers (`io`) stay usable without any
+`better_human` is the package root, and it lists every subpackage. The body model (`core`) and the file readers (`io`) stay usable without any
 family table or viewer; `mass` reads no file: the family loaders read its data through `io` and hand it over.
-`studio`, the optional application (record [0009](../contracts/decisions/0009-studio-placement.md)), sits on top of
+`studio`, the optional application, sits on top of
 everything but `terms`. Every BetterRobot import goes through BetterRobot's `__all__` tree, and a first-level name
 such as `Viewer` comes from BetterRobot's root (`tests/contract/test_br_imports.py`).
 
@@ -77,22 +73,20 @@ weight file --families.<f>(path, dtype=, device=)--> FamilySpec --HumanModel.fro
   properties (the sizes, dtype and device) only read the data.
 - **`HumanModel`** (`src/better_human/core/human_model.py`) is built once from a spec with the body's options
   (`density`, `contact_frames`, `stream_joints`); `bh.load(family)` runs the family's loader with its defaults and
-  `HumanModel.from_spec` in one step. Dtype and device are chosen there and never change (record
-  [0005](../contracts/decisions/0005-dtype-and-device-at-load.md)).
+  `HumanModel.from_spec` in one step. Dtype and device are chosen there and never change.
 - **`Identity`** is a baked subject: `human.bake(betas=...)` takes the identity groups by name, shapes the mesh,
   places the joints, integrates the masses and holds the subject's BetterRobot `Model`.
 - **`HumanState`** is one query: `identity.forward(q, streams)` runs forward kinematics once and computes every
   output (joint transforms, skin affines, vertices, frame poses) on first use, then keeps it. A new pose is a new
   state; a state is never changed.
 
-All four records are frozen; `HumanModel`, `Identity` and `HumanState` compare by identity (record
-[0001](../contracts/decisions/0001-human-model.md)).
+All four records are frozen; `HumanModel`, `Identity` and `HumanState` compare by identity.
 The [coupling standard](../contracts/coupling-standard.md) gives the shape and layout of every `HumanState` output,
-and the [API reference](../reference/api/core.md) every member.
+and [Bodies](../bodies.md) the names you use.
 
 ## The rig
 
-`Rig` (`src/better_human/core/rig.py`) is abstract (record [0002](../contracts/decisions/0002-rig-abstract-base.md)).
+`Rig` (`src/better_human/core/rig.py`) is abstract.
 A family implements four members: `build_model` (the BetterRobot `Model` with its operational frames), `bake` (joint
 placements, the skinning rest mesh, the rest joints and the inverse-bind affines of an identity), `joint_ids` (the
 BetterRobot joint of each native joint) and `corrective_features` (what the pose corrective reads). Four hooks have
@@ -128,8 +122,7 @@ BetterRobot viewer plays it at its `fps` or at the `times` the clip is added wit
 ## Classic parameters stay at the boundary
 
 The upstream libraries' own inputs (`betas`, `global_orient`, `body_pose`, `transl`, hand PCA, MHR's
-`model_parameters`, ...) enter and leave through one pair for every family (record
-[0004](../contracts/decisions/0004-classic-api.md)):
+`model_parameters`, ...) enter and leave through one pair for every family:
 
 ```python
 import torch
@@ -165,14 +158,14 @@ single joints (load with `num_pca_comps=None`).
 ## Mass
 
 The spec's parts segment the mesh, and `mass.PartTopology` closes each part into a solid once per `HumanModel`
-([Segmentation](segmentation.md)). `density` resolves to kg/m³ per part at `from_spec`: a table name (the
-`"Dempster"` table by default, record [0007](../contracts/decisions/0007-mass-and-density.md)) gives each part the
+([Mass](../mass.md)). `density` resolves to kg/m³ per part at `from_spec`: a table name (the
+`"Dempster"` table by default) gives each part the
 density of the category its family declares, a float is uniform, `None` builds no masses. On every bake
 `mass.part_inertias` integrates each closed part with `better_robot.spatial.inertia_of_mesh`, differentiably, and the
 inertias go into `identity.model`, so BetterRobot's dynamics use the subject's mass.
 
 ## Where next
 
-- [Skinning](skinning.md): identity groups, stream groups and how the mesh follows the joints.
-- [Segmentation](segmentation.md): how bodies split into parts.
+- [Bodies](../bodies.md): identity groups, stream groups and how the mesh follows the joints.
+- [Mass](../mass.md): how bodies split into parts.
 - [Contracts](../contracts/index.md): the rules these layers obey and the records behind them.

@@ -1,21 +1,18 @@
 """The docs text says what holds now, and its hand-written tables equal their source (principles 7.7, 7.9).
 
-What changed, and the code of the plan that changed it, belong in the changelog, the migration pages and the
-decision records. Every other page of ``docs/`` and the README names no plan code (a work package, lane, ruling,
-review finding or phase such as ``H9`` or ``P10-D``) and no history (``no longer``, ``was moved``, ``was added ... on
-<date>``).
+What changed, and the code of the plan that changed it, belong in the commit messages. No page of ``docs/`` and not
+the README names a plan code (a work package, lane, ruling, review finding or phase such as ``H9`` or ``P10-D``) or
+tells history (``no longer``, ``was moved``, ``was added ... on <date>``).
 
-Three tables are typed by hand and read here against what they copy: the README's family table against each
-family's ``FamilySpec`` (its identity and stream groups; MHR and SOMA need the licensed weights), the weights layout
-of ``docs/guides/load-a-family.md`` against the folder and file each loader asks ``io.weight_path`` for, and the
-test tables of ``docs/reference/tests.md`` against the listing of ``tests/contract/`` and ``tests/docs/``.
+Two tables are typed by hand and read here against what they copy: the README's family table against each family's
+``FamilySpec`` (its identity and stream groups; MHR and SOMA need the licensed weights), and the weights layout of
+``docs/install.md`` against the folder and file each loader asks ``io.weight_path`` for.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +24,6 @@ from tests.support.random_archives import random_weight_spec
 from tests.support.synthetic import write_family
 
 REPO = Path(__file__).resolve().parents[2]
-HISTORY_PAGES = ("docs/reference/changelog.md", "docs/reference/migration-*.md", "docs/contracts/decisions/[0-9]*.md")
 HISTORY = re.compile(
     r"\bruling\b|\bwp/[A-Z]|\blane [A-Z]\b|\bwork package\b|\breview (?:finding|[HML]\d)|\b[GHRX]\d+(?:fix)?\b"
     r"|\bP\d+-[A-Z]|(?i:\bno\s+longer\b|\bwas\s+moved\b|\bwas\s+added\b[^.]*?\bon\s+\d{4}-\d{2}-\d{2})"
@@ -35,12 +31,11 @@ HISTORY = re.compile(
 
 
 def test_docs_pages_tell_no_history() -> None:
-    """No plan code and no "no longer", "was moved" or "was added ... on <date>" outside the history pages."""
+    """No plan code and no "no longer", "was moved" or "was added ... on <date>" on any page."""
     found = []
     for page in [REPO / "README.md", *sorted((REPO / "docs").rglob("*.md"))]:
         relative = page.relative_to(REPO).as_posix()
-        if not any(fnmatch(relative, pattern) for pattern in HISTORY_PAGES):
-            found += [f"{relative}: {' '.join(match[0].split())}" for match in HISTORY.finditer(page.read_text())]
+        found += [f"{relative}: {' '.join(match[0].split())}" for match in HISTORY.finditer(page.read_text())]
     assert found == [], "state what holds now instead:\n  " + "\n  ".join(found)
 
 
@@ -125,7 +120,7 @@ def test_the_weights_layout_is_where_each_loader_looks(monkeypatch: pytest.Monke
 
     for module in (smpl_family, mhr_family, soma_family):
         monkeypatch.setattr(module, "weight_path", asked)
-    rows = _table((REPO / "docs" / "guides" / "load-a-family.md").read_text(), "| Family | Folder | File |")
+    rows = _table((REPO / "docs" / "install.md").read_text(), "| Family | Folder | File |")
     assert [row[0] for row in rows] == list(LAYOUT_LOADERS)
     for family, folder, files in rows:
         loader, options = LAYOUT_LOADERS[family]
@@ -136,13 +131,3 @@ def test_the_weights_layout_is_where_each_loader_looks(monkeypatch: pytest.Monke
             calls.add(call.value.args)
         listed = {(_ticked(folder)[0], path) for pattern in _ticked(files) for path in _expand(pattern)}
         assert listed == calls, family
-
-
-@pytest.mark.parametrize(("heading", "folder"), [("## Contract tests", "contract"), ("## Docs tests", "docs")])
-def test_the_test_tables_list_every_test_module(heading: str, folder: str) -> None:
-    """``docs/reference/tests.md`` has one row per test module of ``tests/contract/`` and ``tests/docs/``."""
-    text = (REPO / "docs" / "reference" / "tests.md").read_text()
-    section = text[text.index(heading) :]
-    rows = [_ticked(row[0])[0] for row in _table(section, "| Test | Guards |")]
-    modules = sorted(path.name for path in (REPO / "tests" / folder).glob("test_*.py"))
-    assert sorted(rows) == modules and len(rows) == len(set(rows))

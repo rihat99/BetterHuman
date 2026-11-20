@@ -30,7 +30,7 @@ def _parse_args() -> argparse.Namespace:
 def _asset_sha256(directory: Path, names: tuple[str, ...]) -> str:
     """Provenance ``asset_sha256``: sha256 of the ``sha256sum`` listing of the oracle's asset files, names sorted.
 
-    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum`` (decision record 0014).
+    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum``.
     """
     lines = []
     for name in sorted(names):

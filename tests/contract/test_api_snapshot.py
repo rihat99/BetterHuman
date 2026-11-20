@@ -1,9 +1,9 @@
-"""The public API equals its snapshot, ``tests/contract/public_api.json`` (BetterRobot decision record 0024).
+"""The public API equals its snapshot, ``tests/contract/public_api.json``.
 
 Every path of the ``__all__`` tree (``better_robot.testing.public_api``; the root lists every subpackage) with its
 kind and signature is tracked, so a change to the public surface is a reviewed edit of the snapshot, never a
 side effect. After an intended change: ``uv run python tools/api_snapshot.py --check`` lists it, ``--write``
-records it, and the changelog says it.
+records it, and the commit message says it.
 """
 
 from __future__ import annotations

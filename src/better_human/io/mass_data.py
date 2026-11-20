@@ -1,7 +1,7 @@
 """The mass data BetterHuman ships: closed part segmentations and named density tables, as versioned archives.
 
 Specs: ``docs/reference/formats/segmentation.md`` and ``docs/reference/formats/density_tables.md``. The family loaders
-read them here and hand the arrays to their ``Parts``; ``better_human.mass`` reads no file (decision record 0011).
+read them here and hand the arrays to their ``Parts``; ``better_human.mass`` reads no file.
 """
 
 from __future__ import annotations

@@ -21,7 +21,7 @@ from ._checks import check_dtype, check_flags
 from .classic import SOMAFormat
 from .soma_rig import SOMARig
 
-#: The density category of each part, by its joint (decision record 0007). The categories are SMPL's part names, each
+#: The density category of each part, by its joint. The categories are SMPL's part names, each
 #: named after the joint at its proximal end, so a part takes the SMPL part that covers the same body segment: SOMA's
 #: Shoulder is the clavicle (SMPL collar), Arm the upper arm (SMPL shoulder), Leg the thigh (SMPL hip), Hand the palm
 #: (SMPL wrist), Foot the foot (SMPL ankle) and ToeBase the toes (SMPL foot).
@@ -75,7 +75,7 @@ def soma(
 
     The identity basis is ``shape (V, 3, 128)``. The 78 public joints are posable; the 32 twist helpers follow their
     limb segments. ``correctives=False`` drops the pose-corrective MLP. The spec is built once in ``dtype`` on
-    ``device`` (decision record 0005).
+    ``device``.
     """
     check_flags(correctives=correctives)
     check_dtype(dtype)

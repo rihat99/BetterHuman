@@ -1,4 +1,4 @@
-"""Decision record 0008: every ``FamilySpec`` field is typed; no ``Mapping[str, Any]`` bag, and ``provenance`` is the
+"""Every ``FamilySpec`` field is typed; no ``Mapping[str, Any]`` bag, and ``provenance`` is the
 only ``Mapping[str, str]``."""
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ def _annotations() -> dict[str, str]:
 
 def test_no_field_is_an_untyped_mapping() -> None:
     untyped = sorted(name for name, annotation in _annotations().items() if "Any" in annotation)
-    assert untyped == [], f"give these fields a type (record 0008): {untyped}"
+    assert untyped == [], f"give these fields a type: {untyped}"
 
 
 def test_provenance_is_the_only_string_to_string_mapping() -> None:

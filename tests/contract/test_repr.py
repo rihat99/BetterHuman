@@ -1,4 +1,4 @@
-"""Every public type has a short repr (principle 4.9, decision record 0001): one line, under 120 characters, its name,
+"""Every public type has a short repr (principle 4.9): one line, under 120 characters, its name,
 and its own (neither the default ``<module.Class object at 0x...>`` nor a dataclass repr that prints its tensors).
 
 ``BUILDERS`` builds each public class of the ``__all__`` tree (``better_robot.testing.public_objects``, each class

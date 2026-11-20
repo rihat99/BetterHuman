@@ -1,4 +1,4 @@
-"""Render the segmentation images embedded in ``docs/concepts/segmentation.md``.
+"""Render the segmentation images embedded in ``docs/mass.md``.
 
 For SMPL, SMPL-X and MHR at zero shape, each segmentation the body has (authored, argmax) is drawn twice: a
 part-coloured surface and an exploded view of the parts (``<family>_<authored|argmax>_<surface|split>.png``).

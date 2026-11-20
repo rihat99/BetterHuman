@@ -1,4 +1,4 @@
-"""Decision record 0004: one round-trip checker runs over every family's ``ClassicFormat``, both ways.
+"""One round-trip checker runs over every family's ``ClassicFormat``, both ways.
 
 Oracle: the input itself. ``bh.to_classic`` of ``bh.from_classic(human, classic)`` gives back ``classic`` (an omitted
 field as zeros, a field the model was loaded without as ``None``), and ``bh.from_classic`` of that classic gives back

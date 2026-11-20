@@ -1,5 +1,5 @@
-"""Decision records 0010 and 0011: no module shares a name with an exported function, and no public function takes a
-joint index (joints are named, BR record 0029).
+"""No module shares a name with an exported function, and no public function takes a
+joint index (joints are named).
 
 A module that shadows a function today sits in ``tests/contract/ratchets/module_names.json`` (module -> the fix that
 renames it); the ratchet only shrinks.
@@ -55,7 +55,7 @@ def _public_functions() -> Iterator[tuple[str, Callable]]:
 
 def test_no_module_shares_a_name_with_an_exported_function() -> None:
     new = sorted(_shadowing_modules() - MODULE_NAME_RATCHET.keys())
-    assert not new, f"rename these modules (record 0011): {new}"
+    assert not new, f"rename these modules: {new}"
 
 
 def test_module_name_ratchet_has_no_stale_entries() -> None:

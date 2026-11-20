@@ -1,4 +1,4 @@
-"""The CPU counters of the hot entry points never grow (BetterRobot ``C-PERF-3`` and decision record 0011).
+"""The CPU counters of the hot entry points never grow (BetterRobot ``C-PERF-3``).
 
 ``benchmarks/run.py --counters-only`` measures on CPU, for every counter row its docstring lists, the graph breaks,
 recompiles, top-level operators and host-syncing operators on the random-weight archives, and compares them with

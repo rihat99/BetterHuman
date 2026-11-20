@@ -2,7 +2,7 @@
 weights directory.
 
 BetterRobot's plugin ``better_robot.testing.no_skips`` fails every skipped or xfailed outcome, at collection or at run
-time and however it was produced (BetterRobot decision record 0033). A test that cannot run on every machine carries a
+time and however it was produced. A test that cannot run on every machine carries a
 marker the tier commands deselect: ``licensed`` or ``cuda``.
 
 A test marked ``licensed`` reads licensed weights through ``better_human.io.weight_path``. When any such test is

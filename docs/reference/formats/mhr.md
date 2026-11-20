@@ -6,8 +6,8 @@ One converted MHR level of detail, `$BETTERHUMAN_MODELS_DIR/MHR/converted/mhr_lo
 
 | version | status | written by |
 |---|---|---|
-| 2 | current | `convert_mhr.py` from decision record 0012 on |
-| 1 | read through migration | `convert_mhr.py` before record 0012 (no `format`, no `provenance`) |
+| 2 | current | `convert_mhr.py` |
+| 1 | read through migration | earlier `convert_mhr.py` (no `format`, no `provenance`) |
 
 ## Header
 
