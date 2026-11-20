@@ -95,7 +95,7 @@ def soma(
         rows, columns = arrays["corrective_output_indices"].to(device)
         values = floats("corrective_output_values")
         output = values.new_zeros(arrays["corrective_output_shape"].tolist()).index_put_((rows, columns), values)
-        corrective = MLPCorrective(floats("corrective_first_layer").T.contiguous(), output)
+        corrective = MLPCorrective.from_dense(floats("corrective_first_layer").T.contiguous(), output, rows=24)
     public_ids = arrays["public_joint_ids"].to(device)
     strongest = public_ids[arrays["public_skin_weights"].to(device).argmax(-1)]  # twist helpers count for their parent
     part_joints, part_ids = torch.unique(strongest, return_inverse=True)

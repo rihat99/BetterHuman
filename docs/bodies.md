@@ -107,8 +107,8 @@ compiles again, at most three graphs per key (the first size, one for every late
 
 On the licensed SMPL-X body at batch 64 (float32, one call), the compiled forward pass takes 9.5 ms against 16 ms on
 8 threads of an AMD EPYC 9654, and 0.46 ms against 1.5 ms on an NVIDIA RTX PRO 6000, where its gradient takes 2.4 ms
-against 8.1 ms. Compiling takes 3 to 30 seconds per graph. MHR gains on the GPU (1.6 ms against 3.5 ms) but not on
-CPU, where its pose corrective, a large matrix product, takes most of the time. On CPU, torch 2.13 aborts the process
+against 8.1 ms. Compiling takes 3 to 30 seconds per graph. MHR gains less (42 ms against 47 ms on CPU, 4.8 ms
+against 7.2 ms on the GPU). On CPU, torch 2.13 aborts the process
 when it runs MHR's compiled backward at a batch above 1 (a fault in its vectorised CPU kernels): compile MHR without
 gradients on CPU, or run it on a GPU.
 

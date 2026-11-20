@@ -15,7 +15,8 @@ def test_correctives_match_their_formulas_and_gradcheck() -> None:
     posedirs = torch.randn(features, vertices * 3, generator=generator, dtype=torch.float64)
     first_layer = torch.randn(hidden, features, generator=generator, dtype=torch.float64)
     output = torch.randn(hidden, vertices * 3, generator=generator, dtype=torch.float64)
-    linear, mlp = LinearCorrective(posedirs), MLPCorrective(first_layer, output)
+    output[1, 3:] = 0  # hidden row 1 moves vertex 0 only: the blocks keep the nonzeros
+    linear, mlp = LinearCorrective(posedirs), MLPCorrective.from_dense(first_layer, output, rows=1)
     subset = torch.tensor([3, 1])
 
     expected_linear = (feature @ posedirs).reshape(2, 3, vertices, 3)
@@ -33,4 +34,6 @@ def test_correctives_match_their_formulas_and_gradcheck() -> None:
         assert torch.autograd.gradcheck(lambda value, c=corrective: c.apply(value, subset), (probe,))
     weights = (posedirs.clone().requires_grad_(True), first_layer.clone().requires_grad_(True))
     assert torch.autograd.gradcheck(lambda p: LinearCorrective(p).apply(feature[0]), (weights[0],))
-    assert torch.autograd.gradcheck(lambda w: MLPCorrective(w, output).apply(feature[0]), (weights[1],))
+    assert torch.autograd.gradcheck(
+        lambda w: MLPCorrective.from_dense(w, output, rows=1).apply(feature[0]), (weights[1],)
+    )
