@@ -76,8 +76,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "better-robot", git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" },
-    { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" },
+    { name = "better-robot", editable = "../BetterRobot" },
+    { name = "better-robot", extras = ["viewer"], marker = "extra == 'studio'", editable = "../BetterRobot" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
 ]
@@ -85,7 +85,7 @@ provides-extras = ["studio"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "better-robot", extras = ["viewer"], git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" },
+    { name = "better-robot", extras = ["viewer"], editable = "../BetterRobot" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "mkdocs", specifier = ">=1.6,<2" },
     { name = "mkdocs-material", specifier = ">=9.5" },
@@ -98,8 +98,8 @@ dev = [
 
 [[package]]
 name = "better-robot"
-version = "0.3.0"
-source = { git = "https://github.com/rihat99/BetterRobot?rev=0086febda6b6ad9fbf0b03e559f3d36d3b156c6a#0086febda6b6ad9fbf0b03e559f3d36d3b156c6a" }
+version = "0.1.0"
+source = { editable = "../BetterRobot" }
 dependencies = [
     { name = "numpy" },
     { name = "torch" },
@@ -110,6 +110,36 @@ dependencies = [
 viewer = [
     { name = "pillow" },
     { name = "viser" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mujoco", marker = "extra == 'mjcf'", specifier = ">=3.1" },
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "pillow", marker = "extra == 'viewer'", specifier = ">=10" },
+    { name = "pytest", marker = "extra == 'testing'", specifier = ">=8.0" },
+    { name = "robot-descriptions", marker = "extra == 'demos'", specifier = ">=1.0.0" },
+    { name = "torch", specifier = ">=2.4", index = "https://download.pytorch.org/whl/cu129" },
+    { name = "trimesh", marker = "extra == 'meshes'", specifier = ">=4.0.0" },
+    { name = "viser", marker = "extra == 'viewer'", specifier = ">=1.1.1,<1.2" },
+    { name = "yourdfpy", specifier = ">=0.0.14" },
+]
+provides-extras = ["viewer", "mjcf", "meshes", "demos", "testing"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "coverage", specifier = ">=7" },
+    { name = "mkdocs", specifier = ">=1.6,<2" },
+    { name = "mkdocs-material", specifier = ">=9.5" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26" },
+    { name = "pre-commit", specifier = ">=3.7" },
+    { name = "pyright" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff" },
+]
+test-oracles = [
+    { name = "pin", specifier = ">=2.7" },
+    { name = "scipy", specifier = ">=1.11" },
 ]
 
 [[package]]
@@ -2151,7 +2181,7 @@ wheels = [
 
 [[package]]
 name = "viser"
-version = "1.0.30"
+version = "1.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "imageio" },
@@ -2165,9 +2195,9 @@ dependencies = [
     { name = "websockets" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/83/9a/85f9a82eac4e067fb1bc34cf4f7865b0d914a3ce91f5b0da47dcef549930/viser-1.0.30.tar.gz", hash = "sha256:6a849a9ef141c97d4ac7bd7d970b81265e6d0130ee8ef1c2e18c0b46aa6b6283", size = 4924612, upload-time = "2026-06-03T16:02:38.552Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6a/e5/493ae325f825e9853c2be91b31a35ef8ae54aa229b5082fc8b2372314425/viser-1.1.1.tar.gz", hash = "sha256:0a7ba97dab32b8a7106a2dd216fe1373f2e66e17529b5b43502d33d9b9ac9352", size = 3462064, upload-time = "2026-09-15T08:02:05.297Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4a/c9/9a4ca25b505303d5557c98786ac0bf7081c76a7262e1b6c87b899bccc7b8/viser-1.0.30-py3-none-any.whl", hash = "sha256:43089f50acdd45c19b23101c9a2cf8edcc52d052bf7f53ed0b2b6a932c71b5d1", size = 5027789, upload-time = "2026-06-03T16:02:40.331Z" },
+    { url = "https://files.pythonhosted.org/packages/70/6f/6a07b4c90451d6dcd40e1d6e5264f93ff4a03d92c071b1e8a06ec8da5004/viser-1.1.1-py3-none-any.whl", hash = "sha256:f528877553c56e1c01d43b861a1434920a2e7ba4fdc7b2e7ff03721e3c3f5b3d", size = 3623619, upload-time = "2026-09-15T08:02:03.635Z" },
 ]
 
 [[package]]

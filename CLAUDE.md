@@ -71,8 +71,8 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
 - No package imports outside its row of `ALLOWED` (among BetterHuman's packages) and `BR_ALLOWED` (into
   BetterRobot) in `tests/contract/test_layer_dependencies.py`, nor by a computed name; `docs/concepts/architecture.md`
   prints both tables, and `tests/docs/test_codemap.py` checks that copy.
-- No BetterRobot import outside its `__all__` tree but the one exception rules H-LAYER-2 and H-STUDIO-1 of
-  `docs/contracts/rules.md` name (`tests/contract/test_br_imports.py`, `tests/contract/test_studio_boundary.py`).
+- No BetterRobot import outside its `__all__` tree (rules H-LAYER-2 and H-STUDIO-1 of `docs/contracts/rules.md`,
+  `tests/contract/test_br_imports.py`, `tests/contract/test_studio_boundary.py`).
 - No class in `src` that is neither abstract nor `@final`, and none that derives from a `@final` class: a partial
   model is a loader option (`tests/contract/test_abstract_or_final.py`); `load` dispatches to every family loader
   (`tests/contract/test_keyword_only.py::test_load_shows_every_option_and_dispatches_to_every_family_loader`).

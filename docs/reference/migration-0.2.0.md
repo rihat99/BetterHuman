@@ -152,9 +152,9 @@ The root exports `load`, `HumanModel`, `FamilySpec`, `Identity`, `HumanState`, `
 
 | 0.1 | 0.2.0 | note |
 |---|---|---|
-| `skinned_layer(identity, state, *, name, color, opacity)` | `viz.skinned_layer(state, *, name, color, opacity)` | the binds come from `inverse_bind_affines`; binds that scale or shear raise |
+| `skinned_layer(identity, state, *, name, color, opacity)` | `viz.skin(identity)` | BetterRobot's `RobotVisual(identity.model, q, skin=viz.skin(identity))` draws it; a body its model's joints cannot skin raises |
 | `forces_layer(state, frame_ids, forces, ...)` | `viz.forces_layer(state, frame_names, *, forces, ...)` | frames by name |
-| `HumanView`, `human_layers`, `mesh_layer`, `skeleton_layer`, `frames_layer` (in the module `viz.human_layers`) | `viz.HumanView`, `viz.human_layers`, `viz.mesh_layer`, `viz.skeleton_layer`, `viz.frames_layer` | import them from `viz` |
+| `HumanView`, `human_layers`, `mesh_layer`, `skeleton_layer`, `frames_layer` (in the module `viz.human_layers`) | `viz.HumanView`, `viz.human_layers`, `viz.mesh_layer`, `viz.skeleton_layers` | import them from `viz`; the frames are `human_layers(frames=True)` |
 | `replace(LIGHT, up="+y")` in the examples | `viz.HUMAN_THEME` | BetterRobot's light theme with `+y` up, the layers' default |
 
 ## `studio`

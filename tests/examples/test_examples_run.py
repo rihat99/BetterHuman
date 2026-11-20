@@ -20,8 +20,8 @@ RANDOM_WEIGHTS = ROOT / "tests" / "support" / "random_weights"
 EXAMPLE_TIMEOUT_S = 300
 
 RUNS = [
-    pytest.param("01_smpl_shape_pose.py", RANDOM_WEIGHTS / "smpl_random.npz", "scene with 2 layers", id="01"),
-    pytest.param("02_smplx_partial.py", RANDOM_WEIGHTS / "smplx_random.npz", "90 frames, 5 layers", id="02"),
+    pytest.param("01_smpl_shape_pose.py", RANDOM_WEIGHTS / "smpl_random.npz", "scene with 3 layers", id="01"),
+    pytest.param("02_smplx_partial.py", RANDOM_WEIGHTS / "smplx_random.npz", "90 frames, 7 layers", id="02"),
     pytest.param("03_ik_reach.py", RANDOM_WEIGHTS / "smpl_random.npz", "target moved", id="03"),
     pytest.param("04_mhr_shape_pose.py", None, "MHR nq=132", id="04", marks=pytest.mark.licensed),
 ]

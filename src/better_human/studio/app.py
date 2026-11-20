@@ -26,9 +26,11 @@ if TYPE_CHECKING:
     from viser import SceneClickEvent, SceneRectSelectEvent
 
 _DIM = 0.35  #: mesh opacity factor while a joint is selected
-_FAMILIES = ("smpl", "smplx", "mhr")  #: Model-tab choices
+_FAMILIES = ("smpl", "smplx", "mhr")  #: the Model section's choices
 _GENDERS = ("neutral", "male", "female")
 _MHR_LODS = 7
+#: The sidebar sections a body swap builds again, in their order (Status and Model stay).
+_BODY_SECTIONS = ("Display", "Body", "Pose", "Segment", "Frames")
 
 
 def _family(name: str) -> str:
@@ -40,11 +42,6 @@ def _family(name: str) -> str:
     return family
 
 
-#: Where viser listens unless told otherwise: this machine only, BetterRobot's viewer port.
-DEFAULT_HOST = "127.0.0.1"
-DEFAULT_PORT = 8080
-
-
 @final
 class HumanStudio:
     """Pose, shape, segment and frame-edit one body family in the browser.
@@ -53,7 +50,8 @@ class HumanStudio:
     ``"frames"`` (add a frame on the nearest vertex). ``data_root`` is the directory the studio reads and writes its
     segmentations, frame sets and poses in; the weights come from ``better_human.io.models_dir()``. ``family`` is
     ``"smpl"``, ``"smplx"`` or ``"mhr"``; another raises :class:`~better_robot.exceptions.UnknownNameError`.
-    ``generator`` draws the random shapes. ``server`` injects a viser-compatible server (tests).
+    ``generator`` draws the random shapes. ``host`` and ``port`` default to the viewer's (``127.0.0.1:8080``);
+    ``server`` injects a viser-compatible server instead (tests).
     """
 
     def __init__(
@@ -63,8 +61,8 @@ class HumanStudio:
         family: str = "smpl",
         gender: str = "neutral",
         lod: int = 1,
-        port: int = DEFAULT_PORT,
-        host: str = DEFAULT_HOST,
+        port: int | None = None,
+        host: str | None = None,
         generator: np.random.Generator,
         density: float | None = None,
         server: Any = None,
@@ -79,7 +77,8 @@ class HumanStudio:
         started = time.perf_counter()
         body = self._load_body()
         self.session = StudioSession(body, self._key(), self._default_frames(body))
-        self.viewer = Viewer(host=host, port=port, theme=HUMAN_THEME, server=server)
+        self.viewer = Viewer(host=host, port=port, theme=HUMAN_THEME, ground=False, server=server)
+        self.sidebar = self.viewer.sidebar
         self.layers = StudioLayers(self.viewer, self.session, theme=self.viewer.theme)
         self.gizmo = GizmoController(self.viewer, self.session, on_status=self.set_status)
         self.segment = SegmentEditor(self)
@@ -87,7 +86,6 @@ class HumanStudio:
         self.session.subscribe(self._on_change)
         self._build_sidebar()
         self.viewer.on_pointer("click", self.locked(self.on_click))
-        self.viewer.show()
         self.set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
 
     def __repr__(self) -> str:
@@ -115,121 +113,130 @@ class HumanStudio:
         return {name: FrameEntry(int(vertex)) for name, vertex in zip(frames.names, frames.vertex_ids, strict=True)}
 
     def _build_sidebar(self) -> None:
-        gui = self.viewer.server.gui
-        self.status_text = gui.add_markdown("")
-        # Built once above the tab group, so a model switch (which rebuilds only the tabs) keeps this row on top.
-        self.selection_text = gui.add_markdown("")
-        # Plain buttons: viser's button group never wraps and clips at the sidebar edge.
-        self.actions: dict[str, Any] = {}
-        for action in ("Reset pose", "Deselect joint", "Deselect frame"):
-            self.actions[action] = gui.add_button(action)
-            self.actions[action].on_click(self.locked(lambda _event, action=action: self.run_action(action)))
-        self._show_selection()
-        self._build_tabs()
-
-    def _build_tabs(self) -> None:
-        # Every tab depends on the body, so a model switch removes the tab group and builds it again.
-        gui = self.viewer.server.gui
-        self.tabs = tabs = gui.add_tab_group()
-        self._tab_list = [tabs.add_tab(label) for label in ("Model", "Body", "Display", "Segment", "Frames")]
-        model_tab, body_tab, display_tab, segment_tab, frames_tab = self._tab_list
-        with model_tab:
-            self.family_input = gui.add_dropdown("Family", options=_FAMILIES, initial_value=self.family)
+        # Status and Model stay for the whole run; the sections after them depend on the body (_build_body_sections).
+        sidebar, gui = self.sidebar, self.sidebar.gui
+        with sidebar.section("Status"):
+            self.status_text = gui.add_markdown("")
+            self.selection_text = gui.add_markdown("")
+        self.actions = {
+            action: sidebar.button("Status", action, on_click=self.locked(lambda _=None, action=action: self.run_action(action)))
+            for action in ("Reset pose", "Deselect joint", "Deselect frame")
+        }  # fmt: skip
+        self.family_input = sidebar.dropdown(
+            "Model", "Family", options=_FAMILIES, value=self.family, on_change=self.locked(self._sync_model_inputs)
+        )
+        with sidebar.section("Model"):
             self.gender_input = gui.add_dropdown(
                 "Gender", options=_GENDERS, initial_value=self.gender, disabled=self.family == "mhr"
             )
             self.lod_input = gui.add_slider(
                 "LOD", min=0, max=_MHR_LODS - 1, step=1, initial_value=self.lod, disabled=self.family != "mhr"
             )
-            self.family_input.on_update(self.locked(lambda _event: self._sync_model_inputs()))
-            gui.add_button("Load").on_click(
-                self.locked(
-                    lambda _event: self.load_model(
-                        self.family_input.value, gender=self.gender_input.value, lod=int(self.lod_input.value)
-                    )
+        sidebar.button(
+            "Model",
+            "Load",
+            on_click=self.locked(
+                lambda _=None: self.load_model(
+                    self.family_input.value, gender=self.gender_input.value, lod=int(self.lod_input.value)
                 )
+            ),
+        )
+        self._build_body_sections()
+        self._show_selection()
+
+    def _build_body_sections(self) -> None:
+        sidebar, gui, layers = self.sidebar, self.sidebar.gui, self.layers
+        sidebar.dropdown(
+            "Display", "Colour", options=("skin", "segmentation", "parts"), value=layers.mode,
+            on_change=self.locked(layers.set_mode),
+        )  # fmt: skip
+        sidebar.slider(
+            "Display", "Opacity", low=0.1, high=1.0, step=0.05, value=self.opacity,
+            on_change=self.locked(lambda value: self.set_opacity(float(value))),
+        )  # fmt: skip
+        sidebar.slider(
+            "Display", "Joint radius", low=0.005, high=0.05, step=0.005, value=layers.radius,
+            on_change=self.locked(lambda value: layers.set_radius(float(value))),
+        )  # fmt: skip
+        sidebar.slider(
+            "Display", "Explode", low=0.0, high=1.0, step=0.05, value=layers.explode,
+            on_change=self.locked(lambda value: layers.set_explode(float(value))),
+        )  # fmt: skip
+        self.shape_sliders: dict[str, list[Any]] = {}
+        for group, width in self.session.body.spec.identity_groups.items():
+            self.shape_sliders[group] = [
+                sidebar.slider(
+                    "Body",
+                    f"{group}[{k}]",
+                    low=-5.0,
+                    high=5.0,
+                    step=0.05,
+                    value=0.0,
+                    on_change=self.locked(lambda _, group=group: self.apply_shape(group)),
+                )  # fmt: skip
+                for k in range(min(width, 10))
+            ]
+            sidebar.button("Body", f"Reset {group}", on_click=self.locked(lambda _=None, g=group: self.reset_shape(g)))
+            sidebar.button(
+                "Body", f"Random {group}", on_click=self.locked(lambda _=None, g=group: self.random_shape(g))
             )
-        with body_tab:
-            gui.add_markdown(f"**{self.family}** {self.gender if self.family != 'mhr' else f'lod {self.lod}'}")
-            self.shape_sliders: dict[str, list[Any]] = {}
-            for group, width in self.session.body.spec.identity_groups.items():
-                sliders = [
-                    gui.add_slider(f"{group}[{k}]", min=-5.0, max=5.0, step=0.05, initial_value=0.0)
-                    for k in range(min(width, 10))
-                ]
-                for slider in sliders:
-                    slider.on_update(self.locked(lambda _event, group=group: self.apply_shape(group)))
-                self.shape_sliders[group] = sliders
-                gui.add_button(f"Reset {group}").on_click(
-                    self.locked(lambda _event, group=group: self.reset_shape(group))
-                )
-                gui.add_button(f"Random {group}").on_click(
-                    self.locked(lambda _event, group=group: self.random_shape(group))
-                )
-            tables = tuple(self.session.body.spec.parts.density_tables)
+        tables = tuple(self.session.body.spec.parts.density_tables)
+        with sidebar.section("Body"):
             if tables:
-                self._uniform = f"uniform {self.density:g} kg/m^3"
+                self._uniform = f"uniform {self._uniform_density:g} kg/m^3"
                 self.density_input = gui.add_dropdown(
                     "Density table", options=(self._uniform, *tables), initial_value=self._uniform
                 )
             else:
-                self.density_input = gui.add_number("Density (kg/m^3)", initial_value=self.density)
-            gui.add_button("Apply density").on_click(self.locked(lambda _event: self.reload(self.chosen_density())))
-            self.pose_name = gui.add_text("Pose name", initial_value="pose")
-            gui.add_button("Save pose").on_click(self.locked(lambda _event: self.save_pose(self.pose_name.value)))
-            self.saved_poses = gui.add_dropdown("Saved poses", options=self._pose_options())
-            gui.add_button("Load pose").on_click(self.locked(lambda _event: self.load_pose(self.saved_poses.value)))
+                self.density_input = gui.add_number("Density (kg/m^3)", initial_value=self._uniform_density)
+        sidebar.button("Body", "Apply density", on_click=self.locked(lambda _=None: self.reload(self.chosen_density())))
+        with sidebar.section("Body"):
             self.mass_text = gui.add_markdown("")
-        # Visibility lives only in the viewer's Layers folder (one checkbox per layer).
-        with display_tab:
-            opacity = gui.add_slider("Opacity", min=0.1, max=1.0, step=0.05, initial_value=1.0)
-            opacity.on_update(self.locked(lambda _event: self.set_opacity(float(opacity.value))))
-            radius = gui.add_slider("Joint radius", min=0.005, max=0.05, step=0.005, initial_value=self.layers.radius)
-            radius.on_update(self.locked(lambda _event: self.layers.set_radius(float(radius.value))))
-            explode = gui.add_slider("Explode", min=0.0, max=1.0, step=0.05, initial_value=0.0)
-            explode.on_update(self.locked(lambda _event: self.layers.set_explode(float(explode.value))))
-        with segment_tab:
-            self.segment.build(gui)
-        with frames_tab:
-            self.frames.build(gui)
+        with sidebar.section("Pose"):
+            self.pose_name = gui.add_text("Pose name", initial_value="pose")
+            self.saved_poses = gui.add_dropdown("Saved poses", options=self._pose_options())
+        sidebar.button("Pose", "Save pose", on_click=self.locked(lambda _=None: self.save_pose(self.pose_name.value)))
+        sidebar.button("Pose", "Load pose", on_click=self.locked(lambda _=None: self.load_pose(self.saved_poses.value)))
+        self.segment.build(sidebar)
+        self.frames.build(sidebar)
         self._update_mass()
 
-    def locked(self, callback: Callable[[Any], None]) -> Callable[[Any], None]:
-        """Wrap a GUI or scene callback so it runs under ``session.lock`` and shows a refused edit on the status line.
+    def locked(self, callback: Callable[[Any], None]) -> Callable[..., None]:
+        """Wrap a sidebar or scene callback so it runs under the viewer's lock and ``session.lock`` and shows a refused
+        edit on the status line; the wrapper takes the control's value, the scene event, or nothing (a button).
 
         A ``BetterRobotError`` (a file of another format, data authored on another body, parts that do not close)
         is the user's to fix, so the app shows its message instead of stopping the callback thread; any other
         exception propagates.
         """
 
-        def run(event: Any) -> None:
-            with self.session.lock:
+        def run(argument: Any = None) -> None:
+            with self.viewer.lock, self.session.lock:
                 try:
-                    callback(event)
+                    callback(argument)
                 except BetterRobotError as error:
                     self.set_status(f"{type(error).__name__}: {error}")
 
         return run
 
-    def _sync_model_inputs(self) -> None:
-        mhr = self.family_input.value == "mhr"
+    def _sync_model_inputs(self, family: str) -> None:
+        mhr = family == "mhr"
         self.gender_input.disabled, self.lod_input.disabled = mhr, not mhr
 
     def load_model(self, family: str, *, gender: str = "neutral", lod: int = 1) -> None:
-        """Switch to another body (``family``, SMPL-family ``gender`` or MHR ``lod``) and rebuild the tabs."""
+        """Switch to another body (``family``, SMPL-family ``gender`` or MHR ``lod``) and rebuild the sections that
+        depend on it."""
         started = time.perf_counter()
+        family = _family(family)
         self.set_mode("pose")
-        self.family, self.gender, self.lod = _family(family), gender, lod
+        self.family, self.gender, self.lod = family, gender, lod
         self.density = self._uniform_density  # density tables are per family; start uniform
         body = self._load_body()
         self.session.load_body(body, self._key(), self._default_frames(body))
         self.frames.active = None  # frame names belong to the previous model
-        # viser's GuiTabGroupHandle.remove() marks the group removed before removing its tabs, and each tab
-        # then writes to the removed group and raises; removing the tabs first avoids that.
-        for tab in self._tab_list:
-            tab.remove()
-        self.tabs.remove()
-        self._build_tabs()
+        for section in _BODY_SECTIONS:
+            self.sidebar.remove(section)
+        self._build_body_sections()
         self.set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
 
     def set_status(self, message: str) -> None:
@@ -247,7 +254,7 @@ class HumanStudio:
         self.selection_text.content = f"{model} · joint: {joint_name} · frame: {frame}"
 
     def run_action(self, action: str) -> None:
-        """Run a selection-row button: ``"Reset pose"``, ``"Deselect joint"`` or ``"Deselect frame"``."""
+        """Run a Status button: ``"Reset pose"``, ``"Deselect joint"`` or ``"Deselect frame"``."""
         if action == "Reset pose":
             self.session.reset_pose()
         elif action == "Deselect joint":
@@ -256,7 +263,7 @@ class HumanStudio:
             self.deselect_frame()
 
     def deselect_frame(self) -> None:
-        """Drop the frame the Frames tab acts on and its vertex highlight (as deleting a frame does)."""
+        """Drop the frame the Frames section acts on and its vertex highlight (as deleting a frame does)."""
         self.frames.active = None
         self.layers.set_edit_vertices([])
         self._show_selection()
@@ -268,10 +275,10 @@ class HumanStudio:
             self.select_joint(None)
         if mode != "segment" and self.segment.painting:
             self.segment.painting = False
-            self.segment.paint_toggle.value = False
+            self.sidebar.set_value("Segment", "Paint (click mesh)", value=False)
         if mode != "frames" and self.frames.adding:
             self.frames.adding = False
-            self.frames.add_toggle.value = False
+            self.sidebar.set_value("Frames", "Add frames (click mesh)", value=False)
 
     def select_joint(self, joint: int | None) -> None:
         """Attach the gizmo to ``joint`` (native index) and highlight its sphere; ``None`` clears both."""
@@ -360,17 +367,19 @@ class HumanStudio:
         values = [float(slider.value) for slider in self.shape_sliders[group]] + [0.0] * width
         self.session.set_shape(**{group: self.session.shape_tensor(group, values[:width])})
 
+    def _set_sliders(self, group: str, values: list[float]) -> None:
+        """Show ``values`` on the ``group`` sliders without running their callbacks, then apply them once."""
+        for k, value in enumerate(values):
+            self.sidebar.set_value("Body", f"{group}[{k}]", value=value)
+        self.apply_shape(group)
+
     def reset_shape(self, group: str) -> None:
         """Zero the ``group`` sliders and coefficients."""
-        for slider in self.shape_sliders[group]:
-            slider.value = 0.0
-        self.apply_shape(group)
+        self._set_sliders(group, [0.0] * len(self.shape_sliders[group]))
 
     def random_shape(self, group: str) -> None:
         """Draw the ``group`` sliders from ``N(0, 1)``."""
-        for slider in self.shape_sliders[group]:
-            slider.value = round(float(self.generator.normal()), 2)
-        self.apply_shape(group)
+        self._set_sliders(group, [round(float(self.generator.normal()), 2) for _ in self.shape_sliders[group]])
 
     def chosen_density(self) -> float | str:
         """The density control's value: kg/m^3, or a table name for SMPL / SMPL-H."""
@@ -432,9 +441,8 @@ class HumanStudio:
         self.mass_text.content = "mass: n/a" if mass is None else f"mass: {float(mass):.2f} kg"
 
     def run(self) -> None:
-        """Block until interrupted."""
-        while True:
-            time.sleep(1.0)
+        """Serve the page until interrupted."""
+        self.viewer.serve()
 
 
 def launch(
@@ -444,8 +452,8 @@ def launch(
     family: str = "smpl",
     gender: str = "neutral",
     lod: int = 1,
-    port: int = DEFAULT_PORT,
-    host: str = DEFAULT_HOST,
+    port: int | None = None,
+    host: str | None = None,
     density: float | None = None,
 ) -> None:
     """Build a :class:`HumanStudio` (the arguments are its constructor's), print the URL it serves and block until

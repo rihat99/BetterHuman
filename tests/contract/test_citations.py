@@ -38,7 +38,7 @@ FROZEN_RECORD_CITATIONS: dict[str, str] = {
         "now src/better_human/core/skinning.py::skin_affines"
     ),
     f"{_RECORDS}0003-one-skinning-path.md: viz/human_layers.py::skinned_layer": (
-        "now src/better_human/viz/layers.py::skinned_layer"
+        "now src/better_human/viz/layers.py::skin"
     ),
     f"{_RECORDS}0005-dtype-and-device-at-load.md: core/rig.py": _PACKAGE_RELATIVE,
     f"{_RECORDS}0005-dtype-and-device-at-load.md: families/mhr_rig.py": _PACKAGE_RELATIVE,

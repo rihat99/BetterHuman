@@ -4,20 +4,18 @@ from .layers import (
     HUMAN_THEME,
     HumanView,
     forces_layer,
-    frames_layer,
     human_layers,
     mesh_layer,
-    skeleton_layer,
-    skinned_layer,
+    skeleton_layers,
+    skin,
 )
 
 __all__ = [
     "HUMAN_THEME",
     "HumanView",
     "forces_layer",
-    "frames_layer",
     "human_layers",
     "mesh_layer",
-    "skeleton_layer",
-    "skinned_layer",
+    "skeleton_layers",
+    "skin",
 ]

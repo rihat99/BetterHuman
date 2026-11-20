@@ -28,14 +28,7 @@ ENVIRON_WRITES = {"update", "setdefault", "pop", "popitem", "clear", "__setitem_
 
 @cache
 def _public_paths() -> frozenset[str]:
-    packages = [
-        "better_human",
-        "better_robot",
-        # The one exception (rules H-LAYER-2, H-STUDIO-1): the studio imports better_robot.viewer.tools, which is
-        # outside BetterRobot's __all__ tree; BetterRobot's owner decides whether it becomes public (record 0021).
-        "better_robot.viewer.tools",
-    ]
-    return frozenset(path for package in packages for path in public_objects(package))
+    return frozenset(path for package in LIBRARIES for path in public_objects(package))
 
 
 def _private(name: str) -> bool:

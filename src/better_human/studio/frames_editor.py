@@ -33,28 +33,40 @@ class FramesEditor:
     def session(self) -> StudioSession:
         return self.studio.session
 
-    def build(self, gui: Any) -> None:
-        """Add the Frames tab controls to ``gui``."""
-        self.add_toggle = gui.add_checkbox("Add frames (click mesh)", initial_value=False)
-        self.add_toggle.on_update(self.studio.locked(lambda _event: self.set_adding(bool(self.add_toggle.value))))
-        self.frame_dropdown = gui.add_dropdown("Frame", options=self._names(), initial_value=self._names()[0])
-        self.frame_dropdown.on_update(self.studio.locked(lambda _event: self.select_frame(self.frame_dropdown.value)))
-        self.rename_text = gui.add_text("Name", initial_value="")
-        gui.add_button("Rename").on_click(
-            self.studio.locked(lambda _event: self.rename(self.active, self.rename_text.value))
+    def build(self, sidebar: Any) -> None:
+        """Add the Frames section to the viewer's ``Sidebar``."""
+        locked, gui = self.studio.locked, sidebar.gui
+        self.add_toggle = sidebar.checkbox(
+            "Frames",
+            "Add frames (click mesh)",
+            value=False,
+            on_change=locked(lambda value: self.set_adding(bool(value))),
         )
-        joints = (_DEFAULT_JOINT, *self.session.body.spec.joint_names)
-        self.joint_dropdown = gui.add_dropdown("Parent joint", options=joints, initial_value=_DEFAULT_JOINT)
-        self.joint_dropdown.on_update(
-            self.studio.locked(lambda _event: self.set_joint(self.active, self.joint_dropdown.value))
+        self.frame_dropdown = sidebar.dropdown(
+            "Frames", "Frame", options=self._names(), value=self._names()[0], on_change=locked(self.select_frame)
         )
-        gui.add_button("Delete").on_click(self.studio.locked(lambda _event: self.delete(self.active)))
-        self.saved = gui.add_dropdown("Saved", options=self._saved_options(), initial_value=self._saved_options()[0])
-        gui.add_button("Load frames").on_click(self.studio.locked(lambda _event: self.load(self.saved.value)))
-        self.save_name = gui.add_text("Save as", initial_value="frames")
-        gui.add_button("Save frames").on_click(self.studio.locked(lambda _event: self.save(self.save_name.value)))
-        gui.add_button("Export as config").on_click(self.studio.locked(lambda _event: self.export()))
-        self.export_box = gui.add_markdown("")
+        with sidebar.section("Frames"):
+            self.rename_text = gui.add_text("Name", initial_value="")
+        sidebar.button(
+            "Frames", "Rename", on_click=locked(lambda _=None: self.rename(self.active, self.rename_text.value))
+        )
+        self.joint_dropdown = sidebar.dropdown(
+            "Frames", "Parent joint", options=self._joints(), value=_DEFAULT_JOINT,
+            on_change=locked(lambda joint: self.set_joint(self.active, joint)),
+        )  # fmt: skip
+        sidebar.button("Frames", "Delete", on_click=locked(lambda _=None: self.delete(self.active)))
+        with sidebar.section("Frames"):
+            self.saved = gui.add_dropdown("Saved", options=self._saved_options())
+        sidebar.button("Frames", "Load frames", on_click=locked(lambda _=None: self.load(self.saved.value)))
+        with sidebar.section("Frames"):
+            self.save_name = gui.add_text("Save as", initial_value="frames")
+        sidebar.button("Frames", "Save frames", on_click=locked(lambda _=None: self.save(self.save_name.value)))
+        sidebar.button("Frames", "Export as config", on_click=locked(lambda _=None: self.export()))
+        with sidebar.section("Frames"):
+            self.export_box = gui.add_markdown("")
+
+    def _joints(self) -> tuple[str, ...]:
+        return (_DEFAULT_JOINT, *self.session.body.spec.joint_names)
 
     def _saved_options(self) -> tuple[str, ...]:
         return tuple(persistence.list_saved(self.studio.paths.frame_dir(self.session.model_key))) or ("(none)",)
@@ -93,10 +105,11 @@ class FramesEditor:
         self.active = name
         self.refresh()
         entry = self.session.frame_set[name]
-        self.frame_dropdown.value = name
+        sidebar = self.studio.sidebar
+        sidebar.set_value("Frames", "Frame", value=name)
         self.rename_text.value = name
         joint = _DEFAULT_JOINT if entry.joint is None else self.session.body.spec.joint_names[entry.joint]
-        self.joint_dropdown.value = joint
+        sidebar.set_value("Frames", "Parent joint", value=joint)
         self.studio.layers.set_edit_vertices([entry.vertex])
         self.studio.set_status(f"frame {name!r}: vertex {entry.vertex}, joint {joint}")
 
