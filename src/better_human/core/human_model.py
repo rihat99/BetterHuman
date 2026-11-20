@@ -467,7 +467,7 @@ def _checked(name: str, value: object, shape: tuple[int, ...], exemplar: torch.T
 
 
 def _density(density: str | float | torch.Tensor, spec: FamilySpec) -> torch.Tensor:
-    """``()`` or ``(P,)`` kg/m³ on the spec's dtype and device; never casts a tensor (decision record 0007)."""
+    """``()`` or ``(P,)`` kg/m³ on the spec's dtype and device; never casts a tensor."""
     parts, exemplar = spec.parts, spec.template_vertices
     if isinstance(density, str):
         return part_densities(

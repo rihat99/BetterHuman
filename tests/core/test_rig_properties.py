@@ -1,4 +1,4 @@
-"""Decision records 0002 and 0003: every rig's bake and forward kinematics agree through the one skinning path.
+"""Every rig's bake and forward kinematics agree through the one skinning path.
 
 Oracle: the bake itself. At ``q_neutral``, ``skin_affines`` (forward kinematics composed with the baked
 ``inverse_bind_affines``) carry every baked rest joint (``RigBake.rest_joint_translations``, the native joints in the

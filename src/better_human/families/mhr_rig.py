@@ -103,7 +103,7 @@ class MHRRig(Rig):
         """Placements and scaled inverse binds for the proportions ``identity["proportions"] (I..., P)``.
 
         The accumulated joint scales ``s`` fold into the inverse binds ``[s R_b | t_b - (s - 1) R_b c]`` (bind rotation
-        ``R_b``, translation ``t_b``, pivot ``c``), so skinning is one affine per joint (decision record 0003). Each
+        ``R_b``, translation ``t_b``, pivot ``c``), so skinning is one affine per joint. Each
         affine carries its pivot ``c`` to the joint whatever the proportions, so the rest joints are the pivots.
         """
         proportions = identity["proportions"]

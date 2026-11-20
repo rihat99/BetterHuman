@@ -6,9 +6,8 @@ Usage (from the repository root)::
     uv run python benchmarks/run.py                     # the counter rows with wall time
     NUMPY_MADVISE_HUGEPAGE=0 uv run python benchmarks/run.py --licensed   # also the sweep and the load rows
 
-Counter rows (principle 5.8; BetterRobot decision record 0011) run on the tracked random-weight archives
-(``tests/support/random_weights``, decision record 0016), so the gate needs no licensed weights. Those archives have
-the families' vertex and joint counts but a random kinematic tree and face strip: graph breaks, recompiles and host
+Counter rows (principle 5.8) run on the tracked random-weight archives (``tests/support/random_weights``), so the
+gate needs no licensed weights. Those archives have the families' vertex and joint counts but a random kinematic tree and face strip: graph breaks, recompiles and host
 syncs equal the licensed archives', the operator counts do not. Rows: ``fk_vertices/smplx/B{1,64}``
 (``identity.forward(q).vertices`` of one baked SMPL-X identity without part inertias), ``fk_streams/smplx/B{1,64}``
 (the same with the expression stream), ``joint_poses/smplx/B{1,64}`` (``identity.forward(q).joint_poses``),
@@ -16,9 +15,9 @@ syncs equal the licensed archives', the operator counts do not. Rows: ``fk_verti
 placements cached by the warm-up call), ``to_classic/smplx/B{1,64}`` (``better_human.to_classic(identity, q)``),
 ``bake_forward/smpl/B{1,64}``
 (``body.bake(betas=betas).forward(q).vertices``, one identity per pose, ``density=None``) and
-``bake_forward_dempster/smpl/B{1,64}`` (the same with the default ``density="Dempster"``: 24 part inertias per bake,
-decision record 0007), in the neutral pose with seeded identity coefficients. Each has four counters, deterministic for
-one torch version and device: ``graph_breaks`` (``torch._dynamo.explain``), ``recompiles`` (frames compiled when
+``bake_forward_dempster/smpl/B{1,64}`` (the same with the default ``density="Dempster"``: 24 part inertias per
+bake), in the neutral pose with seeded identity coefficients. Each has four counters, deterministic for one torch
+version and device: ``graph_breaks`` (``torch._dynamo.explain``), ``recompiles`` (frames compiled when
 ``torch.compile(fn, backend="eager")``, first called at the row's batch, is called at each batch of ``SWEEP``),
 ``ops`` (top-level ``aten::`` operators of one call) and ``host_syncs`` (calls of the operators that make the host
 wait for a CUDA queue, ``SYNC_OPS``). The run exits 1 when a counter row exceeds its threshold in
@@ -34,8 +33,7 @@ stream, except MHR's expression; SMPL-X also with its expression stream moving t
 ``expression_stream_joints``, and not, ``expression_frozen_joints``), and BetterRobot's ``fk`` and ``rnea`` (on a
 precomputed state) on the baked model; MHR's parity oracle, its released TorchScript model, beside them (variant
 ``torchscript``). Load rows ``load/{smpl,smplx,mhr_lod1,soma}``: the family loader's time beside the raw read of the
-same archive (each member's bytes, then ``np.load`` of every member without object dtype) and their ``ratio``
-(decision record 0013).
+same archive (each member's bytes, then ``np.load`` of every member without object dtype) and their ``ratio``.
 
 Wall time is the median of up to ``--repeats`` calls (at least 3; fewer once a row passes ``ROW_BUDGET_S``) after one
 warm-up call, with the minor page faults per call; the counters are taken after it. It is recorded, never gated: the
@@ -85,7 +83,7 @@ from torch.profiler import ProfilerActivity, profile
 import better_human as bh
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ARCHIVES = REPO_ROOT / "tests" / "support" / "random_weights"  # tracked random weights (record 0016): no licence
+ARCHIVES = REPO_ROOT / "tests" / "support" / "random_weights"  # tracked random weights: no licence
 THRESHOLDS = REPO_ROOT / "benchmarks" / "thresholds" / f"torch-{torch.__version__.split('+')[0]}.json"
 DTYPE = torch.float32
 ROW_BUDGET_S = 2.0

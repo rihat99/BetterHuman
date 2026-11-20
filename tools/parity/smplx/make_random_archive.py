@@ -1,4 +1,4 @@
-"""Write a seeded random-weight SMPL, SMPL-H or SMPL-X archive in the upstream layout (decision record 0016).
+"""Write a seeded random-weight SMPL, SMPL-H or SMPL-X archive in the upstream layout.
 
 The archive has the family's native vertex and joint counts and the fields and dtypes that BetterHuman's loader and
 the ``smplx`` oracle read, but every array is drawn from one seeded generator: no number comes from licensed

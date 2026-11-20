@@ -2,13 +2,12 @@
 
 ``better_robot.testing.snippets.check_page`` does the run and the comparison (its docstring has the rules: seeded,
 CPU only, a fake viser server, floats to half a unit of their last printed digit, an opt-out only with a reason).
-A page runs on the random-weight archives of ``tests/support/random_weights/`` (decision record 0016) with
-``$BETTERHUMAN_MODELS_DIR`` unset and an audit hook (``WEIGHTS_GUARD``, installed in the runner's interpreter through
-a ``sitecustomize``) that refuses to open a weights file outside ``tests/support/`` and the packaged assets, so a
-fence that reaches for licensed weights fails, by the variable or by an explicit path; a page that needs them is a
-key of ``LICENSED``, with its reason, and runs in the release tier. A decision record's fences never run: an accepted
-record keeps its text (principle 8.2), so its example shows the API as decided, not as it is now. This module also
-checks that output fences dock under a Python fence and that every referenced image exists.
+A page runs on the random-weight archives of ``tests/support/random_weights/`` with ``$BETTERHUMAN_MODELS_DIR`` unset
+and an audit hook (``WEIGHTS_GUARD``, installed in the runner's interpreter through a ``sitecustomize``) that refuses
+to open a weights file outside ``tests/support/`` and the packaged assets, so a fence that reaches for licensed weights
+fails, by the variable or by an explicit path; a page that needs them is a key of ``LICENSED``, with its reason, and
+runs in the release tier. This module also checks that output fences dock under a Python fence and that every
+referenced image exists.
 """
 
 from __future__ import annotations
@@ -22,7 +21,6 @@ from better_robot.testing.snippets import check_page
 
 REPO = Path(__file__).parents[2]
 DOCS = REPO / "docs"
-RECORDS = DOCS / "contracts" / "decisions"
 OUTPUT_FENCE = re.compile(
     r"^(?P<indent>[ \t]*)```[ \t]*output[^\n]*\n(?P<body>.*?)^[ \t]*```[ \t]*$", re.MULTILINE | re.DOTALL
 )
@@ -67,11 +65,7 @@ def _name(page: Path) -> str:
 
 @pytest.mark.parametrize(
     "page",
-    [
-        pytest.param(p, id=_name(p), marks=[pytest.mark.licensed] if _name(p) in LICENSED else [])
-        for p in _pages()
-        if not p.is_relative_to(RECORDS)
-    ],
+    [pytest.param(p, id=_name(p), marks=[pytest.mark.licensed] if _name(p) in LICENSED else []) for p in _pages()],
 )
 def test_page_fences_run_and_print_their_output_fences(
     page: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path

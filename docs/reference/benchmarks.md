@@ -24,9 +24,7 @@ Load rows, the family loader against the raw read of the same archive, ms (ratio
 | `load/mhr_lod1` | 704.5 / 1018.2 (0.69) | 685.1 / 969.4 (0.71) |
 | `load/soma` | 376.5 / 115.5 (3.26) | 333.6 / 77.7 (4.29) |
 
-SOMA's loader takes three to four times its raw read, above the 1.5 times decision record
-[0013](../contracts/decisions/0013-bh-package-data-and-load-speed.md) names (open question 1 of record
-[0024](../contracts/decisions/0024-archive-load-speed-measured-again.md)).
+SOMA's loader takes three to four times its raw read, above the 1.5 times the other families stay under.
 
 ## The earlier runner at commit 9ad4093
 

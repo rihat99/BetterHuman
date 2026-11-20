@@ -1,6 +1,6 @@
 """Headless HumanStudio tests on BetterRobot's stand-in viser server, ``better_robot.testing.FakeServer``.
 
-The unmarked tests run the app on the random-weight SMPL archive (record 0016) in the full tier, found through
+The unmarked tests run the app on the random-weight SMPL archive in the full tier, found through
 ``$BETTERHUMAN_MODELS_DIR`` as a user's weights are; the ``licensed`` ones on the real weights.
 """
 
@@ -58,7 +58,7 @@ def random_studio(tmp_path: Path, random_models: Path) -> HumanStudio:
 
 
 def test_the_studio_runs_on_the_stand_in_server(random_studio: HumanStudio) -> None:
-    """Smoke test (record 0009): load, pose, shape, segment, frame and save on the random-weight archive."""
+    """Smoke test: load, pose, shape, segment, frame and save on the random-weight archive."""
     studio = random_studio
     assert studio.status.startswith("smpl_neutral loaded")
     joint = studio.session.state.joint_translations.detach().reshape(-1, 3)[5].numpy()
@@ -83,7 +83,7 @@ def test_the_studio_runs_on_the_stand_in_server(random_studio: HumanStudio) -> N
 
 
 def test_every_control_drives_the_state_it_names(random_studio: HumanStudio) -> None:
-    """Smoke test (record 0009): every GUI control and the pose gizmo is fired as the browser fires it, and the
+    """Smoke test: every GUI control and the pose gizmo is fired as the browser fires it, and the
     session field, layer, scene node or file it drives is checked. A control with a callback that is neither removed
     nor fired fails.
     """

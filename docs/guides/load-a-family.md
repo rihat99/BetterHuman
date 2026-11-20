@@ -1,7 +1,7 @@
 # Load a family
 
 This guide points BetterHuman at your licensed weights and loads each family with its options. BetterHuman never
-downloads or ships weights (decision record [0017](../contracts/decisions/0017-models-directory.md)): register at
+downloads or ships weights: register at
 the [SMPL](https://smpl.is.tue.mpg.de/) or [SMPL-X](https://smpl-x.is.tue.mpg.de/) site and download the files
 there, and take MHR and SOMA from their authors' releases. [Convert weights](convert-weights.md) turns the files
 that need it into the archives below.
@@ -61,8 +61,7 @@ wins over the folder.
 
 ## Choose dtype and device at load
 
-Dtype and device are chosen once, by the loader (decision record
-[0005](../contracts/decisions/0005-dtype-and-device-at-load.md)); no BetterHuman object has `to`, and a tensor in
+Dtype and device are chosen once, by the loader; no BetterHuman object has `to`, and a tensor in
 another dtype than the model's raises instead of being cast.
 
 ```python
@@ -78,8 +77,7 @@ torch.float64 cpu
 ## Pass family options
 
 Gender, the number of shape coefficients, the level of detail and the partial-model switches are the loader's
-options; `HumanModel.from_spec` takes the loader's `FamilySpec` and the options of the body (decision record
-[0006](../contracts/decisions/0006-level-one-loader.md)). `hands=False` and `face=False` load SMPL-X without its hand
+options; `HumanModel.from_spec` takes the loader's `FamilySpec` and the options of the body. `hands=False` and `face=False` load SMPL-X without its hand
 and face joints and without its expression group:
 
 ```python
@@ -93,8 +91,7 @@ print(len(spec.joint_names), human.model.nq, dict(spec.identity_bases)["betas"].
 22 91 10 []
 ```
 
-`density=None` builds the body without masses; the default is the `"Dempster"` density table (decision record
-[0007](../contracts/decisions/0007-mass-and-density.md)), and a float is a uniform density in kg/m³. MHR takes
+`density=None` builds the body without masses; the default is the `"Dempster"` density table, and a float is a uniform density in kg/m³. MHR takes
 `families.mhr(lod=0)` to `lod=6`; MANO takes `side="left"`; `num_pca_comps=` fixes the hand pose width of SMPL-X and
 MANO at load. `families.drop_joints(spec, names)` removes any other terminal joint subtree of an SMPL-family spec.
 

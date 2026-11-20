@@ -1,6 +1,6 @@
 """One licence: the ``LICENSE`` text, the ``pyproject.toml`` licence and the README line all say Apache-2.0.
 
-Decision record 0018 (BetterHuman is licensed Apache-2.0, the same licence as BetterRobot). The README line also keeps
+BetterHuman is licensed Apache-2.0, the same licence as BetterRobot. The README line also keeps
 the rule that body-model weights and data derived from them have their own terms, which no code licence changes. No
 other code licence is named in the README or ``pyproject.toml``.
 """
@@ -39,7 +39,7 @@ def test_no_other_licence_is_claimed() -> None:
         for number, line in enumerate((REPO / name).read_text().splitlines(), 1)
         if OTHER_LICENCES.search(line)
     ]
-    assert not found, "a second licence claim (decision record 0018: Apache-2.0 only):\n" + "\n".join(found)
+    assert not found, "a second licence claim (Apache-2.0 only):\n" + "\n".join(found)
 
 
 def test_a_planted_licence_claim_is_found() -> None:

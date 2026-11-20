@@ -1,7 +1,7 @@
 """``FamilySpec``: a body family as data — mesh, skin weights, blend groups, corrective, rig, parts, landmarks.
 
-A family loader builds the spec once at the requested dtype and device (decision record 0005); nothing in
-BetterHuman moves or casts it afterwards. Every field has a type (record 0008): ``provenance`` is the only free-form
+A family loader builds the spec once at the requested dtype and device; nothing in
+BetterHuman moves or casts it afterwards. Every field has a type: ``provenance`` is the only free-form
 mapping. Every mapping field is a read-only copy (``MappingProxyType``), nested mappings too.
 """
 
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 class Corrective(ABC):
-    """Pose-dependent vertex offsets computed from the features the family's rig gives (record 0008)."""
+    """Pose-dependent vertex offsets computed from the features the family's rig gives."""
 
     @abstractmethod
     def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
@@ -87,7 +87,7 @@ class Parts:
     ``ids (V,)`` is the part of every vertex; ``joints[p]`` is the native joint whose body carries part ``p`` and
     whose rest pose is the part's reference frame. ``density_categories[p]`` is part ``p``'s key in the density
     tables, or ``None`` when no category covers it; ``density_tables`` maps a table name (``"Dempster"``) to category
-    -> kg/m³ (decision record 0007). ``closed_faces`` maps part ``p`` to the ``(F_p, 3)`` faces of its authored
+    -> kg/m³. ``closed_faces`` maps part ``p`` to the ``(F_p, 3)`` faces of its authored
     closed mesh over ``[rest_vertices; rest_joint_translations]``, or is ``None`` when the parts are closed from
     ``ids`` alone.
     """
@@ -133,7 +133,7 @@ class FamilySpec:
     influences, rows sum to one), blend groups ``(V, 3, n)``, ``file_joint_ids (J,)`` (the weight file's number of
     every kept joint; ``Rig.joint_ids`` is the BetterRobot numbering). ``identity_bases`` groups are baked once per
     subject (``HumanModel.bake``); ``stream_bases`` groups change per frame (``Identity.forward``). ``classic`` maps
-    the family's classic parameters (``better_human.from_classic``, decision record 0004).
+    the family's classic parameters (``better_human.from_classic``).
     """
 
     name: str

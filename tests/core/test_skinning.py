@@ -86,7 +86,7 @@ def test_skin_affines_with_rest_joint_binds_skin_about_the_rest_joints() -> None
     weights = weights / weights.sum(dim=-1, keepdim=True)
     inverse_binds = torch.cat((torch.eye(3, dtype=torch.float64).expand(5, 3, 3), -rest_joints[..., None]), dim=-1)
     affines = skin_affines(world, inverse_binds)
-    # The SMPL family's [I | -rest] bind is bitwise the rest-joint form (decision record 0003).
+    # The SMPL family's [I | -rest] bind is bitwise the rest-joint form.
     assert torch.equal(affines[..., :3], world[..., :3])
     assert torch.equal(affines[..., 3], world[..., 3] - (world[..., :3] @ rest_joints[..., None]).squeeze(-1))
     expected = torch.einsum("vj,bvjc->bvc", weights, _apply(world[:, None], rest_vertices[:, :, None] - rest_joints))
@@ -106,7 +106,7 @@ def test_skin_affines_with_scaled_inverse_binds_scale_about_the_bind_positions(s
     ones = torch.ones(3, 4, dtype=torch.float64)
     scales = ones + torch.rand(3, 4, generator=generator, dtype=torch.float64) - 0.5 if scaled else ones
     pivots = torch.randn(4, 3, generator=generator, dtype=torch.float64)
-    # MHR's fold [s R_b | t_b - (s - 1) R_b c] (decision record 0003).
+    # MHR's fold [s R_b | t_b - (s - 1) R_b c].
     rotations, translations = inverse_binds[..., :3], inverse_binds[..., 3]
     folded_translations = translations - (scales - 1.0)[..., None] * (rotations @ pivots[..., None]).squeeze(-1)
     folded = torch.cat((scales[..., None, None] * rotations, folded_translations[..., None]), dim=-1)

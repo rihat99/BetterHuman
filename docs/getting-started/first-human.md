@@ -2,8 +2,7 @@
 
 This page installs BetterHuman, loads an SMPL body, bakes a subject, poses a batch of four frames and shows them in
 the BetterRobot viewer. It needs no licensed weights: it reads the random-weight SMPL archive that the repository
-ships for its tests, `tests/support/random_weights/smpl_random.npz` (decision record
-[0016](../contracts/decisions/0016-random-weight-goldens.md)). Its arrays are random in SMPL's layout, so the body
+ships for its tests, `tests/support/random_weights/smpl_random.npz`. Its arrays are random in SMPL's layout, so the body
 looks like noise, but every call, name and shape on this page is the one the licensed SMPL file gives.
 
 ## Install with uv

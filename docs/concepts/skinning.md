@@ -18,7 +18,7 @@ A misspelled group name raises `UnknownNameError` naming the family's groups; an
 
 ## One skinning path
 
-Every rig skins the same way (decision record [0003](../contracts/decisions/0003-one-skinning-path.md)). Bake gives
+Every rig skins the same way. Bake gives
 each native joint an inverse-bind affine, the map from the skinning rest frame into that joint's frame. Forward
 kinematics gives each joint's world transform. Their product is the joint's skin affine, from the rest frame to the
 world, and linear blend skinning mixes the skin affines of each vertex's joints with its skinning weights. An affine

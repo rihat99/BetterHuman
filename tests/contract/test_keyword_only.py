@@ -74,7 +74,7 @@ def test_ratchet_names_only_violations() -> None:
 
 
 def test_load_shows_every_option_and_dispatches_to_every_family_loader() -> None:
-    """Record 0006: ``bh.load`` takes no ``**kwargs``, and its literal table is the loaders in ``families.__all__``."""
+    """``bh.load`` takes no ``**kwargs``, and its literal table is the loaders in ``families.__all__``."""
     parameters = inspect.signature(bh.load).parameters.values()
     assert all(param.kind is not inspect.Parameter.VAR_KEYWORD for param in parameters)
     loaders = {

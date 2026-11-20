@@ -1,4 +1,4 @@
-"""Decision record 0005: dtype and device are chosen once, at load; no BetterHuman object has ``to``, and a tensor in
+"""Dtype and device are chosen once, at load; no BetterHuman object has ``to``, and a tensor in
 another dtype than the model's raises instead of being cast."""
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def test_no_class_or_function_in_src_is_named_to() -> None:
         for node in ast.walk(ast.parse(path.read_text()))
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "to"
     ]
-    assert defined == [], f"load at the dtype and device instead (record 0005): {defined}"
+    assert defined == [], f"load at the dtype and device instead: {defined}"
 
 
 @pytest.mark.parametrize("dtype", [torch.int64, torch.float16, torch.bfloat16, torch.complex64, "float32"])

@@ -7,7 +7,7 @@ suite](../reference/tests.md) lists what each group guards.
 ## Run a tier
 
 `uv sync --extra studio` installs everything the tests need (the `dev` group comes by default). Each tier is one
-command (BetterRobot decision record 0033):
+command:
 
 | Tier | Command | Time | Run by |
 |------|---------|------|--------|
@@ -39,8 +39,7 @@ stages; `uv run pre-commit run --all-files --hook-stage pre-push` runs one stage
 ## Give the release tier the weights
 
 The release tier reads the licensed weights and the parity goldens computed from them, both under
-`$BETTERHUMAN_MODELS_DIR` (the goldens in `goldens/<family>/`, decision record
-[0015](../contracts/decisions/0015-licensed-goldens-out-of-git.md)):
+`$BETTERHUMAN_MODELS_DIR` (the goldens in `goldens/<family>/`):
 
 ```bash
 export BETTERHUMAN_MODELS_DIR=/path/to/models
@@ -84,7 +83,7 @@ The capture run writes `<page>.outputs.json` with each fence's output; copy it i
 
 Do not skip, `xfail`, loosen a tolerance or delete an assertion to land a change. If a parity or contract test
 fails, the change is wrong, or the contract changes on purpose: then the test, the docs and `CLAUDE.md` change
-together, with a decision record when the change is one the [contracts index](../contracts/index.md) names.
+together, and the owner decides when the change is one the [contracts index](../contracts/index.md) names.
 
 ## Where next
 

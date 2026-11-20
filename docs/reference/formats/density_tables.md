@@ -7,7 +7,7 @@ the category of each part in `Parts.density_categories`. A NumPy `.npz` archive,
 
 | version | status | written by |
 |---|---|---|
-| 1 | current | converted from `body_densities.json` (keyed `"0"`..`"23"`), shipped before decision record 0013 |
+| 1 | current | converted from the earlier `body_densities.json` (keyed `"0"`..`"23"`) |
 
 ## Header
 

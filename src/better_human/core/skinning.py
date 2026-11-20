@@ -1,4 +1,4 @@
-"""The one skinning path of every rig (decision record 0003): blend shapes, skin affines, linear blend skinning."""
+"""The one skinning path of every rig: blend shapes, skin affines, linear blend skinning."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def skin_affines(joint_transforms: torch.Tensor, inverse_bind_affines: torch.Ten
     """Per-joint rest-to-world affines ``(..., J, 3, 4)``: world ``[R | p]`` joint transforms ``(..., J, 3, 4)``
     composed with ``inverse_bind_affines (..., J, 3, 4)``, each the affine from the rest frame into its joint's frame.
 
-    Every rig skins through this one path (decision record 0003): the SMPL family binds ``[I | -rest_joints]``, SOMA
+    Every rig skins through this one path: the SMPL family binds ``[I | -rest_joints]``, SOMA
     its authored binds, MHR its binds with the joint scales folded in.
     """
     rotation, translation = joint_transforms[..., :3], joint_transforms[..., 3]

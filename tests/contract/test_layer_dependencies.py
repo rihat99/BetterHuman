@@ -1,13 +1,11 @@
-"""Imports follow decision record 0011's two edge tables: among BetterHuman's units, and into BetterRobot's.
-
-Records 0019, 0021 and 0022 (proposed) amend the tables: ``viz`` imports ``core`` only, the root and the studio
-import what they list, and every edge into BetterRobot since 0011 is recorded.
+"""Imports follow two edge tables: among BetterHuman's units, and into BetterRobot's. ``viz`` imports ``core`` only,
+and the root and the studio import what they list.
 
 A unit is a first-level subpackage or module of ``better_human``; the root ``__init__`` is the unit
-``better_human``. ``better_robot.testing.imported_packages`` (BetterRobot decision record 0035) walks every import,
+``better_human``. ``better_robot.testing.imported_packages`` walks every import,
 wherever it sits (module level, inside a function, under ``TYPE_CHECKING``), resolves ``from pkg import sub`` to the
 unit ``sub``, and reports a BetterRobot target as its first-level unit (``better_robot.lie``), or ``better_robot``
-for a name of BetterRobot's root. So the record's ``better_robot.viewer.tools`` row entry is part of
+for a name of BetterRobot's root. So a ``better_robot.viewer.tools`` import is part of
 ``better_robot.viewer``. Imports of other packages are not this test's subject. An edge outside the tables that
 exists today sits in ``tests/contract/ratchets/edges.json`` (``"from -> to"`` -> the ``path::symbol`` that makes it
 and why it goes); the ratchet only shrinks, and the fix that removes an edge removes its entry.
@@ -31,12 +29,12 @@ ALLOWED: dict[str, set[str]] = {
     "core": {"mass"},
     "families": {"core", "io", "mass"},
     "terms": {"core"},
-    "viz": {"core"},  # record 0019 (proposed): the studio, not viz, reads and writes files
+    "viz": {"core"},  # the studio, not viz, reads and writes files
     "studio": {ROOT, "core", "families", "io", "mass", "viz"},
-    ROOT: {"core", "families", "io", "mass", "studio", "terms", "viz"},  # record 0021 (proposed): it lists them all
+    ROOT: {"core", "families", "io", "mass", "studio", "terms", "viz"},  # it lists them all
 }
 #: Every row may import ``better_robot.exceptions``: BetterHuman raises BetterRobot's errors and roots its own under
-#: ``BetterRobotError`` (BetterRobot record 0031; record 0022, proposed).
+#: ``BetterRobotError``.
 BR_ALLOWED: dict[str, set[str]] = {
     unit: {"better_robot.exceptions"} | targets
     for unit, targets in {
@@ -47,7 +45,7 @@ BR_ALLOWED: dict[str, set[str]] = {
         "terms": {"better_robot", "better_robot.dynamics", "better_robot.kinematics", "better_robot.optim"},
         # viz.skin checks that the binds are the model's joint poses at q_neutral (so3).
         "viz": {"better_robot.lie", "better_robot.viewer"},
-        # Record 0021 (proposed): the studio takes Viewer, a first-level name, from BetterRobot's root.
+        # The studio takes Viewer, a first-level name, from BetterRobot's root.
         "studio": {"better_robot", "better_robot.lie", "better_robot.viewer"},
         ROOT: set(),
     }.items()
@@ -58,7 +56,7 @@ def _forbidden_edges(src: Path) -> set[str]:
     """``"unit -> target"`` for every import of ``src / "better_human"`` outside the two tables."""
     edges = imported_packages(src, ROOT)
     new_units = sorted(edges.keys() - ALLOWED.keys())
-    assert not new_units, f"new units {new_units}: a decision record adds their rows to ALLOWED and BR_ALLOWED"
+    assert not new_units, f"new units {new_units}: the owner's decision adds their rows to ALLOWED and BR_ALLOWED"
     return {
         f"{unit} -> {target}"
         for unit, targets in edges.items()
@@ -102,8 +100,8 @@ def test_imports_follow_the_edge_tables() -> None:
     """Every import between units, and into BetterRobot, is in a table or, until its fix lands, in the ratchet."""
     new = sorted(_forbidden_edges(SRC) - EDGE_RATCHET.keys())
     assert not new, (
-        "imports outside decision record 0011's edge tables (tests/contract/test_layer_dependencies.py): move the "
-        "code to a unit the importer may import, or change the tables with a decision record:\n  " + "\n  ".join(new)
+        "imports outside the edge tables (tests/contract/test_layer_dependencies.py): move the code to a unit the "
+        "importer may import, or change the tables by the owner's decision:\n  " + "\n  ".join(new)
     )
 
 

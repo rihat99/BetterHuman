@@ -1,6 +1,6 @@
 """One Python version: the floor, the lint target, the pinned development version and the running interpreter agree.
 
-Decision record: ``BetterRobot/docs/contracts/decisions/0034-python-312.md``. ``tomllib`` (3.11 and later) in this
+``tomllib`` (3.11 and later) in this
 module is itself the check that the declared floor can run the tests.
 """
 
@@ -19,7 +19,7 @@ def test_floor_lint_target_and_pin_agree() -> None:
     target = pyproject["tool"]["ruff"]["target-version"]
     pin = (REPO / ".python-version").read_text().strip()
     running = f"{sys.version_info.major}.{sys.version_info.minor}"
-    rule = "one Python version, 3.12 (BetterRobot decision record 0034)"
+    rule = "one Python version, 3.12"
     assert pin == "3.12", f".python-version is {pin!r}; write 3.12 there ({rule})"
     assert floor == f">={pin}", f"requires-python is {floor!r}; set it to '>={pin}' in pyproject.toml ({rule})"
     assert target == "py312", f"ruff target-version is {target!r}; set it to 'py312' in pyproject.toml ({rule})"

@@ -1,4 +1,4 @@
-"""The coupling standard (BetterRobot 0026, principle 1.3): BetterHuman's coupling test against BetterRobot's page, and
+"""The coupling standard (principle 1.3): BetterHuman's coupling test against BetterRobot's page, and
 every line of ``docs/contracts/coupling-standard.md`` checked against the library.
 
 The first tests check the BetterRobot lines BetterHuman relies on, against the BetterRobot it runs with, on small
@@ -459,12 +459,12 @@ def _frozen_lines() -> list[str]:
 
 
 def test_page_only_grows() -> None:
-    """No frozen line leaves the page: removing or changing a line of the standard needs a decision record."""
+    """No frozen line leaves the page: removing or changing a line of the standard is the owner's decision."""
     page = _page_lines()
     gone = [line for line in _frozen_lines() if line not in page]
     assert not gone, (
         "these lines of the coupling standard left docs/contracts/coupling-standard.md; put them back, or change the "
-        "standard by a decision record (BetterRobot 0026) whose commit also edits coupling_standard_lines.txt:\n  "
+        "standard by the owner's decision in a commit that also edits coupling_standard_lines.txt:\n  "
         + "\n  ".join(gone)
     )
 

@@ -12,7 +12,7 @@ Writes one ``np.savez`` archive per case: float32 unless noted, metres, y-up, co
   linear blend skinning (new in version 2).
 - ``rest_shape`` (V, 3), ``bind_transforms`` (J, 4, 4): reposed rest mesh and bind transforms cached by
   ``SOMALayer.prepare_identity``.
-- ``provenance`` () str: JSON ``{oracle, generator, asset_sha256, dtype, seed}`` (decision record 0014).
+- ``provenance`` () str: JSON ``{oracle, generator, asset_sha256, dtype, seed}``.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def _parse_args() -> argparse.Namespace:
 def _asset_sha256(directory: Path, names: tuple[str, ...]) -> str:
     """Provenance ``asset_sha256``: sha256 of the ``sha256sum`` listing of the oracle's asset files, names sorted.
 
-    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum`` (decision record 0014).
+    Shell equivalent: ``cd DIR && sha256sum NAMES | sha256sum``.
     """
     lines = []
     for name in sorted(names):

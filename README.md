@@ -78,8 +78,6 @@ Identity groups go to `bake`, stream groups to `forward` (`subject.forward(q, st
   browser viewer; 02 to 04 show partial SMPL-X, a reaching IK solve and MHR. They read your weights; 01 to 03 take
   `--model-path` to read a random-weight archive instead, and each takes `--check` to build its scene and exit.
 - [Use the studio](docs/guides/use-the-studio.md): HumanStudio paints parts and places contact frames.
-- Upgrading from 0.1: [Migrating to 0.2.0](docs/reference/migration-0.2.0.md) maps every public name that 0.2.0
-  renames or removes, and the [changelog](docs/reference/changelog.md) says what changed.
 
 ## Development
 

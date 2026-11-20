@@ -1,4 +1,4 @@
-"""Decision record 0009: the studio is an application on the public BetterHuman and BetterRobot surface.
+"""The studio is an application on the public BetterHuman and BetterRobot surface.
 
 Every BetterHuman or BetterRobot name a module of ``better_human.studio`` imports from outside the studio is a member
 of a package ``__all__`` tree (``better_robot.testing.public_objects``). No studio module reads a ``_``-prefixed
@@ -6,7 +6,7 @@ attribute that its own class does not define: a studio ``Layer`` may call the ho
 for subclasses (``_track``, ``_store_opacity``, ``_fade``) and nothing else of its base. No studio module imports a
 ``_``-prefixed name or module, or reaches one through ``getattr`` or ``vars``. No module under ``src/better_human``
 writes ``os.environ`` under any spelling: the weights directory is the user's ``$BETTERHUMAN_MODELS_DIR``, read
-through ``better_human.io.models_dir()`` (record 0017).
+through ``better_human.io.models_dir()``.
 """
 
 from __future__ import annotations
@@ -160,14 +160,12 @@ def _scan(root: Path, finder: Callable[[ast.AST], Iterator[tuple[int, str] | int
 
 def test_the_studio_reads_no_private_name() -> None:
     found = _scan(SRC / "studio", _private_reads)
-    assert not found, "the studio reads private names (record 0009: public names only):\n" + "\n".join(found)
+    assert not found, "the studio reads private names (public names only):\n" + "\n".join(found)
 
 
 def test_no_module_writes_the_environment() -> None:
     found = _scan(SRC, _environ_writes)
-    assert not found, "writes to os.environ under src (record 0009; read weights through io.models_dir()):\n" + (
-        "\n".join(found)
-    )
+    assert not found, "writes to os.environ under src (read weights through io.models_dir()):\n" + ("\n".join(found))
 
 
 def test_the_scans_see_every_planted_spelling() -> None:

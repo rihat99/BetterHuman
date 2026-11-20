@@ -1,5 +1,5 @@
 """The repository's tree: its top-level entries, a tests folder per src package, no tracked symlink or large file, no
-ghost directory (principles 9.1, 9.2, 9.3, 9.6; decision record 0015).
+ghost directory (principles 9.1, 9.2, 9.3, 9.6).
 
 The top-level entries are fixed and every tests folder is a src package's or a suite's, so a second home for the
 tests or a new top-level folder fails here; a second image folder under ``docs/`` does not. A tracked symlink over an ignored directory replaces
@@ -19,7 +19,7 @@ REPO = Path(__file__).resolve().parents[2]
 PACKAGE = "src/better_human"
 LIMIT = 1024 * 1024
 LARGE_ON_PURPOSE: dict[str, str] = {}
-# Principle 9.1's set without `.github/`: this major has no CI (BetterRobot record 0033). `agent_notes/` is ignored
+# Principle 9.1's set without `.github/`: this major has no CI. `agent_notes/` is ignored
 # whole.
 TOP_LEVEL = {
     ".claude",

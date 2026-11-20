@@ -1,6 +1,6 @@
 """Human layers on the BetterRobot viewer: state-driven layers, frames by name, the skin of RobotVisual, live updates.
 
-SMPL runs on the random-weight archive (record 0016), so these tests run in the full tier; SOMA, MHR and the real
+SMPL runs on the random-weight archive, so these tests run in the full tier; SOMA, MHR and the real
 SMPL-X cases read their licensed weights. Each layer's arrays are checked against the state at step ``K`` (not the
 first, so a layer that draws step 0 or a neighbouring step fails) and read back from BetterRobot's stand-in server
 (``better_robot.testing.FakeServer``) as the browser would receive them.

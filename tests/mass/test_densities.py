@@ -1,4 +1,4 @@
-"""One ``density`` parameter (decision record 0007): a table name by default; unknown names and mismatches raise at load.
+"""One ``density`` parameter: a table name by default; unknown names and mismatches raise at load.
 
 The load-level cases use a synthetic FLAME-shaped file (no weights) and replace its declared categories where a case
 needs a part without one.

@@ -9,8 +9,7 @@ BetterRobot's `C-API-2` under a second name, which BetterHuman now cites directl
 ## H-LAYER-1 Imports follow the edge tables (MUST)
 
 Each unit of `better_human` imports only the units of its row in `ALLOWED`, and only the BetterRobot packages of
-its row in `BR_ALLOWED` (`tests/contract/test_layer_dependencies.py`; decision record
-[0011](decisions/0011-human-package-layout.md) and the records that amend it). The [architecture
+its row in `BR_ALLOWED` (`tests/contract/test_layer_dependencies.py`). The [architecture
 page](../concepts/architecture.md#the-package-map) shows both tables. No module imports a BetterHuman or BetterRobot
 module by a computed name (`importlib.import_module`, `__import__`), which the import walker cannot see.
 
@@ -37,8 +36,7 @@ Enforcement: `tests/contract/test_br_imports.py`.
 A family is a loader function in `better_human.families` that returns a `FamilySpec`, and `bh.load` dispatches to
 every such loader; what a family does differently lives in its `Rig` and its loader. A partial model is a loader
 option (`hands=False`) or `families.drop_joints`, never a subclass: no class derives from a `@final` class such as
-`HumanModel`, `Identity` or `HumanState` (decision records [0001](decisions/0001-human-model.md),
-[0002](decisions/0002-rig-abstract-base.md), [0006](decisions/0006-level-one-loader.md)).
+`HumanModel`, `Identity` or `HumanState`.
 
 Rationale: one forward pass to test and to keep in parity, instead of one copy per family.
 Example: `src/better_human/families/smpl_family.py` serves all five SMPL-family loaders from one table each.
@@ -50,7 +48,7 @@ Enforcement: `tests/contract/test_keyword_only.py::test_load_shows_every_option_
 
 A family loader and `bh.load` take `dtype` (`torch.float32` or `torch.float64`) and `device`, and every tensor of the
 body is built there; no BetterHuman class or function is named `to`, and a tensor in another dtype than the model's
-raises instead of being cast (decision record [0005](decisions/0005-dtype-and-device-at-load.md)).
+raises instead of being cast.
 
 Rationale: one place chooses the precision; a silent cast hides a caller's mistake.
 Example: `bh.load("smpl", dtype=torch.float64)`; `human.bake(betas=torch.zeros(10, dtype=torch.float64))` on a
@@ -62,8 +60,7 @@ Enforcement: `tests/contract/test_dtype_device.py`.
 
 Git holds no array file, in any format (`.npz`, `.npy`, `.pt`, `.pkl` and the others the enforcer lists), but the
 shipped package data, the random-weight archives and their goldens; the licensed weights and the goldens computed
-from them live in `$BETTERHUMAN_MODELS_DIR` (decision records
-[0015](decisions/0015-licensed-goldens-out-of-git.md), [0016](decisions/0016-random-weight-goldens.md)).
+from them live in `$BETTERHUMAN_MODELS_DIR`.
 
 Rationale: the weights' licences are the user's to accept; a tracked copy would redistribute them.
 Example: the SMPL-X parity goldens live in `$BETTERHUMAN_MODELS_DIR/goldens/smplx_neutral/`; the random-weight ones
@@ -76,7 +73,7 @@ Enforcement: `tests/contract/test_golden_provenance.py::test_git_holds_no_array_
 An explicit `path` argument wins; otherwise the file is `io.weight_path(folder, filename)` under `io.models_dir()`,
 the one reader of `$BETTERHUMAN_MODELS_DIR`, which raises with the fix when the variable is unset or names no folder.
 A missing file raises naming the path; nothing guesses a default, and no test, example, tool or benchmark builds a
-`models` path of its own (decision record [0017](decisions/0017-models-directory.md)).
+`models` path of its own.
 
 Rationale: one lookup rule, so a missing file has one fix.
 Example: `src/better_human/io/load.py::weight_path`.
@@ -87,8 +84,7 @@ Enforcement: `tests/io/test_load.py`, `tests/contract/test_models_dir.py`.
 
 Each file format BetterHuman reads or writes is in `io.formats.LATEST` with a spec page under
 `docs/reference/formats/`; a file carries `format` and `format_version`, a past version reads through its
-migration, and a later version or another format is refused naming both (decision records
-[0012](decisions/0012-bh-converted-archives.md), [0013](decisions/0013-bh-package-data-and-load-speed.md)). No module
+migration, and a later version or another format is refused naming both. No module
 loads a pickle.
 
 Rationale: a file outlives the code that wrote it; the reader, not the user, carries old files forward.
@@ -113,8 +109,7 @@ Enforcement: `tests/parity/smplx/test_smpl_parity.py`, `tests/parity/smplx/test_
 ## H-PARITY-2 Every golden stamps its provenance (MUST)
 
 A golden file carries a `provenance` object naming its oracle, its generator, the hash of the weights it was
-computed from, its dtype and its seed; a tracked golden names a random-weight archive (decision record
-[0014](decisions/0014-golden-provenance.md)).
+computed from, its dtype and its seed; a tracked golden names a random-weight archive.
 
 Rationale: a golden that cannot say what produced it cannot be regenerated or trusted.
 Example: `tests/parity/smplx/random/smpl/` holds goldens whose provenance names `smpl_random.npz`.
@@ -125,7 +120,7 @@ Enforcement: `tests/contract/test_golden_provenance.py`.
 
 `better_human.studio` imports only names of BetterHuman's and BetterRobot's `__all__` trees from outside itself,
 reads no `_` attribute its own class does not define (a studio layer may call the subclass hooks BetterRobot's
-`Layer` documents), and writes no environment variable (decision record [0009](decisions/0009-studio-placement.md)).
+`Layer` documents), and writes no environment variable.
 A viewer feature that is not human-specific goes to BetterRobot.
 
 Rationale: the studio is the first application on the libraries; whatever it needs, every application needs.
@@ -151,7 +146,7 @@ Enforcement: `tests/studio/test_persistence.py::test_studio_paths_layout`,
 
 The `LICENSE` text, the `pyproject.toml` licence and the README's licence line all say Apache-2.0, neither the
 README nor `pyproject.toml` names another code licence, and the README keeps that body-model weights and data derived
-from them have their own terms (decision record [0018](decisions/0018-bh-apache-licence.md)).
+from them have their own terms.
 
 Rationale: the code's licence is stated once and agrees everywhere it is stated.
 Example: `pyproject.toml` declares `license = "Apache-2.0"`.

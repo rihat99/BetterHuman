@@ -1,7 +1,7 @@
-"""Mass properties of a segmented mesh: closed part topology, part densities and part inertias (record 0007).
+"""Mass properties of a segmented mesh: closed part topology, part densities and part inertias.
 
 ``mass`` reads no file and knows no family: the family loaders hand it their segmentation and density tables through
-``Parts`` (decision record 0011).
+``Parts``.
 """
 
 from .densities import part_densities

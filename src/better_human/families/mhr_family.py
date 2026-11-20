@@ -25,7 +25,7 @@ from .classic import MHRFormat
 from .mhr_rig import MHRRig
 
 LODS = tuple(range(7))
-#: The density category of each part, by its joint (decision record 0007). The categories are SMPL's part names, each
+#: The density category of each part, by its joint. The categories are SMPL's part names, each
 #: named after the joint at its proximal end, so a part takes the SMPL part that covers the same body segment; the one
 #: spine part (c_spine0 to c_spine3) takes the lowest, spine1, and the hand part (wrist_twist) the palm, wrist.
 _DENSITY_CATEGORIES = {
@@ -63,7 +63,7 @@ def mhr(
 
     ``proportions (V, 3, 73)`` is a zero mesh basis whose values reach the rig. ``expression=False`` drops the
     ``expression (V, 3, 72)`` stream, ``correctives=False`` the pose-corrective MLP. The spec is built
-    once in ``dtype`` on ``device`` (decision record 0005).
+    once in ``dtype`` on ``device``.
     """
     if not isinstance(lod, int) or isinstance(lod, bool) or lod not in LODS:
         raise ArgumentError(f"lod must be one of {LODS}, got {lod!r}")

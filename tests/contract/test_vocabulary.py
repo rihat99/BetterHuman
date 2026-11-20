@@ -8,7 +8,7 @@
 - 3.8: no module is named ``utils``, ``common``, ``misc`` or ``helpers``.
 - 3.9: every word of every public name, method, field and parameter is a term or an everyday word of
   ``docs/reference/glossary.md`` or of BetterRobot's glossary, which ``better_robot.testing.glossary.read()`` reads
-  from the installed BetterRobot (BetterRobot decision record 0027). A word of BetterRobot's page keeps its meaning:
+  from the installed BetterRobot. A word of BetterRobot's page keeps its meaning:
   BetterHuman's page defines it only in its table of words BetterRobot uses with another meaning.
 """
 

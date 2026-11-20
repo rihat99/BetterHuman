@@ -63,8 +63,7 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   records' positional fields and `terms.baked_identity`'s `*groups`, both parked with the owner); the other four are
   empty.
 - The public API equals `tests/contract/public_api.json` (`tests/contract/test_api_snapshot.py`); an intended change
-  is recorded with `uv run python tools/api_snapshot.py --write` and an entry in `docs/reference/changelog.md`
-  (`tests/contract/test_changelog.py`).
+  is recorded with `uv run python tools/api_snapshot.py --write`, and the commit message says it.
 
 ## Absences, each with its enforcer
 
@@ -79,7 +78,7 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
 - No `to` method: dtype and device are chosen at load, and a tensor in another dtype raises
   (`tests/contract/test_dtype_device.py`); no mutable public dataclass, and none that holds tensors compares by
   value (`tests/contract/test_frozen.py`).
-- No cache beyond `HumanState._memo` and `Identity._frame_placements` (record 0028), each reached by one function of
+- No cache beyond `HumanState._memo` and `Identity._frame_placements`, each reached by one function of
   its class, and no `functools` cache outside the reasoned `FUNCTOOLS_CACHES` (`tests/contract/test_caches.py`).
 - No public function, constructor (dataclass fields included), method, class method or static method with more
   than two positional parameters, a `*args` counting as three, beyond the counted sites of
@@ -101,8 +100,7 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
 - No skip or xfail spelled in a test module, deselected ones included (`tests/contract/test_no_skips.py`).
 - No dead path citation, no line-number citation and no plan or review code in tracked text
   (`tests/contract/test_citations.py`).
-- No plan code and no history on a docs page outside the changelog, the migration pages and the records
-  (`tests/docs/test_docs_text.py`).
+- No plan code and no history on a docs page (`tests/docs/test_docs_text.py`).
 - No tracked symlink, file over 1 MiB, or directory without a tracked file (`tests/contract/test_repository_layout.py`).
 - No agent file over its length and no capitals for emphasis (`tests/contract/test_agent_files.py`).
 
@@ -115,7 +113,7 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   which only grows.
 - `q (B..., nq)` broadcasts with the identity's batch axes `I...`; read `nq` from the model, never hard-code it.
 - A family's own behaviour goes in its `Rig` or its loader, never in a `HumanModel` branch (rule H-API-1).
-- Native parameters enter and leave only through `bh.from_classic` and `bh.to_classic` (record 0004).
+- Native parameters enter and leave only through `bh.from_classic` and `bh.to_classic`.
 - BetterRobot changes in its own repository, never from this one.
 
 ## Working rules
@@ -130,9 +128,8 @@ file); no test checks them, a reviewer does.
 - One obvious place per concept (Law 2); prefer a few deep modules to many tiny ones, and a family of modules
   becomes a folder at three (1.2, 3.8).
 - Delete only after a search shows no caller; back every claim in a report with its command and output (4.1, 10.5).
-- Update the docs and the nearest agent file in the change that changes a contract. A change of a contract or a
-  layout gets a decision record (`docs/contracts/index.md` says when); an accepted record keeps its text, Status line
-  aside (`tests/contract/test_decision_records.py`).
+- Update the docs and the nearest agent file in the change that changes a contract. Ask the owner before a change of
+  a contract or a layout (`docs/contracts/index.md` says which).
 - A new family meets the inclusion bar of `docs/contracts/scope.md`; before reopening a settled idea, read its
   "Commonly rejected".
 

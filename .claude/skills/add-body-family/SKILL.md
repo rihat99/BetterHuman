@@ -33,10 +33,10 @@ family touches.
    `src/better_human/families/classic.py`; its round trip in float32 and float64 in
    `tests/families/test_classic_formats.py`.
 5. Parity. The oracle's pinned environment, `dump_<family>.py` and a README in `tools/parity/<family>/`; goldens in
-   `$BETTERHUMAN_MODELS_DIR/goldens/<family>/` (record 0015, the regenerate-goldens skill), read through
+   `$BETTERHUMAN_MODELS_DIR/goldens/<family>/` (the regenerate-goldens skill), read through
    `tests/support/goldens.py` by `tests/parity/<family>/test_<family>_parity.py`, marked `licensed`; the oracle's pin
    in `PINS` and the goldens in `LICENSED` of `tests/contract/test_golden_provenance.py`. An oracle that loads random
-   arrays in the family's layout also gets a tracked random-weight archive and goldens (record 0016), as the SMPL
+   arrays in the family's layout also gets a tracked random-weight archive and goldens, as the SMPL
    family's from `tools/parity/smplx/make_random_archive.py`, so the full tier runs the parity.
 6. Tests. `tests/families/test_<family>.py` (sizes, root frame, batching, gradients) and the family's case in
    `tests/core/test_rig_properties.py`, `tests/io/test_archive_reader.py` and `tests/viz/test_layers.py`; a test
@@ -47,6 +47,6 @@ family touches.
    its rows in `docs/reference/tests.md`; the family in `docs/guides/load-a-family.md`, the README's family table,
    `docs/index.md` and the rig list of `docs/concepts/architecture.md`; every new layout another repository reads in
    `docs/contracts/coupling-standard.md` and `tests/contract/coupling_standard_lines.txt`; a rig of its own gets a
-   load row in `LOADS` of `benchmarks/run.py`; an `Added` entry in `docs/reference/changelog.md`, then
-   `uv run python tools/api_snapshot.py --write`.
+   load row in `LOADS` of `benchmarks/run.py`; then `uv run python tools/api_snapshot.py --write`, and the commit
+   message names the new public names.
 8. Check: the fast tier, the full tier, then with the weights `uv run pytest tests/parity/<family> -q -m licensed`.

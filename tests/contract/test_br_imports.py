@@ -1,4 +1,4 @@
-"""BetterHuman imports BetterRobot through its public surface only (principle 1.6; decision records 0011 and 0021).
+"""BetterHuman imports BetterRobot through its public surface only (principle 1.6).
 
 Every ``better_robot`` path that a module of ``src`` or ``examples`` imports (``import a.b`` or ``from a import b``,
 wherever the import sits) is a path of BetterRobot's ``__all__`` tree (``better_robot.testing.public_objects``), and

@@ -51,14 +51,14 @@ is not on conda-forge.
 
 The source assets remain unchanged. Converted archives and the float32 golden
 grid are outputs of the licensed assets, so they live in the models directory,
-not in git (decision record 0015): `$BETTERHUMAN_MODELS_DIR/goldens/mhr_lod{0..6}/`
+not in git: `$BETTERHUMAN_MODELS_DIR/goldens/mhr_lod{0..6}/`
 holds 48 archives, 30 LOD1 cases and three cases for each other LOD. Do not
 regenerate it for a BetterHuman implementation change. Regenerate only when the
 upstream MHR release, converter semantics, or intentionally reviewed oracle grid
 changes, into a new directory `$OUT`; inspect every binary delta and remeasure and
 document parity before accepting the refresh.
 
-Every archive carries `provenance` (decision record 0014), a JSON string with
+Every archive carries `provenance`, a JSON string with
 `oracle` (the installed pymomentum distribution and version: `pymomentum` from
 conda-forge or `pymomentum-cpu` from PyPI), `generator` (the dump script's
 repository path), `asset_sha256`, `dtype` (`float32`) and `seed` (the case seed).
@@ -71,5 +71,4 @@ cd "$BETTERHUMAN_MODELS_DIR/MHR/assets" && sha256sum compact_v6_1.model \
 ```
 
 A golden written by the dump script hashes the files that dump read; a golden
-stamped after its dump hashes the files present when it was stamped (decision
-record 0025, proposed).
+stamped after its dump hashes the files present when it was stamped.

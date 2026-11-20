@@ -1,4 +1,4 @@
-"""Decision records 0002 and 0008 (BR C-EXT-2): every class in ``src`` is abstract or ``@final``, and none derives from
+"""BetterRobot's C-EXT-2: every class in ``src`` is abstract or ``@final``, and none derives from
 a ``@final`` class (rule H-API-1: a partial model is a loader option, never a subclass).
 
 The exceptions are the entries of the ratchet ``tests/contract/ratchets/abstract_or_final.json`` (classes whose

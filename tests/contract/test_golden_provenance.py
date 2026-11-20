@@ -1,10 +1,10 @@
 """Every golden says what produced it: the licensed-derived goldens in the models directory and the tracked
 random-weight goldens.
 
-Decision records 0014 (each golden stamps ``provenance``, a JSON object ``{oracle, generator, asset_sha256, dtype,
-seed}``), 0015 (licensed-derived goldens live in ``$BETTERHUMAN_MODELS_DIR/goldens/<family>/``, so their check runs
-in the release tier, and git holds random-weight goldens only) and 0016 (the random-weight goldens of
-``tests/parity/smplx/random/<family>/``, computed from ``tests/support/random_weights/<family>_random.npz``). The
+Each golden stamps ``provenance``, a JSON object ``{oracle, generator, asset_sha256, dtype, seed}``. Licensed-derived
+goldens live in ``$BETTERHUMAN_MODELS_DIR/goldens/<family>/``, so their check runs in the release tier, and git holds
+random-weight goldens only: those of ``tests/parity/smplx/random/<family>/``, computed from
+``tests/support/random_weights/<family>_random.npz``. The
 oracle is the version pinned in its tool folder, the generator and dtype are the family's dump script (which exists
 in this repository) and oracle precision, the asset hash is 64 hex digits (for a random-weight golden, the hash of
 its archive) and the seed an integer. A family directory without goldens fails too. Git holds no array file of any
@@ -48,8 +48,8 @@ RANDOM: dict[str, tuple[str, str, str]] = {
     "smplh": ("smplx", "tools/parity/smplx/dump_smplh.py", "float64"),
     "smplx": ("smplx", "tools/parity/smplx/dump_smplx.py", "float64"),
 }
-#: Every ``.npz`` git may hold besides the random-weight goldens: the shipped data, the format fixtures (records 0012,
-#: 0013) and the random-weight archives (record 0016).
+#: Every ``.npz`` git may hold besides the random-weight goldens: the shipped data, the format fixtures and the
+#: random-weight archives.
 TRACKED_NPZ = {
     "src/better_human/io/assets/density_tables.npz",
     "src/better_human/io/assets/smpl_segmentation.npz",
@@ -75,7 +75,7 @@ def _pin(package: str) -> str:
 
 
 def _listing_sha256(path: Path) -> str:
-    """The ``asset_sha256`` of a one-file asset: sha256 of its ``sha256sum`` line (decision record 0014)."""
+    """The ``asset_sha256`` of a one-file asset: sha256 of its ``sha256sum`` line."""
     return hashlib.sha256(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n".encode()).hexdigest()
 
 
@@ -122,7 +122,7 @@ def test_random_weight_goldens_name_their_archive(family: str) -> None:
 
 
 def test_git_holds_no_array_file_but_the_allowed_ones() -> None:
-    """Decision record 0015: every array file (``ARRAY_FILES``) git tracks, or would add (untracked and not ignored), is
+    """Every array file (``ARRAY_FILES``) git tracks, or would add (untracked and not ignored), is
     a random-weight golden or in ``TRACKED_NPZ``, so licensed weights or a golden computed from them, copied anywhere in
     the repository in any array format, fail."""
     listing = subprocess.run(
@@ -144,7 +144,7 @@ def test_git_holds_no_array_file_but_the_allowed_ones() -> None:
 @pytest.mark.slow
 @pytest.mark.parametrize("family", RANDOM)
 def test_each_random_weight_archive_is_what_its_maker_writes(tmp_path: Path, family: str) -> None:
-    """Decision record 0016: ``make_random_archive.py`` regenerates each tracked archive from its seed, byte for byte."""
+    """``make_random_archive.py`` regenerates each tracked archive from its seed, byte for byte."""
     maker = runpy.run_path(str(REPO / MAKER), run_name="make_random_archive")
     written = tmp_path / f"{family}_random.npz"
     maker["write_archive"](written, maker["make_arrays"](family))

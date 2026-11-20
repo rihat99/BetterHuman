@@ -52,10 +52,10 @@ page fails `tests/contract/test_vocabulary.py`.
 | **template** | A family's mesh at zero identity, `FamilySpec.template_vertices (V, 3)`; the identity blend shapes shape it (`shaped_vertices`). |
 | **blend shape** | A linear vertex displacement basis `(V, 3, n)`: `blend_shapes(coefficients, basis)` returns the offsets `(..., V, 3)`. Identity and stream groups are blend shapes. |
 | **basis, bases** | The columns of a linear map from coefficients to offsets: a blend-shape group `(V, 3, n)` (`identity_bases`, `stream_bases`), a stream group's joint motion `(J, 3, n)` (`stream_joint_bases`), MHR's `translation_basis (J, 3, P)` and `scale_basis (J, P)`. |
-| **forward** | `Identity.forward(q, streams=)`: kinematics plus skinning, returning a `HumanState`. BetterRobot's `forward_kinematics(model, q)` computes kinematics only (BetterRobot decision record 0027). |
+| **forward** | `Identity.forward(q, streams=)`: kinematics plus skinning, returning a `HumanState`. BetterRobot's `forward_kinematics(model, q)` computes kinematics only. |
 | **human state, `HumanState`** | One posed batch: BetterRobot's `KinematicState` (`kinematics`) and the skinned body (`vertices`, `points`, `landmarks`), each computed on first use. Joint fields are in native joint order. `terms.human_state` caches one in an optimization problem. |
 | **inverse bind** | The map from the rest frame into each joint's frame, `inverse_bind_affines (I..., J, 3, 4)`; skinning composes the world joint transforms with it (`skin_affines`): the SMPL family binds `[I | -rest]`, MHR folds its joint scales in, SOMA uses its authored binds (`bind_rotations`). |
-| **linear blend skinning** | `core.linear_blend_skinning(rest_vertices, affines, *, weights)`: BetterRobot's *skinning*, the one path every rig skins through (decision record 0003). |
+| **linear blend skinning** | `core.linear_blend_skinning(rest_vertices, affines, *, weights)`: BetterRobot's *skinning*, the one path every rig skins through. |
 | **top-K, K** | The `K` strongest skin weights of each vertex, `skin_weights` and `skin_indices (V, K)` padded with zero weights (`top_k_skin(weights, k)`). |
 | **corrective** | Pose-dependent vertex offsets from the rig's corrective features (`Corrective.apply`): `LinearCorrective` for the SMPL family, `MLPCorrective` for MHR and SOMA. `mhr(correctives=False)` and `soma(correctives=False)` load without one. |
 | **corrective feature, feature** | The vector `(..., P)` a corrective reads, computed from `q` by `Rig.corrective_features` (`HumanState.corrective_feature`); for the SMPL family, the flattened `R - I` of every joint but the root. |
@@ -67,7 +67,7 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 
 | Term | Meaning |
 |---|---|
-| **rig, `Rig`** | The one behavioural part of a family (decision record 0002): how identity becomes joint placements, how `q` feeds the corrective and which BetterRobot joint each native joint is. Three exist: `RegressedRig`, `MHRRig` and `SOMARig`. |
+| **rig, `Rig`** | The one behavioural part of a family: how identity becomes joint placements, how `q` feeds the corrective and which BetterRobot joint each native joint is. Three exist: `RegressedRig`, `MHRRig` and `SOMARig`. |
 | **native joint, native** | A joint of the family's own skeleton, in the weight file's order: `J` of them, `FamilySpec.joint_names`. `HumanModel.joint_ids (J,)` holds the BetterRobot joint of each; MHR builds a chain of BetterRobot joints per native joint (`MHRRig(native_joints=)`). |
 | **regressed rig, `RegressedRig`** | The SMPL family's rig: joints regressed from the shaped mesh, a free-flyer root and one spherical joint per other native joint. The one rig that drops joints (`families.drop_joints`). |
 | **joint regressor, regressor** | A matrix `(J, V)` whose product with the vertices gives joint positions (`RegressedRig(joint_regressor=)`; SOMA's for its public joints). |
@@ -81,14 +81,14 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 
 | Term | Meaning |
 |---|---|
-| **classic parameters, classic** | A family's inputs as its upstream library names them (`betas`, `global_orient`, `body_pose`, `transl`, MHR's `model_parameters`, SOMA's `poses`), kept as upstream writes them (principle 3.6). They enter and leave only through `from_classic` and `to_classic`, one `<Family>Classic` dataclass per family (decision record 0004). A classic `*_pose` field holds axis-angles of native joints (or hand PCA coefficients), not BetterRobot poses. |
+| **classic parameters, classic** | A family's inputs as its upstream library names them (`betas`, `global_orient`, `body_pose`, `transl`, MHR's `model_parameters`, SOMA's `poses`), kept as upstream writes them (principle 3.6). They enter and leave only through `from_classic` and `to_classic`, one `<Family>Classic` dataclass per family. A classic `*_pose` field holds axis-angles of native joints (or hand PCA coefficients), not BetterRobot poses. |
 | **classic format** | `ClassicFormat`, a family's map between its classic dataclass and `(identity, q, streams)` (`FamilySpec.classic`): `SMPLFamilyFormat`, `MHRFormat`, `SOMAFormat`. |
 
 ## Mass and parts
 
 | Term | Meaning |
 |---|---|
-| **part, `Parts`** | A rigid piece of the segmented mesh, carried by one native joint's body, for mass properties: `Parts.ids (V,)` labels every vertex, `HumanModel.part_body_ids (P,)` holds each part's BetterRobot body (decision record 0007). |
+| **part, `Parts`** | A rigid piece of the segmented mesh, carried by one native joint's body, for mass properties: `Parts.ids (V,)` labels every vertex, `HumanModel.part_body_ids (P,)` holds each part's BetterRobot body. |
 | **part topology, topology** | `PartTopology`: the vertices, caps and triangles that close each part into a mesh, built once per `HumanModel` (`part_topology`) and applied to every identity. |
 | **cap** | The points that close a part's open boundary: rest joints (`cap_joint_ids`, an authored segmentation) or centroids of its boundary loops (`cap_centroid_ids`). |
 | **density table, table** | A named mapping from density category to kg/m³ (`Parts.density_tables`); `density="Dempster"` reads one. |
@@ -110,7 +110,7 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 |---|---|
 | **human view, `HumanView`** | The viewer layers of one `HumanState` (body, native skeleton, frames), which `HumanView.update(state)` redraws with another pose. |
 | **skinned** | Skinned in the browser: BetterRobot's `RobotVisual(identity.model, q, skin=viz.skin(identity))` sends the rest mesh once and the joint poses per step, without correctives or stream offsets; `human_layers(mesh="skinned")` and `HumanView(mesh="skinned")` draw it instead of the exact mesh. |
-| **studio, `HumanStudio`** | The optional browser app `better_human.studio` (the `studio` extra): pose, shape, segment and place contact frames on a body (decision record 0009). |
+| **studio, `HumanStudio`** | The optional browser app `better_human.studio` (the `studio` extra): pose, shape, segment and place contact frames on a body. |
 
 ## Abbreviations and symbols
 

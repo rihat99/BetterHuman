@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "better-human"
-version = "0.2.0"
+version = "0.1.0"
 description = "Parametric human body models on a robotics core."
 readme = "README.md"
 license = "Apache-2.0"
@@ -66,7 +66,7 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-# BetterRobot's select, so both repositories hold one rule set; SLF001 is this repository's own (record 0009).
+# BetterRobot's select, so both repositories hold one rule set; SLF001 is this repository's own.
 select = ["E", "F", "PLC", "PLE", "PLR", "PLW", "B006", "B008", "T201", "E722", "TID251",
           "FBT001", "FBT002", "BLE001", "ERA001", "ANN201", "S102", "S307"]
 extend-select = ["SLF001"]
@@ -77,7 +77,7 @@ ignore = ["E501", "PLR0913", "PLR2004"]
 "examples/**" = ["T201"]
 "benchmarks/**" = ["T201"]  # scripts that report on stdout, as the examples do
 "tools/render_segmentation.py" = ["T201"]  # reports the figures it writes
-"!src/better_human/studio/**" = ["SLF001"]  # record 0009 binds the studio; tests and tools may reach in
+"!src/better_human/studio/**" = ["SLF001"]  # the studio reads public names only; tests and tools may reach in
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "torch.set_default_dtype".msg = "C-DEP-3: no process-wide torch settings inside the library"

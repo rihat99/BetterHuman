@@ -1,4 +1,4 @@
-"""Every family's classic parameters (``*Classic``) and their formats (decision record 0004).
+"""Every family's classic parameters (``*Classic``) and their formats.
 
 ``SMPLFamilyFormat`` is one data-driven format for SMPL, SMPL-H, SMPL-X, MANO and FLAME; ``MHRFormat`` and
 ``SOMAFormat`` map the MHR and SOMA reference inputs. Convert with ``better_human.from_classic(human, classic)`` and

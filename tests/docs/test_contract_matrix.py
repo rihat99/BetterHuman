@@ -68,7 +68,7 @@ def test_every_rule_has_an_enforcer_that_exists() -> None:
 
 def test_every_betterrobot_row_has_an_enforcer() -> None:
     """Each row of the table of BetterRobot rules names at least one test."""
-    rows = re.findall(r"^\| (.+) \| (.*) \|$", _index_section("BetterRobot rules and records that hold here"), re.M)
+    rows = re.findall(r"^\| (.+) \| (.*) \|$", _index_section("BetterRobot rules that hold here"), re.M)
     unenforced = [rule for rule, cell in rows[1:] if not _enforcers(cell)]  # rows[0] is the header
     assert rows[1:] and not unenforced, f"name the test that enforces each of these rows: {unenforced}"
 
@@ -81,7 +81,7 @@ def test_every_contract_test_is_cited_by_the_index() -> None:
 
 
 def test_strength_words_sit_in_rule_headings() -> None:
-    """Outside a rule heading, no contracts page (records aside) says MUST or SHOULD."""
+    """Outside a rule heading, no contracts page says MUST or SHOULD."""
     stray = [
         f"{page.name}:{number}"
         for page in sorted(CONTRACTS.glob("*.md"))

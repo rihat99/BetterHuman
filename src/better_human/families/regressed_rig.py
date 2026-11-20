@@ -161,7 +161,7 @@ def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
 def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
     """``data`` without the terminal subtrees rooted at the joints ``dropped``, in ``data``'s dtype.
 
-    The SMPL loader reduces its float64 arrays before it builds the spec at the requested dtype (record 0005).
+    The SMPL loader reduces its float64 arrays before it builds the spec at the requested dtype.
     """
     if not dropped:
         return data
