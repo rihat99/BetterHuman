@@ -82,7 +82,7 @@ weight file --families.<f>(path, dtype=, device=)--> FamilySpec --HumanModel.fro
 
 All four records are frozen; `HumanModel`, `Identity` and `HumanState` compare by identity.
 The [coupling standard](../contracts/coupling-standard.md) gives the shape and layout of every `HumanState` output,
-and the [API reference](../reference/api/core.md) every member.
+and [Bodies](../bodies.md) the names you use.
 
 ## The rig
 
@@ -158,7 +158,7 @@ single joints (load with `num_pca_comps=None`).
 ## Mass
 
 The spec's parts segment the mesh, and `mass.PartTopology` closes each part into a solid once per `HumanModel`
-([Segmentation](segmentation.md)). `density` resolves to kg/m³ per part at `from_spec`: a table name (the
+([Mass](../mass.md)). `density` resolves to kg/m³ per part at `from_spec`: a table name (the
 `"Dempster"` table by default) gives each part the
 density of the category its family declares, a float is uniform, `None` builds no masses. On every bake
 `mass.part_inertias` integrates each closed part with `better_robot.spatial.inertia_of_mesh`, differentiably, and the
@@ -166,6 +166,6 @@ inertias go into `identity.model`, so BetterRobot's dynamics use the subject's m
 
 ## Where next
 
-- [Skinning](skinning.md): identity groups, stream groups and how the mesh follows the joints.
-- [Segmentation](segmentation.md): how bodies split into parts.
+- [Bodies](../bodies.md): identity groups, stream groups and how the mesh follows the joints.
+- [Mass](../mass.md): how bodies split into parts.
 - [Contracts](../contracts/index.md): the rules these layers obey and the records behind them.

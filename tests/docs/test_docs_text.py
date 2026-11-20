@@ -4,10 +4,9 @@ What changed, and the code of the plan that changed it, belong in the commit mes
 the README names a plan code (a work package, lane, ruling, review finding or phase such as ``H9`` or ``P10-D``) or
 tells history (``no longer``, ``was moved``, ``was added ... on <date>``).
 
-Three tables are typed by hand and read here against what they copy: the README's family table against each
-family's ``FamilySpec`` (its identity and stream groups; MHR and SOMA need the licensed weights), the weights layout
-of ``docs/guides/load-a-family.md`` against the folder and file each loader asks ``io.weight_path`` for, and the
-test tables of ``docs/reference/tests.md`` against the listing of ``tests/contract/`` and ``tests/docs/``.
+Two tables are typed by hand and read here against what they copy: the README's family table against each family's
+``FamilySpec`` (its identity and stream groups; MHR and SOMA need the licensed weights), and the weights layout of
+``docs/install.md`` against the folder and file each loader asks ``io.weight_path`` for.
 """
 
 from __future__ import annotations
@@ -121,7 +120,7 @@ def test_the_weights_layout_is_where_each_loader_looks(monkeypatch: pytest.Monke
 
     for module in (smpl_family, mhr_family, soma_family):
         monkeypatch.setattr(module, "weight_path", asked)
-    rows = _table((REPO / "docs" / "guides" / "load-a-family.md").read_text(), "| Family | Folder | File |")
+    rows = _table((REPO / "docs" / "install.md").read_text(), "| Family | Folder | File |")
     assert [row[0] for row in rows] == list(LAYOUT_LOADERS)
     for family, folder, files in rows:
         loader, options = LAYOUT_LOADERS[family]
@@ -132,13 +131,3 @@ def test_the_weights_layout_is_where_each_loader_looks(monkeypatch: pytest.Monke
             calls.add(call.value.args)
         listed = {(_ticked(folder)[0], path) for pattern in _ticked(files) for path in _expand(pattern)}
         assert listed == calls, family
-
-
-@pytest.mark.parametrize(("heading", "folder"), [("## Contract tests", "contract"), ("## Docs tests", "docs")])
-def test_the_test_tables_list_every_test_module(heading: str, folder: str) -> None:
-    """``docs/reference/tests.md`` has one row per test module of ``tests/contract/`` and ``tests/docs/``."""
-    text = (REPO / "docs" / "reference" / "tests.md").read_text()
-    section = text[text.index(heading) :]
-    rows = [_ticked(row[0])[0] for row in _table(section, "| Test | Guards |")]
-    modules = sorted(path.name for path in (REPO / "tests" / folder).glob("test_*.py"))
-    assert sorted(rows) == modules and len(rows) == len(set(rows))

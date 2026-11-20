@@ -28,9 +28,8 @@ IMAGE = re.compile(r"!\[[^\]]*\]\((?P<path>[^)\s]+)")
 VIDEO_SRC = re.compile(r"""(?:src|poster)=["'](?P<path>[^"']+)["']""")
 FIGURE = re.compile(r"(?<![\w/])(?P<path>(?:\.\./)*(?:figures|images)/[\w./-]+\.(?:svg|png|jpg|gif|webm|mp4|webp))")
 LICENSED = {
-    "docs/guides/load-a-family.md": (
-        "it loads the licensed SMPL, SMPL-X, MHR and SOMA weights from $BETTERHUMAN_MODELS_DIR"
-    ),
+    "docs/install.md": "it loads the licensed SMPL, SMPL-X, MHR and SOMA weights from $BETTERHUMAN_MODELS_DIR",
+    "docs/mass.md": "it prints the masses of the licensed SMPL-X body, from $BETTERHUMAN_MODELS_DIR",
 }
 #: The folders an unlisted page may read weights from: the random-weight archives and the package data.
 WEIGHT_FOLDERS = (REPO / "tests" / "support", REPO / "src" / "better_human" / "io" / "assets")
@@ -51,7 +50,7 @@ def _guard(event, args):
 sys.addaudithook(_guard)
 """
 # Loading MHR, SOMA and SMPL-X from licensed files takes about a minute on a host whose transparent huge pages stall
-# large reads (docs/guides/run-the-tests.md); a page that does it gets the time.
+# large reads (``NUMPY_MADVISE_HUGEPAGE=0`` avoids it, CLAUDE.md); a page that does it gets the time.
 LICENSED_TIMEOUT_S = 600.0
 
 

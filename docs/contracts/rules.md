@@ -97,7 +97,7 @@ Enforcement: `tests/contract/test_formats.py`.
 
 Each family's forward pass, and its bake where the oracle exposes one, agrees with the authors' released code, run
 in its own pinned environment, within the tolerances the parity tests hold; a tolerance never moves to land a
-change ([Test suite](../reference/tests.md#parity)).
+change (`PARITY_ATOLS` and the constants beside it in each parity test).
 
 Rationale: parity with the original is the safety net that every refactor runs against.
 Example: SMPL-X vertices and joints within 1e-6 m of the `smplx` package in float32 and float64.

@@ -23,8 +23,9 @@ node ../BetterRobot/tools/docs_screenshots.mjs temp/shots --repo .   # light and
 
 While editing a package, run its folder beside the fast tier (`uv run pytest tests/core -q -m "not cuda and not
 licensed"`, about 6 s). `.pre-commit-config.yaml` runs ruff and the fast tier before a commit and the full tier
-before a push, once installed (`uv run pre-commit install`). `docs/guides/run-the-tests.md` explains the tiers;
-`docs/reference/tests.md` says what each group of tests guards.
+before a push, once installed (`uv run pre-commit install`). A docs page's outputs are refreshed with
+`BR_DOCS_CAPTURE=1 BR_DOCS_CAPTURE_DIR=<dir> uv run pytest tests/docs -q -k <page>`, which writes what each fence
+prints to `<dir>/<page>.outputs.json`.
 
 ## What the tiers need
 
@@ -33,12 +34,12 @@ before a push, once installed (`uv run pre-commit install`). `docs/guides/run-th
   `licensed` marker and one that needs a GPU `cuda`; the fast and full tiers deselect both.
 - The fast and full tiers need no weights: their docs snippets, examples and parity read the random-weight
   archives of `tests/support/random_weights/`.
-- The weights live in `$BETTERHUMAN_MODELS_DIR`, one folder per family (`docs/guides/load-a-family.md` names each
-  folder and file) and the licensed goldens in `goldens/<family>/`. Nothing guesses a default: a run that selects a
+- The weights live in `$BETTERHUMAN_MODELS_DIR`, one folder per family (`docs/install.md` names each folder and
+  file) and the licensed goldens in `goldens/<family>/`. Nothing guesses a default: a run that selects a
   `licensed` test without the variable stops at collection with the fix. A `models` folder at the root is ignored.
 - On a host whose transparent huge pages are in `madvise` mode, NumPy's huge-page advice stalls each read of a large
-  archive for seconds; `NUMPY_MADVISE_HUGEPAGE=0` turns it off for a run (`docs/guides/run-the-tests.md`). Neither
-  the library nor the tests set it.
+  archive for seconds (SMPL-X: 6 to 12 s against 0.8 s); `NUMPY_MADVISE_HUGEPAGE=0` turns it off for a run.
+  Neither the library nor the tests set it.
 - `benchmarks/run.py` refuses `BETTER_ROBOT_INTERNAL_CHECKS=1`: BetterRobot's checks add host syncs and operators.
 - The screenshot command runs BetterRobot's script from a BetterRobot clone beside this one, needs
   `BETTER_ROBOT_CHROME` (a headless Chromium) and builds the site with a plain `uv run`.
@@ -55,7 +56,7 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
 - SMPL-X with `stream_joints=False`: the joint error stays in (1e-5, 2e-3) m.
 - MHR at levels of detail 0 to 6 against `pymomentum` and against its TorchScript model; SOMA mid on 14 goldens and
   their identity batch, all 110 skin joints, float32 and float64. Their tolerances are `PARITY_ATOLS` and the
-  constants beside it in each test (`docs/reference/tests.md` lists them).
+  constants beside it in each test.
 - Counters: graph breaks, recompiles, operators and host syncs of the counter rows never exceed
   `benchmarks/thresholds/torch-2.13.0.json` (rule C-PERF-3, `tests/contract/test_compile_counters.py`, full tier).
 - Ratchets in `tests/contract/ratchets/` only shrink; the test that reads each one fails on a stale entry, so an
@@ -141,6 +142,6 @@ file); no test checks them, a reviewer does.
   `.claude/skills/release/SKILL.md`.
 - `tools/convert/` turns upstream releases into the archives the loaders read; `tools/parity/` holds one folder per
   oracle, each with its pinned environment, dump scripts and a README; `tools/render_segmentation.py` draws the
-  images of `docs/concepts/segmentation.md`.
+  segmentation images of `docs/mass.md`.
 - `agent_notes/` (one folder per task: plan, state, notes) and `trash/` are ignored whole; nothing tracked cites
   them.

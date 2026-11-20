@@ -2,6 +2,14 @@ site_name: BetterHuman
 site_description: SMPL, SMPL-X and MHR human bodies as batched, differentiable BetterRobot models.
 docs_dir: docs
 strict: true
+# Pages kept for the tests and the agents (the rule chapters, the codemap, the file formats, the glossary and the
+# roadmap) build but stay out of the navigation.
+not_in_nav: |
+  /contracts/
+  /concepts/architecture.md
+  /reference/formats/
+  /reference/glossary.md
+  /reference/roadmap.md
 
 theme:
   name: material
@@ -94,43 +102,11 @@ plugins:
 
 nav:
   - Home: index.md
-  - Getting started:
-      - getting-started/first-human.md
-  - Concepts:
-      - concepts/architecture.md
-      - concepts/skinning.md
-      - concepts/segmentation.md
-  - Guides:
-      - guides/load-a-family.md
-      - guides/convert-weights.md
-      - guides/use-the-studio.md
-      - guides/run-the-tests.md
-      - guides/run-the-benchmarks.md
-  - Reference:
-      - API:
-          - better_human: reference/api/better_human.md
-          - core: reference/api/core.md
-          - families: reference/api/families.md
-          - io: reference/api/io.md
-          - mass: reference/api/mass.md
-          - terms: reference/api/terms.md
-          - viz: reference/api/viz.md
-          - studio: reference/api/studio.md
-      - reference/tests.md
-      - reference/benchmarks.md
-      - reference/glossary.md
-      - reference/roadmap.md
-      - File formats:
-          - MHR archive: reference/formats/mhr.md
-          - SOMA archive: reference/formats/soma.md
-          - Frame set: reference/formats/frame_set.md
-          - Closed segmentation: reference/formats/segmentation.md
-          - Density tables: reference/formats/density_tables.md
-          - Studio segmentation: reference/formats/studio_segmentation.md
-          - Studio pose: reference/formats/studio_pose.md
-  - Contracts:
-      - Index: contracts/index.md
-      - Scope: contracts/scope.md
-      - Public surface: contracts/public-surface.md
-      - Rules: contracts/rules.md
-      - Coupling standard: contracts/coupling-standard.md
+  - Install and weights: install.md
+  - Modules:
+      - Families and files: families.md
+      - Bodies: bodies.md
+      - Mass: mass.md
+      - Fitting terms: terms.md
+      - Viewer: viewer.md
+      - Studio: studio.md

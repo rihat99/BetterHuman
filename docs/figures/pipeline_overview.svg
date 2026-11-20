@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 152" width="1060" height="152" font-family="Helvetica, Arial, sans-serif">
+<defs>
+<marker id="an" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f3a68"/></marker>
+</defs>
+<!-- background: white card so the figure reads on light and dark site themes -->
+<rect x="1" y="1" width="1058" height="150" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+<rect x="26" y="24" width="148" height="80" rx="6" fill="#f3f5f8" stroke="#1f2328" stroke-width="1.5"/>
+<text x="100" y="53" font-size="15" fill="#1f2328" text-anchor="middle" font-weight="bold">Weight file</text>
+<text x="100" y="70" font-size="12" fill="#424a53" text-anchor="middle">SMPL · SMPL-X</text>
+<text x="100" y="86" font-size="12" fill="#424a53" text-anchor="middle">MHR · SOMA · ...</text>
+<text x="100" y="126" font-size="12" fill="#424a53" text-anchor="middle">families · io</text>
+<polyline points="174,64 198,64" fill="none" stroke="#1f3a68" stroke-width="2" marker-end="url(#an)"/>
+<rect x="198" y="24" width="148" height="80" rx="6" fill="#f3f5f8" stroke="#1f2328" stroke-width="1.5"/>
+<text x="272" y="53" font-size="15" fill="#1f2328" text-anchor="middle" font-weight="bold">HumanModel</text>
+<text x="272" y="70" font-size="12" fill="#424a53" text-anchor="middle">blend shapes, rig</text>
+<text x="272" y="86" font-size="12" fill="#424a53" text-anchor="middle">density, frames</text>
+<text x="272" y="126" font-size="12" fill="#424a53" text-anchor="middle">core</text>
+<polyline points="346,64 370,64" fill="none" stroke="#1f3a68" stroke-width="2" marker-end="url(#an)"/>
+<rect x="370" y="24" width="148" height="80" rx="6" fill="#f3f5f8" stroke="#1f2328" stroke-width="1.5"/>
+<text x="444" y="53" font-size="15" fill="#1f2328" text-anchor="middle" font-weight="bold">Identity</text>
+<text x="444" y="70" font-size="12" fill="#424a53" text-anchor="middle">bake(betas=...)</text>
+<text x="444" y="86" font-size="12" fill="#424a53" text-anchor="middle">a BetterRobot Model</text>
+<text x="444" y="126" font-size="12" fill="#424a53" text-anchor="middle">core · mass</text>
+<polyline points="518,64 542,64" fill="none" stroke="#1f3a68" stroke-width="2" marker-end="url(#an)"/>
+<rect x="542" y="24" width="148" height="80" rx="6" fill="#f3f5f8" stroke="#1f2328" stroke-width="1.5"/>
+<text x="616" y="53" font-size="15" fill="#1f2328" text-anchor="middle" font-weight="bold">HumanState</text>
+<text x="616" y="70" font-size="12" fill="#424a53" text-anchor="middle">forward(q, streams)</text>
+<text x="616" y="86" font-size="12" fill="#424a53" text-anchor="middle">vertices · joints</text>
+<text x="616" y="126" font-size="12" fill="#424a53" text-anchor="middle">core</text>
+<polyline points="690,64 714,64" fill="none" stroke="#1f3a68" stroke-width="2" marker-end="url(#an)"/>
+<rect x="714" y="24" width="148" height="80" rx="6" fill="#f3f5f8" stroke="#1f2328" stroke-width="1.5"/>
+<text x="788" y="53" font-size="15" fill="#1f2328" text-anchor="middle" font-weight="bold">Terms</text>
+<text x="788" y="70" font-size="12" fill="#424a53" text-anchor="middle">joints, markers,</text>
+<text x="788" y="86" font-size="12" fill="#424a53" text-anchor="middle">priors, physics</text>
+<text x="788" y="126" font-size="12" fill="#424a53" text-anchor="middle">terms</text>
+<polyline points="862,64 886,64" fill="none" stroke="#1f3a68" stroke-width="2" marker-end="url(#an)"/>
+<rect x="886" y="24" width="148" height="80" rx="6" fill="#f3f5f8" stroke="#1f2328" stroke-width="1.5"/>
+<text x="960" y="53" font-size="15" fill="#1f2328" text-anchor="middle" font-weight="bold">Viewer</text>
+<text x="960" y="70" font-size="12" fill="#424a53" text-anchor="middle">meshes, skeletons</text>
+<text x="960" y="86" font-size="12" fill="#424a53" text-anchor="middle">studio app</text>
+<text x="960" y="126" font-size="12" fill="#424a53" text-anchor="middle">viz · studio</text>
+</svg>
