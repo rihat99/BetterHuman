@@ -122,7 +122,7 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 | **`dir`** | Directory: `io.models_dir()`, the weights directory `$BETTERHUMAN_MODELS_DIR` names. |
 | **`leye`, `reye`** | Left eye and right eye: the eye-joint classic fields of FLAME and SMPL-X (upstream's names). |
 | **LOD** | Level of detail: one of MHR's seven meshes, `0` to `6` (`families.mhr(lod=)`, `HumanStudio(lod=)`). |
-| **MLP** | Multilayer perceptron: `MLPCorrective`, one hidden ReLU layer `first_layer (H, P)` and a sparse `output (H, V * 3)` kept as its nonzero blocks (`MLPCorrective.from_dense`). |
+| **MLP** | Multilayer perceptron: `MLPCorrective`, one hidden ReLU layer `first_layer (H, P)` and an `output (H, V * 3)`. |
 | **`multi`** | Several: SOMA's joints with more than one child (`SOMARig(multi_children=, multi_parents=, multi_first=)`). |
 | **`num`** | Number of: `FamilySpec.num_joints`, `num_vertices`, `PartTopology.num_parts`, and the loaders' `num_betas`, `num_expression`, `num_pca_comps`. BetterRobot writes `n` (`njoints`). |
 | **PCA** | Principal component analysis: SMPL-X and MANO hand poses as coefficients of a hand basis (`num_pca_comps`, `SMPLFamilyFormat(hand_components=)`). |

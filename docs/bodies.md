@@ -106,12 +106,12 @@ Gradients flow through the compiled call too; with gradients on it compiles a gr
 compiles again, at most three graphs per key (the first size, one for every later size, and batch 1).
 
 On the licensed SMPL-X body at batch 64 (float32, one call), the compiled forward pass takes 8.3 ms against 16 ms on
-8 threads of an AMD EPYC 9654 and its gradient 36 ms against 49 ms; MHR gains less (40 ms against 44 ms). On an
-NVIDIA RTX PRO 6000 that another job shared, the compiled gradient took a quarter to a half of the eager time
-(SMPL-X 1.2 to 4.9 ms against 4.6 to 10 ms, MHR 2.9 to 5.8 ms against 11 to 19 ms), and the forward pass's gain
-depended on that job's load. Compiling takes from a few seconds to about a minute per graph. On CPU, torch 2.13
-aborts the process when it runs MHR's compiled backward at a batch above 1 (a fault in its vectorised CPU kernels):
-compile MHR without gradients on CPU, or run it on a GPU.
+8 threads of an AMD EPYC 9654 and its gradient 36 ms against 49 ms. MHR gains less (90 ms against 104 ms): its pose
+corrective, a large matrix product, takes most of the time. On an NVIDIA RTX PRO 6000 that another job shared, the
+compiled gradient took a quarter to a half of the eager time (SMPL-X 1.2 to 4.9 ms against 4.6 to 10 ms, MHR 3.1 to
+3.2 ms against 11 ms), and the forward pass's gain depended on that job's load. Compiling takes from a few seconds to
+about a minute per graph. On CPU, torch 2.13 aborts the process when it runs MHR's compiled backward at a batch above
+1 (a fault in its vectorised CPU kernels): compile MHR without gradients on CPU, or run it on a GPU.
 
 See also: [Mass](mass.md), which gives the subject its inertias, and [Fitting terms](terms.md), which fits `q` and
 `betas` to data.

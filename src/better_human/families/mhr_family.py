@@ -88,7 +88,7 @@ def mhr(
             floats("corrective_first_layer_weights"),
             arrays["corrective_first_layer_mask"].to(device),
         )
-        corrective = MLPCorrective.from_dense(first_layer, floats("corrective_output_weights"), rows=24)
+        corrective = MLPCorrective(first_layer, floats("corrective_output_weights"))
     # Parts: the segmentation groups but ``zero_weight``; a vertex joins the group of its strongest skin joint.
     skin_weights, skin_indices = floats("skin_weights"), arrays["skin_indices"].to(device)
     kept = [group for group, name in enumerate(arrays["segmentation_group_names"]) if name != "zero_weight"]
