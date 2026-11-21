@@ -27,12 +27,12 @@ from pathlib import Path
 
 import pytest
 import torch
-from better_robot import Model, ModelBuilder, forward_kinematics, frame_jacobian, inverse_dynamics
+from better_robot import JointFreeFlyer, Model, ModelBuilder, forward_kinematics, frame_jacobian, inverse_dynamics
 from better_robot.exceptions import BetterRobotError, ShapeError
 from better_robot.io import build_model
 from better_robot.kinematics import difference, full_configuration, integrate
 from better_robot.lie import so3
-from better_robot.model import JointFixed, JointFreeFlyer, JointRevolute, JointSpherical
+from better_robot.model import JointFixed, JointRevolute, JointSpherical
 from better_robot.spatial import inertia_of_mesh
 
 import better_human as bh

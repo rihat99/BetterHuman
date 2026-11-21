@@ -1,9 +1,9 @@
 """BetterHuman imports BetterRobot through its public surface only (principle 1.6).
 
-Every ``better_robot`` path that a module of ``src`` or ``examples`` imports (``import a.b`` or ``from a import b``,
-wherever the import sits) is a path of BetterRobot's ``__all__`` tree (``better_robot.testing.public_objects``), and
-a first-level name of BetterRobot's root is imported from the root: ``from better_robot import Viewer``, never
-``from better_robot.viewer import Viewer``, so each name has one import path.
+Every ``better_robot`` path that a module of ``src``, ``examples`` or ``tests`` imports (``import a.b`` or
+``from a import b``, wherever the import sits) is a path of BetterRobot's ``__all__`` tree
+(``better_robot.testing.public_objects``), and a first-level name of BetterRobot's root is imported from the root:
+``from better_robot import Viewer``, never ``from better_robot.viewer import Viewer``, so each name has one import path.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def _off_the_surface(path: str) -> str | None:
 def test_better_robot_is_imported_through_its_public_paths() -> None:
     found = [
         f"{path.relative_to(REPO)}:{line}: {imported}: {reason}"
-        for folder in ("src", "examples")
+        for folder in ("src", "examples", "tests")
         for path in sorted((REPO / folder).rglob("*.py"))
         for line, imported in _imported(ast.parse(path.read_text()))
         if imported.split(".")[0] == "better_robot" and (reason := _off_the_surface(imported))
