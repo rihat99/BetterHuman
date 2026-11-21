@@ -2,9 +2,8 @@
 
 Every BetterHuman or BetterRobot name a module of ``better_human.studio`` imports from outside the studio is a member
 of a package ``__all__`` tree (``better_robot.testing.public_objects``). No studio module reads a ``_``-prefixed
-attribute that its own class does not define: a studio ``Layer`` may call the hooks BetterRobot's ``Layer`` documents
-for subclasses (``_track``, ``_store_opacity``, ``_fade``) and nothing else of its base. No studio module imports a
-``_``-prefixed name or module, or reaches one through ``getattr`` or ``vars``. No module under ``src/better_human``
+attribute that its own class does not define, imports a ``_``-prefixed name or module, or reaches one through
+``getattr`` or ``vars``. No module under ``src/better_human``
 writes ``os.environ`` under any spelling: the weights directory is the user's ``$BETTERHUMAN_MODELS_DIR``, read
 through ``better_human.io.models_dir()``.
 """
@@ -22,7 +21,6 @@ SRC = Path(__file__).resolve().parents[2] / "src" / "better_human"
 STUDIO = "better_human.studio"
 LIBRARIES = ("better_human", "better_robot")
 OWN = {"self", "cls"}
-SUBCLASS_HOOKS = {"_track", "_store_opacity", "_fade"}
 ENVIRON_WRITES = {"update", "setdefault", "pop", "popitem", "clear", "__setitem__", "__delitem__"}
 
 
@@ -74,17 +72,12 @@ def _private_reads(tree: ast.AST) -> Iterator[tuple[int, str]]:
     """``(line, what)`` of every name or attribute that reaches past the public surface or the class's own state."""
     own_of: dict[int, set[str]] = {}
     for cls in (node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)):
-        own = _own_names(cls) | SUBCLASS_HOOKS
+        own = _own_names(cls)
         own_of.update((id(node), own) for node in ast.walk(cls))
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and _private(node.attr):
             owner = node.value
-            if isinstance(owner, ast.Name) and owner.id in OWN:
-                allowed = own_of.get(id(node), set())
-            elif isinstance(owner, ast.Call) and isinstance(owner.func, ast.Name) and owner.func.id == "super":
-                allowed = SUBCLASS_HOOKS
-            else:
-                allowed = set()
+            allowed = own_of.get(id(node), set()) if isinstance(owner, ast.Name) and owner.id in OWN else set()
             if node.attr not in allowed:
                 yield node.lineno, f".{node.attr}"
         elif isinstance(node, ast.Import | ast.ImportFrom):
@@ -183,8 +176,10 @@ def test_the_scans_see_every_planted_spelling() -> None:
         "        self._visible\n        super()._handles\n"
     )
     assert sorted(what for _, what in _private_reads(ast.parse(private))) == [
+        "._fade",
         "._handles",
         "._handles",
+        "._track",
         "._visible",
         "getattr(..., '_tab_handles')",
         "import better_human.core.contact_frames",
