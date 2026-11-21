@@ -48,81 +48,22 @@ class LinearCorrective(Corrective):
 
 
 @final
-@dataclass(frozen=True, eq=False, kw_only=True)
+@dataclass(frozen=True, eq=False)
 class MLPCorrective(Corrective):
-    """``offsets = relu(feature @ first_layer.T) @ output`` with ``first_layer (H, P)`` and a sparse ``output (H, V * 3)``.
-
-    ``output`` is kept as N blocks of R hidden rows by T vertices: block ``n`` holds ``output_weights[n] (T * 3, R)``,
-    the transposed entries of rows ``output_rows[n] (R,)`` on vertices ``output_vertices[n] (T,)``, zero in a vertex
-    slot past the block's last vertex. Entry ``n * T + t`` is slot ``t`` of block ``n``; ``vertex_entries (V, K)``
-    lists the entries of each vertex (-1 past its last), which a vertex subset reads. :meth:`from_dense` builds it.
-    """
+    """``offsets = relu(feature @ first_layer.T) @ output`` with ``first_layer (H, P)``, ``output (H, V * 3)``."""
 
     first_layer: torch.Tensor
-    output_rows: torch.Tensor
-    output_vertices: torch.Tensor
-    output_weights: torch.Tensor
-    vertex_entries: torch.Tensor
-
-    @classmethod
-    def from_dense(cls, first_layer: torch.Tensor, output: torch.Tensor, *, rows: int) -> MLPCorrective:
-        """The corrective of ``first_layer (H, P)`` and ``output (H, V * 3)`` whose hidden rows come in runs of ``rows``
-        that move the same vertices (MHR and SOMA: a joint's 24 rows), each run's vertices cut into blocks of 64."""
-        num_vertices, device = output.shape[1] // 3, output.device
-        moved = (output != 0).unflatten(1, (num_vertices, 3)).any(-1).unflatten(0, (-1, rows)).any(1)  # (H / R, V)
-        runs, vertices = [], []
-        for run, run_moved in enumerate(moved):
-            ids = run_moved.nonzero()[:, 0]
-            for start in range(0, len(ids), _BLOCK_VERTICES):
-                block = ids[start : start + _BLOCK_VERTICES]
-                runs.append(run)
-                vertices.append(torch.nn.functional.pad(block, (0, _BLOCK_VERTICES - len(block)), value=-1))
-        output_rows = torch.tensor(runs, device=device)[:, None] * rows + torch.arange(rows, device=device)  # (N, R)
-        output_vertices = torch.stack(vertices)  # (N, T), -1 past the end of a run's vertices
-        weights = output.unflatten(1, (num_vertices, 3))[output_rows[:, :, None], output_vertices[:, None].clamp(min=0)]
-        weights = weights * (output_vertices >= 0)[:, None, :, None]  # (N, R, T, 3)
-        entry_vertices = output_vertices.flatten()
-        entries = (entry_vertices >= 0).nonzero()[:, 0]
-        entries = entries[entry_vertices[entries].argsort(stable=True)]  # grouped by vertex
-        vertex = entry_vertices[entries]
-        rank = torch.arange(len(vertex), device=device) - torch.searchsorted(vertex, vertex)  # among the vertex's
-        vertex_entries = torch.full((num_vertices, int(rank.max()) + 1), -1, device=device)
-        return cls(
-            first_layer=first_layer,
-            output_rows=output_rows,
-            output_vertices=output_vertices.clamp(min=0),
-            output_weights=weights.permute(0, 2, 3, 1).flatten(1, 2).contiguous(),
-            vertex_entries=vertex_entries.index_put_((vertex, rank), entries),
-        )
+    output: torch.Tensor
 
     def apply(self, feature: torch.Tensor, vertex_ids: torch.Tensor | None = None) -> torch.Tensor:
-        hidden = torch.nn.functional.linear(feature, self.first_layer).relu()  # (..., H)
-        if vertex_ids is not None:  # the subset's columns of the dense output, from its entries
-            entries = self.vertex_entries[vertex_ids]  # (M, K); entry -1 reads the last one with weight 0
-            weights = self.output_weights.unflatten(1, (-1, 3)).flatten(0, 1)[entries] * (entries >= 0)[..., None, None]
-            rows = self.output_rows[entries // self.output_vertices.shape[1]]  # (M, K, R)
-            matrix = weights.new_zeros(len(entries), 3, len(self.first_layer)).scatter_add(
-                2, rows.flatten(1)[:, None].expand(-1, 3, -1), weights.transpose(1, 2).flatten(2)
-            )  # (M, 3, H)
-            return (hidden @ matrix.flatten(0, 1).T).unflatten(-1, (-1, 3))
-        columns = hidden.reshape(-1, hidden.shape[-1]).T  # (H, B): the batch last, so each vertex adds one row
-        # index_select, not indexing: its backward is one index_add (on CUDA, indexing's sorts a dozen kernels)
-        inputs = columns.index_select(0, self.output_rows.flatten()).unflatten(0, self.output_rows.shape)  # (N, R, B)
-        blocks = torch.bmm(self.output_weights, inputs).unflatten(1, (-1, 3))  # (N, T, 3, B)
-        offsets = blocks.new_zeros(len(self.vertex_entries), *blocks.shape[2:])
-        offsets = offsets.index_add(0, self.output_vertices.flatten(), blocks.flatten(0, 1))  # (V, 3, B)
-        # Contiguous: a compiled backward fixes a batch-last stride at the batch it compiled for (torch 2.13, CUDA).
-        return offsets.permute(2, 0, 1).reshape(*hidden.shape[:-1], len(offsets), 3).contiguous()
+        return _offsets(torch.nn.functional.linear(feature, self.first_layer).relu(), self.output, vertex_ids)
 
     def __repr__(self) -> str:
-        hidden, features = self.first_layer.shape
+        (hidden, features), width = self.first_layer.shape, self.output.shape[1]
         return (
-            f"MLPCorrective(features={features}, hidden={hidden}, vertices={len(self.vertex_entries)}, "
-            f"blocks={len(self.output_rows)}, dtype={self.output_weights.dtype}, device={self.output_weights.device})"
+            f"MLPCorrective(features={features}, hidden={hidden}, vertices={width // 3}, dtype={self.output.dtype}, "
+            f"device={self.output.device})"
         )
-
-
-_BLOCK_VERTICES = 64  # vertices per block of MLPCorrective.output; 32, 128 and 512 measured no faster on MHR
 
 
 def _read_only(mapping: Mapping[Any, Any]) -> MappingProxyType:

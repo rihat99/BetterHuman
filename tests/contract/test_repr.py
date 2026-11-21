@@ -73,9 +73,7 @@ BUILDERS: dict[str, Callable[[], object]] = {
     "better_human.core.Identity": _identity,
     "better_human.core.Landmarks": lambda: random_weight_smplx().spec.landmarks,
     "better_human.core.LinearCorrective": lambda: random_weight_smplx().spec.corrective,
-    "better_human.core.MLPCorrective": lambda: core.MLPCorrective.from_dense(
-        torch.ones(64, 30), torch.ones(64, 300), rows=8
-    ),
+    "better_human.core.MLPCorrective": lambda: _filled(core.MLPCorrective, (64, 300)),
     "better_human.core.Parts": lambda: random_weight_smplx().spec.parts,
     "better_human.core.RigBake": lambda: _filled(core.RigBake, (2, 300, 3)),
     "better_human.families.FLAMEClassic": lambda: _filled(families.FLAMEClassic, (3, 100)),
