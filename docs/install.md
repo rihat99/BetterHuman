@@ -1,11 +1,9 @@
 # Install and weights
 
 BetterHuman needs Python 3.12 or newer, PyTorch and BetterRobot. The project uses [uv](https://docs.astral.sh/uv/).
-While both libraries are in development, BetterHuman reads BetterRobot from a checkout beside its own, and this
-branch reads BetterRobot's `dev` branch, so clone both into one folder:
+`uv sync` installs the BetterRobot commit that `pyproject.toml` pins:
 
 ```bash
-git clone -b dev https://github.com/rihat99/BetterRobot
 git clone https://github.com/rihat99/BetterHuman && cd BetterHuman
 uv sync --extra studio
 ```
