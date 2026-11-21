@@ -12,7 +12,6 @@ whole batches with BetterRobot's kinematics, dynamics, solvers and browser viewe
 ## Install
 
 ```bash
-git clone -b dev https://github.com/rihat99/BetterRobot   # this branch reads BetterRobot's dev from beside it
 git clone https://github.com/rihat99/BetterHuman && cd BetterHuman
 uv sync --extra studio   # Python 3.12+, PyTorch, BetterRobot, the browser viewer and the studio
 ```

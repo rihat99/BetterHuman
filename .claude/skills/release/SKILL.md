@@ -12,9 +12,10 @@ the first release is 0.1.0, the version `pyproject.toml` already holds, and its 
 
 ## Pin BetterRobot by revision
 
-While both libraries change together, `[tool.uv.sources]` in `pyproject.toml` reads BetterRobot from the checkout
-beside this one: `better-robot = { path = "../BetterRobot", editable = true }`. A release names one BetterRobot
-commit instead, a tagged one, never a branch or a path:
+Between releases `[tool.uv.sources]` in `pyproject.toml` pins a commit of BetterRobot's `dev` branch, or reads the
+checkout beside this one while both libraries change together:
+`better-robot = { path = "../BetterRobot", editable = true }`. A release names one tagged BetterRobot commit, never a
+branch or a path:
 `better-robot = { git = "https://github.com/rihat99/BetterRobot", rev = "<sha>" }`. Once the owner has pushed the
 BetterRobot tag, `git ls-remote` prints its commit on the line ending `^{}`:
 
