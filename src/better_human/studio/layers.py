@@ -27,7 +27,7 @@ from better_robot.viewer import (
 )
 
 from better_human.mass import PartTopology
-from better_human.viz import HUMAN_THEME, mesh_layer, skeleton_layers
+from better_human.viz import HUMAN_THEME, HumanView, mesh_layer
 
 from .state import ChangeKind, StudioSession, compact_segmentation
 
@@ -135,8 +135,10 @@ class StudioLayers:
     edit = property(lambda self: self.layers["edit"])
 
     def _layers(self) -> dict[str, Layer]:
-        """Every layer, built from the session."""
-        joints, bones = skeleton_layers(self.session.state, radius=self.radius, theme=self.theme)
+        """Every layer, built from the session; ``skeleton`` is the view of the joints and bones that a pose moves."""
+        self.skeleton = HumanView(self.session.state, mesh=None, theme=self.theme)
+        joints, bones = self.skeleton
+        joints.radii[...] = self.radius
         return {
             "mesh": self._mesh(),
             "joints": joints,
@@ -275,9 +277,7 @@ class StudioLayers:
                 self.mesh.body_poses[...] = self._part_poses()
         else:
             self.mesh.vertices[...] = session.vertices.detach().cpu().numpy()
-        joints, bones = skeleton_layers(session.state, radius=self.radius, theme=self.theme)
-        self.joints.centers[...] = joints.centers
-        self.bones.points[...] = bones.points
+        self.skeleton.update(session.state)
         self.selected.centers[...] = self._selected_center()
         if len(self.edit_vertices):
             self.edit.points[0, : len(self.edit_vertices)] = self._edit_points()
