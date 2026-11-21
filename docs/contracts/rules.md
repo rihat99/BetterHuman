@@ -120,8 +120,7 @@ Enforcement: `tests/contract/test_golden_provenance.py`.
 ## H-STUDIO-1 The studio is an application on the public surfaces (MUST)
 
 `better_human.studio` imports only names of BetterHuman's and BetterRobot's `__all__` trees from outside itself,
-reads no `_` attribute its own class does not define (a studio layer may call the subclass hooks BetterRobot's
-`Layer` documents), and writes no environment variable.
+reads no `_` attribute its own class does not define, and writes no environment variable.
 A viewer feature that is not human-specific goes to BetterRobot.
 
 Rationale: the studio is the first application on the libraries; whatever it needs, every application needs.

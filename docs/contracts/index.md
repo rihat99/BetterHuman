@@ -66,9 +66,9 @@ it).
 ## Shared code and its one exception
 
 Code that both libraries need lives once, in `better_robot.testing`: the docs runner, the fake
-viser server, the import walker and the citation resolver. The written exception is the three static theme files,
-`docs/stylesheets/extra.css`, `docs/stylesheets/guidebook.css` and `docs/javascripts/mathjax.js`: they hold no
-behaviour, so each repository keeps a byte-identical copy instead of reading package data at build time.
+viser server, the import walker and the citation resolver. The written exception is the two static theme files,
+`docs/stylesheets/extra.css` and `docs/stylesheets/guidebook.css`: they hold no behaviour, so each repository keeps a
+byte-identical copy instead of reading package data at build time.
 
 ## Changes the owner decides
 

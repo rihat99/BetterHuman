@@ -19,7 +19,6 @@ from better_robot.kinematics import integrate
 from better_robot.lie import se3
 from better_robot.testing import FakeServer
 from better_robot.viewer import RobotVisual
-from better_robot.viewer.theme import linear_uint8
 
 import better_human as bh
 from better_human.io import weight_path
@@ -196,7 +195,9 @@ def test_skeleton_layers_draw_the_native_skeleton(clip) -> None:
     server = _shown([joints, bones], K)
     spheres = _node(server, "joints/spheres")
     np.testing.assert_allclose(spheres.batched_positions, translations, atol=1e-6)
-    np.testing.assert_array_equal(spheres.props["batched_colors"][0], linear_uint8(HUMAN_THEME.accent))
+    srgb = (np.asarray(HUMAN_THEME.accent) * 255 + 0.5).astype(np.uint8) / 255  # viser reads these as linear
+    accent = np.where(srgb <= 0.04045, srgb / 12.92, ((srgb + 0.055) / 1.055) ** 2.4) * 255 + 0.5
+    np.testing.assert_array_equal(spheres.props["batched_colors"][0], accent.astype(np.uint8))
     np.testing.assert_allclose(_node(server, "bones/lines").points, expected, atol=1e-6)
 
 

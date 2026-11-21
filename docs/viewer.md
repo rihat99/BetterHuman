@@ -47,7 +47,8 @@ print([layer.name for layer in layers])
 ```
 
 In a script, end with `viewer.serve()`: it plays the clip until Ctrl-C. `human_layers(state, mesh="skinned")` draws
-the skinned body instead. SOMA's joints do not follow its model's, so it has only the exact mesh.
+the skinned body instead. SOMA's joints do not follow its model's, nor do MHR's once its proportions are nonzero,
+so those have only the exact mesh.
 
 ## Update one pose live
 

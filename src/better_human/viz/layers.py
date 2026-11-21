@@ -12,6 +12,7 @@ as its first hue.
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
+from contextlib import nullcontext
 from dataclasses import replace
 from typing import Final, Literal, final
 
@@ -241,12 +242,14 @@ class HumanView:
                     f"HumanView.update takes a single pose of the drawn body: got {tuple(value.shape)} where the view "
                     f"draws {drawn.shape[1:]}"
                 )
-        for layer, (drawn, value) in zip(self.layers, writes, strict=True):
-            if isinstance(layer, RobotVisual):
-                layer.update(state.q)  # forward kinematics, then the visual redraws itself
-            else:
-                drawn[...] = value if isinstance(value, np.ndarray) else _numpy(value)
-                layer.redraw()
+        viewer = self.layers[0].viewer if self.layers else None
+        with nullcontext() if viewer is None else viewer.server.atomic():  # the browser draws the pose in one go
+            for layer, (drawn, value) in zip(self.layers, writes, strict=True):
+                if isinstance(layer, RobotVisual):
+                    layer.update(state.q)  # forward kinematics, then the visual redraws itself
+                else:
+                    drawn[...] = value if isinstance(value, np.ndarray) else _numpy(value)
+                    layer.redraw()
 
 
 __all__ = [
