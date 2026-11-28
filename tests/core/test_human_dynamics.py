@@ -18,21 +18,8 @@ def mass_body() -> bh.HumanModel:
     return bh.HumanModel.from_spec(bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz")))
 
 
-def test_gravity_inverse_dynamics_zero_velocity_and_mass_matrix_spd(mass_body: bh.HumanModel) -> None:
-    model = mass_body.bake().model
-    q = model.q_neutral
-    state = forward_kinematics(model, q)
-    velocity = torch.zeros(model.nv, dtype=q.dtype)
-    acceleration = torch.zeros_like(velocity)
-    tau = inverse_dynamics(model, state, v=velocity, a=acceleration)
-    assert torch.isfinite(tau).all()
-
-    M = mass_matrix(model, state)
-    torch.testing.assert_close(M, M.mT, rtol=2e-5, atol=2e-5)
-    assert torch.linalg.eigvalsh(M).min() > 0
-
-
 def test_batched_shapes_drive_batched_dynamics(mass_body: bh.HumanModel) -> None:
+    """The zero identity and a shaped one: finite gravity torques at rest, a symmetric positive-definite mass matrix."""
     betas = torch.stack((torch.zeros(10), torch.linspace(-0.5, 0.5, 10)))
     model = mass_body.bake(betas=betas).model
     q = model.q_neutral
@@ -44,6 +31,7 @@ def test_batched_shapes_drive_batched_dynamics(mass_body: bh.HumanModel) -> None
     assert tau.shape == (2, model.nv)
     assert M.shape == (2, model.nv, model.nv)
     assert torch.isfinite(tau).all()
+    torch.testing.assert_close(M, M.mT, rtol=2e-5, atol=2e-5)
     assert torch.linalg.eigvalsh(M).min() > 0
 
 
