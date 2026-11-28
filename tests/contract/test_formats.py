@@ -188,8 +188,9 @@ def test_a_version_that_is_not_an_integer_is_refused(version: object) -> None:
 
 
 @pytest.mark.parametrize("fields", [[1, 2], "abc", 5, None])
-@pytest.mark.parametrize("format", LATEST)
+@pytest.mark.parametrize("format", [FRAME_SET, POSE_FORMAT])
 def test_fields_that_are_not_a_mapping_are_refused(format: str, fields: object) -> None:
+    """The check reads the format only to name it: two formats stand for all seven, so a fixed name fails one."""
     with pytest.raises(
         FormatError, match=rf"f\.json: a {format} file is a mapping of fields .*got {type(fields).__name__}"
     ):
