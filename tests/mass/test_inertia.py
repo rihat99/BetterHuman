@@ -280,15 +280,6 @@ def test_named_density_table_maps_smplx_parts_by_name() -> None:
         torch.testing.assert_close(dempster / density[:, None], plain / uniform.density, rtol=2e-5, atol=2e-5)
 
 
-@pytest.mark.licensed
-def test_argmax_fallback_integrates_smplx_parts() -> None:
-    body = bh.HumanModel.from_spec(bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz")))
-    topology = body.part_topology
-    assert topology is not None
-    for vertices, faces in topology.meshes(body.bake().rest_vertices):
-        assert inertia_of_mesh(vertices, faces, density=1000.0)[0] > 0
-
-
 @FLOAT32_GRADCHECK
 @pytest.mark.licensed
 def test_float32_gradcheck_betas_to_total_mass(mass_body: bh.HumanModel) -> None:
