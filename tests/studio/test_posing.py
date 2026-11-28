@@ -1,4 +1,7 @@
-"""Joint handles and local-rotation posing for SMPL (free-flyer + spherical), MHR (revolute channels) and SOMA."""
+"""Joint handles and local-rotation posing for SMPL (free-flyer + spherical), MHR (revolute channels) and SOMA.
+
+SMPL runs on the random-weight archive in the full tier; MHR and SOMA read the licensed weights.
+"""
 
 from __future__ import annotations
 
@@ -10,13 +13,12 @@ import better_human as bh
 from better_human.io import weight_path
 from better_human.studio.posing import apply_local_rotation, joint_handles
 from better_human.studio.state import FrameEntry, StudioSession
-
-pytestmark = pytest.mark.licensed
+from tests.support.random_archives import random_weight_spec
 
 
 @pytest.fixture(scope="module")
 def smpl() -> bh.HumanModel:
-    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
+    return bh.HumanModel.from_spec(random_weight_spec("smpl"))
 
 
 @pytest.fixture(scope="module")
@@ -78,6 +80,7 @@ def test_smpl_handle_table(smpl: bh.HumanModel) -> None:
     assert 7 + 4 * len(rest) == identity.model.q_neutral.shape[-1]
 
 
+@pytest.mark.licensed
 def test_mhr_handle_table(mhr: bh.HumanModel) -> None:
     handles = joint_handles(mhr.bake())
     assert 0 < len(handles) < len(mhr.spec.joint_names), "fixed MHR joints must have no handle"
@@ -109,12 +112,14 @@ def test_smpl_free_flyer_rotation_only(smpl: bh.HumanModel) -> None:
     torch.testing.assert_close(posed[:3], world_old[:3], atol=1e-5, rtol=0)
 
 
+@pytest.mark.licensed
 def test_mhr_three_channel_round_trip(mhr: bh.HumanModel) -> None:
     handle = next(h for h in joint_handles(mhr.bake()) if h.kind == "channels" and len(h.channels) == 3)
     target, posed, _ = _pose_with(mhr, handle.name, [0.1, -0.2, 0.15, 0.9618])
     assert _angle(target[3:], posed[3:]) < 1e-3
 
 
+@pytest.mark.licensed
 def test_mhr_missing_channels_touch_only_their_slots(mhr: bh.HumanModel) -> None:
     identity = mhr.bake()
     handle = next(h for h in joint_handles(identity) if h.kind == "channels" and len(h.channels) < 3)
@@ -142,6 +147,7 @@ def test_session_rotate_joint_and_move_root(smpl: bh.HumanModel) -> None:
     assert kinds == ["pose", "pose"]
 
 
+@pytest.mark.licensed
 def test_session_move_root_applies_the_gizmo_delta_to_soma(soma: bh.HumanModel) -> None:
     """SOMA reports its Hips turned by their T-pose orientation, which ``q[3:7]`` does not hold."""
     session = StudioSession(soma, "soma")
@@ -157,6 +163,7 @@ def test_session_move_root_applies_the_gizmo_delta_to_soma(soma: bh.HumanModel) 
     torch.testing.assert_close(session.joint_poses[root.native_index, :3], moved[:3], atol=1e-5, rtol=0)
 
 
+@pytest.mark.licensed
 def test_soma_free_flyer_rotation_reaches_the_gizmo_target(soma: bh.HumanModel) -> None:
     """The reported Hips rotation includes their T-pose orientation, so ``q[3:7]`` takes the world delta."""
     target, posed, _ = _pose_with(soma, "Hips", [0.0, 0.3827, 0.0, 0.9239])
@@ -164,6 +171,7 @@ def test_soma_free_flyer_rotation_reaches_the_gizmo_target(soma: bh.HumanModel) 
     torch.testing.assert_close(posed[:3], target[:3], atol=1e-5, rtol=0)
 
 
+@pytest.mark.licensed
 @pytest.mark.parametrize("family", ["mhr", "soma"])
 def test_a_body_without_contact_frames_refuses_a_frame_set(family: str, request: pytest.FixtureRequest) -> None:
     """The model's rule: MHR and SOMA take no contact frames, so the session keeps its empty frame set."""

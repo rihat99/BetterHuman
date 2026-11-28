@@ -6,7 +6,7 @@ import argparse
 
 import numpy as np
 
-from .app import launch
+from .app import HumanStudio
 
 
 def _parse_args() -> argparse.Namespace:
@@ -26,7 +26,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     """Parse CLI arguments and run the studio (blocking)."""
     args = _parse_args()
-    launch(
+    HumanStudio(
         family=args.family,
         gender=args.gender,
         lod=args.lod,
@@ -34,7 +34,7 @@ def main() -> None:
         host=args.host,
         data_root=args.data_root,
         generator=np.random.default_rng(args.seed),
-    )
+    ).run()
 
 
 if __name__ == "__main__":

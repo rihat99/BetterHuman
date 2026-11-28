@@ -1,4 +1,7 @@
-"""GizmoController on the fake viewer server: options per joint kind, drags, status and lifecycle."""
+"""GizmoController on the fake viewer server: options per joint kind, drags, status and lifecycle.
+
+SMPL runs on the random-weight archive in the full tier; MHR reads the licensed weights.
+"""
 
 from __future__ import annotations
 
@@ -12,14 +15,14 @@ import better_human as bh
 from better_human.io import weight_path
 from better_human.studio.gizmo import GizmoController
 from better_human.studio.state import StudioSession
+from tests.support.random_archives import random_weight_spec
 
-pytestmark = pytest.mark.licensed
 _TURN = [0.0, 0.3827, 0.0, 0.9239]
 
 
 @pytest.fixture(scope="module")
 def smpl() -> bh.HumanModel:
-    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
+    return bh.HumanModel.from_spec(random_weight_spec("smpl"))
 
 
 @pytest.fixture(scope="module")
@@ -89,6 +92,7 @@ def test_clear_on_body_change_and_select_none(smpl: bh.HumanModel) -> None:
     assert gizmo.gizmo is None and gizmo.joint is None
 
 
+@pytest.mark.licensed
 def test_fixed_joint_reports_status(mhr: bh.HumanModel) -> None:
     session, gizmo, status = _setup(mhr, "mhr")
     posed = {h.native_index for h in session.handles}
@@ -99,6 +103,7 @@ def test_fixed_joint_reports_status(mhr: bh.HumanModel) -> None:
     assert status[-1] == f"joint {mhr.spec.joint_names[fixed]!r} has no degree of freedom"
 
 
+@pytest.mark.licensed
 def test_mhr_channel_drag(mhr: bh.HumanModel) -> None:
     session, gizmo, _ = _setup(mhr, "mhr")
     handle = next(h for h in session.handles if h.kind == "channels" and len(h.channels) == 3)

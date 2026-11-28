@@ -16,7 +16,8 @@ uv run python -m better_human.studio --data-root ~/studio_data --family smplx
 ```
 
 `--family` is `smpl`, `smplx` or `mhr`; `--gender` and `--lod` (MHR's level of detail) pick the file, and `--port`
-the port. From Python, `better_human.studio.launch(data_root=..., family="smplx")` does the same.
+the port. From Python, `better_human.studio.HumanStudio(data_root=..., generator=np.random.default_rng(0),
+family="smplx").run()` does the same.
 
 ## What it does
 

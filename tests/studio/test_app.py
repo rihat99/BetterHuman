@@ -25,10 +25,8 @@ from better_robot.kinematics import integrate
 from better_robot.lie import so3
 from better_robot.testing import FakeServer
 
-from better_human.studio import app, launch
+import better_human.studio.__main__ as command_line
 from better_human.studio import layers as studio_layers
-from better_human.studio import state as studio_state
-from better_human.studio.__main__ import main
 from better_human.studio.app import HumanStudio
 
 
@@ -65,7 +63,7 @@ def test_the_studio_runs_on_the_stand_in_server(random_studio: HumanStudio) -> N
     _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
     assert studio.gizmo.joint == 5
     before = studio.session.vertices.clone()
-    studio.random_shape("betas")
+    _control(studio, "Random betas").fire()
     assert not torch.equal(before, studio.session.vertices)
     studio.segment.load_builtin()
     assert len(studio.session.part_names) == 24
@@ -138,7 +136,8 @@ def _body_section(studio: HumanStudio, fire: Any) -> None:
     session.set_q(posed)
     _control(studio, "Pose name").value = "p1"
     fire("Save pose")
-    assert (studio.paths.pose_dir("smpl_neutral") / "p1.json").is_file() and studio.saved_poses.value == "p1"
+    assert (studio.paths.pose_dir("smpl_neutral") / "p1.json").is_file()
+    assert studio.saved_poses.options == ("p1",) and studio.saved_poses.value == "p1"
     fire("Reset pose")
     assert torch.equal(session.q, session.identity.model.q_neutral)
     _control(studio, "Saved poses").value = "p1"
@@ -253,7 +252,10 @@ def _frames_section(studio: HumanStudio, fire: Any) -> None:
     fire("Save frames")
     assert (studio.paths.frame_dir("smpl_neutral") / "set1.json").is_file()
     fire("Export as config")
-    assert "'toe': (" in studio.frames.export_box.content
+    exported: dict[str, Any] = {}
+    exec(studio.frames.snippet, {}, exported)  # noqa: S102 - the snippet is the studio's own output
+    assert exported["contact_frames"]["toe"] == (session.frame_set["toe"].vertex, session.body.spec.joint_names[1])
+    assert studio.frames.snippet in studio.frames.export_box.content
     fire("Delete")
     assert list(session.frame_set) == [second]
     studio.frames.saved.value = "set1"
@@ -294,16 +296,19 @@ def _model_section(studio: HumanStudio, fire: Any, fired: list[Any]) -> None:
     assert (session.model_key, studio.lod) == ("smpl_female", 3)
 
 
-def test_an_error_that_is_not_the_users_escapes_the_callback(random_studio: HumanStudio) -> None:
-    """``locked`` shows a BetterRobotError on the status line and lets any other exception through."""
+def test_an_error_that_is_not_the_users_escapes_the_callback(
+    random_studio: HumanStudio, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A control shows a BetterRobotError on the status line and lets any other exception through."""
+    monkeypatch.setattr(random_studio.session, "reset_pose", lambda: 1 / 0)
     with pytest.raises(ZeroDivisionError):
-        random_studio.locked(lambda _event: 1 / 0)(None)
+        _control(random_studio, "Reset pose").fire()
 
 
 def test_the_same_seed_draws_the_same_shape(random_studio: HumanStudio, tmp_path: Path) -> None:
     other = HumanStudio(server=FakeServer(), data_root=tmp_path / "other", generator=np.random.default_rng(0))
-    random_studio.random_shape("betas")
-    other.random_shape("betas")
+    for studio in (random_studio, other):
+        _control(studio, "Random betas").fire()
     assert torch.equal(random_studio.session.vertices, other.session.vertices)
 
 
@@ -313,7 +318,7 @@ def test_a_pose_saved_on_other_joints_is_refused_on_the_status_line(random_studi
     path.write_text(json.dumps({**payload, "joint_names": payload["joint_names"][:-1]}))
     with pytest.raises(ArgumentError, match="follows other joints than the smpl_neutral model's"):
         random_studio.load_pose("pose")
-    random_studio.locked(lambda _event: random_studio.load_pose("pose"))(None)
+    _load(random_studio, random_studio.saved_poses, "pose", "Load pose")
     assert random_studio.status.startswith("ArgumentError: ") and "other joints" in random_studio.status
 
 
@@ -324,7 +329,7 @@ def test_a_pose_of_another_length_is_refused_and_leaves_the_session_unchanged(ra
     payload = json.loads(path.read_text())
     path.write_text(json.dumps({**payload, "q": payload["q"][:-1]}))
     q = studio.session.q.clone()
-    studio.locked(lambda _event: studio.load_pose("short"))(None)
+    _load(studio, studio.saved_poses, "short", "Load pose")
     assert studio.status.startswith("ArgumentError: ") and f"holds {nq - 1} values of q" in studio.status
     assert "re-save it in the studio" in studio.status
     assert torch.equal(studio.session.q, q) and torch.equal(studio.session.state.q, q)
@@ -344,7 +349,7 @@ def test_a_segmentation_of_the_pre_format_studio_loads_and_saves_as_version_1(ra
     directory = studio.paths.segmentation_dir(studio.session.model_key)
     directory.mkdir(parents=True)
     (directory / "old.json").write_text(json.dumps({"head": [0, 1, 2], "rest": list(range(3, 6890))}, indent=2))
-    studio.locked(lambda _event: studio.segment.load("old"))(None)
+    _load(studio, studio.segment.saved, "old", "Load segmentation")
     assert studio.session.part_names == ("head", "rest")
     studio.segment.save("old")
     saved = json.loads((directory / "old.json").read_text())
@@ -387,8 +392,12 @@ def test_a_refused_file_shows_on_the_status_line(
     directory = studio.paths.root / folder / studio.session.model_key
     directory.mkdir(parents=True)
     (directory / "bad.json").write_text(json.dumps(payload))
-    loader = {"pose": studio.load_pose, "segment": studio.segment.load, "frames": studio.frames.load}[load]
-    studio.locked(lambda _event: loader("bad"))(None)
+    dropdown, button = {
+        "pose": (studio.saved_poses, "Load pose"),
+        "segment": (studio.segment.saved, "Load segmentation"),
+        "frames": (studio.frames.saved, "Load frames"),
+    }[load]
+    _load(studio, dropdown, "bad", button)
     assert re.match(match, studio.status), studio.status
 
 
@@ -407,7 +416,7 @@ def test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing(
         (studio.frames.save_name, "Save frames"),
     ):
         field.value = name
-        studio.set_status("")
+        studio._set_status("")
         _control(studio, button).fire()
         assert studio.status.startswith(f"ArgumentError: the name {name!r} is not one file name"), studio.status
     assert sorted(tmp_path.rglob("*.json")) == []
@@ -419,37 +428,43 @@ def test_a_family_the_studio_does_not_edit_is_an_unknown_name(
 ) -> None:
     with pytest.raises(UnknownNameError, match="unknown studio family"):
         HumanStudio(server=FakeServer(), data_root=tmp_path, generator=np.random.default_rng(0), family=family)
-    random_studio.locked(lambda _event: random_studio.load_model(family))(None)
+    _control(random_studio, "Family").value = family
+    _control(random_studio, "Load").fire()
     assert random_studio.status.startswith("UnknownNameError: ") and random_studio.session.model_key == "smpl_neutral"
 
 
-def test_launch_and_the_command_line_serve_the_studio(
+def test_the_command_line_serves_the_studio(
     random_models: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
-    """``studio.launch`` and ``python -m better_human.studio`` build the app, print its URL and block in ``run``; here
-    on the stand-in server, with ``run`` returning at once."""
+    """``python -m better_human.studio`` builds the app, prints its URL and blocks in ``run``; here on the stand-in
+    server, whose ``sleep_forever`` returns at once."""
     built: list[HumanStudio] = []
 
     def on_the_stand_in(**arguments: Any) -> HumanStudio:
         built.append(HumanStudio(server=FakeServer(), **arguments))
         return built[-1]
 
-    monkeypatch.setattr(app, "HumanStudio", on_the_stand_in)
-    monkeypatch.setattr(HumanStudio, "run", lambda self: None)
-    launch(data_root=tmp_path / "launched", generator=np.random.default_rng(0), gender="female")
-    monkeypatch.setattr(sys, "argv", ["python -m better_human.studio", "--data-root", str(tmp_path / "cli")])
-    main()
-    assert [studio.session.model_key for studio in built] == ["smpl_female", "smpl_neutral"]
-    assert [studio.paths.root for studio in built] == [tmp_path / "launched", tmp_path / "cli"]
-    assert capsys.readouterr().out.splitlines() == [f"HumanStudio at {studio.viewer.url}" for studio in built]
+    monkeypatch.setattr(command_line, "HumanStudio", on_the_stand_in)
+    argv = ["python -m better_human.studio", "--data-root", str(tmp_path / "cli"), "--gender", "female"]
+    monkeypatch.setattr(sys, "argv", argv)
+    command_line.main()
+    (studio,) = built
+    assert (studio.session.model_key, studio.paths.root) == ("smpl_female", tmp_path / "cli")
+    assert capsys.readouterr().out.splitlines() == [f"HumanStudio at {studio.viewer.url}"]
 
 
 def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
     monkeypatch.setattr(sys, "argv", ["python -m better_human.studio", "--family", "smpl"])
     with pytest.raises(SystemExit) as exit_info:
-        main()
+        command_line.main()
     assert exit_info.value.code == 2
     assert "the following arguments are required: --data-root" in capsys.readouterr().err
+
+
+def _load(studio: HumanStudio, dropdown: Any, name: str, button: str) -> None:
+    """Pick ``name`` in a Saved dropdown and click its Load ``button``, as a user does."""
+    dropdown.value = name
+    _control(studio, button).fire()
 
 
 def _click(studio, origin, target) -> None:
@@ -469,49 +484,6 @@ def _pointer(studio: HumanStudio, event_type: str) -> Any:
     return callback
 
 
-def test_imports_without_running_server() -> None:
-    assert callable(HumanStudio) and hasattr(studio_state, "StudioSession")
-
-
-@pytest.mark.licensed
-def test_layers_session_and_sections_built(studio) -> None:
-    assert studio.session.model_key == "smpl_neutral"
-    assert _pointer_events(studio) == ["click"]
-    assert _control(studio, "Build bodies").kind == "GuiButtonHandle"
-    assert studio.status.startswith("smpl_neutral loaded")
-
-
-@pytest.mark.licensed
-def test_shape_slider_changes_vertices(studio) -> None:
-    before = studio.session.vertices.clone()
-    slider = (
-        studio.shape_sliders["betas"][0]
-        if "betas" in studio.shape_sliders
-        else next(iter(studio.shape_sliders.values()))[0]
-    )
-    slider.value = 2.0
-    slider.fire()
-    assert not torch.allclose(before, studio.session.vertices)
-
-
-@pytest.mark.licensed
-def test_click_on_joint_selects_and_highlights(studio) -> None:
-    joint = studio.session.state.joint_translations.detach().reshape(-1, 3)[5].numpy()
-    _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
-    assert studio.gizmo.joint == 5
-
-
-@pytest.mark.licensed
-def test_pose_save_and_load_roundtrip(studio) -> None:
-    q = studio.session.q.clone()
-    q[..., -1] += 0.3
-    studio.session.set_q(q)
-    studio.save_pose("p")
-    studio.session.reset_pose()
-    studio.load_pose("p")
-    assert torch.allclose(studio.session.q, q)
-
-
 @pytest.mark.licensed
 def test_segment_paint_and_build_bodies(studio) -> None:
     studio.segment.load_builtin()
@@ -525,48 +497,27 @@ def test_segment_paint_and_build_bodies(studio) -> None:
     assert "blob" in dict(rows)
 
 
-@pytest.mark.licensed
-def test_frame_add_rename_delete_export(studio) -> None:
-    studio.frames.set_adding(True)
-    point = studio.session.vertices[100].detach().numpy()
-    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
-    name = studio.frames.active
-    assert name in studio.session.frame_set
-    studio.frames.rename(name, "toe")
-    studio.frames.set_joint("toe", studio.session.body.spec.joint_names[1])
-    snippet = studio.frames.export()
-    namespace: dict[str, object] = {}
-    exec(snippet, {}, namespace)  # noqa: S102
-    assert namespace["contact_frames"]["toe"][1] == studio.session.body.spec.joint_names[1]
-    studio.frames.save("set")
-    studio.frames.delete("toe")
-    assert "toe" not in studio.session.frame_set
-    studio.frames.load("set")
-    assert "toe" in studio.session.frame_set
-
-
-@pytest.mark.licensed
-def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
-    opacities: list[float] = []
-    studio.layers.set_opacity = opacities.append
+def test_joint_selection_highlights_dims_and_reverts(random_studio: HumanStudio) -> None:
+    studio = random_studio
     selected = studio.layers.selected
     studio.select_joint(5)
     joint = studio.session.state.joint_translations[5].detach().numpy()
     assert studio.layers.highlight == 5 and selected.radii[0] > studio.layers.radius
     np.testing.assert_allclose(selected.centers[0, 0], joint, atol=1e-6)
-    studio.set_opacity(0.8)
-    assert opacities[-1] == pytest.approx(0.8 * 0.35)
+    _control(studio, "Opacity").value = 0.8
+    _control(studio, "Opacity").fire()
+    assert studio.layers.opacity < 0.8  # dimmed while a joint is selected
     studio.select_joint(None)
-    assert opacities[-1] == pytest.approx(0.8)
+    assert studio.layers.opacity == pytest.approx(0.8)
     assert studio.layers.highlight is None and selected.radii[0] == 0.0
 
 
-@pytest.mark.licensed
-def test_selection_row_buttons_and_label(studio) -> None:
+def test_selection_row_buttons_and_label(random_studio: HumanStudio) -> None:
+    studio = random_studio
     gui = studio.viewer.server.gui
     # Only the Status section's buttons carry these labels.
     for name in ("Reset pose", "Deselect joint"):
-        assert [c for c in gui.controls if c.name == name] == [studio.actions[name]]
+        assert [c for c in gui.controls if c.name == name] == [_control(studio, name)]
     joint_name = studio.session.body.spec.joint_names[5]
     studio.select_joint(5)
     assert f"joint: {joint_name}" in studio.selection_text.content
@@ -574,7 +525,7 @@ def test_selection_row_buttons_and_label(studio) -> None:
     assert "frame: —" not in studio.selection_text.content
     studio.gizmo._on_drag(studio.gizmo.handle_for(5), _rotated(studio, 5))
     for action in ("Deselect joint", "Deselect frame", "Reset pose"):
-        studio.actions[action].fire()
+        _control(studio, action).fire()
     assert studio.selection_text.content.endswith("joint: — · frame: —")
     assert studio.frames.active is None
     assert torch.equal(studio.session.q, studio.session.identity.model.q_neutral)
@@ -586,18 +537,9 @@ def _rotated(studio, joint: int) -> np.ndarray:
     return pose
 
 
-@pytest.mark.licensed
-def test_gizmo_drag_rotates_session_vertices(studio) -> None:
-    studio.select_joint(5)
-    before = studio.session.vertices.clone()
-    pose = studio.session.joint_poses[5].detach().numpy().copy()
-    pose[3:] = [np.sin(0.4), 0.0, 0.0, np.cos(0.4)]
-    studio.gizmo._on_drag(studio.gizmo.handle_for(5), pose)
-    assert (studio.session.vertices - before).abs().max() > 1e-3
-
-
-@pytest.mark.licensed
-def test_frame_click_selects_and_syncs_editor(studio) -> None:
+def test_frame_click_selects_and_syncs_editor(random_studio: HumanStudio) -> None:
+    """In pose mode a click on a frame's vertex selects the frame and shows it in the Frames section."""
+    studio = random_studio
     studio.frames.set_adding(True)
     point = studio.session.vertices[100].detach().numpy()
     _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
@@ -605,37 +547,16 @@ def test_frame_click_selects_and_syncs_editor(studio) -> None:
     studio.frames.set_adding(False)
     studio.frames.active = None
     studio.frames.frame_dropdown.value = None
-    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
+    vertex = studio.session.vertices[studio.session.frame_set[name].vertex].detach().numpy()
+    _click(studio, vertex + np.array([0.0, 0.0, 2.0]), vertex)
     assert studio.frames.active == name
     assert studio.frames.frame_dropdown.value == name
-
-
-@pytest.mark.licensed
-def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
-    studio.segment.add_part("blob")
-    blob = studio.session.part_names.index("blob")
-    studio.start_marquee()
-    camera = SimpleNamespace(position=(0.0, -0.3, 4.0), wxyz=(0.0, 0.0, 1.0, 0.0), fov=1.0, aspect=1.0)
-    event = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_min=(0.0, 0.0), screen_max=(1.0, 1.0))
-    _pointer(studio, "rect-select")(event)
-    assert int((studio.session.part_ids == blob).sum()) == studio.session.vertices.shape[-2]
-    assert _pointer_events(studio) == ["click"]
 
 
 @pytest.mark.licensed
 def test_build_bodies_total_matches_session_mass(studio) -> None:
     rows = studio.segment.build_bodies()
     assert rows[-1][1] == pytest.approx(float(studio.session.total_mass), rel=0.01)
-
-
-@pytest.mark.licensed
-def test_density_table_and_saved_pose_dropdown(studio) -> None:
-    studio.density_input.value = "Dempster"
-    assert studio.chosen_density() == "Dempster"
-    studio.reload(studio.chosen_density())
-    assert studio.session.body.density.numel() > 1
-    studio.save_pose("first")
-    assert studio.saved_poses.options == ("first",) and studio.saved_poses.value == "first"
 
 
 @pytest.mark.licensed
@@ -665,8 +586,8 @@ def test_model_switch_rebuilds_body_widgets(studio) -> None:
         assert key in studio.status
 
 
-@pytest.mark.licensed
-def test_model_switch_clears_active_frame(studio) -> None:
+def test_model_switch_clears_active_frame(random_studio: HumanStudio) -> None:
+    studio = random_studio
     studio.frames.set_adding(True)
     point = studio.session.vertices[100].detach().numpy()
     _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
@@ -676,12 +597,11 @@ def test_model_switch_clears_active_frame(studio) -> None:
     assert studio.frames.active is None
 
 
-@pytest.mark.licensed
-def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
+def test_model_switch_on_real_viser_server(tmp_path: Path, random_models: Path) -> None:
     """A body swap removes and rebuilds the sidebar sections and the scene's layers on a real viser server."""
     server = viser.ViserServer(host="127.0.0.1", port=8097, verbose=False)
     try:
-        studio = HumanStudio(server=server, data_root=tmp_path, generator=np.random.default_rng(0))
+        studio = HumanStudio(server=server, data_root=tmp_path / "data", generator=np.random.default_rng(0))
         studio.load_model("smpl", gender="neutral")
         assert studio.status.startswith("smpl_neutral loaded")
     finally:

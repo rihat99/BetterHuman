@@ -1,25 +1,18 @@
-"""StudioSession, posing, gizmo and layers on the new core and the fake viewer server."""
+"""StudioSession: pose, shape, frames and notifications; full tier, the random-weight SMPL archive."""
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 import torch
-from better_robot import Viewer
-from better_robot.testing import FakeServer
 
 import better_human as bh
-from better_human.io import weight_path
-from better_human.studio.gizmo import GizmoController
-from better_human.studio.layers import StudioLayers
 from better_human.studio.state import FrameEntry, StudioSession
-
-pytestmark = pytest.mark.licensed
+from tests.support.random_archives import random_weight_spec
 
 
 @pytest.fixture(scope="module")
 def body() -> bh.HumanModel:
-    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
+    return bh.HumanModel.from_spec(random_weight_spec("smpl"))
 
 
 def test_session_pose_shape_and_notify(body: bh.HumanModel) -> None:
@@ -39,24 +32,3 @@ def test_session_pose_shape_and_notify(body: bh.HumanModel) -> None:
     assert kinds == ["pose", "shape", "pose"]
     session.set_frame_set({"heel": FrameEntry(10)})
     assert kinds[-1] == "frames" and session.frame_poses.shape == (1, 7)
-
-
-def test_gizmo_and_layers_follow_the_session(body: bh.HumanModel) -> None:
-    server = FakeServer()
-    viewer = Viewer(server=server, ground=False)
-    session = StudioSession(body, "smpl")
-    layers = StudioLayers(viewer, session)
-    status: list[str] = []
-    gizmo = GizmoController(viewer, session, on_status=status.append)
-    gizmo.select(18)
-    assert gizmo.gizmo is not None and status[-1].startswith("posing")
-    pose = session.joint_poses[18].numpy().copy()
-    pose[3:] = [0.0, 0.3827, 0.0, 0.9239]
-    gizmo._on_drag(gizmo.handle_for(18), pose)
-    np.testing.assert_allclose(layers.mesh.vertices[0], session.vertices.numpy(), atol=1e-5)
-    layers.set_highlight(18)
-    np.testing.assert_allclose(layers.selected.centers[0, 0], session.joint_poses[18, :3].numpy(), atol=1e-6)
-    session.reset_segmentation()
-    layers.set_explode(0.5)
-    session.load_body(body, "smpl")
-    assert gizmo.gizmo is None
