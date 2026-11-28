@@ -1,4 +1,4 @@
-"""StudioSession, posing, gizmo and layers on the new core and the fake viewer server."""
+"""StudioSession, posing, gizmo and layers on the fake viewer server; full tier, the random-weight SMPL archive."""
 
 from __future__ import annotations
 
@@ -9,17 +9,15 @@ from better_robot import Viewer
 from better_robot.testing import FakeServer
 
 import better_human as bh
-from better_human.io import weight_path
 from better_human.studio.gizmo import GizmoController
 from better_human.studio.layers import StudioLayers
 from better_human.studio.state import FrameEntry, StudioSession
-
-pytestmark = pytest.mark.licensed
+from tests.support.random_archives import random_weight_spec
 
 
 @pytest.fixture(scope="module")
 def body() -> bh.HumanModel:
-    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
+    return bh.HumanModel.from_spec(random_weight_spec("smpl"))
 
 
 def test_session_pose_shape_and_notify(body: bh.HumanModel) -> None:

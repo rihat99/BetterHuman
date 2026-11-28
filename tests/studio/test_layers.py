@@ -1,4 +1,7 @@
-"""Studio layers on the fake viewer server: segmentation, closed parts, overlays, visibility and reloads."""
+"""Studio layers on the fake viewer server: segmentation, closed parts, overlays, visibility and reloads.
+
+Full tier: the random-weight SMPL archive.
+"""
 
 from __future__ import annotations
 
@@ -10,20 +13,19 @@ import pytest
 import torch
 from better_robot import Viewer
 from better_robot.exceptions import ArgumentError
+from better_robot.lie import so3
 from better_robot.testing import FakeServer
 
 import better_human as bh
-from better_human.io import weight_path
 from better_human.studio import layers as studio_layers
 from better_human.studio.layers import StudioLayers
 from better_human.studio.state import StudioSession
-
-pytestmark = pytest.mark.licensed
+from tests.support.random_archives import random_weight_spec
 
 
 @pytest.fixture(scope="module")
 def smpl() -> bh.HumanModel:
-    return bh.load("smpl", weight_path("smpl", "SMPL_NEUTRAL.npz"))
+    return bh.HumanModel.from_spec(random_weight_spec("smpl"))
 
 
 def _setup(body: bh.HumanModel) -> tuple[StudioSession, StudioLayers, FakeServer]:
@@ -82,13 +84,22 @@ def test_parts_fall_back_to_open_submeshes(smpl: bh.HumanModel, monkeypatch: pyt
 
 
 def test_parts_explode_moves_parts_apart(smpl: bh.HumanModel) -> None:
-    _, layers, server = _setup(smpl)
+    """Explode ``e`` moves each part by ``e`` times its centre's offset from the joints' centre."""
+    session, layers, server = _setup(smpl)
     layers.set_mode("parts")
     assembled = np.stack([np.asarray(node.position) for node in _mesh_nodes(server)])
+    centres = np.stack([_world_vertices(node).mean(axis=0) for node in _mesh_nodes(server)])
     layers.set_explode(0.5)
     exploded = np.stack([np.asarray(node.position) for node in _mesh_nodes(server)])
     assert layers.explode == 0.5
-    assert np.linalg.norm(exploded - assembled, axis=1).max() > 0.05
+    offsets = centres - session.joint_poses[:, :3].mean(dim=0).numpy()
+    np.testing.assert_allclose(exploded - assembled, 0.5 * offsets, atol=1e-5)
+
+
+def _world_vertices(node: Any) -> np.ndarray:
+    """``(n, 3)``: a part node's vertices placed at its pose (scalar-first ``wxyz``)."""
+    rotation = so3.to_matrix(torch.from_numpy(np.asarray(node.wxyz, np.float32)[[1, 2, 3, 0]])).numpy()
+    return node.props["vertices"] @ rotation.T + np.asarray(node.position)
 
 
 def test_opacity_radius_highlight_and_edit_overlay(smpl: bh.HumanModel) -> None:

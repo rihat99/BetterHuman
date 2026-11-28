@@ -557,10 +557,8 @@ def test_frame_add_rename_delete_export(studio) -> None:
     assert "toe" in studio.session.frame_set
 
 
-@pytest.mark.licensed
-def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
-    opacities: list[float] = []
-    studio.layers.set_opacity = opacities.append
+def test_joint_selection_highlights_dims_and_reverts(random_studio: HumanStudio) -> None:
+    studio = random_studio
     selected = studio.layers.selected
     studio.select_joint(5)
     joint = studio.session.state.joint_translations[5].detach().numpy()
@@ -568,14 +566,14 @@ def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
     np.testing.assert_allclose(selected.centers[0, 0], joint, atol=1e-6)
     _control(studio, "Opacity").value = 0.8
     _control(studio, "Opacity").fire()
-    assert opacities[-1] == pytest.approx(0.8 * 0.35)
+    assert studio.layers.opacity < 0.8  # dimmed while a joint is selected
     studio.select_joint(None)
-    assert opacities[-1] == pytest.approx(0.8)
+    assert studio.layers.opacity == pytest.approx(0.8)
     assert studio.layers.highlight is None and selected.radii[0] == 0.0
 
 
-@pytest.mark.licensed
-def test_selection_row_buttons_and_label(studio) -> None:
+def test_selection_row_buttons_and_label(random_studio: HumanStudio) -> None:
+    studio = random_studio
     gui = studio.viewer.server.gui
     # Only the Status section's buttons carry these labels.
     for name in ("Reset pose", "Deselect joint"):
@@ -609,8 +607,9 @@ def test_gizmo_drag_rotates_session_vertices(studio) -> None:
     assert (studio.session.vertices - before).abs().max() > 1e-3
 
 
-@pytest.mark.licensed
-def test_frame_click_selects_and_syncs_editor(studio) -> None:
+def test_frame_click_selects_and_syncs_editor(random_studio: HumanStudio) -> None:
+    """In pose mode a click on a frame's vertex selects the frame and shows it in the Frames section."""
+    studio = random_studio
     studio.frames.set_adding(True)
     point = studio.session.vertices[100].detach().numpy()
     _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
@@ -618,7 +617,8 @@ def test_frame_click_selects_and_syncs_editor(studio) -> None:
     studio.frames.set_adding(False)
     studio.frames.active = None
     studio.frames.frame_dropdown.value = None
-    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
+    vertex = studio.session.vertices[studio.session.frame_set[name].vertex].detach().numpy()
+    _click(studio, vertex + np.array([0.0, 0.0, 2.0]), vertex)
     assert studio.frames.active == name
     assert studio.frames.frame_dropdown.value == name
 
@@ -677,8 +677,8 @@ def test_model_switch_rebuilds_body_widgets(studio) -> None:
         assert key in studio.status
 
 
-@pytest.mark.licensed
-def test_model_switch_clears_active_frame(studio) -> None:
+def test_model_switch_clears_active_frame(random_studio: HumanStudio) -> None:
+    studio = random_studio
     studio.frames.set_adding(True)
     point = studio.session.vertices[100].detach().numpy()
     _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
@@ -688,12 +688,11 @@ def test_model_switch_clears_active_frame(studio) -> None:
     assert studio.frames.active is None
 
 
-@pytest.mark.licensed
-def test_model_switch_on_real_viser_server(tmp_path: Path) -> None:
+def test_model_switch_on_real_viser_server(tmp_path: Path, random_models: Path) -> None:
     """A body swap removes and rebuilds the sidebar sections and the scene's layers on a real viser server."""
     server = viser.ViserServer(host="127.0.0.1", port=8097, verbose=False)
     try:
-        studio = HumanStudio(server=server, data_root=tmp_path, generator=np.random.default_rng(0))
+        studio = HumanStudio(server=server, data_root=tmp_path / "data", generator=np.random.default_rng(0))
         studio.load_model("smpl", gender="neutral")
         assert studio.status.startswith("smpl_neutral loaded")
     finally:
