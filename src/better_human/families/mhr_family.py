@@ -12,6 +12,7 @@ from pathlib import Path
 
 import torch
 from better_robot.exceptions import ArgumentError
+from better_robot.lie.checks import check_dtype
 
 from better_human.core.spec import FamilySpec, MLPCorrective, Parts
 from better_human.io import FormatError, weight_path
@@ -20,7 +21,7 @@ from better_human.io.mass_data import shipped_density_tables
 from better_human.io.schema import MHR_CORRECTIVE_FIELDS, MHR_SCHEMA
 from better_human.mass import segment_vertices
 
-from ._checks import check_dtype, check_flags
+from ._checks import check_flags
 from .classic import MHRFormat
 from .mhr_rig import MHRRig
 
