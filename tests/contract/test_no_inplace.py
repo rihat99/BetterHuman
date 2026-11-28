@@ -84,12 +84,6 @@ TERMS: dict[str, Callable[[], tuple[Callable[..., object], tuple[object, ...]]]]
     "root_wrench": lambda: _term(
         lambda: terms.root_wrench(_identity(), list(SMPLX_FRAMES), dt=0.01), _pose(1, 4), torch.ones(1, 4, 2, 3)
     ),
-    "contact_wrenches": lambda: (
-        lambda state, forces: terms.contact_wrenches(
-            state.model, state.kinematics, forces=forces, frames=list(SMPLX_FRAMES)
-        ),
-        (_state(), torch.ones(2, 2, 3)),
-    ),
 }
 CASES: dict[str, Callable[[], tuple[Callable[..., object], tuple[object, ...]]]] = {
     "HumanModel.from_spec": lambda: (

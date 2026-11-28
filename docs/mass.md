@@ -55,19 +55,17 @@ print(f"weight: {float(torques[1]):.1f} N")  # y is up
 weight: 759.4 N
 ```
 
-Contact forces enter as wrenches on the joints: `terms.contact_wrenches` turns world forces at named frames into
-BetterRobot's `external_forces`. Hold the body up by its heels, half the weight under each, and the vertical force
+Contact forces enter as wrenches on the joints: BetterRobot's `dynamics.contact_wrenches` turns world forces at
+named frames into the `external_forces` of `inverse_dynamics`. Hold the body up by its heels, half the weight under each, and the vertical force
 left at the root is gone:
 
 ```python
-from better_human import terms
-
 frames = bh.io.shipped_frame_set("smplx_contacts")
 subject = bh.load("smplx", contact_frames=frames).bake()
 model = subject.model
 state = br.forward_kinematics(model, model.q_neutral)
 support = torch.tensor([0.0, 759.4 / 2, 0.0]).expand(2, 3)  # (2, 3): one force per heel
-wrenches = terms.contact_wrenches(model, state, forces=support, frames=["heel_left", "heel_right"])
+wrenches = br.dynamics.contact_wrenches(model, state, forces=support, frames=["heel_left", "heel_right"])
 torques = br.inverse_dynamics(model, state, v=zero, a=zero, external_forces=wrenches)
 print(f"vertical root force: {abs(float(torques[1])):.1f} N")
 ```
