@@ -1,4 +1,4 @@
-"""Contact frames baked onto SMPL-X: parents, rest placements, shape rebake."""
+"""Contact frames baked onto SMPL-X: parents, rest placements, shape rebake; vertex ids checked on synthetic FLAME."""
 
 from __future__ import annotations
 
@@ -8,12 +8,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
-from better_robot.exceptions import UnknownNameError
+from better_robot.exceptions import ArgumentError, UnknownNameError
 from better_robot.lie import so3
 
 import better_human as bh
-from better_human.core.contact_frames import _resolve_parents, _vertex_normals
+from better_human.core.contact_frames import _vertex_normals
 from better_human.io import weight_path
+from tests.support.synthetic import flame_spec
 
 REPO_ROOT = Path(__file__).parents[2]
 CONTACTS_PATH = REPO_ROOT / "tests" / "support" / "contacts.json"
@@ -110,14 +111,8 @@ def test_body_without_contact_frames_keeps_only_body_frames() -> None:
 
 
 @pytest.mark.licensed
-def test_unknown_explicit_joint_name_raises(body: bh.HumanModel) -> None:
+def test_unknown_explicit_joint_name_raises() -> None:
     with pytest.raises(UnknownNameError, match=r"unknown parent joint 'not_a_joint' \(52 valid names\)"):
-        _resolve_parents(
-            {"tip": (0, "not_a_joint")},
-            body.spec.joint_names,
-            body.spec.parts.ids,
-        )
-    with pytest.raises(UnknownNameError, match="unknown parent joint 'not_a_joint'"):
         bh.HumanModel.from_spec(
             bh.families.smplx(weight_path("smplx", "SMPLX_NEUTRAL.npz"), face=False),
             density=None,
@@ -125,16 +120,23 @@ def test_unknown_explicit_joint_name_raises(body: bh.HumanModel) -> None:
         )
 
 
-@pytest.mark.parametrize("vertex", [-1, 4, True, np.int64(-1)], ids=["negative", "past_the_mesh", "bool", "numpy"])
-def test_resolve_parents_refuses_a_vertex_outside_the_mesh(vertex: int) -> None:
+@pytest.fixture(scope="module")
+def flame(tmp_path_factory: pytest.TempPathFactory) -> bh.FamilySpec:
+    """Synthetic FLAME, 5023 vertices; joints global, neck, jaw, left_eye, right_eye."""
+    return flame_spec(tmp_path_factory.mktemp("flame"))
+
+
+@pytest.mark.parametrize("vertex", [-1, 5023, True, np.int64(-1)], ids=["negative", "past_the_mesh", "bool", "numpy"])
+def test_a_vertex_outside_the_mesh_is_refused(flame: bh.FamilySpec, vertex: int) -> None:
     # The frame-set reader cannot know the mesh; the first place that does checks every id.
-    with pytest.raises(ValueError, match=r"'tip': vertex id .* is not an int in \[0, 4\)"):
-        _resolve_parents({"tip": (vertex, None)}, ["root"], torch.zeros(4, dtype=torch.long))
+    with pytest.raises(ArgumentError, match=r"'tip': vertex id .* is not an int in \[0, 5023\)"):
+        bh.HumanModel.from_spec(flame, density=None, contact_frames={"tip": (vertex, None)})
 
 
-def test_resolve_parents_takes_any_integer_vertex_id() -> None:
-    part_ids = torch.tensor([0, 1, 1, 0])
-    assert _resolve_parents({"a": (np.int64(1), None), "b": (np.int32(3), "j1")}, ["j0", "j1"], part_ids) == [1, 1]
+def test_any_integer_vertex_id_takes_its_parent_from_the_name_or_the_skinning(flame: bh.FamilySpec) -> None:
+    frames = {"a": (np.int64(1), None), "b": (np.int32(3), "jaw")}
+    human = bh.HumanModel.from_spec(flame, density=None, contact_frames=frames)
+    assert human.contact_frames.parent_joints == (int(flame.parts.ids[1]), flame.joint_id("jaw"))
 
 
 @pytest.mark.licensed
