@@ -127,6 +127,9 @@ def _body_section(studio: HumanStudio, fire: Any) -> None:
     fire("Random betas")
     drawn = [_control(studio, f"betas[{k}]").value for k in range(10)]
     assert any(drawn) and session.shape["betas"][:10].tolist() == pytest.approx(drawn)
+    _control(studio, "Density table").value = "uniform 1000 kg/m^3"  # the app starts at "Dempster"
+    fire("Apply density")
+    assert studio.density == 1000.0 and session.body.density.tolist() == 1000.0
     _control(studio, "Density table").value = "Dempster"
     fire("Apply density")
     assert studio.density == "Dempster" and session.body.density.numel() > 1
