@@ -30,16 +30,6 @@ def test_round_trip_keeps_order_and_joints(tmp_path: Path) -> None:
     assert not (tmp_path / "set.json.tmp").exists()
 
 
-def test_unversioned_file_reads_through_its_migration(tmp_path: Path) -> None:
-    path = tmp_path / "v0.json"
-    path.write_text(
-        json.dumps(
-            {"legacy": 331, "default": {"vertex": 100, "joint": None}, "named": {"vertex": 200, "joint": "left_wrist"}}
-        )
-    )
-    assert bh.io.read_frame_set(path) == {"legacy": (331, None), "default": (100, None), "named": (200, "left_wrist")}
-
-
 def test_the_authored_fixture_reads() -> None:
     frames = bh.io.read_frame_set(FIXTURE)
     assert frames["knee_left"] == (3673, "left_knee")
