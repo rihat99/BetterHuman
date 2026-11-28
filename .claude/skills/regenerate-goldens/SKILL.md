@@ -35,7 +35,7 @@ Checks:
 - Every golden stamps its `provenance`. `tests/contract/test_golden_provenance.py` holds the oracle
   pins, generators and dtypes, checks the random-weight goldens in every tier, rebuilds each archive from its seed
   (`slow`), and checks the licensed goldens in the release tier.
-- Random-weight parity: `uv run pytest tests/parity/smplx/test_random_weights.py -q`.
+- Random-weight parity: `uv run pytest tests/parity/smplx -q -m "not licensed"`.
 - Licensed parity, with the weights: `uv run pytest tests/parity tests/contract/test_golden_provenance.py -q -m licensed`.
 - The format fixtures of `tests/support/formats/` are not goldens: they are frozen, and
   `tests/support/formats/make_fixtures.py` rewrites them only to add a format or a version.

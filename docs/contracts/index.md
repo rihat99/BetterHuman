@@ -25,7 +25,7 @@ BetterRobot's numerical contracts win.
 | H-ASSET-1 | `tests/contract/test_golden_provenance.py::test_git_holds_no_array_file_but_the_allowed_ones` |
 | H-ASSET-2 | `tests/io/test_load.py`, `tests/contract/test_models_dir.py` |
 | H-FORMAT-1 | `tests/contract/test_formats.py` |
-| H-PARITY-1 | `tests/parity/smplx/test_smpl_parity.py`, `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/smplx/test_random_weights.py`, `tests/parity/mhr/test_mhr_parity.py`, `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py` |
+| H-PARITY-1 | `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/mhr/test_mhr_parity.py`, `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py` |
 | H-PARITY-2 | `tests/contract/test_golden_provenance.py` |
 | H-STUDIO-1 | `tests/contract/test_studio_boundary.py` |
 | H-STUDIO-2 | `tests/studio/test_persistence.py::test_studio_paths_layout`, `tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server`, `tests/studio/test_app.py::test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing` |
