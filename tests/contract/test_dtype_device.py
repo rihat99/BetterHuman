@@ -30,7 +30,7 @@ def test_no_class_or_function_in_src_is_named_to() -> None:
 
 @pytest.mark.parametrize("dtype", [torch.int64, torch.float16, torch.bfloat16, torch.complex64, "float32"])
 def test_load_accepts_only_float32_and_float64(dtype: object) -> None:
-    with pytest.raises(DtypeMismatchError, match=r"is not torch\.float32 or torch\.float64.*pass dtype=torch\.float32"):
+    with pytest.raises(DtypeMismatchError, match=r"is not float32 or float64; pass torch\.float32 or torch\.float64"):
         bh.load("smpl", dtype=dtype)
 
 
@@ -74,6 +74,7 @@ def test_the_loader_builds_every_tensor_at_the_requested_dtype(tmp_path: Path, d
 def test_identity_values_in_another_dtype_raise(tmp_path: Path) -> None:
     human = bh.HumanModel.from_spec(flame_spec(tmp_path), density=None)
     with pytest.raises(
-        DtypeMismatchError, match=r"betas is torch.float32; pass it in the model's dtype, torch.float64"
+        DtypeMismatchError,
+        match=r"betas.dtype=torch.float32 != model.dtype=torch.float64; pass betas.to\(torch.float64\)",
     ):
         human.bake(betas=torch.zeros(100, dtype=torch.float32))

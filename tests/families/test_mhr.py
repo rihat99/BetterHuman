@@ -167,7 +167,7 @@ def test_spec_and_classic_validation() -> None:
         families.drop_joints(body.spec, [body.spec.joint_names[-1]])
     with pytest.raises(ValueError, match=r"\(\.\.\., 45\)"):
         from_classic(body, MHRClassic(identity_coeffs=torch.zeros(44)))
-    with pytest.raises(TypeError, match="floating"):
+    with pytest.raises(DtypeMismatchError, match="model_parameters.dtype=torch.int64 is not float32 or float64"):
         from_classic(body, MHRClassic(model_parameters=torch.zeros(204, dtype=torch.int64)))
     with pytest.raises(ValueError, match="float32"):
         from_classic(body, MHRClassic(identity_coeffs=torch.zeros(45, dtype=torch.float64)))

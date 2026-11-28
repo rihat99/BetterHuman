@@ -14,9 +14,9 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from better_robot.exceptions import ArgumentError, UnknownNameError
-from better_robot.lie.checks import check_broadcast
+from better_robot.lie.checks import check_broadcast, check_tensor
 
-from .human_model import HumanModel, Identity, _checked, _checked_groups
+from .human_model import HumanModel, Identity, _checked_groups
 
 if TYPE_CHECKING:
     from .spec import FamilySpec
@@ -58,8 +58,8 @@ def from_classic(human: HumanModel, classic: Any) -> tuple[Identity, torch.Tenso
     :class:`HumanModel`, when ``classic`` is not the family's ``*Classic`` or sets a field the model was loaded without
     (``hands=False``, ``face=False``, ``expression=False``); :class:`~better_robot.exceptions.ShapeError`,
     :class:`~better_robot.exceptions.DtypeMismatchError` or :class:`~better_robot.exceptions.DeviceMismatchError`
-    for a field of another trailing shape, dtype or device, and ``ShapeError`` for fields whose batch shapes do not
-    broadcast; ``TypeError`` for a field that is not a floating tensor.
+    for a field of another trailing shape, dtype (float32 and float64 only) or device, and ``ShapeError`` for fields
+    whose batch shapes do not broadcast; ``TypeError`` for a field that is not a tensor.
     """
     if not isinstance(human, HumanModel):
         raise ArgumentError(f"from_classic takes a HumanModel first, got {type(human).__name__}")
@@ -79,7 +79,7 @@ def from_classic(human: HumanModel, classic: Any) -> tuple[Identity, torch.Tenso
             if value is None:
                 fields[name] = exemplar.new_zeros(shapes[name])
                 continue
-            fields[name] = _checked(name, value, shapes[name], exemplar)
+            fields[name] = check_tensor(name, value, shape=shapes[name], dtype=exemplar.dtype, device=exemplar.device)
             batches[name] = value.shape[: value.dim() - len(shapes[name])]
         elif value is not None:
             raise ArgumentError(
@@ -111,7 +111,7 @@ def to_classic(identity: Identity, q: torch.Tensor, *, streams: Mapping[str, tor
     for name in streams:
         if name not in spec.stream_bases:
             raise UnknownNameError("stream group", name, valid=list(spec.stream_bases))
-    q = _checked("q", q, (identity.model.nq,), exemplar)
+    q = check_tensor("q", q, shape=(identity.model.nq,), dtype=exemplar.dtype, device=exemplar.device)
     streams = _checked_groups(streams, spec.stream_groups, exemplar, require_all=False)
     batch = check_broadcast(
         q=q.shape[:-1],
