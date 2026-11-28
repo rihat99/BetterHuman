@@ -84,7 +84,9 @@ def vertex_normals(vertices: torch.Tensor, faces: torch.Tensor) -> torch.Tensor:
     corner_c = vertices[..., faces[:, 2], :]
     # A face's cross product has twice its area as length, so the sum weighs each face by its area.
     face_normals = torch.linalg.cross(corner_b - corner_a, corner_c - corner_a, dim=-1)
-    normals = torch.zeros_like(vertices)
+    # Canonical strides, not zeros_like's: torch 2.13's deterministic CUDA index_add_ writes out of bounds into a
+    # tensor with a non-dense size-1 stride (pytorch/pytorch#203889). Can go once the torch floor contains that fix.
+    normals = vertices.new_zeros(vertices.shape)
     normals.index_add_(-2, faces.reshape(-1), face_normals.repeat_interleave(3, dim=-2))
     return normals / normals.norm(dim=-1, keepdim=True).clamp_min(1e-8)
 
