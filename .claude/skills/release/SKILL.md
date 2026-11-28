@@ -37,14 +37,14 @@ When the new revision lowers a counter of the benchmark rows, re-measure the thr
 
 ## Review the public-API diff
 
-`tools/api_snapshot.py --diff` prints the public paths added (`+`), removed (`-`) and changed (`~`) since an older
-snapshot. The older snapshot is the last release tag's `tests/contract/public_api.json`; 0.1.0, the first release,
-has none to compare with:
+BetterRobot's snapshot command with `--diff` prints the public paths added (`+`), removed (`-`) and changed (`~`)
+since an older snapshot. The older snapshot is the last release tag's `tests/contract/public_api.json`; 0.1.0, the
+first release, has none to compare with:
 
 ```bash
 # for the release after 0.1.0
 git show v0.1.0:tests/contract/public_api.json > /tmp/public_api_0.1.0.json
-uv run python tools/api_snapshot.py --diff /tmp/public_api_0.1.0.json
+uv run python -m better_robot.testing.api_snapshot better_human /tmp/public_api_0.1.0.json --diff
 ```
 
 Every `+` path has a docstring, and every `-` or `~` path came with a commit message that names its replacement; a

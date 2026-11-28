@@ -47,6 +47,7 @@ family touches.
    family in the weights layout of `docs/install.md`, the README's family table, `docs/index.md` and the rig list of
    `docs/concepts/architecture.md`; every new layout another repository reads in
    `docs/contracts/coupling-standard.md` and `tests/contract/coupling_standard_lines.txt`; a rig of its own gets a
-   load row in `LOADS` of `benchmarks/run.py`; then `uv run python tools/api_snapshot.py --write`, and the commit
-   message names the new public names.
+   load row in `LOADS` of `benchmarks/run.py`; then
+   `uv run python -m better_robot.testing.api_snapshot better_human tests/contract/public_api.json --write`, and the
+   commit message names the new public names.
 8. Check: the fast tier, the full tier, then with the weights `uv run pytest tests/parity/<family> -q -m licensed`.
