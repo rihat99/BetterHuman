@@ -1,7 +1,7 @@
 """Human core: family data, rigs, baked identities and posed states."""
 
 from .classic import ClassicFormat
-from .contact_frames import ContactFrames
+from .contact_frames import ContactFrames, vertex_normals
 from .human_model import HumanModel, HumanState, Identity
 from .rig import Rig, RigBake
 from .skinning import blend_shapes, linear_blend_skinning, skin_affines, top_k_skin
@@ -25,4 +25,5 @@ __all__ = [
     "linear_blend_skinning",
     "skin_affines",
     "top_k_skin",
+    "vertex_normals",
 ]

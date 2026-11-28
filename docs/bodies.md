@@ -16,6 +16,7 @@ The names you will use:
 | `human.bake(**groups)` | an `Identity` from the identity groups (`betas`; MHR's `identity` and `proportions`; SOMA's `shape`) |
 | `identity.forward(q, streams=)` | the `HumanState` of `q (B..., nq)`; `streams` holds per-frame groups such as `expression` |
 | `HumanState.vertices` | `(B..., V, 3)` the posed mesh, pose correctives included |
+| `core.vertex_normals(state.vertices, human.spec.faces)` | `(B..., V, 3)` the unit outward normal at each vertex |
 | `HumanState.joint_translations`, `joint_poses` | `(B..., J, 3)` and `(B..., J, 7)`, the joints in the family's own order |
 | `HumanState.contact_frame_poses(frames)`, `landmarks()`, `points(ids)` | named points on the mesh |
 | `HumanState.kinematics` | BetterRobot's `KinematicState`, for Jacobians and dynamics |

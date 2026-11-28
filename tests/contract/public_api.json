@@ -87,6 +87,7 @@
   "better_human.core.linear_blend_skinning": "function(rest_vertices: 'torch.Tensor', affines: 'torch.Tensor', *, weights: 'torch.Tensor') -> 'torch.Tensor'",
   "better_human.core.skin_affines": "function(joint_transforms: 'torch.Tensor', inverse_bind_affines: 'torch.Tensor') -> 'torch.Tensor'",
   "better_human.core.top_k_skin": "function(weights: 'torch.Tensor', k: 'int | None' = None) -> 'tuple[torch.Tensor, torch.Tensor]'",
+  "better_human.core.vertex_normals": "function(vertices: 'torch.Tensor', faces: 'torch.Tensor') -> 'torch.Tensor'",
   "better_human.families": "module",
   "better_human.families.FLAMEClassic": "class(object)(*, betas: 'torch.Tensor | None' = None, global_orient: 'torch.Tensor | None' = None, neck_pose: 'torch.Tensor | None' = None, jaw_pose: 'torch.Tensor | None' = None, leye_pose: 'torch.Tensor | None' = None, reye_pose: 'torch.Tensor | None' = None, expression: 'torch.Tensor | None' = None, transl: 'torch.Tensor | None' = None) -> None",
   "better_human.families.FLAMEClassic.betas": "value: NoneType",

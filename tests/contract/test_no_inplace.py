@@ -1,8 +1,8 @@
 """Principles 1.4 and 2.6: no public call mutates a tensor its caller holds.
 
 Each case calls one public entry point on the random-weight SMPL-X archive: ``HumanModel.from_spec``, ``bake``,
-``forward`` with a stream, every public property and method of ``HumanState``, ``from_classic``, ``to_classic`` and
-the function of every term of ``better_human.terms``. Every tensor reachable from the arguments (the pose, the
+``forward`` with a stream, every public property and method of ``HumanState``, ``from_classic``, ``to_classic``,
+the function of every term of ``better_human.terms`` and ``core.vertex_normals``. Every tensor reachable from the arguments (the pose, the
 streams, the classic fields, the term values, and the tensor fields of the records passed in, their memos included)
 keeps its version counter and its values.
 """
@@ -105,6 +105,7 @@ CASES: dict[str, Callable[[], tuple[Callable[..., object], tuple[object, ...]]]]
         (_identity(), _pose(2), _streams(2)),
     ),
     **{f"terms.{name}": case for name, case in TERMS.items()},
+    "core.vertex_normals": lambda: (bh.core.vertex_normals, (_state().vertices, random_weight_smplx().spec.faces)),
 }
 
 

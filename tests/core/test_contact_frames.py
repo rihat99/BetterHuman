@@ -12,7 +12,7 @@ from better_robot.exceptions import ArgumentError, UnknownNameError
 from better_robot.lie import so3
 
 import better_human as bh
-from better_human.core.contact_frames import _vertex_normals
+from better_human.core import vertex_normals
 from better_human.io import weight_path
 from tests.support.synthetic import flame_spec
 
@@ -72,7 +72,7 @@ def test_rest_pose_frames_sit_on_their_vertex_with_the_normal_as_z(body: bh.Huma
     vertices = torch.tensor(body.contact_frames.vertex_ids, dtype=torch.long)
     # Both sides are pelvis-centered: q_neutral puts the free-flyer root at the origin.
     assert torch.allclose(poses[:, :3], identity.rest_vertices[vertices], atol=1e-5)
-    normals = _vertex_normals(identity.rest_vertices, body.spec.faces)[vertices]
+    normals = vertex_normals(identity.rest_vertices, body.spec.faces)[vertices]
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
@@ -86,7 +86,7 @@ def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.HumanModel) ->
 
     poses = _frame_poses(shaped)
     assert torch.allclose(poses[:, :3], targets, atol=1e-5)
-    normals = _vertex_normals(shaped.rest_vertices, body.spec.faces)[vertices]
+    normals = vertex_normals(shaped.rest_vertices, body.spec.faces)[vertices]
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
