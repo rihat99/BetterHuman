@@ -44,7 +44,7 @@ files present when it was stamped.
 The full tier runs the same parity on random weights: one tracked archive per family,
 `tests/support/random_weights/{smpl,smplh,smplx}_random.npz`, in the family's upstream layout at its native vertex
 count, and the oracle's outputs on it in `tests/parity/smplx/random/{smpl,smplh,smplx}/`, which
-`tests/parity/smplx/test_random_weights.py` gates at the licensed tolerance. `make_random_archive.py` draws every
+`tests/parity/smplx/test_smplx_parity.py` gates at the licensed tolerance. `make_random_archive.py` draws every
 array from a fixed seed (no number comes from licensed weights) and writes the same bytes on every run. Regenerate
 the archives only when their layout changes, then the goldens from them, and review both as gate data:
 

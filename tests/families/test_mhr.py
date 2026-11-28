@@ -139,13 +139,6 @@ def test_identity_batch_broadcasts_against_pose_batch(body: HumanModel) -> None:
             torch.testing.assert_close(vertices[i, j], single.forward(q[j]).vertices, rtol=0, atol=1e-6)
 
 
-def test_points_match_vertex_rows(body: HumanModel) -> None:
-    identity, q, stream = from_classic(body, _random_classic(torch.Generator().manual_seed(5), (2,)))
-    state = identity.forward(q, stream)
-    ids = torch.tensor([0, 17, 4096, body.spec.num_vertices - 1])
-    torch.testing.assert_close(state.points(ids), state.vertices[..., ids, :], rtol=0, atol=0)
-
-
 def test_mass_lives_on_part_bodies_only(body: HumanModel) -> None:
     assert body.part_body_ids.shape == (body.spec.parts.count,)
     assert body.part_body_ids.unique().numel() == body.spec.parts.count

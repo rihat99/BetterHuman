@@ -103,8 +103,7 @@ change (`PARITY_ATOLS` and the constants beside it in each parity test).
 Rationale: parity with the original is the safety net that every refactor runs against.
 Example: SMPL-X vertices and joints within 1e-6 m of the `smplx` package in float32 and float64.
 
-Enforcement: `tests/parity/smplx/test_smpl_parity.py`, `tests/parity/smplx/test_smplx_parity.py`,
-`tests/parity/smplx/test_random_weights.py`, `tests/parity/mhr/test_mhr_parity.py`,
+Enforcement: `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/mhr/test_mhr_parity.py`,
 `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py`.
 
 ## H-PARITY-2 Every golden stamps its provenance (MUST)

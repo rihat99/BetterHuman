@@ -11,12 +11,13 @@ import torch
 import better_human as bh
 from better_human.families import _tables
 
-#: ``family -> (joint parents, shapedirs width, file name)``. FLAME has its real tree; the others are chains.
+#: ``family -> (joint parents, shapedirs width, file name)``. FLAME and MANO (the wrist and five three-joint fingers)
+#: have their real trees; the others are chains.
 LAYOUTS = {
     "smpl": ((-1, *range(23)), 16, "SMPL_NEUTRAL.npz"),
     "smplh": ((-1, *range(51)), 16, "model.npz"),
     "smplx": ((-1, *range(54)), 400, "SMPLX_NEUTRAL.npz"),
-    "mano": ((-1, *range(15)), 10, "MANO_RIGHT.npz"),
+    "mano": ((-1, *(0 if joint % 3 == 1 else joint - 1 for joint in range(1, 16))), 10, "MANO_RIGHT.npz"),
     "flame": ((-1, 0, 1, 1, 1), 400, "generic_model.npz"),
 }
 
@@ -46,8 +47,11 @@ def _arrays(family: str, num_vertices: int) -> dict[str, np.ndarray]:
         for side in "lr":
             arrays[f"hands_components{side}"] = np.eye(45, dtype=np.float32)
             arrays[f"hands_mean{side}"] = np.zeros(45, dtype=np.float32)
-    if family == "mano":
-        arrays["hands_components"], arrays["hands_mean"] = np.eye(45), np.zeros(45)
+    if family == "mano":  # an orthogonal hand PCA, so its pseudo-inverse round trip is exact
+        arrays["hands_components"], arrays["hands_mean"] = (
+            np.linalg.qr(rng.normal(size=(45, 45)))[0],
+            rng.normal(size=45) * 0.1,
+        )
     return arrays
 
 

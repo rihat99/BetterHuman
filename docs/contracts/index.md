@@ -25,7 +25,7 @@ BetterRobot's numerical contracts win.
 | H-ASSET-1 | `tests/contract/test_golden_provenance.py::test_git_holds_no_array_file_but_the_allowed_ones` |
 | H-ASSET-2 | `tests/io/test_load.py`, `tests/contract/test_models_dir.py` |
 | H-FORMAT-1 | `tests/contract/test_formats.py` |
-| H-PARITY-1 | `tests/parity/smplx/test_smpl_parity.py`, `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/smplx/test_random_weights.py`, `tests/parity/mhr/test_mhr_parity.py`, `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py` |
+| H-PARITY-1 | `tests/parity/smplx/test_smplx_parity.py`, `tests/parity/mhr/test_mhr_parity.py`, `tests/parity/mhr/test_mhr_torchscript.py`, `tests/parity/soma/test_soma_parity.py` |
 | H-PARITY-2 | `tests/contract/test_golden_provenance.py` |
 | H-STUDIO-1 | `tests/contract/test_studio_boundary.py` |
 | H-STUDIO-2 | `tests/studio/test_persistence.py::test_studio_paths_layout`, `tests/studio/test_app.py::test_the_studio_runs_on_the_stand_in_server`, `tests/studio/test_app.py::test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing` |
@@ -46,7 +46,7 @@ appears outside a rule's heading on a contracts page.
 | C-EXT-6 pre-1.0 versioning, the public API snapshot | `tests/contract/test_api_snapshot.py` |
 | C-ERR-2 errors from the `BetterRobotError` tree | `tests/contract/test_error_tree.py` |
 | C-PERF-3 the counters of the hot entry points do not grow: graph breaks, recompiles, top-level operators and host-syncing operators of the counter rows of `benchmarks/run.py` stay within `benchmarks/thresholds/torch-<version>.json`; marked `slow` | `tests/contract/test_compile_counters.py` |
-| C-NAME-2 descriptive names: the fields of `HumanModel`, `Identity` and `HumanState`, field by field | `tests/contract/test_naming.py` |
+| C-NAME-2 descriptive names: the fields of `HumanModel`, `Identity` and `HumanState`, field by field | `tests/contract/test_api_snapshot.py` (the constructor fields, in order), `tests/contract/test_caches.py` (the late cache fields) |
 | principles 3.4, 3.5, 3.8 and 3.9, one vocabulary: one name per thing, acronyms in capitals, no vague module name, every word of every public name in BetterHuman's or BetterRobot's glossary | `tests/contract/test_vocabulary.py` |
 | C-API-4 joints named, not indexed; no module named like a function | `tests/contract/test_public_surface.py` |
 | the coupling standard | `tests/contract/test_coupling_standard.py` |

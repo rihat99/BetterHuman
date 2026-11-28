@@ -50,9 +50,9 @@ Never skip, xfail, loosen a tolerance or delete an assertion to get green; repor
 tolerance, a counter threshold, a golden) changes only in a commit of its own that says why.
 
 - SMPL and SMPL-X against the `smplx` package, 1e-6 m in float32 and float64, expression streamed:
-  `tests/parity/smplx/test_smpl_parity.py` and `tests/parity/smplx/test_smplx_parity.py`, release tier.
-- SMPL, SMPL-H and SMPL-X on the random-weight archives, the same 1e-6 m: `tests/parity/smplx/test_random_weights.py`,
-  full tier.
+  the `licensed` cases of `tests/parity/smplx/test_smplx_parity.py`, release tier.
+- SMPL, SMPL-H and SMPL-X on the random-weight archives, the same 1e-6 m: the other cases of that module, full
+  tier.
 - SMPL-X with `stream_joints=False`: the joint error stays in (1e-5, 2e-3) m.
 - MHR at levels of detail 0 to 6 against `pymomentum` and against its TorchScript model; SOMA mid on 14 goldens and
   their identity batch, all 110 skin joints, float32 and float64. Their tolerances are `PARITY_ATOLS` and the

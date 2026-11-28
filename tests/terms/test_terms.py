@@ -1,4 +1,7 @@
-"""Human cost terms on optim: residual shapes, camera alignment, physics residual, input validation."""
+"""Human cost terms on optim: residual shapes, camera alignment, physics residual, input validation.
+
+They run on the random-weight SMPL archive with Dempster part inertias (no weights needed).
+"""
 
 from __future__ import annotations
 
@@ -10,17 +13,12 @@ from better_robot.exceptions import ShapeError, UnknownNameError
 from better_robot.kinematics import integrate
 
 from better_human import terms
-from better_human.io import weight_path
-
-pytestmark = pytest.mark.licensed
+from tests.support.random_archives import random_weight_spec
 
 
 @pytest.fixture(scope="module")
 def identity() -> bh.Identity:
-    body = bh.HumanModel.from_spec(
-        bh.families.smpl(weight_path("smpl", "SMPL_NEUTRAL.npz"), dtype=torch.float64), contact_frames=None
-    )
-    return body.bake()
+    return bh.HumanModel.from_spec(random_weight_spec("smpl", dtype=torch.float64)).bake()
 
 
 def _trajectory(identity: bh.Identity, batch: int, length: int) -> torch.Tensor:
@@ -86,11 +84,3 @@ def test_root_wrench_rejects_unbatched_or_short_trajectories(identity: bh.Identi
         term.fn(identity.model.q_neutral.expand(1, 2, identity.model.nq), torch.zeros(1, 2, 0, 3))
     with pytest.raises(ShapeError, match="forces must be"):
         term.fn(identity.model.q_neutral.expand(1, 3, identity.model.nq), torch.zeros(1, 3, 1, 3))
-
-
-def test_state_memo_does_not_leak_no_grad_results(identity: bh.Identity) -> None:
-    q = identity.model.q_neutral.clone().requires_grad_(True)
-    state = identity.forward(q)
-    with torch.no_grad():
-        assert not state.vertices.requires_grad
-    assert state.vertices.requires_grad

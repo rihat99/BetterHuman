@@ -1,9 +1,11 @@
 """Every rig's bake and forward kinematics agree through the one skinning path.
 
-Oracle: the bake itself. At ``q_neutral``, ``skin_affines`` (forward kinematics composed with the baked
-``inverse_bind_affines``) carry every baked rest joint (``RigBake.rest_joint_translations``, the native joints in the
-skinning rest frame) to its forward-kinematics position, for every rig and identity (joint form). At the bind
-configuration, where every skin affine is the identity, forward kinematics reproduces ``rest_vertices`` (mesh form).
+Oracle: the bake itself. ``skin_affines`` (forward kinematics composed with the baked ``inverse_bind_affines``) carry
+every baked rest joint (``RigBake.rest_joint_translations``, the native joints in the skinning rest frame) to its
+forward-kinematics position (joint form; for every family on a random configuration in
+``tests/contract/test_coupling_standard.py::test_skin_affines_carry_the_rest_joints_to_the_world``, here for the
+regressed rig on synthetic FLAME). At the bind configuration, where every skin affine is the identity, forward
+kinematics reproduces ``rest_vertices`` (mesh form).
 The SMPL family and MHR bind at ``q_neutral``; SOMA binds in its authored A-pose (``q_neutral`` is the T-pose), whose
 configuration the test reads from the bake's inverse binds. ``NOT_HELD`` lists the cases where the mesh form does not
 hold, each with its measured gap and reason; they are left out, never loosened.
@@ -116,16 +118,6 @@ def test_regressed_rig_reproduces_its_rest_mesh_and_joints(tmp_path: Path) -> No
         mesh, joints = _mesh_error(identity, identity.model.q_neutral), _joint_error(identity)
         assert mesh <= EXACT + _weight_defect(identity), f"{name}: vertices at q_neutral differ from rest by {mesh} m"
         assert joints <= EXACT, f"{name}: skin_affines move the rest joints off the joints by {joints} m"
-
-
-@pytest.mark.licensed
-@pytest.mark.parametrize("family", list(LICENSED))
-def test_skin_affines_carry_the_rest_joints_to_the_joints(family: str) -> None:
-    human = bh.HumanModel.from_spec(LICENSED[family](), density=None)
-    tolerance = MHR_AUTHORED_BINDS if family == "mhr" else EXACT
-    for name, identity in _identities(human).items():
-        error = _joint_error(identity)
-        assert error <= tolerance, f"{name}: skin_affines move the rest joints off the joints by {error} m"
 
 
 @pytest.mark.licensed
