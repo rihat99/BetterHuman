@@ -4,9 +4,7 @@
 ``Parts``.
 """
 
-from .densities import part_densities
-from .inertia import part_inertias
-from .segmentation import segment_vertices
+from .parts import part_densities, part_inertias, segment_vertices
 from .topology import PartTopology
 
 __all__ = ["PartTopology", "part_densities", "part_inertias", "segment_vertices"]
