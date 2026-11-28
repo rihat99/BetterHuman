@@ -13,7 +13,6 @@ from pathlib import Path
 import torch
 from better_robot.exceptions import ArgumentError, UnknownNameError
 
-from better_human.core.reduction import slice_parameter_basis
 from better_human.core.skinning import top_k_skin
 from better_human.core.spec import FamilySpec, Landmarks, LinearCorrective, Parts
 from better_human.io import FormatError, weight_path
@@ -106,8 +105,13 @@ def _load_family(
     columns = columns or {"betas": slice(0, shapedirs.shape[-1])}
     bases: dict[str, torch.Tensor] = {}
     for name, width in (*identity.items(), *streams.items()):
-        basis, _ = slice_parameter_basis(shapedirs, columns, {name: width})
-        bases[name] = basis.to(device=device, dtype=dtype)
+        start, available = columns[name].start, columns[name].stop - columns[name].start
+        if width > available:
+            raise ArgumentError(
+                f"num_{name}={width} exceeds the {available} {name} columns of {path}; pass at most that"
+            )
+        # A copy: a view would keep every column of the file alive (SMPL-X: 400 of them) in the spec.
+        bases[name] = shapedirs[..., start : start + width].to(device=device, dtype=dtype, copy=True)
     posedirs = arrays["posedirs"].to(torch.float64)
     weights, indices = top_k_skin(arrays["weights"].to(torch.float64))
     closed_faces = None

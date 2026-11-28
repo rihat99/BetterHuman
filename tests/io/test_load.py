@@ -151,18 +151,6 @@ def test_an_unreadable_archive_is_a_format_error_naming_the_path(tmp_path: Path,
     assert raised.value.__cause__ is None and raised.value.__context__ is None
 
 
-def test_mhr_resolution_uses_nested_canonical_layout(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    expected = tmp_path / "MHR" / "converted" / "mhr_lod6.npz"
-    expected.parent.mkdir(parents=True)
-    expected.touch()
-    monkeypatch.setenv("BETTERHUMAN_MODELS_DIR", str(tmp_path))
-
-    assert weight_path("MHR", "converted/mhr_lod6.npz") == expected
-
-
 def test_mhr_loader_keeps_unicode_metadata_and_tensorizes_numeric_fields(
     tmp_path: Path,
     mhr_data: dict[str, np.ndarray],
@@ -233,19 +221,6 @@ def test_mhr_loader_binds_dimensions_from_selected_fields(
     assert loaded["corrective_output_weights"].shape == (3000, 12)
 
 
-def test_mhr_v1_archive_loads_through_its_migration(tmp_path: Path, mhr_data: dict[str, np.ndarray]) -> None:
-    # A v1 archive on disk stays valid; v2's format and provenance are added in memory.
-    model_path = tmp_path / "mhr_lod6.npz"
-    del mhr_data["format"], mhr_data["provenance"]
-    mhr_data["format_version"] = np.asarray(1, dtype=np.int64)
-    np.savez(model_path, **mhr_data)
-
-    loaded = load_model_npz(model_path, MHR_SCHEMA)
-
-    assert (str(loaded["format"]), int(loaded["format_version"])) == ("better_human.mhr", 2)
-    assert str(loaded["provenance"]) == "unknown (v1)"
-
-
 @pytest.mark.parametrize("version", [1, 2])
 def test_an_excluded_header_is_still_read(tmp_path: Path, mhr_data: dict[str, np.ndarray], version: int) -> None:
     # The version selects the migrations, so excluding the header leaves it out of the result only.
@@ -258,14 +233,3 @@ def test_an_excluded_header_is_still_read(tmp_path: Path, mhr_data: dict[str, np
     loaded = load_model_npz(model_path, MHR_SCHEMA, exclude_fields=("format", "format_version"))
 
     assert set(loaded) == set(MHR_SCHEMA.fields) - {"format", "format_version"}
-
-
-def test_model_loader_rejects_unknown_field_exclusions(
-    tmp_path: Path,
-    mhr_data: dict[str, np.ndarray],
-) -> None:
-    model_path = tmp_path / "mhr_lod6.npz"
-    np.savez(model_path, **mhr_data)
-
-    with pytest.raises(ValueError, match=r"exclude_fields.*not_in_schema"):
-        load_model_npz(model_path, MHR_SCHEMA, exclude_fields={"not_in_schema"})

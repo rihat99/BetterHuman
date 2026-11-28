@@ -2,6 +2,5 @@
   "tests/contract/test_formats.py: io/formats.py": "a module path relative to src/better_human/ in the scan's code; the scan names modules from the repository root",
   "tests/contract/test_formats.py: io/schema.py": "a module path relative to src/better_human/ in the scan's code; the scan names modules from the repository root",
   "tests/io/test_archive_reader.py: converted/mhr_lod1.npz": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument",
-  "tests/io/test_load.py: converted/mhr_lod6.npz": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument",
   "tests/parity/mhr/test_mhr_torchscript.py: assets/mhr_model.pt": "a file under $BETTERHUMAN_MODELS_DIR passed as weight_path's filename; pass its subfolder in the folder argument"
 }

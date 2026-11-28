@@ -13,7 +13,6 @@ from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.lie import so3
 
-from better_human.core.reduction import reduce_joint_data
 from better_human.core.rig import Rig, RigBake, gravity
 from better_human.core.skinning import top_k_skin
 from better_human.core.spec import FamilySpec, LinearCorrective, Parts
@@ -161,51 +160,58 @@ def drop_joints(spec: FamilySpec, names: Sequence[str]) -> FamilySpec:
 def _reduce_joints(data: _JointData, dropped: Sequence[int]) -> _JointData:
     """``data`` without the terminal subtrees rooted at the joints ``dropped``, in ``data``'s dtype.
 
-    The SMPL loader reduces its float64 arrays before it builds the spec at the requested dtype.
+    Each dropped joint's skin weights go to its nearest surviving ancestor and every weight row is renormalised; the
+    corrective keeps the nine ``(R - I)`` features of each surviving joint. The SMPL loader reduces its float64 arrays
+    before it builds the spec at the requested dtype.
     """
     if not dropped:
         return data
-    if data.parts.joints != tuple(range(len(data.joint_names))):
-        raise ArgumentError("drop_joints expects one part per joint")
     num_joints, device = len(data.joint_names), data.skin_weights.device
-    num_vertices = data.skin_weights.shape[0]
-    dense = data.skin_weights.new_zeros((num_vertices, num_joints)).scatter_add_(
-        1, data.skin_indices, data.skin_weights
-    )
-    posedirs = data.posedirs.T.reshape(num_vertices, 3, -1)
-    joint_names, parents, regressor, dense, posedirs, survivors = reduce_joint_data(
-        data.joint_names, data.parents, data.joint_regressor, dense, posedirs, dropped
-    )
-    weights, indices = top_k_skin(dense)
-    survivor_tensor = torch.tensor(survivors, dtype=torch.long, device=device)
+    dropped = set(dropped)
+    if 0 in dropped:
+        raise ArgumentError("The root joint cannot be dropped")
+    invalid = sorted(joint for joint in dropped if not 0 <= joint < num_joints)
+    if invalid:  # Rig.without_joints is public and takes indices
+        raise ArgumentError(f"Dropped joint indices are out of range [0, {num_joints}): {invalid}")
+    for child, parent in enumerate(data.parents):
+        if parent in dropped and child not in dropped:
+            raise ArgumentError(
+                f"Dropped joints must form terminal subtrees; joint {parent} is dropped but child {child} survives"
+            )
+    if data.parts.joints != tuple(range(num_joints)):
+        raise ArgumentError("drop_joints expects one part per joint")
+    survivors = tuple(joint for joint in range(num_joints) if joint not in dropped)
     old_to_new = {old: new for new, old in enumerate(survivors)}
-    ancestor = torch.arange(num_joints, device=device)
-    for joint in range(num_joints):  # every dropped joint maps to its nearest surviving ancestor
-        while int(ancestor[joint]) not in old_to_new:
-            ancestor[joint] = data.parents[int(ancestor[joint])]
-    part_ids = torch.tensor([old_to_new[int(ancestor[j])] for j in range(num_joints)], device=device)
-    part_joints = tuple(old_to_new[j] for j in data.parts.joints if j in old_to_new)
-    categories = data.parts.density_categories
+    ancestor = list(range(num_joints))
+    for joint in dropped:  # every dropped joint maps to its nearest surviving ancestor
+        while ancestor[joint] in dropped:
+            ancestor[joint] = data.parents[ancestor[joint]]
+    target = torch.tensor([old_to_new[joint] for joint in ancestor], device=device)  # (J,) surviving joint of each
+    survivor_ids = torch.tensor(survivors, device=device)
+    dense = data.skin_weights.new_zeros((data.skin_weights.shape[0], len(survivors)))
+    dense = dense.scatter_add_(1, target[data.skin_indices], data.skin_weights)
+    sums = dense.sum(dim=-1, keepdim=True)
+    if not bool(torch.isfinite(sums).all()) or bool((sums <= 0).any()):
+        raise ArgumentError("skinning weight rows must have positive finite sums")
+    weights, indices = top_k_skin(dense / sums)
     closed_faces = None
     if data.parts.closed_faces is not None:
         closed_faces = {
-            new: _merged_closed_faces(data, [j for j in range(num_joints) if int(ancestor[j]) == old], old_to_new)
+            new: _merged_closed_faces(data, [j for j in range(num_joints) if ancestor[j] == old], old_to_new)
             for new, old in enumerate(survivors)
         }
     return _JointData(
-        joint_names,
-        parents,
-        data.file_joint_ids[survivor_tensor],  # an earlier drop already renumbered joints: keep file numbering
-        regressor,
+        tuple(data.joint_names[old] for old in survivors),
+        tuple(-1 if old == 0 else old_to_new[data.parents[old]] for old in survivors),
+        data.file_joint_ids[survivor_ids],  # an earlier drop already renumbered joints: keep file numbering
+        data.joint_regressor[survivor_ids],
         weights,
         indices,
-        posedirs.reshape(num_vertices * 3, -1).T,
+        data.posedirs.unflatten(0, (-1, 9))[survivor_ids[1:] - 1].flatten(0, 1),  # rows of joint j: 9(j-1) to 9j
         Parts(
-            part_ids[data.parts.ids],
-            part_joints,
-            tuple(
-                category for joint, category in zip(data.parts.joints, categories, strict=True) if joint in old_to_new
-            ),
+            target[data.parts.ids],
+            tuple(range(len(survivors))),
+            tuple(data.parts.density_categories[old] for old in survivors),
             data.parts.density_tables,
             closed_faces,
         ),
