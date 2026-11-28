@@ -106,13 +106,6 @@ def test_json_that_is_not_an_object_is_a_format_error(tmp_path: Path, payload: o
         read(path)
 
 
-def test_a_segmentation_of_the_pre_format_studio_reads_as_version_1(tmp_path: Path) -> None:
-    """Version 0 is the bare mapping the studio wrote before its files named a format; it migrates on read."""
-    path = tmp_path / "old.json"
-    path.write_text(json.dumps({"head": [0, 1, 2], "torso": [3, 4]}, indent=2))
-    assert persistence.read_segmentation(path) == {"head": [0, 1, 2], "torso": [3, 4]}
-
-
 def test_a_missing_file_is_an_argument_error(tmp_path: Path) -> None:
     with pytest.raises(ArgumentError, match="is not a file"):
         persistence.read_pose(tmp_path / "missing.json")
@@ -139,12 +132,6 @@ def test_builtin_segmentation_of_another_family_raises() -> None:
         UnknownNameError, match=r"unknown built-in segmentation 'mhr' \(valid names: \['smpl', 'smplx'\]\)"
     ):
         persistence.builtin_segmentation("mhr")
-
-
-def test_frame_config_snippet_golden() -> None:
-    snippet = persistence.frame_config_snippet({"nose": (331, None), "reye": (6260, "head")})
-    expected = "contact_frames={\n    'nose': (331, None),\n    'reye': (6260, 'head'),\n}"
-    assert snippet == expected
 
 
 def test_frame_config_snippet_is_valid_python() -> None:

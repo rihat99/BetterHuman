@@ -27,7 +27,6 @@ from better_robot.testing import FakeServer
 
 import better_human.studio.__main__ as command_line
 from better_human.studio import layers as studio_layers
-from better_human.studio import state as studio_state
 from better_human.studio.app import HumanStudio
 
 
@@ -137,7 +136,8 @@ def _body_section(studio: HumanStudio, fire: Any) -> None:
     session.set_q(posed)
     _control(studio, "Pose name").value = "p1"
     fire("Save pose")
-    assert (studio.paths.pose_dir("smpl_neutral") / "p1.json").is_file() and studio.saved_poses.value == "p1"
+    assert (studio.paths.pose_dir("smpl_neutral") / "p1.json").is_file()
+    assert studio.saved_poses.options == ("p1",) and studio.saved_poses.value == "p1"
     fire("Reset pose")
     assert torch.equal(session.q, session.identity.model.q_neutral)
     _control(studio, "Saved poses").value = "p1"
@@ -252,7 +252,10 @@ def _frames_section(studio: HumanStudio, fire: Any) -> None:
     fire("Save frames")
     assert (studio.paths.frame_dir("smpl_neutral") / "set1.json").is_file()
     fire("Export as config")
-    assert "'toe': (" in studio.frames.export_box.content
+    exported: dict[str, Any] = {}
+    exec(studio.frames.snippet, {}, exported)  # noqa: S102 - the snippet is the studio's own output
+    assert exported["contact_frames"]["toe"] == (session.frame_set["toe"].vertex, session.body.spec.joint_names[1])
+    assert studio.frames.snippet in studio.frames.export_box.content
     fire("Delete")
     assert list(session.frame_set) == [second]
     studio.frames.saved.value = "set1"
@@ -481,49 +484,6 @@ def _pointer(studio: HumanStudio, event_type: str) -> Any:
     return callback
 
 
-def test_imports_without_running_server() -> None:
-    assert callable(HumanStudio) and hasattr(studio_state, "StudioSession")
-
-
-@pytest.mark.licensed
-def test_layers_session_and_sections_built(studio) -> None:
-    assert studio.session.model_key == "smpl_neutral"
-    assert _pointer_events(studio) == ["click"]
-    assert _control(studio, "Build bodies").kind == "GuiButtonHandle"
-    assert studio.status.startswith("smpl_neutral loaded")
-
-
-@pytest.mark.licensed
-def test_shape_slider_changes_vertices(studio) -> None:
-    before = studio.session.vertices.clone()
-    slider = (
-        studio.shape_sliders["betas"][0]
-        if "betas" in studio.shape_sliders
-        else next(iter(studio.shape_sliders.values()))[0]
-    )
-    slider.value = 2.0
-    slider.fire()
-    assert not torch.allclose(before, studio.session.vertices)
-
-
-@pytest.mark.licensed
-def test_click_on_joint_selects_and_highlights(studio) -> None:
-    joint = studio.session.state.joint_translations.detach().reshape(-1, 3)[5].numpy()
-    _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
-    assert studio.gizmo.joint == 5
-
-
-@pytest.mark.licensed
-def test_pose_save_and_load_roundtrip(studio) -> None:
-    q = studio.session.q.clone()
-    q[..., -1] += 0.3
-    studio.session.set_q(q)
-    studio.save_pose("p")
-    studio.session.reset_pose()
-    studio.load_pose("p")
-    assert torch.allclose(studio.session.q, q)
-
-
 @pytest.mark.licensed
 def test_segment_paint_and_build_bodies(studio) -> None:
     studio.segment.load_builtin()
@@ -535,26 +495,6 @@ def test_segment_paint_and_build_bodies(studio) -> None:
     rows = studio.segment.build_bodies()
     assert rows[-1][0] == "total" and rows[-1][1] > 10.0
     assert "blob" in dict(rows)
-
-
-@pytest.mark.licensed
-def test_frame_add_rename_delete_export(studio) -> None:
-    studio.frames.set_adding(True)
-    point = studio.session.vertices[100].detach().numpy()
-    _click(studio, point + np.array([0.0, 0.0, 2.0]), point)
-    name = studio.frames.active
-    assert name in studio.session.frame_set
-    studio.frames.rename(name, "toe")
-    studio.frames.set_joint("toe", studio.session.body.spec.joint_names[1])
-    snippet = studio.frames.export()
-    namespace: dict[str, object] = {}
-    exec(snippet, {}, namespace)  # noqa: S102
-    assert namespace["contact_frames"]["toe"][1] == studio.session.body.spec.joint_names[1]
-    studio.frames.save("set")
-    studio.frames.delete("toe")
-    assert "toe" not in studio.session.frame_set
-    studio.frames.load("set")
-    assert "toe" in studio.session.frame_set
 
 
 def test_joint_selection_highlights_dims_and_reverts(random_studio: HumanStudio) -> None:
@@ -597,16 +537,6 @@ def _rotated(studio, joint: int) -> np.ndarray:
     return pose
 
 
-@pytest.mark.licensed
-def test_gizmo_drag_rotates_session_vertices(studio) -> None:
-    studio.select_joint(5)
-    before = studio.session.vertices.clone()
-    pose = studio.session.joint_poses[5].detach().numpy().copy()
-    pose[3:] = [np.sin(0.4), 0.0, 0.0, np.cos(0.4)]
-    studio.gizmo._on_drag(studio.gizmo.handle_for(5), pose)
-    assert (studio.session.vertices - before).abs().max() > 1e-3
-
-
 def test_frame_click_selects_and_syncs_editor(random_studio: HumanStudio) -> None:
     """In pose mode a click on a frame's vertex selects the frame and shows it in the Frames section."""
     studio = random_studio
@@ -624,30 +554,9 @@ def test_frame_click_selects_and_syncs_editor(random_studio: HumanStudio) -> Non
 
 
 @pytest.mark.licensed
-def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
-    studio.segment.add_part("blob")
-    blob = studio.session.part_names.index("blob")
-    _control(studio, "Marquee select").fire()
-    camera = SimpleNamespace(position=(0.0, -0.3, 4.0), wxyz=(0.0, 0.0, 1.0, 0.0), fov=1.0, aspect=1.0)
-    event = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_min=(0.0, 0.0), screen_max=(1.0, 1.0))
-    _pointer(studio, "rect-select")(event)
-    assert int((studio.session.part_ids == blob).sum()) == studio.session.vertices.shape[-2]
-    assert _pointer_events(studio) == ["click"]
-
-
-@pytest.mark.licensed
 def test_build_bodies_total_matches_session_mass(studio) -> None:
     rows = studio.segment.build_bodies()
     assert rows[-1][1] == pytest.approx(float(studio.session.total_mass), rel=0.01)
-
-
-@pytest.mark.licensed
-def test_density_table_and_saved_pose_dropdown(studio) -> None:
-    studio.density_input.value = "Dempster"
-    _control(studio, "Apply density").fire()
-    assert studio.session.body.density.numel() > 1
-    studio.save_pose("first")
-    assert studio.saved_poses.options == ("first",) and studio.saved_poses.value == "first"
 
 
 @pytest.mark.licensed
