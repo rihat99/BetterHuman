@@ -12,6 +12,7 @@ from pathlib import Path
 
 import torch
 from better_robot.exceptions import ArgumentError, UnknownNameError
+from better_robot.lie.checks import check_dtype
 
 from better_human.core.skinning import top_k_skin
 from better_human.core.spec import FamilySpec, Landmarks, LinearCorrective, Parts
@@ -22,7 +23,7 @@ from better_human.io.schema import FLAME_SCHEMA, MANO_SCHEMA, SMPL_SCHEMA, SMPLH
 from better_human.mass import segment_vertices
 
 from . import _tables
-from ._checks import check_dtype, check_flags
+from ._checks import check_flags
 from .classic import FLAMEClassic, MANOClassic, SMPLClassic, SMPLFamilyFormat, SMPLHClassic, SMPLXClassic
 from .regressed_rig import RegressedRig, _JointData, _reduce_joints
 

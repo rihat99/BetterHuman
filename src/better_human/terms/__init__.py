@@ -7,12 +7,11 @@ residuals keep the leading batch axes and flatten their event axes. Identity gro
 """
 
 from .fitting import ground, joints, landmarks, points, pose_prior, reprojection, shape_prior
-from .physics import contact_wrenches, root_wrench
+from .physics import root_wrench
 from .state import baked_identity, human_state
 
 __all__ = [
     "baked_identity",
-    "contact_wrenches",
     "ground",
     "human_state",
     "joints",

@@ -47,7 +47,7 @@ better_human -> core families io mass studio terms viz
 io           -> better_robot.exceptions
 mass         -> better_robot.exceptions better_robot.lie better_robot.spatial
 core         -> better_robot better_robot.exceptions better_robot.kinematics better_robot.lie
-families     -> better_robot better_robot.exceptions better_robot.io better_robot.kinematics better_robot.lie
+families     -> better_robot better_robot.exceptions better_robot.io better_robot.kinematics better_robot.lie better_robot.model
 terms        -> better_robot better_robot.dynamics better_robot.exceptions better_robot.kinematics better_robot.optim
 viz          -> better_robot.exceptions better_robot.lie better_robot.viewer
 studio       -> better_robot better_robot.exceptions better_robot.lie better_robot.viewer

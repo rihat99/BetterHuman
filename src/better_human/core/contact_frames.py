@@ -73,21 +73,20 @@ def _resolve_parents(
     return parents
 
 
-def _vertex_normals(vertices: torch.Tensor, faces: torch.Tensor) -> torch.Tensor:
-    """Outward per-vertex normals ``(..., V, 3)``.
+def vertex_normals(vertices: torch.Tensor, faces: torch.Tensor) -> torch.Tensor:
+    """Unit outward normals ``(..., V, 3)`` of the mesh ``vertices (..., V, 3)`` with counter-clockwise ``faces (F, 3)``.
 
-    Each face normal has a magnitude proportional to the triangle area, so
-    accumulating them onto the face's three vertices and normalizing gives the
-    usual area-weighted vertex normal.
-
-    :param vertices: ``(..., V, 3)`` mesh vertices.
-    :param faces: ``(F, 3)`` triangle indices, counter-clockwise wound.
+    Each is the area-weighted mean of the normals of the faces around its vertex; a vertex no face uses gets zero.
+    The normals of a posed body are ``vertex_normals(state.vertices, state.identity.human.spec.faces)``.
     """
     corner_a = vertices[..., faces[:, 0], :]
     corner_b = vertices[..., faces[:, 1], :]
     corner_c = vertices[..., faces[:, 2], :]
+    # A face's cross product has twice its area as length, so the sum weighs each face by its area.
     face_normals = torch.linalg.cross(corner_b - corner_a, corner_c - corner_a, dim=-1)
-    normals = torch.zeros_like(vertices)
+    # Canonical strides, not zeros_like's: torch 2.13's deterministic CUDA index_add_ writes out of bounds into a
+    # tensor with a non-dense size-1 stride (pytorch/pytorch#203889). Can go once the torch floor contains that fix.
+    normals = vertices.new_zeros(vertices.shape)
     normals.index_add_(-2, faces.reshape(-1), face_normals.repeat_interleave(3, dim=-2))
     return normals / normals.norm(dim=-1, keepdim=True).clamp_min(1e-8)
 
@@ -128,8 +127,8 @@ def _frame_local_placements(
     vertices = torch.as_tensor(vertex_ids, dtype=torch.long, device=rest_vertices.device)
     parents = torch.as_tensor(parent_joints, dtype=torch.long, device=rest_vertices.device)
     translation = rest_vertices[..., vertices, :] - rest_joint_translations[..., parents, :]
-    normals = _vertex_normals(rest_vertices, faces)[..., vertices, :]
+    normals = vertex_normals(rest_vertices, faces)[..., vertices, :]
     return torch.cat((translation, so3.from_matrix(_basis_from_z(normals))), dim=-1)
 
 
-__all__ = ["ContactFrames"]
+__all__ = ["ContactFrames", "vertex_normals"]

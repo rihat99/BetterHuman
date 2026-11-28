@@ -1,11 +1,12 @@
-"""The physics of a motion: contact forces as joint wrenches, and the free-flyer rows of inverse dynamics."""
+"""The physics of a motion: the free-flyer rows of inverse dynamics with contact forces."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
 import torch
-from better_robot import KinematicState, Model, forward_kinematics, inverse_dynamics
+from better_robot import forward_kinematics, inverse_dynamics
+from better_robot.dynamics import contact_wrenches
 from better_robot.exceptions import ShapeError
 from better_robot.kinematics import difference
 from better_robot.optim import TermFn
@@ -43,27 +44,3 @@ def root_wrench(
         return inverse_dynamics(model, kinematics, v=mid_velocity, a=acceleration, external_forces=wrenches)[..., :6]
 
     return TermFn(fn=residual, reads=(q, forces), window=3)
-
-
-def contact_wrenches(
-    model: Model, state: KinematicState, *, forces: torch.Tensor, frames: Sequence[str]
-) -> torch.Tensor:
-    """``external_forces (..., njoints, 6)`` for BetterRobot's ``inverse_dynamics``: world ``forces (..., C, 3)``
-    pushing at the origins of the model frames named in ``frames (C,)``.
-
-    Each force becomes a wrench ``[force, torque]`` on the body of its frame's parent joint, expressed in that joint's
-    frame, as ``inverse_dynamics`` reads it; forces on frames of one joint add up. ``state`` is the
-    ``KinematicState`` of the same poses, and ``forces`` broadcasts against its batch axes. Raises
-    :class:`~better_robot.exceptions.UnknownNameError` for a frame the model does not have.
-    """
-    ids = [model.frame_id(name) for name in frames]
-    frame_ids = torch.as_tensor(ids, dtype=torch.long, device=forces.device)
-    parents = torch.as_tensor([model.frame_parent_joint_ids[i] for i in ids], dtype=torch.long, device=forces.device)
-    joint = state.joint_transforms[..., parents, :, :]  # (..., C, 3, 4)
-    forces = forces.expand(*joint.shape[:-2], 3)
-    lever = state.frame_translations[..., frame_ids, :] - joint[..., 3]
-    rotation = joint[..., :3]
-    linear = (rotation.mT @ forces[..., None]).squeeze(-1)
-    angular = (rotation.mT @ torch.linalg.cross(lever, forces)[..., None]).squeeze(-1)
-    wrenches = forces.new_zeros((*forces.shape[:-2], model.njoints, 6))
-    return wrenches.index_add(-2, parents, torch.cat((linear, angular), dim=-1))

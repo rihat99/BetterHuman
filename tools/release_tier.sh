@@ -27,7 +27,7 @@ step on_gpu uv run python -c \
     "import sys, torch; sys.exit(None if torch.cuda.is_available() else 'release_tier.sh: torch cannot use GPU $gpu')"
 step uv run ruff check .
 step uv run ruff format --check .
-step uv run python tools/api_snapshot.py --check
+step uv run python -m better_robot.testing.api_snapshot better_human tests/contract/public_api.json --check
 step uv run mkdocs build --strict -d "$(mktemp -d)"
 step on_gpu uv run pytest tests -q -m cuda
 step on_gpu uv run python benchmarks/run.py --device cuda --counters-only

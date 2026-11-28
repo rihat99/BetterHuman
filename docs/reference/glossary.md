@@ -133,7 +133,7 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 
 These words keep their ordinary English meaning in public names, and BetterRobot's page does not list them.
 
-ancestor, array, centroid, children, closed, coefficient, confidence, contact, count, drop, dropped, expansion, file,
-filename, first, fit, fitted, found, gender, global, group, hand, header, human, indices, inherited, jaw, left, linear,
-mask, mean, neck, not, only, parameter, provenance, right, select, shaped, shipped, single, turned, type, upgrade,
-version, vertex, without, write
+ancestor, array, centroid, children, closed, coefficient, confidence, contact, drop, dropped, expansion, file, filename,
+first, fit, fitted, found, gender, global, group, hand, human, indices, inherited, jaw, left, linear, mask, mean, neck,
+not, only, parameter, provenance, right, select, shaped, shipped, single, turned, type, upgrade, version, vertex,
+without, write

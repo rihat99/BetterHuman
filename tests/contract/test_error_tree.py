@@ -29,7 +29,6 @@ PLAIN_RAISES_RATCHET = REPO / "tests" / "contract" / "ratchets" / "plain_raises.
 BUILTIN_RAISES = {"ValueError", "TypeError", "RuntimeError", "KeyError", "IndexError", "AssertionError"}
 _NOT_A_TENSOR = "a value that is not a floating torch.Tensor is a Python TypeError; the tree has no node for it"
 PLAIN_RAISES: dict[str, str] = {
-    "src/better_human/core/human_model.py::_checked": _NOT_A_TENSOR,
     "src/better_human/core/human_model.py::_density": _NOT_A_TENSOR,
     "src/better_human/viz/layers.py::forces_layer": _NOT_A_TENSOR,
     "src/better_human/viz/layers.py::human_layers": _NOT_A_TENSOR,
@@ -147,5 +146,5 @@ def test_a_misspelled_stream_group_raises_naming_the_groups(human: bh.HumanModel
 
 @pytest.mark.slow
 def test_a_value_that_is_not_a_tensor_is_a_type_error(human: bh.HumanModel) -> None:
-    with pytest.raises(TypeError, match="betas must be a floating torch.Tensor"):
+    with pytest.raises(TypeError, match="betas must be a torch.Tensor, got list"):
         human.bake(betas=[0.0] * 100)

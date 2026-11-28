@@ -41,7 +41,14 @@ BR_ALLOWED: dict[str, set[str]] = {
         "io": set(),
         "mass": {"better_robot.lie", "better_robot.spatial"},
         "core": {"better_robot", "better_robot.kinematics", "better_robot.lie"},
-        "families": {"better_robot", "better_robot.io", "better_robot.kinematics", "better_robot.lie"},
+        # A rig builds its tree with ModelBuilder.add_joint and the joint kinds of better_robot.model.
+        "families": {
+            "better_robot",
+            "better_robot.io",
+            "better_robot.kinematics",
+            "better_robot.lie",
+            "better_robot.model",
+        },
         "terms": {"better_robot", "better_robot.dynamics", "better_robot.kinematics", "better_robot.optim"},
         # viz.skin checks that the binds are the model's joint poses at q_neutral (so3).
         "viz": {"better_robot.lie", "better_robot.viewer"},

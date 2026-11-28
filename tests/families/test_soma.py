@@ -112,7 +112,7 @@ def test_spec_and_classic_validation(body: HumanModel) -> None:
         families.soma(weight_path("SOMA", "soma_mid.npz"), correctives=1)
     with pytest.raises(ShapeError, match=r"\(\.\.\., 77, 3\)"):
         from_classic(body, SOMAClassic(poses=torch.zeros(78, 3)))
-    with pytest.raises(TypeError, match="floating"):
+    with pytest.raises(TypeError, match="transl must be a torch.Tensor, got list"):
         from_classic(body, SOMAClassic(transl=[0.0, 0.0, 0.0]))
     identity, q, _ = from_classic(body, SOMAClassic())
     with pytest.raises(ValueError, match="311"):

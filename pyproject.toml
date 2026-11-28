@@ -37,7 +37,7 @@ url = "https://download.pytorch.org/whl/cu129"
 explicit = true
 
 [tool.uv.sources]
-better-robot = { git = "https://github.com/rihat99/BetterRobot", rev = "c7e271ebb77c9fbd647fb68848179dceb7d76766" }
+better-robot = { git = "https://github.com/rihat99/BetterRobot", rev = "753011c43b8b7272e8f2a7c827ecd77181ede8ec" }
 torch = { index = "pytorch-cu129" }
 
 [tool.hatch.build.targets.wheel]

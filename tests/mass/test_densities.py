@@ -52,7 +52,8 @@ def test_an_unknown_category_raises_at_load(flame: bh.FamilySpec) -> None:
 
 def test_a_dtype_mismatch_raises_at_load(flame: bh.FamilySpec) -> None:
     with pytest.raises(
-        DtypeMismatchError, match=r"density is torch.float32; pass it in the spec's dtype, torch.float64"
+        DtypeMismatchError,
+        match=r"density.dtype=torch.float32 != spec.dtype=torch.float64; pass density.to\(torch.float64\)",
     ):
         bh.HumanModel.from_spec(flame, density=torch.full((5,), 1000.0, dtype=torch.float32))
 

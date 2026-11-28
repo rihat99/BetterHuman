@@ -45,9 +45,9 @@ def test_a_flag_that_is_not_a_bool_raises_naming_it(family: str, flag: str, valu
 @pytest.mark.parametrize("family", LOADERS)
 def test_a_dtype_that_is_not_float32_or_float64_raises_in_the_loader(family: str, tmp_path: Path) -> None:
     for dtype in (torch.float16, torch.int64):
-        with pytest.raises(DtypeMismatchError, match=rf"dtype={dtype} is not torch.float32 or torch.float64"):
+        with pytest.raises(DtypeMismatchError, match=rf"dtype={dtype} is not float32 or float64"):
             getattr(bh.families, family)(tmp_path / "missing.npz", dtype=dtype)
-        with pytest.raises(DtypeMismatchError, match=rf"dtype={dtype} is not torch.float32 or torch.float64"):
+        with pytest.raises(DtypeMismatchError, match=rf"dtype={dtype} is not float32 or float64"):
             bh.load(family, tmp_path / "missing.npz", dtype=dtype)
 
 

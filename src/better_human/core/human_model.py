@@ -19,14 +19,9 @@ from numbers import Real
 
 import torch
 from better_robot import KinematicState, Model, forward_kinematics
-from better_robot.exceptions import (
-    ArgumentError,
-    DeviceMismatchError,
-    DtypeMismatchError,
-    ShapeError,
-    UnknownNameError,
-)
+from better_robot.exceptions import ArgumentError, ShapeError, UnknownNameError
 from better_robot.lie import se3, so3
+from better_robot.lie.checks import check_broadcast, check_tensor
 
 from better_human.mass import PartTopology, part_densities, part_inertias
 
@@ -138,7 +133,8 @@ class HumanModel:
     def bake(self, **identity: torch.Tensor) -> Identity:
         """The :class:`Identity` of identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast).
 
-        Raises :class:`~better_robot.exceptions.UnknownNameError` for a group the family does not have.
+        Raises :class:`~better_robot.exceptions.UnknownNameError` for a group the family does not have and
+        :class:`~better_robot.exceptions.ShapeError` for groups whose leading dims do not broadcast.
         """
         spec = self.spec
         for name in identity:
@@ -445,25 +441,11 @@ def _checked_groups(
             if require_all:
                 out[name] = exemplar.new_zeros((width,))
             continue
-        out[name] = _checked(name, value, (width,), exemplar)
+        out[name] = check_tensor(name, value, shape=(width,), dtype=exemplar.dtype, device=exemplar.device)
     if require_all and out:
-        batch = torch.broadcast_shapes(*(value.shape[:-1] for value in out.values()))
+        batch = check_broadcast(**{name: value.shape[:-1] for name, value in out.items()})
         out = {name: value.expand(*batch, widths[name]) for name, value in out.items()}
     return out
-
-
-def _checked(name: str, value: object, shape: tuple[int, ...], exemplar: torch.Tensor) -> torch.Tensor:
-    """``value`` when it is a floating tensor ``(..., *shape)`` on ``exemplar``'s dtype and device: the one validator of
-    every tensor a caller hands BetterHuman (identity and stream groups, classic fields, a classic ``q``)."""
-    if not isinstance(value, torch.Tensor) or not value.is_floating_point():
-        raise TypeError(f"{name} must be a floating torch.Tensor")
-    if value.shape[-len(shape) :] != shape:
-        raise ShapeError(f"{name} must have shape (..., {', '.join(map(str, shape))}); got {tuple(value.shape)}")
-    if value.dtype != exemplar.dtype:
-        raise DtypeMismatchError(f"{name} is {value.dtype}; pass it in the model's dtype, {exemplar.dtype}")
-    if value.device != exemplar.device:
-        raise DeviceMismatchError(f"{name} is on {value.device}; pass it on the model's device, {exemplar.device}")
-    return value
 
 
 def _density(density: str | float | torch.Tensor, spec: FamilySpec) -> torch.Tensor:
@@ -483,13 +465,7 @@ def _density(density: str | float | torch.Tensor, spec: FamilySpec) -> torch.Ten
     elif isinstance(density, torch.Tensor) and density.is_floating_point():
         if density.shape not in ((), (parts.count,)):
             raise ShapeError(f"density must be a () or ({parts.count},) tensor; got {tuple(density.shape)}")
-        if density.dtype != exemplar.dtype:
-            raise DtypeMismatchError(f"density is {density.dtype}; pass it in the spec's dtype, {exemplar.dtype}")
-        if density.device != exemplar.device:
-            raise DeviceMismatchError(
-                f"density is on {density.device}; pass it on the spec's device, {exemplar.device}"
-            )
-        value = density
+        value = check_tensor("density", density, shape=(), dtype=exemplar.dtype, device=exemplar.device, owner="spec")
     else:
         raise TypeError("density must be a table name, a positive real number, a floating torch.Tensor or None")
     if not bool(torch.isfinite(value).all()) or bool((value <= 0).any()):

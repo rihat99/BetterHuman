@@ -18,11 +18,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, final
 
 import torch
-from better_robot import Model, ModelBuilder
+from better_robot import JointFreeFlyer, Model, ModelBuilder
 from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.kinematics import full_configuration
 from better_robot.lie import se3, so3
+from better_robot.model import JointFixed, JointRevolute
 
 from better_human.core.rig import Rig, RigBake, gravity
 from better_human.io import FormatError
@@ -178,7 +179,9 @@ def _joint_tree(
 
     builder = ModelBuilder("mhr", gravity=gravity(str(arrays["up_axis"])))
     root = builder.add_body(names[1])
-    builder.add_free_flyer_root("root", child=root, origin=torch.cat((offsets[1], pre_rotations[1])))
+    builder.add_joint(
+        "root", kind=JointFreeFlyer(), parent="world", child=root, origin=torch.cat((offsets[1], pre_rotations[1]))
+    )
     bodies, first, last, entry_joints = ["world", root], ["root"], ["universe", "root"], {}
     axes = {3: (1.0, 0.0, 0.0), 4: (0.0, 1.0, 0.0), 5: (0.0, 0.0, 1.0)}
     for joint in range(2, len(names)):
@@ -186,7 +189,9 @@ def _joint_tree(
         chain = sorted((item for item in entries if item[1] == joint), key=lambda item: (-item[2], item[0]))
         if not chain:
             child = builder.add_body(names[joint])
-            name = builder.add_fixed(f"mhr_fixed_{names[joint]}", parent=parent, child=child, origin=origin)
+            name = builder.add_joint(
+                f"mhr_fixed_{names[joint]}", kind=JointFixed(), parent=parent, child=child, origin=origin
+            )
             parent = child
         for link, (entry, _, channel, column, weight) in enumerate(chain):
             child = builder.add_body(names[joint] if link == len(chain) - 1 else f"mhr_node_{joint}_{link}")
@@ -198,9 +203,8 @@ def _joint_tree(
             else:
                 name = f"mhr_mimic_{entry}_{parameters[column]}"
                 drive = {"mimic_source": parameters[column], "mimic_multiplier": weight / host_weight}
-            builder.add_revolute(
-                name, parent=parent, child=child, axis=axes[channel], origin=origin if link == 0 else None, **drive
-            )
+            kind, at = JointRevolute(axis=axes[channel]), origin if link == 0 else None
+            builder.add_joint(name, kind=kind, parent=parent, child=child, origin=at, **drive)
             entry_joints[entry] = name
             parent = child
         bodies.append(parent)

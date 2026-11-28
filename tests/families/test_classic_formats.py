@@ -251,15 +251,28 @@ def test_misused_arguments_raise_library_errors(tmp_path: Path) -> None:
     argument raises ``ArgumentError``, instead of torch's ``RuntimeError`` or an ``AttributeError``."""
     human = bh.HumanModel.from_spec(flame_spec(tmp_path), density=None)
     betas, global_orient = torch.zeros(2, 100, dtype=F64), torch.zeros(3, 3, dtype=F64)
-    with pytest.raises(ShapeError, match=r"betas \(2,\), global_orient \(3,\) do not broadcast"):
+    with pytest.raises(ShapeError, match=r"betas has batch axes \(2,\) and global_orient \(3,\)"):
         bh.from_classic(human, FLAMEClassic(betas=betas, global_orient=global_orient))
     identity = human.bake(betas=betas)
-    with pytest.raises(ShapeError, match=r"q \(3,\), identity \(2,\) do not broadcast"):
+    with pytest.raises(ShapeError, match=r"q has batch axes \(3,\) and identity \(2,\)"):
         bh.to_classic(identity, human.model.q_neutral.expand(3, -1))
     with pytest.raises(ArgumentError, match="to_classic takes an Identity first"):
         bh.to_classic(human, human.model.q_neutral)
     with pytest.raises(ArgumentError, match="from_classic takes a HumanModel first"):
         bh.from_classic(identity, FLAMEClassic())
+
+
+def test_identity_groups_that_do_not_broadcast_raise_shape_error(tmp_path: Path) -> None:
+    """``bake`` with two identity groups whose batch shapes do not broadcast (MHR's ``identity`` and ``proportions``
+    are two groups) raises ``ShapeError`` naming both, not torch's ``RuntimeError``."""
+    spec = flame_spec(tmp_path)
+    extra = spec.template_vertices.new_zeros((len(spec.template_vertices), 3, 2))
+    human = bh.HumanModel.from_spec(
+        dataclasses.replace(spec, identity_bases={**spec.identity_bases, "extra": extra}), density=None
+    )
+    betas = torch.zeros(2, spec.identity_groups["betas"], dtype=F64)
+    with pytest.raises(ShapeError, match=r"betas has batch axes \(2,\) and extra \(3,\)"):
+        human.bake(betas=betas, extra=torch.zeros(3, 2, dtype=F64))
 
 
 def test_a_hand_pca_field_cannot_lose_some_of_its_joints(tmp_path: Path) -> None:

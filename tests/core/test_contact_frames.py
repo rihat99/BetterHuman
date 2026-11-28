@@ -12,8 +12,9 @@ from better_robot.exceptions import ArgumentError, UnknownNameError
 from better_robot.lie import so3
 
 import better_human as bh
-from better_human.core.contact_frames import _vertex_normals
+from better_human.core import vertex_normals
 from better_human.io import weight_path
+from tests.support.random_archives import SMPLX_FRAMES, random_weight_spec
 from tests.support.synthetic import flame_spec
 
 REPO_ROOT = Path(__file__).parents[2]
@@ -72,7 +73,7 @@ def test_rest_pose_frames_sit_on_their_vertex_with_the_normal_as_z(body: bh.Huma
     vertices = torch.tensor(body.contact_frames.vertex_ids, dtype=torch.long)
     # Both sides are pelvis-centered: q_neutral puts the free-flyer root at the origin.
     assert torch.allclose(poses[:, :3], identity.rest_vertices[vertices], atol=1e-5)
-    normals = _vertex_normals(identity.rest_vertices, body.spec.faces)[vertices]
+    normals = vertex_normals(identity.rest_vertices, body.spec.faces)[vertices]
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
@@ -86,7 +87,7 @@ def test_shape_rebake_moves_frames_onto_the_new_vertices(body: bh.HumanModel) ->
 
     poses = _frame_poses(shaped)
     assert torch.allclose(poses[:, :3], targets, atol=1e-5)
-    normals = _vertex_normals(shaped.rest_vertices, body.spec.faces)[vertices]
+    normals = vertex_normals(shaped.rest_vertices, body.spec.faces)[vertices]
     assert torch.allclose(so3.to_matrix(poses[:, 3:])[..., :, 2], normals, atol=1e-5)
 
 
@@ -156,3 +157,38 @@ def test_rig_corrective_features_receives_the_baked_identity(
     state = identity.forward(identity.model.q_neutral)
     assert state.vertices.shape[-2:] == (body.spec.num_vertices, 3)
     assert len(seen) == 1 and seen[0] is identity.values
+
+
+@pytest.mark.cuda
+def test_a_cuda_bake_of_two_people_in_deterministic_mode_places_each_ones_frames(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two people baked on CUDA under ``torch.use_deterministic_algorithms(True)`` get the CPU bake's contact frames
+    and root offsets. The rest vertices of such a bake have strides ``(V*3, 2*V*3, 3, 1)``; when the normals summed
+    into a tensor of that layout, torch 2.13's deterministic CUDA ``index_add_`` wrote the second person's normals past
+    its end (pytorch/pytorch#203889): that person's frames turned (quaternion error 1.46) and the stray writes could
+    land in any other tensor."""
+    cpu, cuda = (
+        bh.HumanModel.from_spec(
+            random_weight_spec("smplx", num_betas=10, face=False, dtype=torch.float64, device=device),
+            contact_frames=SMPLX_FRAMES,
+        )
+        for device in ("cpu", "cuda")
+    )
+    betas = torch.randn(2, 1, 10, generator=torch.Generator().manual_seed(0), dtype=torch.float64)
+    expected = cpu.bake(betas=betas)
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")  # deterministic mode refuses cuBLAS without it
+    enabled, warn_only = (
+        torch.are_deterministic_algorithms_enabled(),
+        torch.is_deterministic_algorithms_warn_only_enabled(),
+    )
+    torch.use_deterministic_algorithms(True)  # noqa: TID251 - the mode under test, restored below; C-DEP-3 binds the library
+    try:
+        identity = cuda.bake(betas=betas.cuda())
+    finally:
+        torch.use_deterministic_algorithms(enabled, warn_only=warn_only)  # noqa: TID251 - restores the caller's mode
+    for person in range(2):
+        torch.testing.assert_close(
+            identity.model.frame_placements[person].cpu(), expected.model.frame_placements[person], rtol=0, atol=1e-9
+        )
+        torch.testing.assert_close(identity.root_offset[person].cpu(), expected.root_offset[person], rtol=0, atol=1e-9)

@@ -10,8 +10,10 @@ import torch
 from better_robot.lie import so3
 from torch.nn import functional
 
+import better_human as bh
 from better_human.core.skinning import blend_shapes, linear_blend_skinning, skin_affines
 from tests.support.marks import FLOAT32_GRADCHECK
+from tests.support.random_archives import random_weight_spec
 from tests.support.synthetic import flame_spec
 
 
@@ -117,3 +119,20 @@ def test_skin_affines_with_scaled_inverse_binds_scale_about_the_bind_positions(s
     torch.testing.assert_close(
         linear_blend_skinning(rest_vertices, affines, weights=weights), expected, atol=1e-6, rtol=0
     )
+
+
+def test_points_carry_the_stream_offsets_of_their_vertices() -> None:
+    """``points(ids)`` moves each vertex by its own row of the expression offsets.
+
+    At the zero pose every skin affine is one shared translation, the pose correctives do not depend on the streams,
+    and ``stream_joints=False`` keeps the joints still, so expression ``2 e_3`` moves vertex ``i`` by exactly
+    ``2 * basis[i, :, 3]``.
+    """
+    spec = random_weight_spec("smplx", num_betas=10, num_expression=10, dtype=torch.float64)
+    identity = bh.HumanModel.from_spec(spec, density=None, stream_joints=False).bake()
+    q = identity.model.q_neutral
+    ids = torch.tensor([10370, 41, 152])  # rows where the archive's expression basis is not zero, out of order
+    expression = torch.zeros(10, dtype=torch.float64)
+    expression[3] = 2.0
+    moved = identity.forward(q, {"expression": expression}).points(ids) - identity.forward(q).points(ids)
+    torch.testing.assert_close(moved, 2.0 * spec.stream_bases["expression"][ids, :, 3], atol=1e-12, rtol=0)

@@ -79,7 +79,7 @@ def joint_handles(identity: bh.Identity) -> tuple[JointHandle, ...]:
         hosts: list[tuple[str, int]] = []
         current = leaf
         while True:
-            # The MHR rig adds every coordinate-carrying joint of a chain with add_revolute about a unit axis.
+            # The MHR rig adds every coordinate-carrying joint of a chain as a JointRevolute about a unit axis.
             axis = robot.joints[current].axis
             if robot.nqs[current] > 0 and axis in _AXIS_NAME:
                 hosts.append((_AXIS_NAME[axis], robot.idx_qs[current]))

@@ -16,7 +16,7 @@ bash tools/release_tier.sh --gpu <index>                         # release tier,
 uv run pytest tests/docs -q -m "not licensed"                    # every docs snippet against its output, about 25 s
 uv run mkdocs build --strict                                     # the docs site into site/, about 3 s
 uv run ruff check . && uv run ruff format --check .              # lint and format, under a second
-uv run python tools/api_snapshot.py --check                      # the public API against its snapshot, about 2.5 s
+uv run python -m better_robot.testing.api_snapshot better_human tests/contract/public_api.json --check  # about 2.5 s
 uv run python benchmarks/run.py --counters-only                  # the counter gate, about 50 s
 node ../BetterRobot/tools/docs_screenshots.mjs temp/shots --repo .   # light and dark PNG of every page, about 5 min
 ```
@@ -64,7 +64,7 @@ tolerance, a counter threshold, a golden) changes only in a commit of its own th
   records' positional fields and `terms.baked_identity`'s `*groups`, both parked with the owner); the other four are
   empty.
 - The public API equals `tests/contract/public_api.json` (`tests/contract/test_api_snapshot.py`); an intended change
-  is recorded with `uv run python tools/api_snapshot.py --write`, and the commit message says it.
+  is recorded with the snapshot command above with `--write` in place of `--check`, and the commit message says it.
 
 ## Absences, each with its enforcer
 

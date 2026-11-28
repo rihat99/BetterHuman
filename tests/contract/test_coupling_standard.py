@@ -83,9 +83,10 @@ def _native_body(native: tuple[tuple[str, int], ...] = NATIVE) -> Model:
     root = 1 if native is ANCHORED else 0
     for name in names[root:]:
         builder.add_body(name, mass=1.0, com=_tensor(0.0, -0.1, 0.0), inertia=0.01 * torch.eye(3, dtype=F64))
-    builder.add_free_flyer_root(names[root], child=names[root])
+    builder.add_joint(names[root], kind=JointFreeFlyer(), parent="world", child=names[root])
     for name, parent in native[root + 1 :]:
-        builder.add_spherical(name, parent=names[parent], child=name, origin=_tensor(0.0, -0.2, 0.0, 0, 0, 0, 1))
+        origin = _tensor(0.0, -0.2, 0.0, 0, 0, 0, 1)
+        builder.add_joint(name, kind=JointSpherical(), parent=names[parent], child=name, origin=origin)
     builder.add_frame("heel", parent=names[4], placement=_tensor(0.0, -0.4, 0.05, 0.0, 0.0, 0.0, 1.0))
     return build_model(builder.finalize(), dtype=F64)
 
@@ -96,13 +97,14 @@ def _channel_body() -> Model:
     builder = ModelBuilder("channels", gravity=UP)
     for body in ("root", "node_z", "node_y", "thigh", "toe"):
         builder.add_body(body)
-    builder.add_free_flyer_root("root", child="root", origin=_tensor(0.0, 0.9, 0.0, 0.0, 0.0, 0.0, 1.0))
-    builder.add_revolute("thigh_rz", parent="root", child="node_z", axis=Z, lower=-1.0, upper=1.0)
-    builder.add_revolute("thigh_ry", parent="node_z", child="node_y", axis=Y)
-    builder.add_revolute(
-        "thigh_rx", parent="node_y", child="thigh", axis=X, mimic_source="thigh_rz", mimic_multiplier=0.5
-    )
-    builder.add_fixed("toe_fixed", parent="thigh", child="toe", origin=_tensor(0.0, -0.4, 0.0, 0.0, 0.0, 0.0, 1.0))
+    root = _tensor(0.0, 0.9, 0.0, 0.0, 0.0, 0.0, 1.0)
+    builder.add_joint("root", kind=JointFreeFlyer(), parent="world", child="root", origin=root)
+    builder.add_joint("thigh_rz", kind=JointRevolute(axis=Z), parent="root", child="node_z", lower=-1.0, upper=1.0)
+    builder.add_joint("thigh_ry", kind=JointRevolute(axis=Y), parent="node_z", child="node_y")
+    mimic = {"mimic_source": "thigh_rz", "mimic_multiplier": 0.5}
+    builder.add_joint("thigh_rx", kind=JointRevolute(axis=X), parent="node_y", child="thigh", **mimic)
+    toe = _tensor(0.0, -0.4, 0.0, 0.0, 0.0, 0.0, 1.0)
+    builder.add_joint("toe_fixed", kind=JointFixed(), parent="thigh", child="toe", origin=toe)
     return build_model(builder.finalize(), dtype=F64)
 
 
@@ -268,7 +270,7 @@ def test_frames_know_their_joint_and_external_forces_act_in_joint_frames() -> No
     mass, com = 2.0, _tensor(0.3, 0.1, 0.0)
     builder = ModelBuilder("floating", gravity=UP)
     builder.add_body("body", mass=mass, com=com)
-    builder.add_free_flyer_root("root", child="body")
+    builder.add_joint("root", kind=JointFreeFlyer(), parent="world", child="body")
     floating = build_model(builder.finalize(), dtype=F64)
     state = forward_kinematics(floating, _tensor(0.0, 0.0, 0.0, *QUARTER_TURN_Z))
     still = torch.zeros(6, dtype=F64)
