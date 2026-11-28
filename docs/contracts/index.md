@@ -46,7 +46,7 @@ appears outside a rule's heading on a contracts page.
 | C-EXT-6 pre-1.0 versioning, the public API snapshot | `tests/contract/test_api_snapshot.py` |
 | C-ERR-2 errors from the `BetterRobotError` tree | `tests/contract/test_error_tree.py` |
 | C-PERF-3 the counters of the hot entry points do not grow: graph breaks, recompiles, top-level operators and host-syncing operators of the counter rows of `benchmarks/run.py` stay within `benchmarks/thresholds/torch-<version>.json`; marked `slow` | `tests/contract/test_compile_counters.py` |
-| C-NAME-2 descriptive names: the fields of `HumanModel`, `Identity` and `HumanState`, field by field | `tests/contract/test_naming.py` |
+| C-NAME-2 descriptive names: the fields of `HumanModel`, `Identity` and `HumanState`, field by field | `tests/contract/test_api_snapshot.py` (the constructor fields, in order), `tests/contract/test_caches.py` (the late cache fields) |
 | principles 3.4, 3.5, 3.8 and 3.9, one vocabulary: one name per thing, acronyms in capitals, no vague module name, every word of every public name in BetterHuman's or BetterRobot's glossary | `tests/contract/test_vocabulary.py` |
 | C-API-4 joints named, not indexed; no module named like a function | `tests/contract/test_public_surface.py` |
 | the coupling standard | `tests/contract/test_coupling_standard.py` |
