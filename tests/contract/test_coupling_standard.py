@@ -10,8 +10,8 @@ forces in joint frames. The BetterRobot functions BetterHuman calls are names, n
 ``tests/contract/test_studio_boundary.py`` keeps the studio on the viewer's public layer surface, and the tests under
 ``tests/terms/`` evaluate BetterHuman's ``optim`` terms.
 
-The next tests check this repository's page on the random-weight SMPL model (full tier: its archive read stalls for
-seconds on hosts with transparent huge pages) and on MHR and SOMA (release tier: licensed weights), each against
+The next tests check this repository's page on the random-weight SMPL and SMPL-X models (full tier: an archive read
+stalls for seconds on hosts with transparent huge pages) and on MHR and SOMA (release tier: licensed weights), each against
 formulas written here (the scalar-last quaternion matrix) or BetterRobot's own state; all in float64. The last two read
 the page: no line of its ``text`` blocks leaves it, and every line it adds is frozen in
 ``tests/contract/coupling_standard_lines.txt`` in the same commit (a run of whitespace counts as one space).
@@ -282,10 +282,11 @@ def test_frames_know_their_joint_and_external_forces_act_in_joint_frames() -> No
 
 @cache
 def _human(family: str) -> bh.HumanModel:
-    """The family's body in float64 without inertias: SMPL from its random-weight archive, MHR LOD 6 and SOMA from the
-    licensed weights."""
+    """The family's body in float64 without inertias: SMPL and SMPL-X from their random-weight archives, MHR LOD 6 and
+    SOMA from the licensed weights."""
     specs: dict[str, Callable[[], bh.FamilySpec]] = {
         "smpl": lambda: random_weight_spec("smpl", dtype=F64),
+        "smplx": lambda: random_weight_spec("smplx", dtype=F64),
         "mhr": lambda: bh.families.mhr(weight_path("MHR/converted", "mhr_lod6.npz"), lod=6, dtype=F64),
         "soma": lambda: bh.families.soma(weight_path("SOMA", "soma_mid.npz"), dtype=F64),
     }
@@ -294,12 +295,14 @@ def _human(family: str) -> bh.HumanModel:
 
 FAMILIES = [
     pytest.param("smpl", marks=pytest.mark.slow),
+    pytest.param("smplx", marks=pytest.mark.slow),
     pytest.param("mhr", marks=pytest.mark.licensed),
     pytest.param("soma", marks=pytest.mark.licensed),
 ]
-#: MHR's authored inverse binds are float32 values: they carry its rest joints to 2.2e-7 m of the forward kinematics
-#: (LOD 6, seed 4, measured 2026-11-10), as in ``tests/core/test_rig_properties.py``. The others compose exact inverses.
-CARRY_TOLERANCES = {"mhr": {"rtol": 0.0, "atol": 1e-6}}
+#: Absolute tolerance in metres of the skin affines carrying the rest joints: float64 rounding for the bakes that compose
+#: exact inverses (1.2e-15 m at most, SOMA); MHR's authored inverse binds are float32 values, which carry its rest joints
+#: to 2.5e-7 m of the forward kinematics (LOD 6, zero and random identity, seed 4, measured 2026-11-28).
+CARRY_ATOLS = {"smpl": 1e-12, "smplx": 1e-12, "mhr": 1e-6, "soma": 1e-12}
 
 
 def _posed(family: str) -> bh.HumanState:
@@ -374,14 +377,21 @@ def test_state_joint_outputs_are_native_placements(family: str) -> None:
 
 @pytest.mark.parametrize("family", FAMILIES)
 def test_skin_affines_carry_the_rest_joints_to_the_world(family: str) -> None:
-    """``skin_affines (..., J, 3, 4)`` applied to ``rest_joint_translations (..., J, 3)`` give
-    ``joint_translations``."""
-    state = _posed(family)
-    affines, rest = state.skin_affines, state.rest_joint_translations
-    count = state.identity.human.spec.num_joints
-    assert (affines.shape, rest.shape) == ((2, count, 3, 4), (count, 3))
-    carried = (affines[..., :3] @ rest[..., None]).squeeze(-1) + affines[..., 3]
-    torch.testing.assert_close(carried, state.joint_translations, **CARRY_TOLERANCES.get(family, {}))
+    """``skin_affines (..., J, 3, 4)`` applied to ``rest_joint_translations (..., J, 3)`` give ``joint_translations``,
+    for the zero identity and a seeded random one (every identity group drawn ``0.5 N(0, 1)``, seed 0)."""
+    human = _human(family)
+    generator = torch.Generator().manual_seed(0)
+    values = {
+        name: 0.5 * torch.randn(width, generator=generator, dtype=F64)
+        for name, width in human.spec.identity_groups.items()
+    }
+    count = human.spec.num_joints
+    for identity in (human.bake(), human.bake(**values)):
+        state = identity.forward(_random_q(human.model, 2, seed=4))
+        affines, rest = state.skin_affines, state.rest_joint_translations
+        assert (affines.shape, rest.shape) == ((2, count, 3, 4), (count, 3))
+        carried = (affines[..., :3] @ rest[..., None]).squeeze(-1) + affines[..., 3]
+        torch.testing.assert_close(carried, state.joint_translations, rtol=0.0, atol=CARRY_ATOLS[family])
 
 
 @pytest.mark.parametrize("family", FAMILIES)
