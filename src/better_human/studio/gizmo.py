@@ -26,7 +26,7 @@ class GizmoController:
         viewer: Any,
         session: StudioSession,
         *,
-        on_status: Callable[[str], None] | None = None,
+        on_status: Callable[[str], None],
         scale: float = 0.20,
     ) -> None:
         self.viewer = viewer
@@ -50,7 +50,7 @@ class GizmoController:
         handle = self.handle_for(joint)
         name = self.session.body.spec.joint_names[joint]
         if handle is None:
-            self._status(f"joint {name!r} has no degree of freedom")
+            self.on_status(f"joint {name!r} has no degree of freedom")
             return
         rotation_only = handle.kind != "free_flyer"
         self.gizmo = gizmo = PoseGizmo(
@@ -62,7 +62,7 @@ class GizmoController:
             translation=not rotation_only,
             on_top=True,  # joints sit inside the mesh: the gizmo draws through it instead of being hidden
         )
-        self._status(f"posing {name!r} ({handle.kind})")
+        self.on_status(f"posing {name!r} ({handle.kind})")
 
     def clear(self) -> None:
         """Remove the gizmo, if any."""
@@ -100,7 +100,3 @@ class GizmoController:
             self.clear()
         elif kind in ("pose", "shape") and self.gizmo is not None and self.joint is not None:
             self.gizmo.pose = self._world_pose(self.joint)
-
-    def _status(self, message: str) -> None:
-        if self.on_status is not None:
-            self.on_status(message)

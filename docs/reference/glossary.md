@@ -133,8 +133,8 @@ See [Architecture](../concepts/architecture.md) for the four objects and the one
 
 These words keep their ordinary English meaning in public names, and BetterRobot's page does not list them.
 
-action, ancestor, array, centroid, children, chosen, closed, coefficient, confidence, contact, count, deselect, drop,
+ancestor, array, centroid, children, chosen, closed, coefficient, confidence, contact, count, deselect, drop,
 dropped, event, expansion, file, filename, first, fit, fitted, found, gender, global, group, hand, header, human,
-indices, inherited, jaw, launch, left, linear, locked, marquee, mask, mean, message, neck, not, only, parameter,
+indices, inherited, jaw, left, linear, locked, marquee, mask, mean, message, neck, not, only, parameter,
 pick, provenance, reload, reset, right, select, shaped, shipped, single, status, turned, type, upgrade, version,
 vertex, without, write

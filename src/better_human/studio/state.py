@@ -16,7 +16,6 @@ from typing import NamedTuple, final
 
 import torch
 from better_robot.exceptions import ArgumentError
-from better_robot.lie import so3
 
 import better_human as bh
 from better_human.mass import PartTopology, segment_vertices
@@ -47,11 +46,6 @@ def contact_frames(
         name: (entry.vertex, None if entry.joint is None else joint_names[entry.joint])
         for name, entry in frame_set.items()
     }
-
-
-def _vertex_native_joints(body: bh.HumanModel) -> torch.Tensor:
-    """Return the strongest-weighted native skin joint per vertex ``(V,)``."""
-    return segment_vertices(body.spec.skin_weights, body.spec.skin_indices)
 
 
 def _part_representatives(part_ids: torch.Tensor, num_parts: int, vertex_native_joints: torch.Tensor) -> list[int]:
@@ -124,7 +118,8 @@ class StudioSession:
             }
             identity = body.bake(**self.shape)
             self.handles = joint_handles(identity)
-            self.vertex_native_joints = _vertex_native_joints(body)
+            # The strongest-weighted native skin joint of each vertex, (V,).
+            self.vertex_native_joints = segment_vertices(body.spec.skin_weights, body.spec.skin_indices)
             self._reset_default_segmentation()
             self.frame_set = dict(frame_set) if frame_set else {}
             self._recompute(identity, identity.model.q_neutral.clone())
@@ -170,19 +165,15 @@ class StudioSession:
     def move_root(self, handle: JointHandle, world_old: torch.Tensor, world_new: torch.Tensor) -> None:
         """Move the free-flyer root by the gizmo's world delta in position and rotation.
 
-        The reported root frame can sit at a fixed offset from the free flyer
-        (MHR's pelvis height, SOMA's T-pose Hips orientation), so both parts of
-        ``q`` are nudged by the delta rather than overwritten: the world
-        rotation ``R_new R_old^-1`` left-multiplies the free-flyer quaternion.
+        The reported root frame can sit at a fixed offset from the free flyer (MHR's pelvis height, SOMA's T-pose
+        Hips orientation), so ``q`` is nudged by the delta rather than overwritten: the translation delta is added to
+        the position, and :func:`apply_local_rotation` turns the quaternion.
         """
         if handle.kind != "free_flyer":
             raise ArgumentError(f"move_root requires a free_flyer handle, got {handle.kind!r}")
         with self.lock:
-            q = self.q.clone()
-            idx = handle.idx_q
-            q[idx : idx + 3] = q[idx : idx + 3] + (world_new[:3] - world_old[:3])
-            turn = so3.compose(so3.normalize(world_new[3:7]), so3.inverse(so3.normalize(world_old[3:7])))
-            q[idx + 3 : idx + 7] = so3.normalize(so3.compose(turn, q[idx + 3 : idx + 7]))
+            q = apply_local_rotation(self.q, handle, world_old, world_new)
+            q[handle.idx_q : handle.idx_q + 3] = q[handle.idx_q : handle.idx_q + 3] + (world_new[:3] - world_old[:3])
             self.set_q(q)
 
     def reset_pose(self) -> None:

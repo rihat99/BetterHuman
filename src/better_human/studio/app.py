@@ -119,10 +119,9 @@ class HumanStudio:
         with sidebar.section("Status"):
             self.status_text = gui.add_markdown("")
             self.selection_text = gui.add_markdown("")
-        self.actions = {
-            action: sidebar.button("Status", action, on_click=self.locked(lambda _=None, action=action: self.run_action(action)))
-            for action in ("Reset pose", "Deselect joint", "Deselect frame")
-        }  # fmt: skip
+        sidebar.button("Status", "Reset pose", on_click=self.locked(lambda _=None: self.session.reset_pose()))
+        sidebar.button("Status", "Deselect joint", on_click=self.locked(lambda _=None: self.select_joint(None)))
+        sidebar.button("Status", "Deselect frame", on_click=self.locked(lambda _=None: self.deselect_frame()))
         self.family_input = sidebar.dropdown(
             "Model", "Family", options=_FAMILIES, value=self.family, on_change=self.locked(self._sync_model_inputs)
         )
@@ -254,15 +253,6 @@ class HumanStudio:
         joint_name = "—" if joint is None else self.session.body.spec.joint_names[joint]
         frame = self.frames.active if self.frames.active in self.session.frame_set else "—"
         self.selection_text.content = f"{model} · joint: {joint_name} · frame: {frame}"
-
-    def run_action(self, action: str) -> None:
-        """Run a Status button: ``"Reset pose"``, ``"Deselect joint"`` or ``"Deselect frame"``."""
-        if action == "Reset pose":
-            self.session.reset_pose()
-        elif action == "Deselect joint":
-            self.select_joint(None)
-        elif action == "Deselect frame":
-            self.deselect_frame()
 
     def deselect_frame(self) -> None:
         """Drop the frame the Frames section acts on and its vertex highlight (as deleting a frame does)."""
@@ -443,32 +433,6 @@ class HumanStudio:
         self.mass_text.content = "mass: n/a" if mass is None else f"mass: {float(mass):.2f} kg"
 
     def run(self) -> None:
-        """Serve the page until interrupted."""
+        """Print the address to open and serve the page until interrupted."""
+        print(f"HumanStudio at {self.viewer.url}")  # noqa: T201 - the one line a user needs: where to open it
         self.viewer.serve()
-
-
-def launch(
-    *,
-    data_root: str | Path,
-    generator: np.random.Generator,
-    family: str = "smpl",
-    gender: str = "neutral",
-    lod: int = 1,
-    port: int | None = None,
-    host: str | None = None,
-    density: str | float = "Dempster",
-) -> None:
-    """Build a :class:`HumanStudio` (the arguments are its constructor's), print the URL it serves and block until
-    interrupted."""
-    studio = HumanStudio(
-        data_root=data_root,
-        family=family,
-        gender=gender,
-        lod=lod,
-        port=port,
-        host=host,
-        generator=generator,
-        density=density,
-    )
-    print(f"HumanStudio at {studio.viewer.url}")  # noqa: T201 - the launcher's one line: where to open it
-    studio.run()

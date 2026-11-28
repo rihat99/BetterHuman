@@ -25,10 +25,9 @@ from better_robot.kinematics import integrate
 from better_robot.lie import so3
 from better_robot.testing import FakeServer
 
-from better_human.studio import app, launch
+import better_human.studio.__main__ as command_line
 from better_human.studio import layers as studio_layers
 from better_human.studio import state as studio_state
-from better_human.studio.__main__ import main
 from better_human.studio.app import HumanStudio
 
 
@@ -423,31 +422,30 @@ def test_a_family_the_studio_does_not_edit_is_an_unknown_name(
     assert random_studio.status.startswith("UnknownNameError: ") and random_studio.session.model_key == "smpl_neutral"
 
 
-def test_launch_and_the_command_line_serve_the_studio(
+def test_the_command_line_serves_the_studio(
     random_models: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
-    """``studio.launch`` and ``python -m better_human.studio`` build the app, print its URL and block in ``run``; here
-    on the stand-in server, with ``run`` returning at once."""
+    """``python -m better_human.studio`` builds the app, prints its URL and blocks in ``run``; here on the stand-in
+    server, whose ``sleep_forever`` returns at once."""
     built: list[HumanStudio] = []
 
     def on_the_stand_in(**arguments: Any) -> HumanStudio:
         built.append(HumanStudio(server=FakeServer(), **arguments))
         return built[-1]
 
-    monkeypatch.setattr(app, "HumanStudio", on_the_stand_in)
-    monkeypatch.setattr(HumanStudio, "run", lambda self: None)
-    launch(data_root=tmp_path / "launched", generator=np.random.default_rng(0), gender="female")
-    monkeypatch.setattr(sys, "argv", ["python -m better_human.studio", "--data-root", str(tmp_path / "cli")])
-    main()
-    assert [studio.session.model_key for studio in built] == ["smpl_female", "smpl_neutral"]
-    assert [studio.paths.root for studio in built] == [tmp_path / "launched", tmp_path / "cli"]
-    assert capsys.readouterr().out.splitlines() == [f"HumanStudio at {studio.viewer.url}" for studio in built]
+    monkeypatch.setattr(command_line, "HumanStudio", on_the_stand_in)
+    argv = ["python -m better_human.studio", "--data-root", str(tmp_path / "cli"), "--gender", "female"]
+    monkeypatch.setattr(sys, "argv", argv)
+    command_line.main()
+    (studio,) = built
+    assert (studio.session.model_key, studio.paths.root) == ("smpl_female", tmp_path / "cli")
+    assert capsys.readouterr().out.splitlines() == [f"HumanStudio at {studio.viewer.url}"]
 
 
 def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture) -> None:
     monkeypatch.setattr(sys, "argv", ["python -m better_human.studio", "--family", "smpl"])
     with pytest.raises(SystemExit) as exit_info:
-        main()
+        command_line.main()
     assert exit_info.value.code == 2
     assert "the following arguments are required: --data-root" in capsys.readouterr().err
 
@@ -566,7 +564,7 @@ def test_selection_row_buttons_and_label(studio) -> None:
     gui = studio.viewer.server.gui
     # Only the Status section's buttons carry these labels.
     for name in ("Reset pose", "Deselect joint"):
-        assert [c for c in gui.controls if c.name == name] == [studio.actions[name]]
+        assert [c for c in gui.controls if c.name == name] == [_control(studio, name)]
     joint_name = studio.session.body.spec.joint_names[5]
     studio.select_joint(5)
     assert f"joint: {joint_name}" in studio.selection_text.content
@@ -574,7 +572,7 @@ def test_selection_row_buttons_and_label(studio) -> None:
     assert "frame: —" not in studio.selection_text.content
     studio.gizmo._on_drag(studio.gizmo.handle_for(5), _rotated(studio, 5))
     for action in ("Deselect joint", "Deselect frame", "Reset pose"):
-        studio.actions[action].fire()
+        _control(studio, action).fire()
     assert studio.selection_text.content.endswith("joint: — · frame: —")
     assert studio.frames.active is None
     assert torch.equal(studio.session.q, studio.session.identity.model.q_neutral)
