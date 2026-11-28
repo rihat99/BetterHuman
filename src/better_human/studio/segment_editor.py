@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, final
 
 import numpy as np
@@ -22,10 +23,22 @@ _UNASSIGNED = "(unassigned)"
 
 @final
 class SegmentEditor:
-    """Owns the Segment tab; paints through :meth:`paint` (sphere brush) and :meth:`assign` (marquee)."""
+    """Owns the Segment tab; paints through :meth:`paint` (sphere brush) and :meth:`assign` (marquee).
 
-    def __init__(self, studio: HumanStudio) -> None:
+    ``locked`` wraps each control's callback as the studio runs it, ``on_status`` shows a message on the studio's
+    status line and ``start_marquee`` arms its rectangle selection.
+    """
+
+    def __init__(
+        self,
+        studio: HumanStudio,
+        *,
+        locked: Callable[[Callable[[Any], None]], Callable[..., None]],
+        on_status: Callable[[str], None],
+        start_marquee: Callable[[], None],
+    ) -> None:
         self.studio = studio
+        self.locked, self.on_status, self.start_marquee = locked, on_status, start_marquee
         self.painting = False
         self.part = _UNASSIGNED
 
@@ -35,7 +48,7 @@ class SegmentEditor:
 
     def build(self, sidebar: Any) -> None:
         """Add the Segment section to the viewer's ``Sidebar``."""
-        locked, gui = self.studio.locked, sidebar.gui
+        locked, gui = self.locked, sidebar.gui
         self.part_dropdown = sidebar.dropdown(
             "Segment", "Part", options=self._options(), value=_UNASSIGNED, on_change=locked(self._set_part)
         )
@@ -47,7 +60,7 @@ class SegmentEditor:
         )
         with sidebar.section("Segment"):
             self.brush = gui.add_slider("Brush radius", min=0.005, max=0.2, step=0.005, initial_value=0.03)
-        sidebar.button("Segment", "Marquee select", on_click=locked(lambda _=None: self.studio.start_marquee()))
+        sidebar.button("Segment", "Marquee select", on_click=locked(lambda _=None: self.start_marquee()))
         with sidebar.section("Segment"):
             self.saved = gui.add_dropdown("Saved", options=self._saved_options())
             self.save_name = gui.add_text("Save as", initial_value="custom")
@@ -91,7 +104,7 @@ class SegmentEditor:
         """Append an empty part and make it the paint target."""
         name = name.strip()
         if not name or name in self.session.part_names:
-            self.studio.set_status(f"part name {name!r} is empty or taken")
+            self.on_status(f"part name {name!r} is empty or taken")
             return
         self.session.set_segmentation((*self.session.part_names, name), self.session.part_ids)
         self.part = name
@@ -131,13 +144,13 @@ class SegmentEditor:
         path = persistence.saved_path(self._directory(), name)
         persistence.write_segmentation(path, self._as_parts())
         self.refresh()
-        self.studio.set_status(f"saved segmentation {path}")
+        self.on_status(f"saved segmentation {path}")
 
     def load(self, name: str) -> None:
         """Load a saved segmentation by name."""
         path = persistence.list_saved(self._directory()).get(name)
         if path is None:
-            self.studio.set_status(f"no saved segmentation {name!r}")
+            self.on_status(f"no saved segmentation {name!r}")
             return
         self._apply(persistence.read_segmentation(path), source=str(path))
 
@@ -171,5 +184,5 @@ class SegmentEditor:
         rows = [*zip(session.part_names, masses, strict=True), ("total", float(sum(masses)))]
         table = "\n".join(f"| {name} | {mass:.2f} |" for name, mass in rows)
         self.mass_table.content = f"| part | kg |\n|---|---|\n{table}"
-        self.studio.set_status(f"built {num_parts} part bodies, total {rows[-1][1]:.2f} kg")
+        self.on_status(f"built {num_parts} part bodies, total {rows[-1][1]:.2f} kg")
         return rows

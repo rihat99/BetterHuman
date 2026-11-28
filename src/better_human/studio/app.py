@@ -53,6 +53,9 @@ class HumanStudio:
     ``generator`` draws the random shapes. ``density`` is the body's at start and after a family switch: a table name
     (the library's default, ``"Dempster"``) or kg/m^3. ``host`` and ``port`` default to the viewer's
     (``127.0.0.1:8080``); ``server`` injects a viser-compatible server instead (tests).
+
+    A script drives it through :meth:`load_model`, :meth:`select_joint`, :meth:`set_mode`, :meth:`save_pose`,
+    :meth:`load_pose` and :meth:`run`; the other methods are the callbacks of its controls.
     """
 
     def __init__(
@@ -81,13 +84,15 @@ class HumanStudio:
         self.viewer = Viewer(host=host, port=port, theme=HUMAN_THEME, ground=False, server=server)
         self.sidebar = self.viewer.sidebar
         self.layers = StudioLayers(self.viewer, self.session, theme=self.viewer.theme)
-        self.gizmo = GizmoController(self.viewer, self.session, on_status=self.set_status)
-        self.segment = SegmentEditor(self)
-        self.frames = FramesEditor(self)
+        self.gizmo = GizmoController(self.viewer, self.session, on_status=self._set_status)
+        self.segment = SegmentEditor(
+            self, locked=self._locked, on_status=self._set_status, start_marquee=self._start_marquee
+        )
+        self.frames = FramesEditor(self, locked=self._locked, on_status=self._set_status)
         self.session.subscribe(self._on_change)
         self._build_sidebar()
-        self.viewer.on_pointer("click", self.locked(self.on_click))
-        self.set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
+        self.viewer.on_pointer("click", self._locked(self._on_click))
+        self._set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
 
     def __repr__(self) -> str:
         return f"HumanStudio({self._key()}, mode={self.mode})"
@@ -115,15 +120,15 @@ class HumanStudio:
 
     def _build_sidebar(self) -> None:
         # Status and Model stay for the whole run; the sections after them depend on the body (_build_body_sections).
-        sidebar, gui = self.sidebar, self.sidebar.gui
+        sidebar, gui, locked = self.sidebar, self.sidebar.gui, self._locked
         with sidebar.section("Status"):
             self.status_text = gui.add_markdown("")
             self.selection_text = gui.add_markdown("")
-        sidebar.button("Status", "Reset pose", on_click=self.locked(lambda _=None: self.session.reset_pose()))
-        sidebar.button("Status", "Deselect joint", on_click=self.locked(lambda _=None: self.select_joint(None)))
-        sidebar.button("Status", "Deselect frame", on_click=self.locked(lambda _=None: self.deselect_frame()))
+        sidebar.button("Status", "Reset pose", on_click=locked(lambda _=None: self.session.reset_pose()))
+        sidebar.button("Status", "Deselect joint", on_click=locked(lambda _=None: self.select_joint(None)))
+        sidebar.button("Status", "Deselect frame", on_click=locked(lambda _=None: self._deselect_frame()))
         self.family_input = sidebar.dropdown(
-            "Model", "Family", options=_FAMILIES, value=self.family, on_change=self.locked(self._sync_model_inputs)
+            "Model", "Family", options=_FAMILIES, value=self.family, on_change=locked(self._sync_model_inputs)
         )
         with sidebar.section("Model"):
             self.gender_input = gui.add_dropdown(
@@ -135,7 +140,7 @@ class HumanStudio:
         sidebar.button(
             "Model",
             "Load",
-            on_click=self.locked(
+            on_click=locked(
                 lambda _=None: self.load_model(
                     self.family_input.value, gender=self.gender_input.value, lod=int(self.lod_input.value)
                 )
@@ -145,22 +150,22 @@ class HumanStudio:
         self._show_selection()
 
     def _build_body_sections(self) -> None:
-        sidebar, gui, layers = self.sidebar, self.sidebar.gui, self.layers
+        sidebar, gui, layers, locked = self.sidebar, self.sidebar.gui, self.layers, self._locked
         sidebar.dropdown(
             "Display", "Colour", options=("skin", "segmentation", "parts"), value=layers.mode,
-            on_change=self.locked(layers.set_mode),
+            on_change=locked(layers.set_mode),
         )  # fmt: skip
         sidebar.slider(
             "Display", "Opacity", low=0.1, high=1.0, step=0.05, value=self.opacity,
-            on_change=self.locked(lambda value: self.set_opacity(float(value))),
+            on_change=locked(lambda value: self._set_opacity(float(value))),
         )  # fmt: skip
         sidebar.slider(
             "Display", "Joint radius", low=0.005, high=0.05, step=0.005, value=layers.radius,
-            on_change=self.locked(lambda value: layers.set_radius(float(value))),
+            on_change=locked(lambda value: layers.set_radius(float(value))),
         )  # fmt: skip
         sidebar.slider(
             "Display", "Explode", low=0.0, high=1.0, step=0.05, value=layers.explode,
-            on_change=self.locked(lambda value: layers.set_explode(float(value))),
+            on_change=locked(lambda value: layers.set_explode(float(value))),
         )  # fmt: skip
         self.shape_sliders: dict[str, list[Any]] = {}
         for group, width in self.session.body.spec.identity_groups.items():
@@ -172,14 +177,12 @@ class HumanStudio:
                     high=5.0,
                     step=0.05,
                     value=0.0,
-                    on_change=self.locked(lambda _, group=group: self.apply_shape(group)),
+                    on_change=locked(lambda _, group=group: self._apply_shape(group)),
                 )  # fmt: skip
                 for k in range(min(width, 10))
             ]
-            sidebar.button("Body", f"Reset {group}", on_click=self.locked(lambda _=None, g=group: self.reset_shape(g)))
-            sidebar.button(
-                "Body", f"Random {group}", on_click=self.locked(lambda _=None, g=group: self.random_shape(g))
-            )
+            sidebar.button("Body", f"Reset {group}", on_click=locked(lambda _=None, g=group: self._reset_shape(g)))
+            sidebar.button("Body", f"Random {group}", on_click=locked(lambda _=None, g=group: self._random_shape(g)))
         tables = tuple(self.session.body.spec.parts.density_tables)
         with sidebar.section("Body"):
             if tables:
@@ -190,19 +193,19 @@ class HumanStudio:
                 )
             else:
                 self.density_input = gui.add_number("Density (kg/m^3)", initial_value=self._uniform_density)
-        sidebar.button("Body", "Apply density", on_click=self.locked(lambda _=None: self.reload(self.chosen_density())))
+        sidebar.button("Body", "Apply density", on_click=locked(lambda _=None: self._reload(self._chosen_density())))
         with sidebar.section("Body"):
             self.mass_text = gui.add_markdown("")
         with sidebar.section("Pose"):
             self.pose_name = gui.add_text("Pose name", initial_value="pose")
             self.saved_poses = gui.add_dropdown("Saved poses", options=self._pose_options())
-        sidebar.button("Pose", "Save pose", on_click=self.locked(lambda _=None: self.save_pose(self.pose_name.value)))
-        sidebar.button("Pose", "Load pose", on_click=self.locked(lambda _=None: self.load_pose(self.saved_poses.value)))
+        sidebar.button("Pose", "Save pose", on_click=locked(lambda _=None: self.save_pose(self.pose_name.value)))
+        sidebar.button("Pose", "Load pose", on_click=locked(lambda _=None: self.load_pose(self.saved_poses.value)))
         self.segment.build(sidebar)
         self.frames.build(sidebar)
         self._update_mass()
 
-    def locked(self, callback: Callable[[Any], None]) -> Callable[..., None]:
+    def _locked(self, callback: Callable[[Any], None]) -> Callable[..., None]:
         """Wrap a sidebar or scene callback so it runs under the viewer's lock and ``session.lock`` and shows a refused
         edit on the status line; the wrapper takes the control's value, the scene event, or nothing (a button).
 
@@ -216,7 +219,7 @@ class HumanStudio:
                 try:
                     callback(argument)
                 except BetterRobotError as error:
-                    self.set_status(f"{type(error).__name__}: {error}")
+                    self._set_status(f"{type(error).__name__}: {error}")
 
         return run
 
@@ -238,9 +241,9 @@ class HumanStudio:
         for section in _BODY_SECTIONS:
             self.sidebar.remove(section)
         self._build_body_sections()
-        self.set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
+        self._set_status(f"{self._key()} loaded in {time.perf_counter() - started:.1f}s")
 
-    def set_status(self, message: str) -> None:
+    def _set_status(self, message: str) -> None:
         """Show ``message`` on the status line."""
         self.status = message
         self.status_text.content = message
@@ -254,7 +257,7 @@ class HumanStudio:
         frame = self.frames.active if self.frames.active in self.session.frame_set else "—"
         self.selection_text.content = f"{model} · joint: {joint_name} · frame: {frame}"
 
-    def deselect_frame(self) -> None:
+    def _deselect_frame(self) -> None:
         """Drop the frame the Frames section acts on and its vertex highlight (as deleting a frame does)."""
         self.frames.active = None
         self.layers.set_edit_vertices([])
@@ -279,12 +282,12 @@ class HumanStudio:
         self.layers.set_opacity(self.opacity if joint is None else self.opacity * _DIM)
         self._show_selection()
 
-    def set_opacity(self, opacity: float) -> None:
+    def _set_opacity(self, opacity: float) -> None:
         """Set the mesh opacity the user chose; it stays dimmed while a joint is selected."""
         self.opacity = opacity
         self.layers.set_opacity(opacity if self.gizmo.joint is None else opacity * _DIM)
 
-    def pick_joint(self, origin: np.ndarray, direction: np.ndarray) -> int | None:
+    def _pick_joint(self, origin: np.ndarray, direction: np.ndarray) -> int | None:
         """Nearest joint (along the ray) whose sphere of radius ``layers.radius`` the ray crosses."""
         return nearest_on_ray(
             self.session.state.joint_translations.detach().reshape(-1, 3).cpu().numpy(),
@@ -293,7 +296,7 @@ class HumanStudio:
             radius=self.layers.radius,
         )
 
-    def pick_frame(self, origin: np.ndarray, direction: np.ndarray) -> str | None:
+    def _pick_frame(self, origin: np.ndarray, direction: np.ndarray) -> str | None:
         """Nearest frame (along the ray) whose vertex lies within ``layers.radius`` of the ray."""
         names = list(self.session.frame_set)
         if not names:
@@ -302,17 +305,17 @@ class HumanStudio:
         index = nearest_on_ray(points, origin, direction=direction, radius=self.layers.radius)
         return None if index is None else names[index]
 
-    def on_click(self, event: SceneClickEvent) -> None:
+    def _on_click(self, event: SceneClickEvent) -> None:
         """Dispatch a scene click (``event.ray_origin``, ``event.ray_direction``) to the active mode."""
         if event.ray_origin is None or event.ray_direction is None:
             return
         origin, direction = np.asarray(event.ray_origin, float), np.asarray(event.ray_direction, float)
         if self.mode == "pose":
-            joint = self.pick_joint(origin, direction)
+            joint = self._pick_joint(origin, direction)
             if joint is not None:
                 self.select_joint(joint)
                 return
-            frame = self.pick_frame(origin, direction)
+            frame = self._pick_frame(origin, direction)
             if frame is not None:
                 self.frames.select_frame(frame)
                 return
@@ -334,7 +337,7 @@ class HumanStudio:
             nearest = int(self.session.body.spec.faces[face, 0])
             self.select_joint(int(vertex_joints[nearest]))
 
-    def start_marquee(self) -> None:
+    def _start_marquee(self) -> None:
         """Arm one rectangle selection that assigns the enclosed vertices to the active segment part."""
 
         def _on_rect(event: SceneRectSelectEvent) -> None:
@@ -347,13 +350,13 @@ class HumanStudio:
                 rect_max=np.asarray(event.screen_max, float),
             )
             self.segment.assign(ids)
-            self.viewer.on_pointer("click", self.locked(self.on_click))
+            self.viewer.on_pointer("click", self._locked(self._on_click))
 
         self.viewer.clear_pointer()
-        self.viewer.on_pointer("rect-select", self.locked(_on_rect))
-        self.set_status("drag a rectangle to select vertices")
+        self.viewer.on_pointer("rect-select", self._locked(_on_rect))
+        self._set_status("drag a rectangle to select vertices")
 
-    def apply_shape(self, group: str) -> None:
+    def _apply_shape(self, group: str) -> None:
         """Push the ``group`` sliders into the session (re-bakes the identity)."""
         width = self.session.body.spec.identity_groups[group]
         values = [float(slider.value) for slider in self.shape_sliders[group]] + [0.0] * width
@@ -363,17 +366,17 @@ class HumanStudio:
         """Show ``values`` on the ``group`` sliders without running their callbacks, then apply them once."""
         for k, value in enumerate(values):
             self.sidebar.set_value("Body", f"{group}[{k}]", value=value)
-        self.apply_shape(group)
+        self._apply_shape(group)
 
-    def reset_shape(self, group: str) -> None:
+    def _reset_shape(self, group: str) -> None:
         """Zero the ``group`` sliders and coefficients."""
         self._set_sliders(group, [0.0] * len(self.shape_sliders[group]))
 
-    def random_shape(self, group: str) -> None:
+    def _random_shape(self, group: str) -> None:
         """Draw the ``group`` sliders from ``N(0, 1)``."""
         self._set_sliders(group, [round(float(self.generator.normal()), 2) for _ in self.shape_sliders[group]])
 
-    def chosen_density(self) -> float | str:
+    def _chosen_density(self) -> float | str:
         """The density control's value: kg/m^3, or a table name for SMPL / SMPL-H."""
         value = self.density_input.value
         if not self.session.body.spec.parts.density_tables:
@@ -390,14 +393,14 @@ class HumanStudio:
         persistence.write_pose(path, persistence.Pose(joint_names=model.joint_names, q=tuple(self.session.q.tolist())))
         self.saved_poses.options = self._pose_options()
         self.saved_poses.value = name
-        self.set_status(f"saved pose {path}")
+        self._set_status(f"saved pose {path}")
         return path
 
     def load_pose(self, name: str) -> None:
         """Load a saved pose by name."""
         path = persistence.saved_path(self.paths.pose_dir(self.session.model_key), name)
         if not path.is_file():
-            self.set_status(f"no saved pose {name!r}")
+            self._set_status(f"no saved pose {name!r}")
             return
         pose = persistence.read_pose(path)
         model = self.session.identity.model
@@ -412,7 +415,7 @@ class HumanStudio:
             )
         self.session.set_q(torch.tensor(pose.q))
 
-    def reload(self, density: float | str) -> None:
+    def _reload(self, density: float | str) -> None:
         """Reload the body at a new density, keeping the pose and frames."""
         self.density = density
         q, frames = self.session.q.clone(), dict(self.session.frame_set)

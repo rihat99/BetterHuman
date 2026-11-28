@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, final
 
 import numpy as np
@@ -21,10 +22,21 @@ _DEFAULT_JOINT = "(skinning default)"
 
 @final
 class FramesEditor:
-    """Owns the Frames tab; :meth:`add_at` places a frame on the vertex nearest a clicked point."""
+    """Owns the Frames tab; :meth:`add_at` places a frame on the vertex nearest a clicked point.
 
-    def __init__(self, studio: HumanStudio) -> None:
+    ``locked`` wraps each control's callback as the studio runs it; ``on_status`` shows a message on the studio's
+    status line.
+    """
+
+    def __init__(
+        self,
+        studio: HumanStudio,
+        *,
+        locked: Callable[[Callable[[Any], None]], Callable[..., None]],
+        on_status: Callable[[str], None],
+    ) -> None:
         self.studio = studio
+        self.locked, self.on_status = locked, on_status
         self.adding = False
         self.active: str | None = None
         self.snippet = ""
@@ -35,7 +47,7 @@ class FramesEditor:
 
     def build(self, sidebar: Any) -> None:
         """Add the Frames section to the viewer's ``Sidebar``."""
-        locked, gui = self.studio.locked, sidebar.gui
+        locked, gui = self.locked, sidebar.gui
         self.add_toggle = sidebar.checkbox(
             "Frames",
             "Add frames (click mesh)",
@@ -111,13 +123,13 @@ class FramesEditor:
         joint = _DEFAULT_JOINT if entry.joint is None else self.session.body.spec.joint_names[entry.joint]
         sidebar.set_value("Frames", "Parent joint", value=joint)
         self.studio.layers.set_edit_vertices([entry.vertex])
-        self.studio.set_status(f"frame {name!r}: vertex {entry.vertex}, joint {joint}")
+        self.on_status(f"frame {name!r}: vertex {entry.vertex}, joint {joint}")
 
     def rename(self, old: str | None, new: str) -> None:
         """Rename a frame, keeping its position in the authored order."""
         new = new.strip()
         if old is None or not new or new in self.session.frame_set:
-            self.studio.set_status(f"cannot rename {old!r} to {new!r}")
+            self.on_status(f"cannot rename {old!r} to {new!r}")
             return
         self.session.set_frame_set({(new if key == old else key): v for key, v in self.session.frame_set.items()})
         self.select_frame(new)
@@ -145,13 +157,13 @@ class FramesEditor:
         write_frame_set(path, contact_frames(self.session.frame_set, self.session.body.spec.joint_names))
         self.saved.options = self._saved_options()
         self.saved.value = name
-        self.studio.set_status(f"saved frames {path}")
+        self.on_status(f"saved frames {path}")
 
     def load(self, name: str) -> None:
         """Load a saved frame set by name."""
         path = persistence.saved_path(self.studio.paths.frame_dir(self.session.model_key), name)
         if not path.exists():
-            self.studio.set_status(f"no saved frame set {name!r}")
+            self.on_status(f"no saved frame set {name!r}")
             return
         raw = read_frame_set(path)
         persistence.check_vertex_ids(

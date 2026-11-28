@@ -64,7 +64,7 @@ def test_the_studio_runs_on_the_stand_in_server(random_studio: HumanStudio) -> N
     _click(studio, joint + np.array([0.0, 0.0, 2.0]), joint)
     assert studio.gizmo.joint == 5
     before = studio.session.vertices.clone()
-    studio.random_shape("betas")
+    _control(studio, "Random betas").fire()
     assert not torch.equal(before, studio.session.vertices)
     studio.segment.load_builtin()
     assert len(studio.session.part_names) == 24
@@ -293,16 +293,19 @@ def _model_section(studio: HumanStudio, fire: Any, fired: list[Any]) -> None:
     assert (session.model_key, studio.lod) == ("smpl_female", 3)
 
 
-def test_an_error_that_is_not_the_users_escapes_the_callback(random_studio: HumanStudio) -> None:
-    """``locked`` shows a BetterRobotError on the status line and lets any other exception through."""
+def test_an_error_that_is_not_the_users_escapes_the_callback(
+    random_studio: HumanStudio, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A control shows a BetterRobotError on the status line and lets any other exception through."""
+    monkeypatch.setattr(random_studio.session, "reset_pose", lambda: 1 / 0)
     with pytest.raises(ZeroDivisionError):
-        random_studio.locked(lambda _event: 1 / 0)(None)
+        _control(random_studio, "Reset pose").fire()
 
 
 def test_the_same_seed_draws_the_same_shape(random_studio: HumanStudio, tmp_path: Path) -> None:
     other = HumanStudio(server=FakeServer(), data_root=tmp_path / "other", generator=np.random.default_rng(0))
-    random_studio.random_shape("betas")
-    other.random_shape("betas")
+    for studio in (random_studio, other):
+        _control(studio, "Random betas").fire()
     assert torch.equal(random_studio.session.vertices, other.session.vertices)
 
 
@@ -312,7 +315,7 @@ def test_a_pose_saved_on_other_joints_is_refused_on_the_status_line(random_studi
     path.write_text(json.dumps({**payload, "joint_names": payload["joint_names"][:-1]}))
     with pytest.raises(ArgumentError, match="follows other joints than the smpl_neutral model's"):
         random_studio.load_pose("pose")
-    random_studio.locked(lambda _event: random_studio.load_pose("pose"))(None)
+    _load(random_studio, random_studio.saved_poses, "pose", "Load pose")
     assert random_studio.status.startswith("ArgumentError: ") and "other joints" in random_studio.status
 
 
@@ -323,7 +326,7 @@ def test_a_pose_of_another_length_is_refused_and_leaves_the_session_unchanged(ra
     payload = json.loads(path.read_text())
     path.write_text(json.dumps({**payload, "q": payload["q"][:-1]}))
     q = studio.session.q.clone()
-    studio.locked(lambda _event: studio.load_pose("short"))(None)
+    _load(studio, studio.saved_poses, "short", "Load pose")
     assert studio.status.startswith("ArgumentError: ") and f"holds {nq - 1} values of q" in studio.status
     assert "re-save it in the studio" in studio.status
     assert torch.equal(studio.session.q, q) and torch.equal(studio.session.state.q, q)
@@ -343,7 +346,7 @@ def test_a_segmentation_of_the_pre_format_studio_loads_and_saves_as_version_1(ra
     directory = studio.paths.segmentation_dir(studio.session.model_key)
     directory.mkdir(parents=True)
     (directory / "old.json").write_text(json.dumps({"head": [0, 1, 2], "rest": list(range(3, 6890))}, indent=2))
-    studio.locked(lambda _event: studio.segment.load("old"))(None)
+    _load(studio, studio.segment.saved, "old", "Load segmentation")
     assert studio.session.part_names == ("head", "rest")
     studio.segment.save("old")
     saved = json.loads((directory / "old.json").read_text())
@@ -386,8 +389,12 @@ def test_a_refused_file_shows_on_the_status_line(
     directory = studio.paths.root / folder / studio.session.model_key
     directory.mkdir(parents=True)
     (directory / "bad.json").write_text(json.dumps(payload))
-    loader = {"pose": studio.load_pose, "segment": studio.segment.load, "frames": studio.frames.load}[load]
-    studio.locked(lambda _event: loader("bad"))(None)
+    dropdown, button = {
+        "pose": (studio.saved_poses, "Load pose"),
+        "segment": (studio.segment.saved, "Load segmentation"),
+        "frames": (studio.frames.saved, "Load frames"),
+    }[load]
+    _load(studio, dropdown, "bad", button)
     assert re.match(match, studio.status), studio.status
 
 
@@ -406,7 +413,7 @@ def test_a_save_name_that_is_not_one_file_name_is_refused_and_writes_nothing(
         (studio.frames.save_name, "Save frames"),
     ):
         field.value = name
-        studio.set_status("")
+        studio._set_status("")
         _control(studio, button).fire()
         assert studio.status.startswith(f"ArgumentError: the name {name!r} is not one file name"), studio.status
     assert sorted(tmp_path.rglob("*.json")) == []
@@ -418,7 +425,8 @@ def test_a_family_the_studio_does_not_edit_is_an_unknown_name(
 ) -> None:
     with pytest.raises(UnknownNameError, match="unknown studio family"):
         HumanStudio(server=FakeServer(), data_root=tmp_path, generator=np.random.default_rng(0), family=family)
-    random_studio.locked(lambda _event: random_studio.load_model(family))(None)
+    _control(random_studio, "Family").value = family
+    _control(random_studio, "Load").fire()
     assert random_studio.status.startswith("UnknownNameError: ") and random_studio.session.model_key == "smpl_neutral"
 
 
@@ -448,6 +456,12 @@ def test_the_command_line_requires_a_data_root(monkeypatch: pytest.MonkeyPatch, 
         command_line.main()
     assert exit_info.value.code == 2
     assert "the following arguments are required: --data-root" in capsys.readouterr().err
+
+
+def _load(studio: HumanStudio, dropdown: Any, name: str, button: str) -> None:
+    """Pick ``name`` in a Saved dropdown and click its Load ``button``, as a user does."""
+    dropdown.value = name
+    _control(studio, button).fire()
 
 
 def _click(studio, origin, target) -> None:
@@ -552,7 +566,8 @@ def test_joint_selection_highlights_dims_and_reverts(studio) -> None:
     joint = studio.session.state.joint_translations[5].detach().numpy()
     assert studio.layers.highlight == 5 and selected.radii[0] > studio.layers.radius
     np.testing.assert_allclose(selected.centers[0, 0], joint, atol=1e-6)
-    studio.set_opacity(0.8)
+    _control(studio, "Opacity").value = 0.8
+    _control(studio, "Opacity").fire()
     assert opacities[-1] == pytest.approx(0.8 * 0.35)
     studio.select_joint(None)
     assert opacities[-1] == pytest.approx(0.8)
@@ -612,7 +627,7 @@ def test_frame_click_selects_and_syncs_editor(studio) -> None:
 def test_marquee_assigns_vertices_from_screen_rect(studio) -> None:
     studio.segment.add_part("blob")
     blob = studio.session.part_names.index("blob")
-    studio.start_marquee()
+    _control(studio, "Marquee select").fire()
     camera = SimpleNamespace(position=(0.0, -0.3, 4.0), wxyz=(0.0, 0.0, 1.0, 0.0), fov=1.0, aspect=1.0)
     event = SimpleNamespace(client=SimpleNamespace(camera=camera), screen_min=(0.0, 0.0), screen_max=(1.0, 1.0))
     _pointer(studio, "rect-select")(event)
@@ -629,8 +644,7 @@ def test_build_bodies_total_matches_session_mass(studio) -> None:
 @pytest.mark.licensed
 def test_density_table_and_saved_pose_dropdown(studio) -> None:
     studio.density_input.value = "Dempster"
-    assert studio.chosen_density() == "Dempster"
-    studio.reload(studio.chosen_density())
+    _control(studio, "Apply density").fire()
     assert studio.session.body.density.numel() > 1
     studio.save_pose("first")
     assert studio.saved_poses.options == ("first",) and studio.saved_poses.value == "first"
