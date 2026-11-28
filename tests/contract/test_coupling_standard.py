@@ -441,21 +441,11 @@ def test_identity_batch_broadcasts_against_the_pose_batch() -> None:
         identity.forward(q.expand(3, 5, human.model.nq))
 
 
-#: Every format the page lists, with its direction.
-FORMATS = {
-    "better_human.mhr": "read",
-    "better_human.soma": "read",
-    "better_human.frame_set": "read, write",
-    "better_human.segmentation": "read",
-    "better_human.density_tables": "read",
-    "better_human.studio.segmentation": "read, write",
-    "better_human.studio.pose": "read, write",
-}
-
-
 def test_the_files_are_every_format_betterhuman_versions() -> None:
-    """The page's formats are exactly those ``io.formats`` versions; ``test_formats.py`` checks each one's promise."""
-    assert set(LATEST) == set(FORMATS)
+    """The page's format rows (its lines that start with a ``better_human.`` name) are exactly the formats
+    ``io.formats`` versions; ``test_formats.py`` checks each one's promise."""
+    listed = {line.split()[0] for line in _page_lines() if line.startswith("better_human.")}
+    assert listed == set(LATEST), f"the page lists {sorted(listed)}, io.formats versions {sorted(LATEST)}"
 
 
 def _page_lines() -> set[str]:
