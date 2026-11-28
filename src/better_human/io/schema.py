@@ -220,7 +220,7 @@ def validate(
             raise _validation_error(
                 source, name, f"a required field with shape {_format_shape(spec.shape)}", "missing", schema
             )
-        array = _as_array(data, name, source, schema)
+        array = np.asarray(data[name])
         if array.ndim != len(spec.shape):
             raise _validation_error(
                 source,
@@ -232,7 +232,7 @@ def validate(
         _bind_axes(array.shape, spec.shape, bindings, source, name, schema)
 
     for name, spec in schema.fields.items():
-        _validate_array(_as_array(data, name, source, schema), spec, bindings, source, name, schema)
+        _validate_array(np.asarray(data[name]), spec, bindings, source, name, schema)
 
 
 def _bind_axes(
@@ -300,24 +300,6 @@ def _dtype_matches(actual: np.dtype[Any], expected: DTypeExpectation) -> bool:
 
 def _format_dtype(expected: DTypeExpectation) -> str:
     return " or ".join(expected) if isinstance(expected, tuple) else expected
-
-
-def _as_array(
-    data: Mapping[str, Any],
-    field_name: str,
-    source: str,
-    schema: ModelSchema,
-) -> np.ndarray:
-    try:
-        return np.asarray(data[field_name])
-    except Exception as error:
-        raise _validation_error(
-            source,
-            field_name,
-            "a readable numeric array",
-            f"an unreadable value ({error})",
-            schema,
-        ) from error
 
 
 def _validation_error(
