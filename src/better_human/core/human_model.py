@@ -27,6 +27,7 @@ from better_robot.exceptions import (
     UnknownNameError,
 )
 from better_robot.lie import se3, so3
+from better_robot.lie.checks import check_broadcast
 
 from better_human.mass import PartTopology, part_densities, part_inertias
 
@@ -138,7 +139,8 @@ class HumanModel:
     def bake(self, **identity: torch.Tensor) -> Identity:
         """The :class:`Identity` of identity groups ``(..., n)`` (omitted groups are zero; leading dims broadcast).
 
-        Raises :class:`~better_robot.exceptions.UnknownNameError` for a group the family does not have.
+        Raises :class:`~better_robot.exceptions.UnknownNameError` for a group the family does not have and
+        :class:`~better_robot.exceptions.ShapeError` for groups whose leading dims do not broadcast.
         """
         spec = self.spec
         for name in identity:
@@ -447,7 +449,7 @@ def _checked_groups(
             continue
         out[name] = _checked(name, value, (width,), exemplar)
     if require_all and out:
-        batch = torch.broadcast_shapes(*(value.shape[:-1] for value in out.values()))
+        batch = check_broadcast(**{name: value.shape[:-1] for name, value in out.items()})
         out = {name: value.expand(*batch, widths[name]) for name, value in out.items()}
     return out
 
