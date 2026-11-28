@@ -18,10 +18,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, final
 
 import torch
-from better_robot import KinematicState, Model, ModelBuilder
+from better_robot import JointFreeFlyer, KinematicState, Model, ModelBuilder
 from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.lie import so3
+from better_robot.model import JointFixed, JointSpherical
 
 from better_human.core.rig import Rig, RigBake, gravity
 from better_human.core.skinning import linear_blend_skinning
@@ -189,10 +190,12 @@ class SOMARig(Rig):
         builder = ModelBuilder(spec.name, gravity=gravity(spec.up_axis))
         for name in names[1:]:
             builder.add_body(name)
-        builder.add_free_flyer_root(names[1], child=names[1])  # world-aligned: identity origin
+        # world-aligned: an identity origin
+        builder.add_joint(names[1], kind=JointFreeFlyer(), parent="world", child=names[1])
         for joint in range(2, len(names)):
-            add = builder.add_fixed if joint in helpers else builder.add_spherical
-            add(names[joint], parent=names[spec.parents[joint]], child=names[joint], origin=placements[joint])
+            kind = JointFixed() if joint in helpers else JointSpherical()
+            parent = names[spec.parents[joint]]
+            builder.add_joint(names[joint], kind=kind, parent=parent, child=names[joint], origin=placements[joint])
         return build_model(builder.finalize(), dtype=spec.dtype, device=spec.device)
 
     def bake(

@@ -8,10 +8,11 @@ from dataclasses import dataclass, replace
 from typing import NamedTuple, final
 
 import torch
-from better_robot import Model, ModelBuilder
+from better_robot import JointFreeFlyer, Model, ModelBuilder
 from better_robot.exceptions import ArgumentError
 from better_robot.io import build_model
 from better_robot.lie import so3
+from better_robot.model import JointSpherical
 
 from better_human.core.rig import Rig, RigBake, gravity
 from better_human.core.skinning import top_k_skin
@@ -41,11 +42,10 @@ class RegressedRig(Rig):
         builder = ModelBuilder(spec.name, gravity=gravity(spec.up_axis))
         for name in spec.joint_names:
             builder.add_body(name)
-        builder.add_free_flyer_root(spec.joint_names[0], child=spec.joint_names[0])
+        builder.add_joint(spec.joint_names[0], kind=JointFreeFlyer(), parent="world", child=spec.joint_names[0])
         for joint, parent in enumerate(spec.parents[1:], start=1):
-            builder.add_spherical(
-                spec.joint_names[joint], parent=spec.joint_names[parent], child=spec.joint_names[joint]
-            )
+            name = spec.joint_names[joint]
+            builder.add_joint(name, kind=JointSpherical(), parent=spec.joint_names[parent], child=name)
         for name, parent, placement in frames:
             builder.add_frame(name, parent=parent, placement=placement.detach().cpu())
         return build_model(builder.finalize(), dtype=spec.dtype, device=spec.device)
