@@ -14,7 +14,6 @@ import inspect
 from collections.abc import Callable
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from better_robot.exceptions import ArgumentError, ShapeError
@@ -23,34 +22,12 @@ import better_human as bh
 from better_human.core import ClassicFormat
 from better_human.families import FLAMEClassic, MHRClassic, SMPLFamilyFormat, SOMAClassic
 from better_human.io import weight_path
-from tests.support.synthetic import flame_spec
+from tests.support.synthetic import flame_spec, write_family
 
 #: Leading batch shapes the drawn fields take in turn: two axes, broadcast between the fields to ``BROADCAST``.
 BATCHES = ((2, 1), (3,))
 BROADCAST = (2, 3)
 F64, F32 = torch.float64, torch.float32
-
-
-def _mano_file(directory: Path) -> Path:
-    """A MANO-shaped file: 16 joints (the wrist and five three-joint fingers), 778 vertices, an orthogonal hand PCA."""
-    rng = np.random.default_rng(0)
-    num_vertices, num_joints = 778, 16
-    weights, regressor = rng.random((num_vertices, num_joints)), rng.random((num_joints, num_vertices))
-    parents = [4294967295] + [0 if joint % 3 == 1 else joint - 1 for joint in range(1, num_joints)]
-    path = directory / "MANO_RIGHT.npz"
-    np.savez(
-        path,
-        v_template=rng.normal(size=(num_vertices, 3)) * 0.1,
-        shapedirs=rng.normal(size=(num_vertices, 3, 10)) * 1e-3,
-        posedirs=rng.normal(size=(num_vertices, 3, (num_joints - 1) * 9)) * 1e-3,
-        J_regressor=regressor / regressor.sum(axis=1, keepdims=True),
-        weights=weights / weights.sum(axis=1, keepdims=True),
-        kintree_table=np.array([parents, list(range(num_joints))], dtype=np.uint32),
-        f=rng.integers(0, num_vertices, size=(80, 3)).astype(np.uint32),
-        hands_components=np.linalg.qr(rng.normal(size=(45, 45)))[0],
-        hands_mean=rng.normal(size=45) * 0.1,
-    )
-    return path
 
 
 def _licensed(loader: Callable[[], bh.FamilySpec]) -> Callable[[Path], bh.FamilySpec]:
@@ -64,19 +41,23 @@ CASES: dict[str, tuple[Callable[[Path], bh.FamilySpec], type[ClassicFormat], flo
     "flame": (flame_spec, SMPLFamilyFormat, 1e-10),
     "flame-without-jaw": (lambda path: bh.families.drop_joints(flame_spec(path), ["jaw"]), SMPLFamilyFormat, 1e-10),
     "flame-float32": (lambda path: flame_spec(path, dtype=F32), SMPLFamilyFormat, 1e-6),
-    "mano-pca6": (lambda path: bh.families.mano(_mano_file(path), num_pca_comps=6, dtype=F64), SMPLFamilyFormat, 1e-9),
+    "mano-pca6": (
+        lambda path: bh.families.mano(write_family(path, "mano"), num_pca_comps=6, dtype=F64),
+        SMPLFamilyFormat,
+        1e-9,
+    ),
     "mano-pca6-float32": (
-        lambda path: bh.families.mano(_mano_file(path), num_pca_comps=6, dtype=F32),
+        lambda path: bh.families.mano(write_family(path, "mano"), num_pca_comps=6, dtype=F32),
         SMPLFamilyFormat,
         1e-6,
     ),
     "mano-flat": (
-        lambda path: bh.families.mano(_mano_file(path), flat_hand_mean=True, dtype=F64),
+        lambda path: bh.families.mano(write_family(path, "mano"), flat_hand_mean=True, dtype=F64),
         SMPLFamilyFormat,
         1e-9,
     ),
     "mano-without-index3": (
-        lambda path: bh.families.drop_joints(bh.families.mano(_mano_file(path), dtype=F64), ["index3"]),
+        lambda path: bh.families.drop_joints(bh.families.mano(write_family(path, "mano"), dtype=F64), ["index3"]),
         SMPLFamilyFormat,
         1e-9,
     ),
@@ -284,7 +265,9 @@ def test_misused_arguments_raise_library_errors(tmp_path: Path) -> None:
 def test_a_hand_pca_field_cannot_lose_some_of_its_joints(tmp_path: Path) -> None:
     """A PCA coefficient moves every joint of the hand, so dropping one finger joint raises with the fix."""
     for flat_hand_mean in (False, True):
-        spec = bh.families.mano(_mano_file(tmp_path), num_pca_comps=6, flat_hand_mean=flat_hand_mean, dtype=F64)
+        spec = bh.families.mano(
+            write_family(tmp_path, "mano"), num_pca_comps=6, flat_hand_mean=flat_hand_mean, dtype=F64
+        )
         with pytest.raises(ArgumentError, match=r"\['index3'\] cannot be left out; load the model with num_pca_comps"):
             bh.families.drop_joints(spec, ["index3"])
 
